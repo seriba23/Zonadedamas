@@ -1,0 +1,33 @@
+# ============================================================
+# docker-compose.yml - NOT NEEDED for XAMPP development
+# ============================================================
+# This project uses XAMPP's MySQL/MariaDB for the database
+# and in-memory cache instead of Redis.
+#
+# To run the project:
+#   1. Start XAMPP (Apache + MySQL)
+#   2. Create database "zonadedamas" via phpMyAdmin
+#   3. cd apps/api && npm run db:migrate
+#   4. npm run db:seed
+#   5. npm run dev
+#
+# If you want to use Docker instead of XAMPP in the future,
+# uncomment the services below.
+# ============================================================
+
+# version: '3.8'
+# services:
+#   mysql:
+#     image: mysql:8.0
+#     container_name: zdd-mysql
+#     environment:
+#       MYSQL_ROOT_PASSWORD: ''
+#       MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+#       MYSQL_DATABASE: zonadedamas
+#     ports:
+#       - '3306:3306'
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#
+# volumes:
+#   mysql_data:

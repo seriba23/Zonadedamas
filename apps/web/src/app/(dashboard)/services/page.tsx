@@ -1,0 +1,351 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { Header } from '@/components/layout/header';
+import { usePermissions } from '@/lib/hooks/use-permissions';
+import { Modal } from '@/components/ui/modal';
+import { formatCurrency } from '@/lib/utils';
+
+interface Service {
+  id: string;
+  name: string;
+  description?: string;
+  duration: number;
+  price: number;
+  color?: string;
+  isActive: boolean;
+}
+
+interface ServiceForm {
+  name: string;
+  description: string;
+  duration: number | string;
+  price: number | string;
+  color: string;
+}
+
+const defaultForm: ServiceForm = {
+  name: '',
+  description: '',
+  duration: 60,
+  price: 0,
+  color: '#6366f1',
+};
+
+const SERVICE_COLORS = [
+  '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
+  '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6',
+];
+
+export default function ServicesPage() {
+  const { hasPermission } = usePermissions();
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [form, setForm] = useState<ServiceForm>(defaultForm);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => api.get<{ data: Service[] }>('/api/services'),
+  });
+
+  const services = data?.data || [];
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: Partial<Service>) => {
+      if (editingService) {
+        return api.put(`/api/services/${editingService.id}`, payload);
+      }
+      return api.post('/api/services', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      closeModal();
+    },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al guardar el servicio');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/services/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+    },
+  });
+
+  function openCreate() {
+    setEditingService(null);
+    setForm(defaultForm);
+    setFormError(null);
+    setIsModalOpen(true);
+  }
+
+  function openEdit(service: Service) {
+    setEditingService(service);
+    setForm({
+      name: service.name,
+      description: service.description || '',
+      duration: service.duration,
+      price: service.price,
+      color: service.color || '#6366f1',
+    });
+    setFormError(null);
+    setIsModalOpen(true);
+  }
+
+  function closeModal() {
+    setIsModalOpen(false);
+    setEditingService(null);
+    setForm(defaultForm);
+    setFormError(null);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      setFormError('El nombre es requerido');
+      return;
+    }
+    saveMutation.mutate({
+      name: form.name,
+      description: form.description,
+      duration: Number(form.duration),
+      price: Number(form.price),
+      color: form.color,
+    });
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <Header title="Servicios" />
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-sm text-gray-500">
+            {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
+            configurado{services.length !== 1 ? 's' : ''}
+          </p>
+          {hasPermission('services:create') && (
+            <button onClick={openCreate} className="btn-primary">
+              + Nuevo Servicio
+            </button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gray-200" />
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                </div>
+                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : services.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-gray-500 mb-4">No hay servicios configurados</p>
+            {hasPermission('services:create') && (
+              <button onClick={openCreate} className="btn-primary">
+                Crear primer servicio
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex-shrink-0"
+                      style={{ backgroundColor: service.color || '#6366f1' }}
+                    />
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">
+                        {service.name}
+                      </h3>
+                      {!service.isActive && (
+                        <span className="text-xs text-gray-400">Inactivo</span>
+                      )}
+                    </div>
+                  </div>
+                  {hasPermission('services:update') && (
+                    <button
+                      onClick={() => openEdit(service)}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {service.description && (
+                  <p className="text-xs text-gray-500 mb-3 line-clamp-2">
+                    {service.description}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 text-gray-600">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-xs">{service.duration} min</span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatCurrency(service.price)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <Modal
+          title={editingService ? 'Editar Servicio' : 'Nuevo Servicio'}
+          onClose={closeModal}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                {formError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre *
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                className="input-field"
+                placeholder="Ej: Corte de cabello"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descripción
+              </label>
+              <textarea
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+                className="input-field resize-none"
+                rows={2}
+                placeholder="Descripción opcional..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Duración (min) *
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  value={form.duration}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, duration: e.target.value }))
+                  }
+                  className="input-field"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, price: e.target.value }))
+                  }
+                  className="input-field"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Color
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {SERVICE_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, color }))}
+                    className={`w-8 h-8 rounded-full transition-transform ${form.color === color ? 'scale-125 ring-2 ring-offset-2 ring-gray-400' : 'hover:scale-110'}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={closeModal} className="btn-secondary">
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saveMutation.isPending}
+                className="btn-primary"
+              >
+                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}

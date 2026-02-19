@@ -1,0 +1,57 @@
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export enum DayOfWeek {
+  MONDAY = 'MONDAY',
+  TUESDAY = 'TUESDAY',
+  WEDNESDAY = 'WEDNESDAY',
+  THURSDAY = 'THURSDAY',
+  FRIDAY = 'FRIDAY',
+  SATURDAY = 'SATURDAY',
+  SUNDAY = 'SUNDAY',
+}
+
+export class ScheduleItemDto {
+  @IsEnum(DayOfWeek)
+  dayOfWeek: DayOfWeek;
+
+  @IsBoolean()
+  isWorking: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([0-1]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'startTime must be in HH:MM format',
+  })
+  startTime?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([0-1]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'endTime must be in HH:MM format',
+  })
+  endTime?: string;
+
+  @IsDateString()
+  effectiveFrom: string;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveUntil?: string;
+}
+
+export class SetSchedulesDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScheduleItemDto)
+  schedules: ScheduleItemDto[];
+}
