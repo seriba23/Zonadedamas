@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { api } from '@/lib/api';
@@ -38,6 +38,11 @@ interface ClientSummary {
   lastName: string;
 }
 
+interface ServiceSummary {
+  id: string;
+  name: string;
+}
+
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('day');
@@ -51,7 +56,21 @@ export default function CalendarPage() {
   // Filter state
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
   const [filterClientId, setFilterClientId] = useState('');
-  const [filterService, setFilterService] = useState('');
+  const [filterServiceNames, setFilterServiceNames] = useState<string[]>([]);
+  const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
+  const serviceDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target as Node)) {
+        setServiceDropdownOpen(false);
+      }
+    }
+    if (serviceDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [serviceDropdownOpen]);
 
   const startDate = viewMode === 'day'
     ? currentDate.format('YYYY-MM-DD')
@@ -91,26 +110,40 @@ export default function CalendarPage() {
       api.get<{ data: ClientSummary[] }>('/api/clients?perPage=100'),
   });
 
+  // Fetch services for filter dropdown
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-calendar'],
+    queryFn: () =>
+      api.get<{ data: ServiceSummary[] }>('/api/services?perPage=100'),
+  });
+
   const allAppointments = data?.data || [];
   const employees = employeesData?.data || [];
   const clients = clientsData?.data || [];
+  const services = servicesData?.data || [];
   const activeEmployees = employees.filter((e) => e.isActive);
 
-  // Apply frontend service filter
-  const appointments = filterService
+  // Apply frontend service filter (multi-select)
+  const appointments = filterServiceNames.length > 0
     ? allAppointments.filter((apt) =>
         apt.items?.some((item) =>
-          item.serviceNameSnapshot.toLowerCase().includes(filterService.toLowerCase()),
+          filterServiceNames.includes(item.serviceNameSnapshot),
         ),
       )
     : allAppointments;
 
-  const hasFilters = filterEmployeeId || filterClientId || filterService;
+  const hasFilters = filterEmployeeId || filterClientId || filterServiceNames.length > 0;
 
   function clearFilters() {
     setFilterEmployeeId('');
     setFilterClientId('');
-    setFilterService('');
+    setFilterServiceNames([]);
+  }
+
+  function toggleServiceFilter(name: string) {
+    setFilterServiceNames((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
   }
 
   function goToToday() {
@@ -280,13 +313,43 @@ export default function CalendarPage() {
           ))}
         </select>
 
-        <input
-          type="text"
-          placeholder="Buscar servicio..."
-          value={filterService}
-          onChange={(e) => setFilterService(e.target.value)}
-          className="input-field text-sm py-1.5 w-44"
-        />
+        <div className="relative" ref={serviceDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setServiceDropdownOpen((v) => !v)}
+            className="input-field text-sm py-1.5 w-48 text-left flex items-center justify-between"
+          >
+            <span className="truncate">
+              {filterServiceNames.length === 0
+                ? 'Todos los servicios'
+                : `${filterServiceNames.length} servicio${filterServiceNames.length > 1 ? 's' : ''}`}
+            </span>
+            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {serviceDropdownOpen && (
+            <div className="absolute z-50 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {services.map((s) => (
+                <label
+                  key={s.id}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={filterServiceNames.includes(s.name)}
+                    onChange={() => toggleServiceFilter(s.name)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="truncate">{s.name}</span>
+                </label>
+              ))}
+              {services.length === 0 && (
+                <p className="px-3 py-2 text-sm text-gray-400">Sin servicios</p>
+              )}
+            </div>
+          )}
+        </div>
 
         {hasFilters && (
           <button

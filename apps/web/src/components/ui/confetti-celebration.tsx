@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface ConfettiCelebrationProps {
   show: boolean;
@@ -17,6 +17,7 @@ export function ConfettiCelebration({
 }: ConfettiCelebrationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
+  const [confettiDone, setConfettiDone] = useState(false);
 
   const startConfetti = useCallback(() => {
     const canvas = canvasRef.current;
@@ -106,16 +107,17 @@ export function ConfettiCelebration({
         animationRef.current = requestAnimationFrame(animate);
       } else {
         ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
-        onComplete?.();
+        setConfettiDone(true);
       }
     }
 
     createBurst();
     animate();
-  }, [duration, onComplete]);
+  }, [duration]);
 
   useEffect(() => {
     if (show) {
+      setConfettiDone(false);
       startConfetti();
     }
     return () => {
@@ -140,7 +142,7 @@ export function ConfettiCelebration({
 
   return (
     <div className="fixed inset-0 z-[60] pointer-events-none">
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      {!confettiDone && <canvas ref={canvasRef} className="absolute inset-0" />}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl px-8 py-6 text-center pointer-events-auto animate-bounce-in max-w-sm">
           <div className="text-4xl mb-3">🎉</div>
