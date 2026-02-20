@@ -48,6 +48,10 @@ export class CreateEmployeeDto {
   isActive?: boolean;
 
   @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
   @IsUUID('4')
   userId?: string;
 }
@@ -86,4 +90,8 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
 }

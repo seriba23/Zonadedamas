@@ -17,11 +17,25 @@ interface Appointment {
   clientId: string;
   client?: { firstName: string; lastName: string };
   employeeId: string;
-  employee?: { firstName: string; lastName: string };
+  employee?: { firstName: string; lastName: string; color?: string };
   startTime: string;
   endTime: string;
   status: string;
-  items?: Array<{ service?: { name: string; color?: string } }>;
+  items?: Array<{ serviceNameSnapshot: string; priceSnapshot?: number; durationSnapshot?: number }>;
+}
+
+interface EmployeeSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  color?: string;
+  isActive: boolean;
+}
+
+interface ClientSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
 }
 
 export default function CalendarPage() {
@@ -34,22 +48,70 @@ export default function CalendarPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
+  // Filter state
+  const [filterEmployeeId, setFilterEmployeeId] = useState('');
+  const [filterClientId, setFilterClientId] = useState('');
+  const [filterService, setFilterService] = useState('');
+
   const startDate = viewMode === 'day'
-    ? currentDate.startOf('day').toISOString()
-    : currentDate.startOf('week').toISOString();
+    ? currentDate.format('YYYY-MM-DD')
+    : currentDate.startOf('week').format('YYYY-MM-DD');
   const endDate = viewMode === 'day'
-    ? currentDate.endOf('day').toISOString()
-    : currentDate.endOf('week').toISOString();
+    ? currentDate.format('YYYY-MM-DD')
+    : currentDate.endOf('week').format('YYYY-MM-DD');
+
+  // Build query params
+  const queryParams = new URLSearchParams({
+    startDate,
+    endDate,
+    perPage: '100',
+  });
+  if (filterEmployeeId) queryParams.set('employeeId', filterEmployeeId);
+  if (filterClientId) queryParams.set('clientId', filterClientId);
 
   const { data, refetch } = useQuery({
-    queryKey: ['appointments', startDate, endDate],
+    queryKey: ['appointments', startDate, endDate, filterEmployeeId, filterClientId],
     queryFn: () =>
       api.get<{ data: Appointment[] }>(
-        `/api/appointments?startDate=${startDate}&endDate=${endDate}`,
+        `/api/appointments?${queryParams.toString()}`,
       ),
   });
 
-  const appointments = data?.data || [];
+  // Fetch employees for filter dropdown and legend
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees-calendar'],
+    queryFn: () =>
+      api.get<{ data: EmployeeSummary[] }>('/api/employees?perPage=100'),
+  });
+
+  // Fetch clients for filter dropdown
+  const { data: clientsData } = useQuery({
+    queryKey: ['clients-calendar'],
+    queryFn: () =>
+      api.get<{ data: ClientSummary[] }>('/api/clients?perPage=100'),
+  });
+
+  const allAppointments = data?.data || [];
+  const employees = employeesData?.data || [];
+  const clients = clientsData?.data || [];
+  const activeEmployees = employees.filter((e) => e.isActive);
+
+  // Apply frontend service filter
+  const appointments = filterService
+    ? allAppointments.filter((apt) =>
+        apt.items?.some((item) =>
+          item.serviceNameSnapshot.toLowerCase().includes(filterService.toLowerCase()),
+        ),
+      )
+    : allAppointments;
+
+  const hasFilters = filterEmployeeId || filterClientId || filterService;
+
+  function clearFilters() {
+    setFilterEmployeeId('');
+    setFilterClientId('');
+    setFilterService('');
+  }
 
   function goToToday() {
     setCurrentDate(dayjs());
@@ -187,6 +249,67 @@ export default function CalendarPage() {
           >
             + Nueva cita
           </button>
+        </div>
+      </div>
+
+      {/* Filters bar */}
+      <div className="flex items-center gap-3 px-6 py-3 bg-gray-50 border-b border-gray-200 flex-wrap">
+        <select
+          value={filterEmployeeId}
+          onChange={(e) => setFilterEmployeeId(e.target.value)}
+          className="input-field text-sm py-1.5 w-44"
+        >
+          <option value="">Todos los empleados</option>
+          {activeEmployees.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.firstName} {emp.lastName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filterClientId}
+          onChange={(e) => setFilterClientId(e.target.value)}
+          className="input-field text-sm py-1.5 w-44"
+        >
+          <option value="">Todos los clientes</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.firstName} {c.lastName}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          placeholder="Buscar servicio..."
+          value={filterService}
+          onChange={(e) => setFilterService(e.target.value)}
+          className="input-field text-sm py-1.5 w-44"
+        />
+
+        {hasFilters && (
+          <button
+            onClick={clearFilters}
+            className="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Limpiar filtros
+          </button>
+        )}
+
+        {/* Employee color legend */}
+        <div className="ml-auto flex items-center gap-3 flex-wrap">
+          {activeEmployees.map((emp) => (
+            <div key={emp.id} className="flex items-center gap-1.5">
+              <span
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: emp.color || '#008080' }}
+              />
+              <span className="text-xs text-gray-600">
+                {emp.firstName} {emp.lastName.charAt(0)}.
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 

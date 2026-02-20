@@ -14,6 +14,7 @@ interface Employee {
   lastName: string;
   email?: string;
   phone?: string;
+  color?: string;
   locationId?: string;
   location?: { name: string };
   services?: Array<{ id: string; name: string }>;
@@ -25,14 +26,38 @@ interface EmployeeForm {
   lastName: string;
   email: string;
   phone: string;
+  color: string;
 }
+
+const COLOR_PALETTE = [
+  '#008080', // Teal (default)
+  '#6366f1', // Indigo
+  '#ec4899', // Pink
+  '#f59e0b', // Amber
+  '#10b981', // Emerald
+  '#ef4444', // Red
+  '#3b82f6', // Blue
+  '#8b5cf6', // Violet
+  '#f97316', // Orange
+  '#14b8a6', // Teal light
+  '#06b6d4', // Cyan
+  '#84cc16', // Lime
+];
 
 const defaultForm: EmployeeForm = {
   firstName: '',
   lastName: '',
   email: '',
   phone: '',
+  color: '#008080',
 };
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : null;
+}
 
 export default function StaffPage() {
   const { hasPermission } = usePermissions();
@@ -58,6 +83,7 @@ export default function StaffPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['employees-calendar'] });
       closeModal();
     },
     onError: (err: { message?: string }) => {
@@ -79,6 +105,7 @@ export default function StaffPage() {
       lastName: employee.lastName,
       email: employee.email || '',
       phone: employee.phone || '',
+      color: employee.color || '#008080',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -99,14 +126,6 @@ export default function StaffPage() {
     }
     saveMutation.mutate(form);
   }
-
-  const avatarColors = [
-    'bg-purple-100 text-purple-700',
-    'bg-pink-100 text-pink-700',
-    'bg-blue-100 text-blue-700',
-    'bg-green-100 text-green-700',
-    'bg-orange-100 text-orange-700',
-  ];
 
   return (
     <div className="flex flex-col h-full">
@@ -152,88 +171,97 @@ export default function StaffPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {employees.map((employee, idx) => (
-              <div
-                key={employee.id}
-                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0 ${avatarColors[idx % avatarColors.length]}`}
-                    >
-                      {getInitials(employee.firstName, employee.lastName)}
+            {employees.map((employee) => {
+              const empColor = employee.color || '#008080';
+              const rgb = hexToRgb(empColor);
+              const bgStyle = rgb
+                ? { backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`, color: empColor }
+                : { backgroundColor: 'rgba(0, 128, 128, 0.15)', color: '#008080' };
+
+              return (
+                <div
+                  key={employee.id}
+                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+                        style={bgStyle}
+                      >
+                        {getInitials(employee.firstName, employee.lastName)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {employee.firstName} {employee.lastName}
+                        </h3>
+                        {employee.email && (
+                          <p className="text-sm text-gray-500">{employee.email}</p>
+                        )}
+                        {employee.location && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {employee.location.name}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {employee.firstName} {employee.lastName}
-                      </h3>
-                      {employee.email && (
-                        <p className="text-sm text-gray-500">{employee.email}</p>
-                      )}
-                      {employee.location && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {employee.location.name}
-                        </p>
-                      )}
-                    </div>
+
+                    {hasPermission('employees.update') && (
+                      <button
+                        onClick={() => openEdit(employee)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
 
-                  {hasPermission('employees.update') && (
-                    <button
-                      onClick={() => openEdit(employee)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
+                  {employee.services && employee.services.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <p className="text-xs text-gray-500 mb-2">
+                        {employee.services.length} servicio
+                        {employee.services.length !== 1 ? 's' : ''}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {employee.services.slice(0, 3).map((s) => (
+                          <span
+                            key={s.id}
+                            className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"
+                          >
+                            {s.name}
+                          </span>
+                        ))}
+                        {employee.services.length > 3 && (
+                          <span className="text-xs text-gray-400">
+                            +{employee.services.length - 3} más
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {!employee.isActive && (
+                    <div className="mt-3">
+                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                        Inactivo
+                      </span>
+                    </div>
                   )}
                 </div>
-
-                {employee.services && employee.services.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-xs text-gray-500 mb-2">
-                      {employee.services.length} servicio
-                      {employee.services.length !== 1 ? 's' : ''}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {employee.services.slice(0, 3).map((s) => (
-                        <span
-                          key={s.id}
-                          className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"
-                        >
-                          {s.name}
-                        </span>
-                      ))}
-                      {employee.services.length > 3 && (
-                        <span className="text-xs text-gray-400">
-                          +{employee.services.length - 3} más
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {!employee.isActive && (
-                  <div className="mt-3">
-                    <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                      Inactivo
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -307,6 +335,28 @@ export default function StaffPage() {
                 }
                 className="input-field"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Color
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, color }))}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                      form.color === color
+                        ? 'border-gray-900 scale-110'
+                        : 'border-transparent hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

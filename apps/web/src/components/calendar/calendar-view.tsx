@@ -4,8 +4,9 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { formatTime } from '@/lib/utils';
 
 interface AppointmentItem {
-  service?: { name: string; color?: string };
-  price?: number;
+  serviceNameSnapshot: string;
+  priceSnapshot?: number;
+  durationSnapshot?: number;
 }
 
 interface Appointment {
@@ -13,7 +14,7 @@ interface Appointment {
   clientId: string;
   client?: { firstName: string; lastName: string };
   employeeId: string;
-  employee?: { firstName: string; lastName: string };
+  employee?: { firstName: string; lastName: string; color?: string };
   startTime: string;
   endTime: string;
   status: string;
@@ -34,14 +35,12 @@ const TOTAL_HOURS = HOUR_END - HOUR_START;
 const SLOT_HEIGHT = 60; // px per hour
 const CONTAINER_HEIGHT = TOTAL_HOURS * SLOT_HEIGHT;
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 border-yellow-400 text-yellow-800',
-  confirmed: 'bg-blue-100 border-blue-400 text-blue-800',
-  in_progress: 'bg-purple-100 border-purple-400 text-purple-800',
-  completed: 'bg-green-100 border-green-400 text-green-800',
-  cancelled: 'bg-gray-100 border-gray-400 text-gray-500 line-through',
-  no_show: 'bg-red-100 border-red-300 text-red-700',
-};
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : null;
+}
 
 function timeToMinutes(isoTime: string): number {
   const d = new Date(isoTime);
@@ -63,6 +62,73 @@ function getAppointmentStyle(
   return { top, height };
 }
 
+const STATUS_DECORATIONS: Record<string, string> = {
+  cancelled: 'line-through opacity-50',
+  no_show: 'opacity-60',
+};
+
+interface LayoutInfo {
+  column: number;
+  totalColumns: number;
+}
+
+function computeOverlapLayout(appointments: Appointment[]): Map<string, LayoutInfo> {
+  const result = new Map<string, LayoutInfo>();
+  if (appointments.length === 0) return result;
+
+  const sorted = [...appointments].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+  );
+
+  // Group into overlap clusters
+  const clusters: Appointment[][] = [];
+  let currentCluster: Appointment[] = [sorted[0]];
+  let clusterEnd = new Date(sorted[0].endTime).getTime();
+
+  for (let i = 1; i < sorted.length; i++) {
+    const apt = sorted[i];
+    const aptStart = new Date(apt.startTime).getTime();
+    if (aptStart < clusterEnd) {
+      // Overlaps with current cluster
+      currentCluster.push(apt);
+      clusterEnd = Math.max(clusterEnd, new Date(apt.endTime).getTime());
+    } else {
+      clusters.push(currentCluster);
+      currentCluster = [apt];
+      clusterEnd = new Date(apt.endTime).getTime();
+    }
+  }
+  clusters.push(currentCluster);
+
+  // Assign columns within each cluster
+  for (const cluster of clusters) {
+    const columns: Appointment[][] = [];
+    for (const apt of cluster) {
+      const aptStart = new Date(apt.startTime).getTime();
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        const lastInCol = columns[col][columns[col].length - 1];
+        if (new Date(lastInCol.endTime).getTime() <= aptStart) {
+          columns[col].push(apt);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        columns.push([apt]);
+      }
+    }
+    const totalColumns = columns.length;
+    columns.forEach((col, colIdx) => {
+      for (const apt of col) {
+        result.set(apt.id, { column: colIdx, totalColumns });
+      }
+    });
+  }
+
+  return result;
+}
+
 function DayColumn({
   date,
   appointments,
@@ -78,6 +144,8 @@ function DayColumn({
     dayjs(apt.startTime).isSame(date, 'day'),
   );
 
+  const layout = computeOverlapLayout(dayAppointments);
+
   function handleSlotClick(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
@@ -88,6 +156,8 @@ function DayColumn({
       `T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
     onSlotClick(timeStr);
   }
+
+  const GAP = 4; // px gap between columns and edges
 
   return (
     <div
@@ -116,32 +186,44 @@ function DayColumn({
       {/* Appointments */}
       {dayAppointments.map((apt) => {
         const { top, height } = getAppointmentStyle(apt.startTime, apt.endTime);
-        const colorClass = STATUS_COLORS[apt.status] || STATUS_COLORS.pending;
-        const serviceName = apt.items?.[0]?.service?.name || 'Servicio';
-        const serviceColor = apt.items?.[0]?.service?.color;
+        const serviceName = apt.items?.[0]?.serviceNameSnapshot || 'Servicio';
+        const totalPrice = apt.items?.reduce((sum, item) => sum + (Number(item.priceSnapshot) || 0), 0) ?? 0;
+        const employeeColor = apt.employee?.color || '#008080';
+        const rgb = hexToRgb(employeeColor);
+        const bgColor = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)` : 'rgba(0, 128, 128, 0.12)';
+        const statusExtra = STATUS_DECORATIONS[apt.status] || '';
+
+        const info = layout.get(apt.id) || { column: 0, totalColumns: 1 };
+        const widthPercent = 100 / info.totalColumns;
+        const leftPercent = info.column * widthPercent;
 
         return (
           <div
             key={apt.id}
-            className={`absolute left-1 right-1 rounded-lg border-l-4 px-2 py-1 overflow-hidden cursor-pointer hover:shadow-md transition-shadow z-10 ${colorClass}`}
+            className={`absolute rounded-lg border-l-4 px-2 py-1 overflow-hidden cursor-pointer hover:shadow-md transition-shadow z-10 ${statusExtra}`}
             style={{
               top,
               height,
-              borderLeftColor: serviceColor || undefined,
+              left: `calc(${leftPercent}% + ${GAP}px)`,
+              width: `calc(${widthPercent}% - ${GAP * 2}px)`,
+              borderLeftColor: employeeColor,
+              backgroundColor: bgColor,
             }}
             onClick={(e) => {
               e.stopPropagation();
               onAppointmentClick(apt);
             }}
           >
-            <p className="text-xs font-semibold truncate">
+            <p className="text-xs font-semibold truncate text-gray-900">
               {apt.client
                 ? `${apt.client.firstName} ${apt.client.lastName}`
                 : 'Cliente'}
             </p>
-            <p className="text-xs truncate opacity-80">{serviceName}</p>
+            <p className="text-xs truncate text-gray-700">
+              {serviceName}{totalPrice > 0 ? ` · $${totalPrice.toFixed(2)}` : ''}
+            </p>
             {height > 40 && (
-              <p className="text-xs opacity-60">
+              <p className="text-xs text-gray-500">
                 {formatTime(
                   new Date(apt.startTime).toTimeString().slice(0, 5),
                 )}
