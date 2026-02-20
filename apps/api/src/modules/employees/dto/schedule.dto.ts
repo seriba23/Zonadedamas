@@ -30,14 +30,14 @@ export class ScheduleItemDto {
   @IsOptional()
   @IsString()
   @Matches(/^([0-1]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'startTime must be in HH:MM format',
+    message: 'La hora de inicio debe estar en formato HH:MM',
   })
   startTime?: string;
 
   @IsOptional()
   @IsString()
   @Matches(/^([0-1]\d|2[0-3]):([0-5]\d)$/, {
-    message: 'endTime must be in HH:MM format',
+    message: 'La hora de fin debe estar en formato HH:MM',
   })
   endTime?: string;
 

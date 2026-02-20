@@ -38,7 +38,7 @@ export class ResourcesService {
         serviceResources: { include: { service: true } },
       },
     });
-    if (!resource) throw new NotFoundException('Resource not found');
+    if (!resource) throw new NotFoundException('Recurso no encontrado');
     return resource;
   }
 
@@ -46,7 +46,7 @@ export class ResourcesService {
     const location = await this.prisma.location.findFirst({
       where: { id: dto.locationId, tenantId },
     });
-    if (!location) throw new NotFoundException('Location not found');
+    if (!location) throw new NotFoundException('Ubicación no encontrada');
 
     return this.prisma.resource.create({
       data: {
@@ -74,6 +74,6 @@ export class ResourcesService {
       where: { id },
       data: { isActive: false },
     });
-    return { message: 'Resource deactivated' };
+    return { message: 'Recurso desactivado' };
   }
 }

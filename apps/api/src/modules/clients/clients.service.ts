@@ -78,7 +78,7 @@ export class ClientsService {
     });
 
     if (!client) {
-      throw new NotFoundException('Client not found');
+      throw new NotFoundException('Cliente no encontrado');
     }
 
     return client;
@@ -113,7 +113,7 @@ export class ClientsService {
       where: { id },
       data: { isActive: false },
     });
-    return { message: 'Client deleted' };
+    return { message: 'Cliente eliminado' };
   }
 
   async addTag(clientId: string, tenantId: string, tagId: string) {
@@ -122,7 +122,7 @@ export class ClientsService {
     const tag = await this.prisma.clientTag.findFirst({
       where: { id: tagId, tenantId },
     });
-    if (!tag) throw new NotFoundException('Tag not found');
+    if (!tag) throw new NotFoundException('Etiqueta no encontrada');
 
     return this.prisma.clientTagMap.upsert({
       where: { clientId_tagId: { clientId, tagId } },
@@ -137,7 +137,7 @@ export class ClientsService {
     await this.prisma.clientTagMap.deleteMany({
       where: { clientId, tagId },
     });
-    return { message: 'Tag removed' };
+    return { message: 'Etiqueta eliminada' };
   }
 
   async findAllTags(tenantId: string) {

@@ -46,7 +46,7 @@ export class ServicesService {
       },
     });
 
-    if (!service) throw new NotFoundException('Service not found');
+    if (!service) throw new NotFoundException('Servicio no encontrado');
     return service;
   }
 
@@ -74,6 +74,6 @@ export class ServicesService {
       where: { id },
       data: { isActive: false },
     });
-    return { message: 'Service deactivated' };
+    return { message: 'Servicio desactivado' };
   }
 }

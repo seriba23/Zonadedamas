@@ -29,7 +29,7 @@ export class PermissionGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw new ForbiddenException('Usuario no autenticado');
     }
 
     const userPermissions = await this.rbacService.getUserPermissions(
@@ -43,7 +43,7 @@ export class PermissionGuard implements CanActivate {
 
     if (!hasAll) {
       throw new ForbiddenException(
-        `Insufficient permissions. Required: ${requiredPermissions.join(', ')}`,
+        `Permisos insuficientes. Requeridos: ${requiredPermissions.join(', ')}`,
       );
     }
 

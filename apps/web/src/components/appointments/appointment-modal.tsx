@@ -514,7 +514,7 @@ export function AppointmentModal({
                   />
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: s.color || '#6366f1' }}
+                    style={{ backgroundColor: s.color || '#008080' }}
                   />
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-gray-900 truncate">

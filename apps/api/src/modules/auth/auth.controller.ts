@@ -43,7 +43,7 @@ export class AuthController {
     @Body() dto: LogoutDto,
   ) {
     await this.authService.logout(dto.refreshToken);
-    return { data: { message: 'Logged out successfully' } };
+    return { data: { message: 'Sesión cerrada exitosamente' } };
   }
 
   @UseGuards(JwtAuthGuard)

@@ -33,7 +33,7 @@ export class AppointmentsService {
     });
 
     if (services.length !== dto.serviceIds.length) {
-      throw new NotFoundException('One or more services not found');
+      throw new NotFoundException('Uno o más servicios no encontrados');
     }
 
     // Calculate total duration and end time
@@ -132,7 +132,7 @@ export class AppointmentsService {
     } catch (error: any) {
       if (error.code === 'P2002' || error.message?.includes('no_employee_overlap')) {
         throw new ConflictException(
-          'This time slot is already booked. Please select a different time.',
+          'Este horario ya está reservado. Por favor selecciona otro horario.',
         );
       }
       throw error;
@@ -187,7 +187,7 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Cita no encontrada');
     }
 
     return { data: appointment };
@@ -199,7 +199,7 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Cita no encontrada');
     }
 
     const updated = await this.prisma.appointment.update({
@@ -230,12 +230,12 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Cita no encontrada');
     }
 
     if (['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(appointment.status)) {
       throw new BadRequestException(
-        `Cannot reschedule appointment with status: ${appointment.status}`,
+        `No se puede reagendar una cita con estado: ${appointment.status}`,
       );
     }
 
@@ -305,7 +305,7 @@ export class AppointmentsService {
       return { data: updated };
     } catch (error: any) {
       if (error.code === 'P2002' || error.message?.includes('no_employee_overlap')) {
-        throw new ConflictException('This time slot is already booked.');
+        throw new ConflictException('Este horario ya está reservado.');
       }
       throw error;
     }
@@ -317,11 +317,11 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Cita no encontrada');
     }
 
     if (appointment.status === 'CANCELLED') {
-      throw new BadRequestException('Appointment is already cancelled');
+      throw new BadRequestException('La cita ya está cancelada');
     }
 
     const updated = await this.prisma.appointment.update({
@@ -375,15 +375,15 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException('Appointment not found');
+      throw new NotFoundException('Cita no encontrada');
     }
 
     if (appointment.status === 'COMPLETED') {
-      throw new BadRequestException('Appointment is already completed');
+      throw new BadRequestException('La cita ya está completada');
     }
 
     if (appointment.status === 'CANCELLED') {
-      throw new BadRequestException('Cannot complete a cancelled appointment');
+      throw new BadRequestException('No se puede completar una cita cancelada');
     }
 
     const updated = await this.prisma.appointment.update({

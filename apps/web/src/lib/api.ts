@@ -60,7 +60,7 @@ class ApiClient {
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
-      throw new Error('Session expired');
+      throw new Error('Sesión expirada');
     }
 
     if (!res.ok) throw await this.handleError(res);

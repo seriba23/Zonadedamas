@@ -44,7 +44,7 @@ export class EmployeesService {
         schedules: { orderBy: { dayOfWeek: 'asc' } },
       },
     });
-    if (!employee) throw new NotFoundException('Employee not found');
+    if (!employee) throw new NotFoundException('Empleado no encontrado');
     return employee;
   }
 
@@ -53,7 +53,7 @@ export class EmployeesService {
     const location = await this.prisma.location.findFirst({
       where: { id: dto.locationId, tenantId },
     });
-    if (!location) throw new NotFoundException('Location not found');
+    if (!location) throw new NotFoundException('Ubicación no encontrada');
 
     return this.prisma.employee.create({
       data: {
@@ -86,7 +86,7 @@ export class EmployeesService {
       where: { id },
       data: { isActive: false },
     });
-    return { message: 'Employee deactivated' };
+    return { message: 'Empleado desactivado' };
   }
 
   async getSchedules(employeeId: string, tenantId: string) {
@@ -168,10 +168,10 @@ export class EmployeesService {
     const timeOff = await this.prisma.employeeTimeOff.findFirst({
       where: { id: timeOffId, employeeId },
     });
-    if (!timeOff) throw new NotFoundException('Time off record not found');
+    if (!timeOff) throw new NotFoundException('Registro de tiempo libre no encontrado');
 
     await this.prisma.employeeTimeOff.delete({ where: { id: timeOffId } });
-    return { message: 'Time off removed' };
+    return { message: 'Tiempo libre eliminado' };
   }
 
   async getServices(employeeId: string, tenantId: string) {

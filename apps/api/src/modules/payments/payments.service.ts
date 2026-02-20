@@ -138,7 +138,7 @@ export class PaymentsService {
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException('Pago no encontrado');
     }
 
     return { data: payment };

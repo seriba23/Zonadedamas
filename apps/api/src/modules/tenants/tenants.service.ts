@@ -269,7 +269,7 @@ export class TenantsService {
         },
       },
     });
-    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (!tenant) throw new NotFoundException('Negocio no encontrado');
     return tenant;
   }
 
@@ -299,7 +299,7 @@ export class TenantsService {
     const location = await this.prisma.location.findFirst({
       where: { id, tenantId },
     });
-    if (!location) throw new NotFoundException('Location not found');
+    if (!location) throw new NotFoundException('Ubicación no encontrada');
 
     return this.prisma.location.update({
       where: { id },
@@ -311,9 +311,9 @@ export class TenantsService {
     const location = await this.prisma.location.findFirst({
       where: { id, tenantId },
     });
-    if (!location) throw new NotFoundException('Location not found');
+    if (!location) throw new NotFoundException('Ubicación no encontrada');
 
     await this.prisma.location.delete({ where: { id } });
-    return { message: 'Location deleted' };
+    return { message: 'Ubicación eliminada' };
   }
 }

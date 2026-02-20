@@ -31,12 +31,12 @@ const defaultForm: ServiceForm = {
   description: '',
   duration: 60,
   price: 0,
-  color: '#6366f1',
+  color: '#008080',
 };
 
 const SERVICE_COLORS = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
-  '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6',
+  '#00cccc', '#00b3b3', '#009999', '#008080',
+  '#004d4d', '#003333', '#001919', '#000000', '#ffffff',
 ];
 
 export default function ServicesPage() {
@@ -91,7 +91,7 @@ export default function ServicesPage() {
       description: service.description || '',
       duration: service.duration,
       price: service.price,
-      color: service.color || '#6366f1',
+      color: service.color || '#008080',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -172,7 +172,7 @@ export default function ServicesPage() {
                   <div className="flex items-center gap-3">
                     <div
                       className="w-10 h-10 rounded-xl flex-shrink-0"
-                      style={{ backgroundColor: service.color || '#6366f1' }}
+                      style={{ backgroundColor: service.color || '#008080' }}
                     />
                     <div>
                       <h3 className="font-semibold text-gray-900 text-sm">

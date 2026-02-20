@@ -30,7 +30,7 @@ export class CreateTenantDto {
 
   @IsString()
   @Matches(/^[a-z0-9-]+$/, {
-    message: 'Slug must contain only lowercase letters, numbers and hyphens',
+    message: 'El slug solo puede contener letras minúsculas, números y guiones',
   })
   slug: string;
 

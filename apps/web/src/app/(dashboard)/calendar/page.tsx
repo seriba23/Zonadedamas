@@ -8,6 +8,7 @@ import { Header } from '@/components/layout/header';
 import { CalendarView } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
 import { formatDate } from '@/lib/utils';
+import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
 type ViewMode = 'day' | 'week';
 
@@ -31,6 +32,7 @@ export default function CalendarPage() {
     string | null
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const startDate = viewMode === 'day'
     ? currentDate.startOf('day').toISOString()
@@ -86,6 +88,7 @@ export default function CalendarPage() {
   function handleModalSave() {
     handleModalClose();
     refetch();
+    setShowConfetti(true);
   }
 
   return (
@@ -205,6 +208,12 @@ export default function CalendarPage() {
           onSave={handleModalSave}
         />
       )}
+
+      <ConfettiCelebration
+        show={showConfetti}
+        duration={10000}
+        onComplete={() => setShowConfetti(false)}
+      />
     </div>
   );
 }

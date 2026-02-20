@@ -24,7 +24,7 @@ export class AuthService {
     });
 
     if (!users.length) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     let matchedUser: (typeof users)[0] | null = null;
@@ -37,7 +37,7 @@ export class AuthService {
     }
 
     if (!matchedUser) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const tokens = await this.generateTokens(matchedUser);
@@ -77,7 +77,7 @@ export class AuthService {
     }
 
     if (!matched) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException('Token de actualización inválido o expirado');
     }
 
     if (new Date() > matched.expiresAt) {
@@ -85,7 +85,7 @@ export class AuthService {
         where: { id: matched.id },
         data: { revokedAt: new Date() },
       });
-      throw new UnauthorizedException('Refresh token expired');
+      throw new UnauthorizedException('Token de actualización expirado');
     }
 
     // Revoke old token (rotation)
@@ -131,7 +131,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuario no encontrado');
     }
 
     const permissions = await this.rbacService.getUserPermissions(

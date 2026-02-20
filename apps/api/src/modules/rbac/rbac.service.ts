@@ -109,11 +109,11 @@ export class RbacService {
     });
 
     if (!role) {
-      throw new NotFoundException('Role not found');
+      throw new NotFoundException('Rol no encontrado');
     }
 
     if (role.isSystem) {
-      throw new BadRequestException('Cannot modify system roles');
+      throw new BadRequestException('No se pueden modificar los roles del sistema');
     }
 
     // Update permissions if provided
@@ -147,15 +147,15 @@ export class RbacService {
     });
 
     if (!role) {
-      throw new NotFoundException('Role not found');
+      throw new NotFoundException('Rol no encontrado');
     }
 
     if (role.isSystem) {
-      throw new BadRequestException('Cannot delete system roles');
+      throw new BadRequestException('No se pueden eliminar los roles del sistema');
     }
 
     await this.prisma.role.delete({ where: { id } });
-    return { message: 'Role deleted' };
+    return { message: 'Rol eliminado' };
   }
 
   async assignRole(tenantId: string, dto: AssignRoleDto) {
@@ -163,19 +163,19 @@ export class RbacService {
     const role = await this.prisma.role.findFirst({
       where: { id: dto.roleId, tenantId },
     });
-    if (!role) throw new NotFoundException('Role not found');
+    if (!role) throw new NotFoundException('Rol no encontrado');
 
     // Verify user belongs to tenant
     const user = await this.prisma.user.findFirst({
       where: { id: dto.userId, tenantId },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('Usuario no encontrado');
 
     // Check not already assigned
     const existing = await this.prisma.userRole.findFirst({
       where: { userId: dto.userId, roleId: dto.roleId },
     });
-    if (existing) throw new BadRequestException('Role already assigned');
+    if (existing) throw new BadRequestException('El rol ya está asignado');
 
     return this.prisma.userRole.create({
       data: { userId: dto.userId, roleId: dto.roleId, tenantId },
@@ -186,9 +186,9 @@ export class RbacService {
     const userRole = await this.prisma.userRole.findFirst({
       where: { id: userRoleId, role: { tenantId } },
     });
-    if (!userRole) throw new NotFoundException('User role assignment not found');
+    if (!userRole) throw new NotFoundException('Asignación de rol no encontrada');
 
     await this.prisma.userRole.delete({ where: { id: userRoleId } });
-    return { message: 'Role removed' };
+    return { message: 'Rol eliminado' };
   }
 }
