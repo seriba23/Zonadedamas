@@ -31,13 +31,19 @@ export class AvailabilityService {
     // 2. Resolve employees
     let employees: any[];
 
+    const employeeWhere: any = {
+      tenantId,
+      isActive: true,
+    };
+    if (query.locationId) {
+      employeeWhere.locationId = query.locationId;
+    }
+
     if (query.employeeId) {
       const emp = await this.prisma.employee.findFirst({
         where: {
           id: query.employeeId,
-          tenantId,
-          locationId: query.locationId,
-          isActive: true,
+          ...employeeWhere,
         },
       });
       if (!emp) return { data: [] };
@@ -46,9 +52,7 @@ export class AvailabilityService {
       // Find employees who offer ALL requested services
       const candidates = await this.prisma.employee.findMany({
         where: {
-          tenantId,
-          locationId: query.locationId,
-          isActive: true,
+          ...employeeWhere,
           employeeServices: {
             some: { serviceId: { in: query.serviceIds } },
           },
@@ -93,7 +97,7 @@ export class AvailabilityService {
       }> = [];
 
       for (const employee of employees) {
-        const cacheKey = `avail:${tenantId}:${query.locationId}:${employee.id}:${dateStr}`;
+        const cacheKey = `avail:${tenantId}:${query.locationId || 'all'}:${employee.id}:${dateStr}`;
 
         try {
           const cached = await this.redis.get(cacheKey);

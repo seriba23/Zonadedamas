@@ -119,7 +119,7 @@ export default function ResourcesPage() {
           <p className="text-sm text-gray-500">
             {resources.length} recurso{resources.length !== 1 ? 's' : ''}
           </p>
-          {hasPermission('resources:create') && (
+          {hasPermission('resources.create') && (
             <button onClick={openCreate} className="btn-primary">
               + Nuevo Recurso
             </button>
@@ -162,7 +162,7 @@ export default function ResourcesPage() {
                     <p className="text-gray-500 text-sm">
                       No hay recursos configurados
                     </p>
-                    {hasPermission('resources:create') && (
+                    {hasPermission('resources.create') && (
                       <button
                         onClick={openCreate}
                         className="mt-3 btn-primary text-sm"
@@ -194,7 +194,7 @@ export default function ResourcesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        {hasPermission('resources:update') && (
+                        {hasPermission('resources.update') && (
                           <>
                             <button
                               onClick={() => openEdit(resource)}

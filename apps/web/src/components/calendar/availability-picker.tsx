@@ -10,6 +10,7 @@ interface AvailableSlot {
   startTime: string;
   endTime: string;
   employeeId: string;
+  employeeName?: string;
 }
 
 interface AvailabilityPickerProps {
@@ -35,20 +36,23 @@ export function AvailabilityPicker({
     startOfMonth.add(i, 'day'),
   );
 
+  const dateStr = selectedDate.format('YYYY-MM-DD');
+
   const { data, isLoading } = useQuery({
     queryKey: [
       'availability',
-      selectedDate.format('YYYY-MM-DD'),
+      dateStr,
       serviceIds,
       employeeId,
       locationId,
     ],
     queryFn: () =>
       api.post<{ data: AvailableSlot[] }>('/api/availability/query', {
-        date: selectedDate.format('YYYY-MM-DD'),
+        startDate: dateStr,
+        endDate: dateStr,
         serviceIds,
-        employeeId,
-        locationId,
+        employeeId: employeeId || undefined,
+        locationId: locationId || undefined,
       }),
     enabled: serviceIds.length > 0,
   });
@@ -162,11 +166,13 @@ export function AvailabilityPicker({
         ) : (
           <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
             {slots.map((slot) => {
-              const time = new Date(slot.startTime).toTimeString().slice(0, 5);
+              const time = slot.startTime.includes('T')
+                ? slot.startTime.split('T')[1].substring(0, 5)
+                : slot.startTime.substring(0, 5);
               const isSelected = selectedSlot?.startTime === slot.startTime;
               return (
                 <button
-                  key={slot.startTime}
+                  key={`${slot.employeeId}-${slot.startTime}`}
                   type="button"
                   onClick={() => handleSlotSelect(slot)}
                   className={`py-1.5 text-sm rounded-lg border transition-colors ${

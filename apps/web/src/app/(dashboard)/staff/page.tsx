@@ -117,7 +117,7 @@ export default function StaffPage() {
           <p className="text-sm text-gray-500">
             {employees.length} empleado{employees.length !== 1 ? 's' : ''}
           </p>
-          {hasPermission('employees:create') && (
+          {hasPermission('employees.create') && (
             <button onClick={openCreate} className="btn-primary">
               + Nuevo Empleado
             </button>
@@ -144,7 +144,7 @@ export default function StaffPage() {
         ) : employees.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-500 mb-4">No hay empleados registrados</p>
-            {hasPermission('employees:create') && (
+            {hasPermission('employees.create') && (
               <button onClick={openCreate} className="btn-primary">
                 Agregar primer empleado
               </button>
@@ -179,7 +179,7 @@ export default function StaffPage() {
                     </div>
                   </div>
 
-                  {hasPermission('employees:update') && (
+                  {hasPermission('employees.update') && (
                     <button
                       onClick={() => openEdit(employee)}
                       className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"

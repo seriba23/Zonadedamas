@@ -99,7 +99,7 @@ export default function ClientsPage() {
             />
           </div>
 
-          {hasPermission('clients:create') && (
+          {hasPermission('clients.create') && (
             <button
               onClick={() => {
                 setSelectedClientId(null);
@@ -153,7 +153,7 @@ export default function ClientsPage() {
                         ? `No hay clientes que coincidan con "${debouncedSearch}"`
                         : 'No hay clientes aún'}
                     </p>
-                    {!debouncedSearch && hasPermission('clients:create') && (
+                    {!debouncedSearch && hasPermission('clients.create') && (
                       <button
                         onClick={() => setIsDrawerOpen(true)}
                         className="mt-3 btn-primary text-sm"

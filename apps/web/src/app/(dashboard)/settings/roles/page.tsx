@@ -59,7 +59,7 @@ export default function RolesPage() {
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
               Roles
             </h2>
-            {hasPermission('roles:create') && (
+            {hasPermission('roles.create') && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"

@@ -17,6 +17,29 @@ export class AvailabilityController {
     @CurrentTenant() tenantId: string,
     @Body() query: AvailabilityQueryDto,
   ) {
-    return this.availabilityService.getAvailableSlots(query, tenantId);
+    const result = await this.availabilityService.getAvailableSlots(query, tenantId);
+
+    // Flatten nested response into array of slots with employeeId
+    const flatSlots: Array<{
+      startTime: string;
+      endTime: string;
+      employeeId: string;
+      employeeName: string;
+    }> = [];
+
+    for (const day of result.data) {
+      for (const emp of day.employees) {
+        for (const slot of emp.slots) {
+          flatSlots.push({
+            startTime: `${day.date}T${slot.startTime}:00`,
+            endTime: `${day.date}T${slot.endTime}:00`,
+            employeeId: emp.id,
+            employeeName: emp.name,
+          });
+        }
+      }
+    }
+
+    return { data: flatSlots };
   }
 }

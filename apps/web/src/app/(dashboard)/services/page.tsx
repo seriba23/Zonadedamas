@@ -129,7 +129,7 @@ export default function ServicesPage() {
             {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
             configurado{services.length !== 1 ? 's' : ''}
           </p>
-          {hasPermission('services:create') && (
+          {hasPermission('services.create') && (
             <button onClick={openCreate} className="btn-primary">
               + Nuevo Servicio
             </button>
@@ -155,7 +155,7 @@ export default function ServicesPage() {
         ) : services.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-500 mb-4">No hay servicios configurados</p>
-            {hasPermission('services:create') && (
+            {hasPermission('services.create') && (
               <button onClick={openCreate} className="btn-primary">
                 Crear primer servicio
               </button>
@@ -183,7 +183,7 @@ export default function ServicesPage() {
                       )}
                     </div>
                   </div>
-                  {hasPermission('services:update') && (
+                  {hasPermission('services.update') && (
                     <button
                       onClick={() => openEdit(service)}
                       className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"

@@ -7,8 +7,9 @@ import {
 } from 'class-validator';
 
 export class AvailabilityQueryDto {
+  @IsOptional()
   @IsUUID('4')
-  locationId: string;
+  locationId?: string;
 
   @IsArray()
   @IsUUID('4', { each: true })
