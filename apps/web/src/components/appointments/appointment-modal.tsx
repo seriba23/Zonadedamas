@@ -20,6 +20,7 @@ interface Employee {
   id: string;
   firstName: string;
   lastName: string;
+  locationId?: string;
 }
 
 interface Client {
@@ -114,8 +115,8 @@ export function AppointmentModal({
     mutationFn: (payload: {
       clientId: string;
       employeeId: string;
+      locationId: string;
       startTime: string;
-      endTime: string;
       serviceIds: string[];
       notes?: string;
     }) => api.post('/api/appointments', payload),
@@ -178,11 +179,20 @@ export function AppointmentModal({
       setFormError('Selecciona una fecha y hora');
       return;
     }
+    if (!selectedEmployeeId) {
+      setFormError('Selecciona un profesional');
+      return;
+    }
+    const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId);
+    if (!selectedEmployee?.locationId) {
+      setFormError('El profesional no tiene una ubicación asignada');
+      return;
+    }
     createMutation.mutate({
       clientId: selectedClientId,
       employeeId: selectedEmployeeId,
+      locationId: selectedEmployee.locationId,
       startTime: selectedStartTime,
-      endTime: selectedEndTime,
       serviceIds: selectedServiceIds,
       notes,
     });
