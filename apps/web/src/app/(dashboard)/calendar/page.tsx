@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
-import { CalendarView } from '@/components/calendar/calendar-view';
+import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
 import { formatDate } from '@/lib/utils';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
@@ -117,11 +117,31 @@ export default function CalendarPage() {
       api.get<{ data: ServiceSummary[] }>('/api/services?perPage=100'),
   });
 
+  // Fetch business closures for visible range
+  const { data: closuresData } = useQuery({
+    queryKey: ['calendar-closures', startDate, endDate],
+    queryFn: () =>
+      api.get<{ data: BusinessClosure[] }>(
+        `/api/tenant/closures?startDate=${startDate}&endDate=${endDate}`,
+      ),
+  });
+
+  // Fetch employee time-offs for visible range
+  const { data: timeOffsData } = useQuery({
+    queryKey: ['calendar-time-offs', startDate, endDate],
+    queryFn: () =>
+      api.get<{ data: EmployeeTimeOff[] }>(
+        `/api/employees/time-offs?startDate=${startDate}&endDate=${endDate}`,
+      ),
+  });
+
   const allAppointments = data?.data || [];
   const employees = employeesData?.data || [];
   const clients = clientsData?.data || [];
   const services = servicesData?.data || [];
   const activeEmployees = employees.filter((e) => e.isActive);
+  const closures = closuresData?.data || [];
+  const employeeTimeOffs = timeOffsData?.data || [];
 
   // Apply frontend service filter (multi-select)
   const appointments = filterServiceNames.length > 0
@@ -383,6 +403,8 @@ export default function CalendarPage() {
           viewMode={viewMode}
           onSlotClick={handleSlotClick}
           onAppointmentClick={handleAppointmentClick}
+          closures={closures}
+          employeeTimeOffs={employeeTimeOffs}
         />
       </div>
 

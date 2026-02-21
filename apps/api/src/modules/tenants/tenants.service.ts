@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -8,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
 import { SetBusinessHoursDto } from './dto/business-hours.dto';
+import { CreateBusinessClosureDto } from './dto/business-closure.dto';
 
 // All 53 permissions for the platform
 const ALL_PERMISSIONS = [
@@ -377,5 +379,43 @@ export class TenantsService {
       });
     });
     return this.getBusinessHours(tenantId);
+  }
+
+  // Business Closures
+  async getClosures(tenantId: string, startDate?: string, endDate?: string) {
+    const where: any = { tenantId };
+    if (startDate && endDate) {
+      where.startDate = { lte: new Date(endDate + 'T23:59:59Z') };
+      where.endDate = { gte: new Date(startDate + 'T00:00:00Z') };
+    }
+    return this.prisma.businessClosure.findMany({
+      where,
+      orderBy: { startDate: 'asc' },
+    });
+  }
+
+  async createClosure(tenantId: string, dto: CreateBusinessClosureDto) {
+    const start = new Date(dto.startDate + 'T00:00:00Z');
+    const end = new Date(dto.endDate + 'T00:00:00Z');
+    if (start > end) {
+      throw new BadRequestException('La fecha de inicio debe ser anterior o igual a la fecha de fin');
+    }
+    return this.prisma.businessClosure.create({
+      data: {
+        tenantId,
+        startDate: start,
+        endDate: end,
+        reason: dto.reason,
+      },
+    });
+  }
+
+  async deleteClosure(id: string, tenantId: string) {
+    const closure = await this.prisma.businessClosure.findFirst({
+      where: { id, tenantId },
+    });
+    if (!closure) throw new NotFoundException('Cierre no encontrado');
+    await this.prisma.businessClosure.delete({ where: { id } });
+    return { message: 'Cierre eliminado' };
   }
 }

@@ -6,12 +6,14 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
 import { SetBusinessHoursDto } from './dto/business-hours.dto';
+import { CreateBusinessClosureDto, ClosureQueryDto } from './dto/business-closure.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -96,5 +98,43 @@ export class TenantsController {
   ) {
     const hours = await this.tenantsService.setBusinessHours(tenantId, dto);
     return { data: hours };
+  }
+
+  // Business Closures
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.read')
+  @Get('tenant/closures')
+  async getClosures(
+    @CurrentTenant() tenantId: string,
+    @Query() query: ClosureQueryDto,
+  ) {
+    const closures = await this.tenantsService.getClosures(
+      tenantId,
+      query.startDate,
+      query.endDate,
+    );
+    return { data: closures };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.update')
+  @Post('tenant/closures')
+  async createClosure(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: CreateBusinessClosureDto,
+  ) {
+    const closure = await this.tenantsService.createClosure(tenantId, dto);
+    return { data: closure };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.update')
+  @Delete('tenant/closures/:id')
+  async deleteClosure(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const result = await this.tenantsService.deleteClosure(id, tenantId);
+    return { data: result };
   }
 }

@@ -71,7 +71,16 @@ export class AvailabilityService {
       return { data: [] };
     }
 
-    // 3. Iterate over date range
+    // 3. Fetch business closures for the range
+    const closures = await this.prisma.businessClosure.findMany({
+      where: {
+        tenantId,
+        startDate: { lte: new Date(query.endDate + 'T23:59:59Z') },
+        endDate: { gte: new Date(query.startDate + 'T00:00:00Z') },
+      },
+    });
+
+    // 4. Iterate over date range
     const results: Array<{
       date: string;
       employees: Array<{
@@ -90,6 +99,14 @@ export class AvailabilityService {
       date.setDate(date.getDate() + 1)
     ) {
       const dateStr = date.toISOString().split('T')[0];
+
+      // Skip closed days
+      const isClosed = closures.some((c) => {
+        const cStart = c.startDate.toISOString().split('T')[0];
+        const cEnd = c.endDate.toISOString().split('T')[0];
+        return dateStr >= cStart && dateStr <= cEnd;
+      });
+      if (isClosed) continue;
       const dayEmployees: Array<{
         id: string;
         name: string;
@@ -274,7 +291,19 @@ export class AvailabilityService {
     serviceIds: string[],
     tenantId: string,
   ) {
-    // 1. Fetch services and calculate total duration
+    // 1. Check if business is closed on this date
+    const closure = await this.prisma.businessClosure.findFirst({
+      where: {
+        tenantId,
+        startDate: { lte: new Date(date + 'T23:59:59Z') },
+        endDate: { gte: new Date(date + 'T00:00:00Z') },
+      },
+    });
+    if (closure) {
+      return { scheduleStart: null, scheduleEnd: null, slots: [], closureReason: closure.reason };
+    }
+
+    // 2. Fetch services and calculate total duration
     const services = await this.prisma.service.findMany({
       where: { id: { in: serviceIds }, tenantId },
     });
@@ -284,7 +313,7 @@ export class AvailabilityService {
       return { scheduleStart: null, scheduleEnd: null, slots: [] };
     }
 
-    // 2. Get employee
+    // 3. Get employee
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, tenantId, isActive: true },
     });
@@ -292,7 +321,7 @@ export class AvailabilityService {
       return { scheduleStart: null, scheduleEnd: null, slots: [] };
     }
 
-    // 3. Get schedule for this day
+    // 4. Get schedule for this day
     const dateObj = new Date(date + 'T00:00:00Z');
     const dayOfWeek = this.getDayOfWeek(dateObj);
     const schedule = await this.prisma.employeeSchedule.findFirst({

@@ -14,6 +14,14 @@ interface BusinessHour {
   isOpen: boolean;
 }
 
+interface BusinessClosure {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  createdAt: string;
+}
+
 const DAY_LABELS: Record<string, string> = {
   MONDAY: 'Lunes',
   TUESDAY: 'Martes',
@@ -38,15 +46,51 @@ function generateTimeOptions() {
 
 const TIME_OPTIONS = generateTimeOptions();
 
+function daysBetween(start: string, end: string): number {
+  const s = new Date(start);
+  const e = new Date(end);
+  return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function formatDateEs(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default function BusinessHoursPage() {
   const queryClient = useQueryClient();
   const [hours, setHours] = useState<BusinessHour[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Closure form state
+  const [closureStart, setClosureStart] = useState('');
+  const [closureEnd, setClosureEnd] = useState('');
+  const [closureReason, setClosureReason] = useState('');
+
   const { data, isLoading } = useQuery({
     queryKey: ['business-hours'],
     queryFn: () => api.get<{ data: BusinessHour[] }>('/api/tenant/business-hours'),
   });
+
+  const { data: closuresData } = useQuery({
+    queryKey: ['business-closures'],
+    queryFn: () => api.get<{ data: BusinessClosure[] }>('/api/tenant/closures'),
+  });
+
+  const closures = closuresData?.data || [];
+
+  // Total days closed this year
+  const currentYear = new Date().getFullYear();
+  const totalClosedDays = closures.reduce((sum, c) => {
+    const start = c.startDate.split('T')[0];
+    const end = c.endDate.split('T')[0];
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = `${currentYear}-12-31`;
+    const effectiveStart = start > yearStart ? start : yearStart;
+    const effectiveEnd = end < yearEnd ? end : yearEnd;
+    if (effectiveStart > effectiveEnd) return sum;
+    return sum + daysBetween(effectiveStart, effectiveEnd);
+  }, 0);
 
   useEffect(() => {
     if (data?.data) {
@@ -67,6 +111,24 @@ export default function BusinessHoursPage() {
     },
   });
 
+  const createClosureMutation = useMutation({
+    mutationFn: (payload: { startDate: string; endDate: string; reason: string }) =>
+      api.post('/api/tenant/closures', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['business-closures'] });
+      setClosureStart('');
+      setClosureEnd('');
+      setClosureReason('');
+    },
+  });
+
+  const deleteClosureMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/tenant/closures/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['business-closures'] });
+    },
+  });
+
   function updateDay(dayOfWeek: string, field: string, value: string | boolean) {
     setHours((prev) =>
       prev.map((h) =>
@@ -84,6 +146,15 @@ export default function BusinessHoursPage() {
         closeTime: h.closeTime,
         isOpen: h.isOpen,
       })) as any,
+    });
+  }
+
+  function handleAddClosure() {
+    if (!closureStart || !closureEnd || !closureReason.trim()) return;
+    createClosureMutation.mutate({
+      startDate: closureStart,
+      endDate: closureEnd,
+      reason: closureReason.trim(),
     });
   }
 
@@ -190,6 +261,122 @@ export default function BusinessHoursPage() {
               Error al guardar los horarios
             </p>
           )}
+
+          {/* ─── Business Closures Section ─── */}
+          <div className="mt-12 pt-8 border-t border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              Cierres Temporales
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Festivos, remodelaciones u otros periodos en que el negocio estará cerrado.
+            </p>
+
+            {/* Add closure form */}
+            <div className="flex flex-wrap items-end gap-3 mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Desde
+                </label>
+                <input
+                  type="date"
+                  value={closureStart}
+                  onChange={(e) => setClosureStart(e.target.value)}
+                  className="input-field text-sm py-1.5"
+                />
+              </div>
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Hasta
+                </label>
+                <input
+                  type="date"
+                  value={closureEnd}
+                  onChange={(e) => setClosureEnd(e.target.value)}
+                  min={closureStart || undefined}
+                  className="input-field text-sm py-1.5"
+                />
+              </div>
+              <div className="flex-[2] min-w-[200px]">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Motivo
+                </label>
+                <input
+                  type="text"
+                  value={closureReason}
+                  onChange={(e) => setClosureReason(e.target.value)}
+                  placeholder="Ej: Festivo, remodelación..."
+                  className="input-field text-sm py-1.5"
+                />
+              </div>
+              <button
+                onClick={handleAddClosure}
+                disabled={!closureStart || !closureEnd || !closureReason.trim() || createClosureMutation.isPending}
+                className="btn-primary text-sm py-1.5 px-4 disabled:opacity-50"
+              >
+                {createClosureMutation.isPending ? 'Agregando...' : '+ Agregar'}
+              </button>
+            </div>
+
+            {createClosureMutation.isError && (
+              <p className="text-sm text-red-600 mb-4">
+                Error al crear el cierre
+              </p>
+            )}
+
+            {/* List of closures */}
+            {closures.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">
+                No hay cierres programados
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {closures.map((closure) => {
+                  const start = closure.startDate.split('T')[0];
+                  const end = closure.endDate.split('T')[0];
+                  const days = daysBetween(start, end);
+                  return (
+                    <div
+                      key={closure.id}
+                      className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200"
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {closure.reason}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {formatDateEs(start)}
+                          {start !== end && ` - ${formatDateEs(end)}`}
+                          {' '}
+                          <span className="text-gray-400">
+                            ({days} día{days !== 1 ? 's' : ''})
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => deleteClosureMutation.mutate(closure.id)}
+                        disabled={deleteClosureMutation.isPending}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Eliminar cierre"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Summary */}
+            {closures.length > 0 && (
+              <div className="mt-4 text-right">
+                <span className="text-sm text-gray-500">
+                  Total días cerrados ({currentYear}): <strong className="text-gray-900">{totalClosedDays}</strong>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

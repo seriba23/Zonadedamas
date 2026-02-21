@@ -10,7 +10,7 @@ interface Service {
   id: string;
   name: string;
   description?: string;
-  duration: number;
+  durationMinutes: number;
   price: number;
   color?: string;
 }
@@ -39,14 +39,6 @@ type Step = 1 | 2 | 3 | 4 | 5;
 
 const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-async function publicGet<T>(path: string, slug: string): Promise<T> {
-  const res = await fetch(`${PUBLIC_API}${path}`, {
-    headers: { 'X-Tenant-Slug': slug },
-  });
-  if (!res.ok) throw new Error('Error al cargar');
-  return res.json();
-}
-
 export default function BookingPage() {
   const params = useParams();
   const tenantSlug = params.tenantSlug as string;
@@ -68,14 +60,20 @@ export default function BookingPage() {
 
   const { data: servicesData, isLoading: loadingServices } = useQuery({
     queryKey: ['public-services', tenantSlug],
-    queryFn: () =>
-      publicGet<{ data: Service[] }>('/api/services?isActive=true', tenantSlug),
+    queryFn: async () => {
+      const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/services`);
+      if (!res.ok) throw new Error('Error al cargar servicios');
+      return res.json() as Promise<{ data: Service[] }>;
+    },
   });
 
   const { data: employeesData, isLoading: loadingEmployees } = useQuery({
     queryKey: ['public-employees', tenantSlug],
-    queryFn: () =>
-      publicGet<{ data: Employee[] }>('/api/employees?isActive=true', tenantSlug),
+    queryFn: async () => {
+      const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/employees`);
+      if (!res.ok) throw new Error('Error al cargar profesionales');
+      return res.json() as Promise<{ data: Employee[] }>;
+    },
     enabled: step >= 2,
   });
 
@@ -87,30 +85,29 @@ export default function BookingPage() {
       selectedServices.map((s) => s.id),
       selectedEmployee?.id,
     ],
-    queryFn: () =>
-      fetch(`${PUBLIC_API}/api/availability/query`, {
+    queryFn: async () => {
+      const dateStr = selectedDate.format('YYYY-MM-DD');
+      const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/availability`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-Slug': tenantSlug,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          date: selectedDate.format('YYYY-MM-DD'),
+          startDate: dateStr,
+          endDate: dateStr,
           serviceIds: selectedServices.map((s) => s.id),
           employeeId: selectedEmployee?.id,
         }),
-      }).then((r) => r.json()) as Promise<{ data: AvailableSlot[] }>,
+      });
+      if (!res.ok) throw new Error('Error al cargar horarios');
+      return res.json() as Promise<{ data: AvailableSlot[] }>;
+    },
     enabled: step === 3 && selectedServices.length > 0,
   });
 
   const bookMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${PUBLIC_API}/api/appointments/public`, {
+      const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/book`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-Slug': tenantSlug,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceIds: selectedServices.map((s) => s.id),
           employeeId: selectedSlot?.employeeId || selectedEmployee?.id,
@@ -145,7 +142,7 @@ export default function BookingPage() {
     );
   }
 
-  const totalDuration = selectedServices.reduce((acc, s) => acc + s.duration, 0);
+  const totalDuration = selectedServices.reduce((acc, s) => acc + s.durationMinutes, 0);
   const totalPrice = selectedServices.reduce((acc, s) => acc + s.price, 0);
 
   // Generate calendar days for current month view
@@ -179,7 +176,7 @@ export default function BookingPage() {
                 <span className="text-gray-500">Fecha y hora:</span>
                 <span className="font-medium">
                   {formatDate(selectedSlot.startTime)},{' '}
-                  {formatTime(new Date(selectedSlot.startTime).toTimeString().slice(0, 5))}
+                  {formatTime(selectedSlot.startTime.substring(11, 16))}
                 </span>
               </div>
             )}
@@ -283,7 +280,7 @@ export default function BookingPage() {
                           <p className="font-semibold text-gray-900">
                             {formatCurrency(service.price)}
                           </p>
-                          <p className="text-xs text-gray-500">{service.duration} min</p>
+                          <p className="text-xs text-gray-500">{service.durationMinutes} min</p>
                         </div>
                       </div>
                     </button>
@@ -482,11 +479,11 @@ export default function BookingPage() {
               ) : (
                 <div className="grid grid-cols-4 gap-2">
                   {slots.map((slot) => {
-                    const time = new Date(slot.startTime).toTimeString().slice(0, 5);
+                    const time = slot.startTime.substring(11, 16);
                     const isSelected = selectedSlot?.startTime === slot.startTime;
                     return (
                       <button
-                        key={slot.startTime}
+                        key={slot.startTime + slot.employeeId}
                         onClick={() => setSelectedSlot(slot)}
                         className={`py-2 text-sm rounded-lg border transition-colors ${
                           isSelected
@@ -648,9 +645,7 @@ export default function BookingPage() {
                   <p className="text-sm text-gray-700">
                     {formatDate(selectedSlot.startTime, 'dddd, D [de] MMMM YYYY')}{' '}
                     {' · '}
-                    {formatTime(
-                      new Date(selectedSlot.startTime).toTimeString().slice(0, 5),
-                    )}
+                    {formatTime(selectedSlot.startTime.substring(11, 16))}
                   </p>
                 )}
               </div>

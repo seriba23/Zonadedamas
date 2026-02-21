@@ -95,6 +95,7 @@ model Tenant {
   notificationTemplates NotificationTemplate[]
   clientTags            ClientTag[]
   businessHours         BusinessHours[]
+  businessClosures      BusinessClosure[]
 
   @@map("tenants")
 }
@@ -659,6 +660,22 @@ model BusinessHours {
 
   @@unique([tenantId, dayOfWeek])
   @@map("business_hours")
+}
+
+// ─── BUSINESS CLOSURES ─────────────────────────────
+
+model BusinessClosure {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startDate, endDate])
+  @@map("business_closures")
 }
 
 // ─── NOTIFICATIONS ──────────────────────────────────

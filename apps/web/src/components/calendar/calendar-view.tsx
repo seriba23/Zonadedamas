@@ -21,12 +21,30 @@ interface Appointment {
   items?: AppointmentItem[];
 }
 
+export interface BusinessClosure {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+}
+
+export interface EmployeeTimeOff {
+  id: string;
+  employeeId: string;
+  startDatetime: string;
+  endDatetime: string;
+  reason?: string;
+  employee?: { id: string; firstName: string; lastName: string; color?: string };
+}
+
 interface CalendarViewProps {
   date: Dayjs;
   appointments: Appointment[];
   viewMode: 'day' | 'week';
   onSlotClick: (time: string) => void;
   onAppointmentClick: (appointment: Appointment) => void;
+  closures?: BusinessClosure[];
+  employeeTimeOffs?: EmployeeTimeOff[];
 }
 
 const HOUR_START = 7;
@@ -58,6 +76,39 @@ function getAppointmentStyle(
 
   const top = (startOffset / 60) * SLOT_HEIGHT;
   const height = Math.max((durationMins / 60) * SLOT_HEIGHT, 20);
+
+  return { top, height };
+}
+
+function getTimeOffStyle(
+  startDatetime: string,
+  endDatetime: string,
+  dayStr: string,
+): { top: number; height: number } {
+  const dayStart = HOUR_START * 60;
+  const dayEnd = HOUR_END * 60;
+  const toDate = dayStr + 'T00:00:00';
+
+  let startMins = timeToMinutes(startDatetime);
+  let endMins = timeToMinutes(endDatetime);
+
+  // If the time-off spans multiple days, clamp to current day
+  const toStartDate = new Date(startDatetime).toISOString().split('T')[0];
+  const toEndDate = new Date(endDatetime).toISOString().split('T')[0];
+
+  if (toStartDate < dayStr) startMins = dayStart;
+  if (toEndDate > dayStr) endMins = dayEnd;
+
+  startMins = Math.max(startMins, dayStart);
+  endMins = Math.min(endMins, dayEnd);
+
+  if (endMins <= startMins) return { top: 0, height: 0 };
+
+  const startOffset = startMins - dayStart;
+  const durationMins = endMins - startMins;
+
+  const top = (startOffset / 60) * SLOT_HEIGHT;
+  const height = Math.max((durationMins / 60) * SLOT_HEIGHT, 10);
 
   return { top, height };
 }
@@ -129,16 +180,30 @@ function computeOverlapLayout(appointments: Appointment[]): Map<string, LayoutIn
   return result;
 }
 
+function isDateInClosure(date: Dayjs, closures: BusinessClosure[]): BusinessClosure | null {
+  const dateStr = date.format('YYYY-MM-DD');
+  for (const c of closures) {
+    const cStart = c.startDate.split('T')[0];
+    const cEnd = c.endDate.split('T')[0];
+    if (dateStr >= cStart && dateStr <= cEnd) return c;
+  }
+  return null;
+}
+
 function DayColumn({
   date,
   appointments,
   onSlotClick,
   onAppointmentClick,
+  closure,
+  dayTimeOffs,
 }: {
   date: Dayjs;
   appointments: Appointment[];
   onSlotClick: (time: string) => void;
   onAppointmentClick: (appointment: Appointment) => void;
+  closure: BusinessClosure | null;
+  dayTimeOffs: EmployeeTimeOff[];
 }) {
   const dayAppointments = appointments.filter((apt) =>
     dayjs(apt.startTime).isSame(date, 'day'),
@@ -147,6 +212,7 @@ function DayColumn({
   const layout = computeOverlapLayout(dayAppointments);
 
   function handleSlotClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (closure) return; // Don't allow clicks on closed days
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const minutesFromStart = Math.floor((y / SLOT_HEIGHT) * 60) + HOUR_START * 60;
@@ -158,10 +224,11 @@ function DayColumn({
   }
 
   const GAP = 4; // px gap between columns and edges
+  const dayStr = date.format('YYYY-MM-DD');
 
   return (
     <div
-      className="relative flex-1 cursor-pointer"
+      className={`relative flex-1 ${closure ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       style={{ height: CONTAINER_HEIGHT }}
       onClick={handleSlotClick}
     >
@@ -183,8 +250,55 @@ function DayColumn({
         />
       ))}
 
+      {/* Closure overlay */}
+      {closure && (
+        <div className="absolute inset-0 bg-gray-200/60 z-20 flex flex-col items-center justify-center pointer-events-none">
+          <svg className="w-6 h-6 text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span className="text-sm font-semibold text-gray-600">Cerrado</span>
+          <span className="text-xs text-gray-500 mt-0.5 px-2 text-center">{closure.reason}</span>
+        </div>
+      )}
+
+      {/* Employee time-off blocks */}
+      {!closure && dayTimeOffs.map((to) => {
+        const { top, height } = getTimeOffStyle(to.startDatetime, to.endDatetime, dayStr);
+        if (height <= 0) return null;
+        const empColor = to.employee?.color || '#6b7280';
+        const rgb = hexToRgb(empColor);
+        const bgColor = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)` : 'rgba(107, 114, 128, 0.15)';
+        const empName = to.employee ? `${to.employee.firstName} ${to.employee.lastName.charAt(0)}.` : '';
+
+        return (
+          <div
+            key={to.id}
+            className="absolute left-1 right-1 rounded-md border border-dashed overflow-hidden z-5 pointer-events-none"
+            style={{
+              top,
+              height,
+              borderColor: empColor,
+              backgroundColor: bgColor,
+              backgroundImage: `repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 4px,
+                ${rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.08)` : 'rgba(107, 114, 128, 0.08)'} 4px,
+                ${rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.08)` : 'rgba(107, 114, 128, 0.08)'} 8px
+              )`,
+            }}
+          >
+            <div className="px-1.5 py-0.5">
+              <p className="text-xs font-medium truncate" style={{ color: empColor }}>
+                {empName} - {to.reason || 'Ausencia'}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+
       {/* Appointments */}
-      {dayAppointments.map((apt) => {
+      {!closure && dayAppointments.map((apt) => {
         const { top, height } = getAppointmentStyle(apt.startTime, apt.endTime);
         const serviceName = apt.items?.[0]?.serviceNameSnapshot || 'Servicio';
         const totalPrice = apt.items?.reduce((sum, item) => sum + (Number(item.priceSnapshot) || 0), 0) ?? 0;
@@ -244,6 +358,8 @@ export function CalendarView({
   viewMode,
   onSlotClick,
   onAppointmentClick,
+  closures = [],
+  employeeTimeOffs = [],
 }: CalendarViewProps) {
   const hours = Array.from(
     { length: TOTAL_HOURS },
@@ -263,23 +379,35 @@ export function CalendarView({
       {viewMode === 'week' && (
         <div className="flex border-b border-gray-200 bg-white">
           <div className="w-16 flex-shrink-0" />
-          {weekDays.map((day) => (
-            <div
-              key={day.format('YYYY-MM-DD')}
-              className={`flex-1 text-center py-2 border-l border-gray-100 ${isToday(day) ? 'bg-primary-50' : ''}`}
-            >
-              <p className="text-xs text-gray-500 uppercase">
-                {day.format('ddd')}
-              </p>
-              <p
-                className={`text-lg font-semibold ${
-                  isToday(day) ? 'text-primary-600' : 'text-gray-900'
+          {weekDays.map((day) => {
+            const closure = isDateInClosure(day, closures);
+            return (
+              <div
+                key={day.format('YYYY-MM-DD')}
+                className={`flex-1 text-center py-2 border-l border-gray-100 ${
+                  closure ? 'bg-gray-100' : isToday(day) ? 'bg-primary-50' : ''
                 }`}
               >
-                {day.format('D')}
-              </p>
-            </div>
-          ))}
+                <p className="text-xs text-gray-500 uppercase">
+                  {day.format('ddd')}
+                </p>
+                <p
+                  className={`text-lg font-semibold ${
+                    closure
+                      ? 'text-gray-400'
+                      : isToday(day)
+                        ? 'text-primary-600'
+                        : 'text-gray-900'
+                  }`}
+                >
+                  {day.format('D')}
+                </p>
+                {closure && (
+                  <p className="text-xs text-gray-400 truncate px-1">Cerrado</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -310,15 +438,27 @@ export function CalendarView({
 
           {/* Day columns */}
           <div className="flex-1 flex">
-            {weekDays.map((day) => (
-              <DayColumn
-                key={day.format('YYYY-MM-DD')}
-                date={day}
-                appointments={appointments}
-                onSlotClick={onSlotClick}
-                onAppointmentClick={onAppointmentClick}
-              />
-            ))}
+            {weekDays.map((day) => {
+              const closure = isDateInClosure(day, closures);
+              const dayStr = day.format('YYYY-MM-DD');
+              const dayTimeOffs = employeeTimeOffs.filter((to) => {
+                const toStart = to.startDatetime.split('T')[0];
+                const toEnd = to.endDatetime.split('T')[0];
+                return dayStr >= toStart && dayStr <= toEnd;
+              });
+
+              return (
+                <DayColumn
+                  key={dayStr}
+                  date={day}
+                  appointments={appointments}
+                  onSlotClick={onSlotClick}
+                  onAppointmentClick={onAppointmentClick}
+                  closure={closure}
+                  dayTimeOffs={dayTimeOffs}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

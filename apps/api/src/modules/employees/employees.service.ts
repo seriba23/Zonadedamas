@@ -174,6 +174,22 @@ export class EmployeesService {
     return { message: 'Tiempo libre eliminado' };
   }
 
+  async getAllTimeOffs(tenantId: string, startDate: string, endDate: string) {
+    return this.prisma.employeeTimeOff.findMany({
+      where: {
+        employee: { tenantId },
+        startDatetime: { lte: new Date(endDate + 'T23:59:59Z') },
+        endDatetime: { gte: new Date(startDate + 'T00:00:00Z') },
+      },
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true, color: true },
+        },
+      },
+      orderBy: { startDatetime: 'asc' },
+    });
+  }
+
   async getServices(employeeId: string, tenantId: string) {
     await this.findOne(employeeId, tenantId);
     return this.prisma.employeeService.findMany({

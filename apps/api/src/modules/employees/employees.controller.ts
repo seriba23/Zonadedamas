@@ -18,12 +18,20 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 class EmployeeQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   locationId?: string;
+}
+
+class TimeOffQueryDto {
+  @IsDateString()
+  startDate: string;
+
+  @IsDateString()
+  endDate: string;
 }
 
 @Controller('employees')
@@ -38,6 +46,20 @@ export class EmployeesController {
     @Query() query: EmployeeQueryDto,
   ) {
     return this.employeesService.findAll(tenantId, query, query.locationId);
+  }
+
+  @Get('time-offs')
+  @RequirePermissions('employees.read')
+  async getAllTimeOffs(
+    @CurrentTenant() tenantId: string,
+    @Query() query: TimeOffQueryDto,
+  ) {
+    const timeOffs = await this.employeesService.getAllTimeOffs(
+      tenantId,
+      query.startDate,
+      query.endDate,
+    );
+    return { data: timeOffs };
   }
 
   @Post()

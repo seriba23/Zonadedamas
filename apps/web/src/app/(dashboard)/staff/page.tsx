@@ -8,6 +8,7 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { getInitials } from '@/lib/utils';
 import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
+import { EmployeeTimeOffEditor } from '@/components/staff/employee-time-off-editor';
 
 interface Employee {
   id: string;
@@ -67,7 +68,7 @@ export default function StaffPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState<EmployeeForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'datos' | 'horario'>('datos');
+  const [activeTab, setActiveTab] = useState<'datos' | 'horario' | 'ausencias'>('datos');
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees'],
@@ -302,6 +303,17 @@ export default function StaffPage() {
               >
                 Horario
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ausencias')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'ausencias'
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Ausencias
+              </button>
             </div>
           )}
 
@@ -413,6 +425,11 @@ export default function StaffPage() {
           {/* Tab: Horario */}
           {activeTab === 'horario' && editingEmployee && (
             <EmployeeScheduleEditor employeeId={editingEmployee.id} />
+          )}
+
+          {/* Tab: Ausencias */}
+          {activeTab === 'ausencias' && editingEmployee && (
+            <EmployeeTimeOffEditor employeeId={editingEmployee.id} />
           )}
         </Modal>
       )}
