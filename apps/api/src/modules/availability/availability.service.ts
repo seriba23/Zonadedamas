@@ -268,6 +268,117 @@ export class AvailabilityService {
     return merged;
   }
 
+  async getAllSlotsForEmployee(
+    employeeId: string,
+    date: string,
+    serviceIds: string[],
+    tenantId: string,
+  ) {
+    // 1. Fetch services and calculate total duration
+    const services = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds }, tenantId },
+    });
+    const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+    if (totalDuration === 0) {
+      return { scheduleStart: null, scheduleEnd: null, slots: [] };
+    }
+
+    // 2. Get employee
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenantId, isActive: true },
+    });
+    if (!employee) {
+      return { scheduleStart: null, scheduleEnd: null, slots: [] };
+    }
+
+    // 3. Get schedule for this day
+    const dateObj = new Date(date + 'T00:00:00Z');
+    const dayOfWeek = this.getDayOfWeek(dateObj);
+    const schedule = await this.prisma.employeeSchedule.findFirst({
+      where: {
+        employeeId,
+        dayOfWeek,
+        isWorking: true,
+        effectiveFrom: { lte: dateObj },
+        OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: dateObj } }],
+      },
+    });
+
+    if (!schedule) {
+      return { scheduleStart: null, scheduleEnd: null, slots: [] };
+    }
+
+    // 4. Get occupied blocks
+    const dayStart = new Date(`${date}T00:00:00Z`);
+    const dayEnd = new Date(`${date}T23:59:59Z`);
+
+    const [appointments, timeOffs] = await Promise.all([
+      this.prisma.appointment.findMany({
+        where: {
+          employeeId,
+          tenantId,
+          startTime: { gte: dayStart, lt: dayEnd },
+          status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        },
+        orderBy: { startTime: 'asc' },
+      }),
+      this.prisma.employeeTimeOff.findMany({
+        where: {
+          employeeId,
+          startDatetime: { lt: dayEnd },
+          endDatetime: { gt: dayStart },
+        },
+      }),
+    ]);
+
+    const occupiedBlocks: TimeBlock[] = [];
+    for (const appt of appointments) {
+      occupiedBlocks.push({
+        start: new Date(appt.startTime.getTime() - employee.bufferBeforeMinutes * 60000),
+        end: new Date(appt.endTime.getTime() + employee.bufferAfterMinutes * 60000),
+      });
+    }
+    for (const to of timeOffs) {
+      occupiedBlocks.push({ start: to.startDatetime, end: to.endDatetime });
+    }
+
+    occupiedBlocks.sort((a, b) => a.start.getTime() - b.start.getTime());
+    const merged = this.mergeBlocks(occupiedBlocks);
+
+    // 5. Generate ALL slots marking availability
+    const granularity = 15;
+    const scheduleStart = schedule.startTime as string;
+    const scheduleEnd = schedule.endTime as string;
+    const windowStart = new Date(`${date}T${scheduleStart}:00Z`);
+    const windowEnd = new Date(`${date}T${scheduleEnd}:00Z`);
+
+    const slots: Array<{ startTime: string; endTime: string; available: boolean }> = [];
+    let current = new Date(windowStart);
+
+    while (current.getTime() + totalDuration * 60000 <= windowEnd.getTime()) {
+      const slotEnd = new Date(current.getTime() + totalDuration * 60000);
+      let conflict = false;
+
+      for (const block of merged) {
+        if (current < block.end && slotEnd > block.start) {
+          conflict = true;
+          break;
+        }
+      }
+
+      slots.push({
+        startTime: current.toISOString().substring(11, 16),
+        endTime: slotEnd.toISOString().substring(11, 16),
+        available: !conflict,
+      });
+
+      current = new Date(current.getTime() + granularity * 60000);
+    }
+
+    return { scheduleStart, scheduleEnd, slots };
+  }
+
   private generateSlots(
     scheduleStart: string,
     scheduleEnd: string,

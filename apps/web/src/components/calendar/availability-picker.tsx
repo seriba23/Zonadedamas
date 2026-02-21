@@ -13,6 +13,18 @@ interface AvailableSlot {
   employeeName?: string;
 }
 
+interface AllSlotsSlot {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+}
+
+interface AllSlotsResponse {
+  scheduleStart: string | null;
+  scheduleEnd: string | null;
+  slots: AllSlotsSlot[];
+}
+
 interface AvailabilityPickerProps {
   locationId?: string;
   serviceIds: string[];
@@ -38,14 +50,12 @@ export function AvailabilityPicker({
 
   const dateStr = selectedDate.format('YYYY-MM-DD');
 
-  const { data, isLoading } = useQuery({
-    queryKey: [
-      'availability',
-      dateStr,
-      serviceIds,
-      employeeId,
-      locationId,
-    ],
+  // Use all-slots endpoint when a specific employee is selected
+  const useAllSlots = !!employeeId;
+
+  // Standard availability query (any employee or no specific employee)
+  const standardQuery = useQuery({
+    queryKey: ['availability', dateStr, serviceIds, employeeId, locationId],
     queryFn: () =>
       api.post<{ data: AvailableSlot[] }>('/api/availability/query', {
         startDate: dateStr,
@@ -54,14 +64,36 @@ export function AvailabilityPicker({
         employeeId: employeeId || undefined,
         locationId: locationId || undefined,
       }),
-    enabled: serviceIds.length > 0,
+    enabled: serviceIds.length > 0 && !useAllSlots,
   });
 
-  const slots = data?.data || [];
+  // All-slots query (specific employee selected)
+  const allSlotsQuery = useQuery({
+    queryKey: ['all-slots', dateStr, serviceIds, employeeId],
+    queryFn: () =>
+      api.post<{ data: AllSlotsResponse }>('/api/availability/all-slots', {
+        date: dateStr,
+        employeeId,
+        serviceIds,
+      }),
+    enabled: serviceIds.length > 0 && useAllSlots,
+  });
+
+  const isLoading = useAllSlots ? allSlotsQuery.isLoading : standardQuery.isLoading;
+  const standardSlots = standardQuery.data?.data || [];
+  const allSlotsData = allSlotsQuery.data?.data;
 
   function handleSlotSelect(slot: AvailableSlot) {
     setSelectedSlot(slot);
     onSelect(slot.employeeId, slot.startTime, slot.endTime);
+  }
+
+  function handleAllSlotSelect(slot: AllSlotsSlot) {
+    if (!slot.available || !employeeId) return;
+    const fullStart = `${dateStr}T${slot.startTime}:00`;
+    const fullEnd = `${dateStr}T${slot.endTime}:00`;
+    setSelectedSlot({ startTime: fullStart, endTime: fullEnd, employeeId });
+    onSelect(employeeId, fullStart, fullEnd);
   }
 
   return (
@@ -143,9 +175,24 @@ export function AvailabilityPicker({
 
       {/* Time slots */}
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">
-          Horarios disponibles
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium text-gray-700">
+            {useAllSlots ? 'Horarios del empleado' : 'Horarios disponibles'}
+          </p>
+          {useAllSlots && allSlotsData && allSlotsData.slots.length > 0 && (
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded border-2 border-green-400 bg-green-50 inline-block" />
+                Disponible
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded border-2 border-red-300 bg-red-50 inline-block" />
+                Ocupado
+              </span>
+            </div>
+          )}
+        </div>
+
         {serviceIds.length === 0 ? (
           <p className="text-sm text-gray-400">
             Selecciona un servicio primero
@@ -159,33 +206,76 @@ export function AvailabilityPicker({
               />
             ))}
           </div>
-        ) : slots.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">
-            No hay horarios disponibles para esta fecha
-          </p>
+        ) : useAllSlots ? (
+          // All-slots mode: show available + occupied
+          !allSlotsData || allSlotsData.slots.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">
+              El empleado no trabaja este día
+            </p>
+          ) : (
+            <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+              {allSlotsData.slots.map((slot) => {
+                const isSelected =
+                  selectedSlot?.startTime === `${dateStr}T${slot.startTime}:00`;
+
+                if (slot.available) {
+                  return (
+                    <button
+                      key={slot.startTime}
+                      type="button"
+                      onClick={() => handleAllSlotSelect(slot)}
+                      className={`py-1.5 text-sm rounded-lg border-2 transition-colors ${
+                        isSelected
+                          ? 'bg-primary-600 text-white border-primary-600'
+                          : 'border-green-400 bg-green-50 text-green-700 hover:bg-green-100'
+                      }`}
+                    >
+                      {formatTime(slot.startTime)}
+                    </button>
+                  );
+                }
+
+                return (
+                  <div
+                    key={slot.startTime}
+                    className="py-1.5 text-sm rounded-lg border-2 border-red-300 bg-red-50 text-red-400 text-center cursor-not-allowed"
+                  >
+                    {formatTime(slot.startTime)}
+                  </div>
+                );
+              })}
+            </div>
+          )
         ) : (
-          <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
-            {slots.map((slot) => {
-              const time = slot.startTime.includes('T')
-                ? slot.startTime.split('T')[1].substring(0, 5)
-                : slot.startTime.substring(0, 5);
-              const isSelected = selectedSlot?.startTime === slot.startTime;
-              return (
-                <button
-                  key={`${slot.employeeId}-${slot.startTime}`}
-                  type="button"
-                  onClick={() => handleSlotSelect(slot)}
-                  className={`py-1.5 text-sm rounded-lg border transition-colors ${
-                    isSelected
-                      ? 'bg-primary-600 text-white border-primary-600'
-                      : 'border-gray-300 text-gray-700 hover:border-primary-400 hover:bg-primary-50'
-                  }`}
-                >
-                  {formatTime(time)}
-                </button>
-              );
-            })}
-          </div>
+          // Standard mode: only available slots
+          standardSlots.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">
+              No hay horarios disponibles para esta fecha
+            </p>
+          ) : (
+            <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+              {standardSlots.map((slot) => {
+                const time = slot.startTime.includes('T')
+                  ? slot.startTime.split('T')[1].substring(0, 5)
+                  : slot.startTime.substring(0, 5);
+                const isSelected = selectedSlot?.startTime === slot.startTime;
+                return (
+                  <button
+                    key={`${slot.employeeId}-${slot.startTime}`}
+                    type="button"
+                    onClick={() => handleSlotSelect(slot)}
+                    className={`py-1.5 text-sm rounded-lg border transition-colors ${
+                      isSelected
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'border-gray-300 text-gray-700 hover:border-primary-400 hover:bg-primary-50'
+                    }`}
+                  >
+                    {formatTime(time)}
+                  </button>
+                );
+              })}
+            </div>
+          )
         )}
       </div>
     </div>

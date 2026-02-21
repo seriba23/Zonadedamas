@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { getInitials } from '@/lib/utils';
+import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
 
 interface Employee {
   id: string;
@@ -66,6 +67,7 @@ export default function StaffPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState<EmployeeForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'datos' | 'horario'>('datos');
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees'],
@@ -95,6 +97,7 @@ export default function StaffPage() {
     setEditingEmployee(null);
     setForm(defaultForm);
     setFormError(null);
+    setActiveTab('datos');
     setIsModalOpen(true);
   }
 
@@ -108,6 +111,7 @@ export default function StaffPage() {
       color: employee.color || '#008080',
     });
     setFormError(null);
+    setActiveTab('datos');
     setIsModalOpen(true);
   }
 
@@ -116,6 +120,7 @@ export default function StaffPage() {
     setEditingEmployee(null);
     setForm(defaultForm);
     setFormError(null);
+    setActiveTab('datos');
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -268,110 +273,147 @@ export default function StaffPage() {
 
       {isModalOpen && (
         <Modal
-          title={editingEmployee ? 'Editar Empleado' : 'Nuevo Empleado'}
+          title={editingEmployee ? `${editingEmployee.firstName} ${editingEmployee.lastName}` : 'Nuevo Empleado'}
           onClose={closeModal}
+          size={editingEmployee ? 'lg' : 'md'}
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {formError && (
-              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-                {formError}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre *
-                </label>
-                <input
-                  type="text"
-                  value={form.firstName}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, firstName: e.target.value }))
-                  }
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Apellido *
-                </label>
-                <input
-                  type="text"
-                  value={form.lastName}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, lastName: e.target.value }))
-                  }
-                  className="input-field"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, email: e.target.value }))
-                }
-                className="input-field"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, phone: e.target.value }))
-                }
-                className="input-field"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Color
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {COLOR_PALETTE.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, color }))}
-                    className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                      form.color === color
-                        ? 'border-gray-900 scale-110'
-                        : 'border-transparent hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={closeModal} className="btn-secondary">
-                Cancelar
+          {/* Tabs — only show when editing */}
+          {editingEmployee && (
+            <div className="flex gap-1 mb-4 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setActiveTab('datos')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'datos'
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Datos
               </button>
               <button
-                type="submit"
-                disabled={saveMutation.isPending}
-                className="btn-primary"
+                type="button"
+                onClick={() => setActiveTab('horario')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'horario'
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
               >
-                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
+                Horario
               </button>
             </div>
-          </form>
+          )}
+
+          {/* Tab: Datos */}
+          {activeTab === 'datos' && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                  {formError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre *
+                  </label>
+                  <input
+                    type="text"
+                    value={form.firstName}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, firstName: e.target.value }))
+                    }
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Apellido *
+                  </label>
+                  <input
+                    type="text"
+                    value={form.lastName}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, lastName: e.target.value }))
+                    }
+                    className="input-field"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, email: e.target.value }))
+                  }
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, phone: e.target.value }))
+                  }
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Color
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {COLOR_PALETTE.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, color }))}
+                      className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                        form.color === color
+                          ? 'border-gray-900 scale-110'
+                          : 'border-transparent hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={closeModal} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="btn-primary"
+                >
+                  {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Tab: Horario */}
+          {activeTab === 'horario' && editingEmployee && (
+            <EmployeeScheduleEditor employeeId={editingEmployee.id} />
+          )}
         </Modal>
       )}
     </div>

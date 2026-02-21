@@ -33,8 +33,8 @@ const PERMISSIONS = [
   { module: 'employees', action: 'read', description: 'Read/view employees' },
   { module: 'employees', action: 'update', description: 'Update employees' },
   { module: 'employees', action: 'delete', description: 'Delete employees' },
-  { module: 'employees', action: 'schedules.manage', description: 'Manage employee schedules' },
-  { module: 'employees', action: 'time_off.manage', description: 'Manage employee time off' },
+  { module: 'employees', action: 'manage_schedule', description: 'Manage employee schedules' },
+  { module: 'employees', action: 'manage_time_off', description: 'Manage employee time off' },
   // resources
   { module: 'resources', action: 'create', description: 'Create resources' },
   { module: 'resources', action: 'read', description: 'Read/view resources' },
@@ -58,6 +58,9 @@ const PERMISSIONS = [
   { module: 'automations', action: 'update', description: 'Update automation rules' },
   { module: 'automations', action: 'delete', description: 'Delete automation rules' },
   { module: 'automations', action: 'execute', description: 'Execute automation rules manually' },
+  // tenant
+  { module: 'tenant', action: 'read', description: 'View tenant/business settings' },
+  { module: 'tenant', action: 'update', description: 'Update tenant/business settings' },
   // settings
   { module: 'settings', action: 'general', description: 'Manage general settings' },
   { module: 'settings', action: 'billing', description: 'Manage billing settings' },
@@ -111,8 +114,8 @@ const MANAGER_PERMISSIONS: PermissionKey[] = [
   permKey('clients', 'export'),
   permKey('services', 'read'),
   permKey('employees', 'read'),
-  permKey('employees', 'schedules.manage'),
-  permKey('employees', 'time_off.manage'),
+  permKey('employees', 'manage_schedule'),
+  permKey('employees', 'manage_time_off'),
   permKey('resources', 'read'),
   permKey('payments', 'create'),
   permKey('payments', 'read'),
@@ -667,6 +670,33 @@ async function main() {
     }
   }
   console.log(`  ${clientsData.length} clients seeded.`);
+
+  // 10. Create business hours
+  console.log('Seeding business hours...');
+
+  const businessHoursData = [
+    { dayOfWeek: 'MONDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'TUESDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'WEDNESDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'THURSDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'FRIDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'SATURDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'SUNDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: false },
+  ];
+
+  for (const bh of businessHoursData) {
+    await prisma.businessHours.upsert({
+      where: {
+        tenantId_dayOfWeek: { tenantId: tenant.id, dayOfWeek: bh.dayOfWeek },
+      },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        ...bh,
+      },
+    });
+  }
+  console.log(`  ${businessHoursData.length} business hours seeded.`);
 
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');

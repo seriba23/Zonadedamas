@@ -94,6 +94,7 @@ model Tenant {
   automationRules       AutomationRule[]
   notificationTemplates NotificationTemplate[]
   clientTags            ClientTag[]
+  businessHours         BusinessHours[]
 
   @@map("tenants")
 }
@@ -642,6 +643,22 @@ model AutomationRule {
   @@index([tenantId])
   @@index([tenantId, isActive])
   @@map("automation_rules")
+}
+
+// ─── BUSINESS HOURS ────────────────────────────────
+
+model BusinessHours {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  dayOfWeek DayOfWeek @map("day_of_week")
+  openTime  String    @map("open_time")
+  closeTime String    @map("close_time")
+  isOpen    Boolean   @default(true) @map("is_open")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, dayOfWeek])
+  @@map("business_hours")
 }
 
 // ─── NOTIFICATIONS ──────────────────────────────────

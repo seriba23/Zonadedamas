@@ -11,6 +11,7 @@ import {
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
+import { SetBusinessHoursDto } from './dto/business-hours.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -75,5 +76,25 @@ export class TenantsController {
   ) {
     const result = await this.tenantsService.deleteLocation(id, tenantId);
     return { data: result };
+  }
+
+  // Business Hours
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.read')
+  @Get('tenant/business-hours')
+  async getBusinessHours(@CurrentTenant() tenantId: string) {
+    const hours = await this.tenantsService.getBusinessHours(tenantId);
+    return { data: hours };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.update')
+  @Put('tenant/business-hours')
+  async setBusinessHours(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: SetBusinessHoursDto,
+  ) {
+    const hours = await this.tenantsService.setBusinessHours(tenantId, dto);
+    return { data: hours };
   }
 }

@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
+import { SetBusinessHoursDto } from './dto/business-hours.dto';
 
 // All 53 permissions for the platform
 const ALL_PERMISSIONS = [
@@ -257,6 +258,22 @@ export class TenantsService {
     });
   }
 
+  async findBySlug(slug: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        timezone: true,
+        currency: true,
+      },
+    });
+    if (!tenant) throw new NotFoundException('Negocio no encontrado');
+    return tenant;
+  }
+
   async getCurrent(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -315,5 +332,50 @@ export class TenantsService {
 
     await this.prisma.location.delete({ where: { id } });
     return { message: 'Ubicación eliminada' };
+  }
+
+  // Business Hours
+  private readonly DEFAULT_BUSINESS_HOURS = [
+    { dayOfWeek: 'MONDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'TUESDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'WEDNESDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'THURSDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'FRIDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'SATURDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: true },
+    { dayOfWeek: 'SUNDAY' as const, openTime: '09:00', closeTime: '18:00', isOpen: false },
+  ];
+
+  async getBusinessHours(tenantId: string) {
+    const existing = await this.prisma.businessHours.findMany({
+      where: { tenantId },
+      orderBy: { dayOfWeek: 'asc' },
+    });
+
+    // Fill missing days with defaults
+    const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    const existingMap = new Map(existing.map((h) => [h.dayOfWeek, h]));
+
+    return dayOrder.map((day) => {
+      const found = existingMap.get(day as any);
+      if (found) return found;
+      const def = this.DEFAULT_BUSINESS_HOURS.find((d) => d.dayOfWeek === day)!;
+      return { id: null, tenantId, ...def };
+    });
+  }
+
+  async setBusinessHours(tenantId: string, dto: SetBusinessHoursDto) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.businessHours.deleteMany({ where: { tenantId } });
+      await tx.businessHours.createMany({
+        data: dto.hours.map((h) => ({
+          tenantId,
+          dayOfWeek: h.dayOfWeek,
+          openTime: h.openTime,
+          closeTime: h.closeTime,
+          isOpen: h.isOpen,
+        })),
+      });
+    });
+    return this.getBusinessHours(tenantId);
   }
 }

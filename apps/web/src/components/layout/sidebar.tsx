@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Recursos', href: '/resources', icon: '🏠', permission: 'resources.read' },
   { label: 'POS', href: '/pos', icon: '💰', permission: 'payments.create' },
   { label: 'Reportes', href: '/reports', icon: '📊', permission: 'reports.revenue' },
+  { label: 'Horarios', href: '/settings/hours', icon: '🕐', permission: 'tenant.update' },
   { label: 'Configuración', href: '/settings/roles', icon: '⚙️', permission: 'roles.read' },
 ];
 

@@ -1,6 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AvailabilityService } from './availability.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { AllSlotsQueryDto } from './dto/all-slots-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -41,5 +42,20 @@ export class AvailabilityController {
     }
 
     return { data: flatSlots };
+  }
+
+  @Post('all-slots')
+  @RequirePermissions('availability.read')
+  async allSlots(
+    @CurrentTenant() tenantId: string,
+    @Body() query: AllSlotsQueryDto,
+  ) {
+    const result = await this.availabilityService.getAllSlotsForEmployee(
+      query.employeeId,
+      query.date,
+      query.serviceIds,
+      tenantId,
+    );
+    return { data: result };
   }
 }
