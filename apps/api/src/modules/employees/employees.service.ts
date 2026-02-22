@@ -101,19 +101,10 @@ export class EmployeesService {
     await this.findOne(employeeId, tenantId);
 
     return this.prisma.$transaction(async (tx) => {
-      // Delete existing schedules for the same effectiveFrom date
-      const effectiveDates = [
-        ...new Set(dto.schedules.map((s) => s.effectiveFrom)),
-      ];
-
-      for (const date of effectiveDates) {
-        await tx.employeeSchedule.deleteMany({
-          where: {
-            employeeId,
-            effectiveFrom: new Date(date),
-          },
-        });
-      }
+      // Delete all existing schedules for this employee
+      await tx.employeeSchedule.deleteMany({
+        where: { employeeId },
+      });
 
       // Create new schedules
       const created = await tx.employeeSchedule.createMany({

@@ -126,6 +126,19 @@ export default function CalendarPage() {
       ),
   });
 
+  // Fetch business hours to know which days are closed
+  const { data: businessHoursData } = useQuery({
+    queryKey: ['business-hours'],
+    queryFn: () =>
+      api.get<{ data: Array<{ dayOfWeek: string; isOpen: boolean }> }>('/api/tenant/business-hours'),
+  });
+
+  const businessClosedDays = new Set(
+    (businessHoursData?.data || [])
+      .filter((h) => !h.isOpen)
+      .map((h) => h.dayOfWeek),
+  );
+
   // Fetch employee time-offs for visible range
   const { data: timeOffsData } = useQuery({
     queryKey: ['calendar-time-offs', startDate, endDate],

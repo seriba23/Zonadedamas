@@ -71,14 +71,24 @@ export class AvailabilityService {
       return { data: [] };
     }
 
-    // 3. Fetch business closures for the range
-    const closures = await this.prisma.businessClosure.findMany({
-      where: {
-        tenantId,
-        startDate: { lte: new Date(query.endDate + 'T23:59:59Z') },
-        endDate: { gte: new Date(query.startDate + 'T00:00:00Z') },
-      },
-    });
+    // 3. Fetch business hours and closures
+    const [businessHours, closures] = await Promise.all([
+      this.prisma.businessHours.findMany({
+        where: { tenantId },
+      }),
+      this.prisma.businessClosure.findMany({
+        where: {
+          tenantId,
+          startDate: { lte: new Date(query.endDate + 'T23:59:59Z') },
+          endDate: { gte: new Date(query.startDate + 'T00:00:00Z') },
+        },
+      }),
+    ]);
+
+    // Build set of days the business is closed
+    const businessClosedDays = new Set(
+      businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek),
+    );
 
     // 4. Iterate over date range
     const results: Array<{
@@ -100,7 +110,11 @@ export class AvailabilityService {
     ) {
       const dateStr = date.toISOString().split('T')[0];
 
-      // Skip closed days
+      // Skip days the business is closed (weekly schedule)
+      const dayOfWeekForDate = this.getDayOfWeek(date);
+      if (businessClosedDays.has(dayOfWeekForDate)) continue;
+
+      // Skip temporary closure days
       const isClosed = closures.some((c) => {
         const cStart = c.startDate.toISOString().split('T')[0];
         const cEnd = c.endDate.toISOString().split('T')[0];
@@ -291,7 +305,17 @@ export class AvailabilityService {
     serviceIds: string[],
     tenantId: string,
   ) {
-    // 1. Check if business is closed on this date
+    // 1a. Check if business is closed on this day of the week
+    const dateObj2 = new Date(date + 'T00:00:00Z');
+    const dayOfWeekForDate = this.getDayOfWeek(dateObj2);
+    const businessHour = await this.prisma.businessHours.findFirst({
+      where: { tenantId, dayOfWeek: dayOfWeekForDate },
+    });
+    if (businessHour && !businessHour.isOpen) {
+      return { scheduleStart: null, scheduleEnd: null, slots: [], closureReason: 'Negocio cerrado este día' };
+    }
+
+    // 1b. Check if business has a temporary closure on this date
     const closure = await this.prisma.businessClosure.findFirst({
       where: {
         tenantId,

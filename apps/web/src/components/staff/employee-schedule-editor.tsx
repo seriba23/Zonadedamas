@@ -13,6 +13,11 @@ interface Schedule {
   effectiveFrom: string;
 }
 
+interface BusinessHour {
+  dayOfWeek: string;
+  isOpen: boolean;
+}
+
 interface EmployeeScheduleEditorProps {
   employeeId: string;
 }
@@ -59,6 +64,18 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
     queryFn: () =>
       api.get<{ data: Schedule[] }>(`/api/employees/${employeeId}/schedules`),
   });
+
+  const { data: businessHoursData } = useQuery({
+    queryKey: ['business-hours'],
+    queryFn: () => api.get<{ data: BusinessHour[] }>('/api/tenant/business-hours'),
+  });
+
+  // Map of days the business is closed
+  const businessClosedDays = new Set<string>(
+    (businessHoursData?.data || [])
+      .filter((h) => !h.isOpen)
+      .map((h) => h.dayOfWeek),
+  );
 
   useEffect(() => {
     if (data?.data && data.data.length > 0) {
@@ -131,64 +148,86 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
       </p>
 
       <div className="space-y-2">
-        {schedules.map((day) => (
-          <div
-            key={day.dayOfWeek}
-            className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-              day.isWorking
-                ? 'bg-white border-gray-200'
-                : 'bg-gray-50 border-gray-100'
-            }`}
-          >
-            <div className="w-24 flex-shrink-0">
-              <span className="text-sm font-medium text-gray-900">
-                {DAY_LABELS[day.dayOfWeek]}
-              </span>
-            </div>
+        {schedules.map((day) => {
+          const businessClosed = businessClosedDays.has(day.dayOfWeek);
 
-            <button
-              type="button"
-              onClick={() => updateDay(day.dayOfWeek, 'isWorking', !day.isWorking)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                day.isWorking ? 'bg-primary-600' : 'bg-gray-300'
+          return (
+            <div
+              key={day.dayOfWeek}
+              className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                businessClosed
+                  ? 'bg-red-50/50 border-red-100'
+                  : day.isWorking
+                    ? 'bg-white border-gray-200'
+                    : 'bg-gray-50 border-gray-100'
               }`}
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  day.isWorking ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-
-            <span className={`text-xs w-14 flex-shrink-0 ${day.isWorking ? 'text-green-600' : 'text-gray-400'}`}>
-              {day.isWorking ? 'Trabaja' : 'Libre'}
-            </span>
-
-            {day.isWorking && (
-              <div className="flex items-center gap-2 flex-1">
-                <select
-                  value={day.startTime}
-                  onChange={(e) => updateDay(day.dayOfWeek, 'startTime', e.target.value)}
-                  className="input-field py-1 text-sm"
-                >
-                  {TIME_OPTIONS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                <span className="text-gray-400 text-xs">a</span>
-                <select
-                  value={day.endTime}
-                  onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}
-                  className="input-field py-1 text-sm"
-                >
-                  {TIME_OPTIONS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+              <div className="w-24 flex-shrink-0">
+                <span className={`text-sm font-medium ${businessClosed ? 'text-gray-400' : 'text-gray-900'}`}>
+                  {DAY_LABELS[day.dayOfWeek]}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
+
+              {businessClosed ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v.01M12 12v-4m0 0a9 9 0 110 18 9 9 0 010-18z" />
+                    </svg>
+                    Negocio cerrado
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    No se pueden agendar citas este día
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => updateDay(day.dayOfWeek, 'isWorking', !day.isWorking)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                      day.isWorking ? 'bg-primary-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        day.isWorking ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+
+                  <span className={`text-xs w-14 flex-shrink-0 ${day.isWorking ? 'text-green-600' : 'text-gray-400'}`}>
+                    {day.isWorking ? 'Trabaja' : 'Libre'}
+                  </span>
+
+                  {day.isWorking && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <select
+                        value={day.startTime}
+                        onChange={(e) => updateDay(day.dayOfWeek, 'startTime', e.target.value)}
+                        className="input-field py-1 text-sm"
+                      >
+                        {TIME_OPTIONS.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                      <span className="text-gray-400 text-xs">a</span>
+                      <select
+                        value={day.endTime}
+                        onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}
+                        className="input-field py-1 text-sm"
+                      >
+                        {TIME_OPTIONS.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex justify-end">

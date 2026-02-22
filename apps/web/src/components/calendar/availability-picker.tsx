@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { api } from '@/lib/api';
@@ -23,12 +23,14 @@ interface AllSlotsResponse {
   scheduleStart: string | null;
   scheduleEnd: string | null;
   slots: AllSlotsSlot[];
+  closureReason?: string;
 }
 
 interface AvailabilityPickerProps {
   locationId?: string;
   serviceIds: string[];
   employeeId?: string;
+  initialDateTime?: string; // e.g. "2026-02-22T09:00:00"
   onSelect: (employeeId: string, startTime: string, endTime: string) => void;
 }
 
@@ -36,10 +38,15 @@ export function AvailabilityPicker({
   locationId,
   serviceIds,
   employeeId,
+  initialDateTime,
   onSelect,
 }: AvailabilityPickerProps) {
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
+  const initialDate = initialDateTime ? dayjs(initialDateTime) : dayjs();
+  const initialTime = initialDateTime ? initialDateTime.split('T')[1]?.substring(0, 5) : null;
+
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(initialDate);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const autoSelectedRef = useRef(false);
 
   const startOfMonth = selectedDate.startOf('month');
   const daysInMonth = selectedDate.daysInMonth();
@@ -82,6 +89,36 @@ export function AvailabilityPicker({
   const isLoading = useAllSlots ? allSlotsQuery.isLoading : standardQuery.isLoading;
   const standardSlots = standardQuery.data?.data || [];
   const allSlotsData = allSlotsQuery.data?.data;
+
+  // Auto-select the initial time slot if available
+  useEffect(() => {
+    if (autoSelectedRef.current || !initialTime || selectedSlot) return;
+
+    if (useAllSlots && allSlotsData && allSlotsData.slots.length > 0) {
+      const match = allSlotsData.slots.find(
+        (s) => s.startTime === initialTime && s.available,
+      );
+      if (match && employeeId) {
+        autoSelectedRef.current = true;
+        const fullStart = `${dateStr}T${match.startTime}:00`;
+        const fullEnd = `${dateStr}T${match.endTime}:00`;
+        setSelectedSlot({ startTime: fullStart, endTime: fullEnd, employeeId });
+        onSelect(employeeId, fullStart, fullEnd);
+      }
+    } else if (!useAllSlots && standardSlots.length > 0) {
+      const match = standardSlots.find((s) => {
+        const time = s.startTime.includes('T')
+          ? s.startTime.split('T')[1].substring(0, 5)
+          : s.startTime.substring(0, 5);
+        return time === initialTime;
+      });
+      if (match) {
+        autoSelectedRef.current = true;
+        setSelectedSlot(match);
+        onSelect(match.employeeId, match.startTime, match.endTime);
+      }
+    }
+  }, [allSlotsData, standardSlots, initialTime, useAllSlots, employeeId, dateStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSlotSelect(slot: AvailableSlot) {
     setSelectedSlot(slot);
@@ -209,9 +246,17 @@ export function AvailabilityPicker({
         ) : useAllSlots ? (
           // All-slots mode: show available + occupied
           !allSlotsData || allSlotsData.slots.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">
-              El empleado no trabaja este día
-            </p>
+            <div className="py-4 text-center">
+              {allSlotsData?.closureReason ? (
+                <p className="text-sm text-red-500 font-medium">
+                  Negocio cerrado el día {selectedDate.date()} de {selectedDate.format('MMMM')}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  El empleado no trabaja este día
+                </p>
+              )}
+            </div>
           ) : (
             <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
               {allSlotsData.slots.map((slot) => {

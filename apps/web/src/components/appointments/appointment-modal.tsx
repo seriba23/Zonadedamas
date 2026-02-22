@@ -62,9 +62,7 @@ export function AppointmentModal({
   // Form state for new appointment
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
-  const [selectedStartTime, setSelectedStartTime] = useState(
-    initialStartTime || '',
-  );
+  const [selectedStartTime, setSelectedStartTime] = useState('');
   const [selectedEndTime, setSelectedEndTime] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -502,6 +500,8 @@ export function AppointmentModal({
                     type="checkbox"
                     checked={selectedServiceIds.includes(s.id)}
                     onChange={(e) => {
+                      setSelectedStartTime('');
+                      setSelectedEndTime('');
                       if (e.target.checked) {
                         setSelectedServiceIds((ids) => [...ids, s.id]);
                       } else {
@@ -536,7 +536,11 @@ export function AppointmentModal({
             </label>
             <select
               value={selectedEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              onChange={(e) => {
+                setSelectedEmployeeId(e.target.value);
+                setSelectedStartTime('');
+                setSelectedEndTime('');
+              }}
               className="input-field"
             >
               <option value="">Cualquier profesional disponible</option>
@@ -557,6 +561,7 @@ export function AppointmentModal({
               <AvailabilityPicker
                 serviceIds={selectedServiceIds}
                 employeeId={selectedEmployeeId || undefined}
+                initialDateTime={initialStartTime}
                 onSelect={(empId, start, end) => {
                   setSelectedEmployeeId(empId);
                   setSelectedStartTime(start);
@@ -590,8 +595,14 @@ export function AppointmentModal({
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
-              className="btn-primary flex-1"
+              disabled={
+                createMutation.isPending ||
+                !selectedClientId ||
+                selectedServiceIds.length === 0 ||
+                !selectedStartTime ||
+                !selectedEmployeeId
+              }
+              className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createMutation.isPending ? 'Creando...' : 'Crear cita'}
             </button>
