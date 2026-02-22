@@ -30,15 +30,13 @@ export async function login(
 
 export async function logout(): Promise<void> {
   const refreshToken = localStorage.getItem('refreshToken');
-  if (refreshToken) {
-    try {
-      await api.post('/api/auth/logout', { refreshToken });
-    } catch {
-      // Ignore errors on logout
-    }
-  }
+  // Clear local session immediately (no waiting)
   api.setAccessToken(null);
   localStorage.removeItem('refreshToken');
+  // Revoke token on backend in the background
+  if (refreshToken) {
+    api.post('/api/auth/logout', { refreshToken }).catch(() => {});
+  }
 }
 
 export async function getMe(): Promise<{ data: AuthUser }> {

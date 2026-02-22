@@ -41,10 +41,6 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(matchedUser);
-    const permissions = await this.rbacService.getUserPermissions(
-      matchedUser.id,
-      matchedUser.tenantId,
-    );
 
     return {
       accessToken: tokens.accessToken,
@@ -55,20 +51,21 @@ export class AuthService {
         firstName: matchedUser.firstName,
         lastName: matchedUser.lastName,
         tenantId: matchedUser.tenantId,
-        permissions,
+        permissions: tokens.permissions,
       },
     };
   }
 
   async refresh(refreshToken: string) {
-    // Find all non-revoked, non-expired tokens and compare hashes
-    const storedTokens = await this.prisma.refreshToken.findMany({
-      where: { revokedAt: null },
+    // Use tokenHint (first 8 chars) to narrow candidates before bcrypt
+    const tokenHint = refreshToken.substring(0, 8);
+    const candidates = await this.prisma.refreshToken.findMany({
+      where: { tokenHint, revokedAt: null },
       include: { user: true },
     });
 
-    let matched: (typeof storedTokens)[0] | null = null;
-    for (const stored of storedTokens) {
+    let matched: (typeof candidates)[0] | null = null;
+    for (const stored of candidates) {
       const isMatch = await bcrypt.compare(refreshToken, stored.tokenHash);
       if (isMatch) {
         matched = stored;
@@ -94,17 +91,23 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
+    // Clean up expired tokens in the background
+    this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    }).catch(() => {});
+
     const tokens = await this.generateTokens(matched.user);
-    return tokens;
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
   }
 
   async logout(refreshToken: string) {
-    // Find and revoke the matching token
-    const storedTokens = await this.prisma.refreshToken.findMany({
-      where: { revokedAt: null },
+    // Use tokenHint to narrow candidates before bcrypt
+    const tokenHint = refreshToken.substring(0, 8);
+    const candidates = await this.prisma.refreshToken.findMany({
+      where: { tokenHint, revokedAt: null },
     });
 
-    for (const stored of storedTokens) {
+    for (const stored of candidates) {
       const isMatch = await bcrypt.compare(refreshToken, stored.tokenHash);
       if (isMatch) {
         await this.prisma.refreshToken.update({
@@ -143,10 +146,14 @@ export class AuthService {
   }
 
   private async generateTokens(user: { id: string; tenantId: string; email: string }) {
+    // Fetch permissions once and embed in JWT
+    const permissions = await this.rbacService.getUserPermissions(user.id, user.tenantId);
+
     const payload = {
       sub: user.id,
       tenantId: user.tenantId,
       email: user.email,
+      permissions,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -155,17 +162,19 @@ export class AuthService {
 
     const refreshToken = uuidv4();
     const tokenHash = await bcrypt.hash(refreshToken, 10);
+    const tokenHint = refreshToken.substring(0, 8);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
     await this.prisma.refreshToken.create({
       data: {
         tokenHash,
+        tokenHint,
         userId: user.id,
         expiresAt,
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, permissions };
   }
 }

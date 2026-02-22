@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import { formatTime } from '@/lib/utils';
 
@@ -205,11 +206,12 @@ function DayColumn({
   closure: BusinessClosure | null;
   dayTimeOffs: EmployeeTimeOff[];
 }) {
-  const dayAppointments = appointments.filter((apt) =>
-    dayjs(apt.startTime).isSame(date, 'day'),
+  const dayAppointments = useMemo(
+    () => appointments.filter((apt) => dayjs(apt.startTime).isSame(date, 'day')),
+    [appointments, date],
   );
 
-  const layout = computeOverlapLayout(dayAppointments);
+  const layout = useMemo(() => computeOverlapLayout(dayAppointments), [dayAppointments]);
 
   function handleSlotClick(e: React.MouseEvent<HTMLDivElement>) {
     if (closure) return; // Don't allow clicks on closed days

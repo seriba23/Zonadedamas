@@ -17,6 +17,7 @@ export interface ApiError {
 class ApiClient {
   private baseUrl: string;
   private accessToken: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -69,6 +70,20 @@ class ApiClient {
   }
 
   private async tryRefresh(): Promise<boolean> {
+    // Singleton: avoid multiple parallel refresh calls
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = this.doRefresh();
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async doRefresh(): Promise<boolean> {
     const refreshToken =
       typeof window !== 'undefined'
         ? localStorage.getItem('refreshToken')

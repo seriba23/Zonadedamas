@@ -6,16 +6,12 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { RbacService } from '../../modules/rbac/rbac.service';
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly rbacService: RbacService,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
@@ -32,10 +28,7 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('Usuario no autenticado');
     }
 
-    const userPermissions = await this.rbacService.getUserPermissions(
-      user.userId,
-      user.tenantId,
-    );
+    const userPermissions: string[] = user.permissions || [];
 
     const hasAll = requiredPermissions.every((perm) =>
       userPermissions.includes(perm),
