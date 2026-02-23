@@ -96,6 +96,8 @@ model Tenant {
   clientTags            ClientTag[]
   businessHours         BusinessHours[]
   businessClosures      BusinessClosure[]
+  employeeReviews       EmployeeReview[]
+  inviteCodes           TenantInviteCode[]
 
   @@map("tenants")
 }
@@ -255,6 +257,7 @@ model Client {
   appointments Appointment[]
   payments     Payment[]
   tags         ClientTagMap[]
+  reviews      EmployeeReview[]
 
   @@index([tenantId])
   @@index([tenantId, email])
@@ -348,6 +351,12 @@ model Employee {
   avatarUrl           String?  @map("avatar_url")
   color               String   @default("#008080")
   bio                 String?  @db.Text
+  bloodType                String?  @map("blood_type") @db.VarChar(5)
+  emergencyContactName     String?  @map("emergency_contact_name")
+  emergencyContactLastName String?  @map("emergency_contact_last_name")
+  emergencyContactPhone    String?  @map("emergency_contact_phone")
+  emergencyContactRelation String?  @map("emergency_contact_relation") @db.VarChar(50)
+  allergies                String?  @db.Text
   isActive            Boolean  @default(true) @map("is_active")
   bufferBeforeMinutes Int      @default(0) @map("buffer_before_minutes")
   bufferAfterMinutes  Int      @default(0) @map("buffer_after_minutes")
@@ -363,6 +372,10 @@ model Employee {
   timeOffs         EmployeeTimeOff[]
   appointments     Appointment[]
   appointmentItems AppointmentItem[]
+  portfolioImages  EmployeePortfolioImage[]
+  reviews          EmployeeReview[]
+  documents        EmployeeDocument[]
+  trainings        EmployeeTraining[]
 
   @@index([tenantId])
   @@index([tenantId, locationId])
@@ -374,6 +387,7 @@ model EmployeeService {
   serviceId      String   @map("service_id")
   customPrice    Decimal? @map("custom_price") @db.Decimal(10, 2)
   customDuration Int?     @map("custom_duration")
+  commission     Decimal? @map("commission") @db.Decimal(10, 2)
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -475,6 +489,7 @@ model Appointment {
   items         AppointmentItem[]
   statusHistory AppointmentStatusHistory[]
   payments      Payment[]
+  review        EmployeeReview?
 
   @@index([tenantId, locationId, startTime])
   @@index([employeeId, startTime, endTime])
@@ -484,16 +499,17 @@ model Appointment {
 }
 
 model AppointmentItem {
-  id                  String  @id @default(uuid())
-  appointmentId       String  @map("appointment_id")
-  serviceId           String  @map("service_id")
-  employeeId          String  @map("employee_id")
-  resourceId          String? @map("resource_id")
+  id                  String   @id @default(uuid())
+  appointmentId       String   @map("appointment_id")
+  serviceId           String   @map("service_id")
+  employeeId          String   @map("employee_id")
+  resourceId          String?  @map("resource_id")
   startTime           DateTime @map("start_time")
   endTime             DateTime @map("end_time")
-  priceSnapshot       Decimal @map("price_snapshot") @db.Decimal(10, 2)
-  durationSnapshot    Int     @map("duration_snapshot")
-  serviceNameSnapshot String  @map("service_name_snapshot")
+  priceSnapshot       Decimal  @map("price_snapshot") @db.Decimal(10, 2)
+  commissionSnapshot  Decimal? @map("commission_snapshot") @db.Decimal(10, 2)
+  durationSnapshot    Int      @map("duration_snapshot")
+  serviceNameSnapshot String   @map("service_name_snapshot")
   notes               String?
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -696,4 +712,95 @@ model NotificationTemplate {
 
   @@index([tenantId, eventTrigger])
   @@map("notification_templates")
+}
+
+// ─── TENANT INVITE CODES ──────────────────────────
+
+model TenantInviteCode {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  code      String    @unique
+  maxUses   Int       @default(0) @map("max_uses")
+  usedCount Int       @default(0) @map("used_count")
+  expiresAt DateTime? @map("expires_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_invite_codes")
+}
+
+// ─── EMPLOYEE PORTFOLIO ────────────────────────────
+
+model EmployeePortfolioImage {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  imageUrl   String   @map("image_url")
+  caption    String?  @db.VarChar(255)
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_portfolio_images")
+}
+
+// ─── EMPLOYEE REVIEWS ──────────────────────────────
+
+model EmployeeReview {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  employeeId    String   @map("employee_id")
+  clientId      String   @map("client_id")
+  appointmentId String   @unique @map("appointment_id")
+  rating        Int
+  comment       String?  @db.Text
+  isVisible     Boolean  @default(true) @map("is_visible")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([tenantId])
+  @@map("employee_reviews")
+}
+
+// ─── EMPLOYEE DOCUMENTS ───────────────────────────
+
+model EmployeeDocument {
+  id           String   @id @default(uuid())
+  employeeId   String   @map("employee_id")
+  documentType String   @map("document_type") @db.VarChar(50)
+  fileUrl      String   @map("file_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, documentType])
+  @@index([employeeId])
+  @@map("employee_documents")
+}
+
+// ─── EMPLOYEE TRAININGS ───────────────────────────
+
+model EmployeeTraining {
+  id            String    @id @default(uuid())
+  employeeId    String    @map("employee_id")
+  title         String    @db.VarChar(200)
+  institution   String?   @db.VarChar(200)
+  dateCompleted DateTime? @map("date_completed") @db.Date
+  fileUrl       String?   @map("file_url")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("employee_trainings")
 }

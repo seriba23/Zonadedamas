@@ -36,6 +36,17 @@ export class AppointmentsService {
       throw new NotFoundException('Uno o más servicios no encontrados');
     }
 
+    // Fetch employee-specific pricing (customPrice, commission)
+    const employeeServices = await this.prisma.employeeService.findMany({
+      where: {
+        employeeId: dto.employeeId,
+        serviceId: { in: dto.serviceIds },
+      },
+    });
+    const empServiceMap = new Map(
+      employeeServices.map((es) => [es.serviceId, es]),
+    );
+
     // Calculate total duration and end time
     const totalDuration = services.reduce(
       (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
@@ -68,6 +79,9 @@ export class AppointmentsService {
           let currentStart = new Date(startTime);
           const items = [];
           for (const service of services) {
+            const empSvc = empServiceMap.get(service.id);
+            const price = empSvc?.customPrice ?? service.price;
+            const commission = empSvc?.commission ?? null;
             const itemEnd = new Date(
               currentStart.getTime() + service.durationMinutes * 60000,
             );
@@ -77,7 +91,8 @@ export class AppointmentsService {
               employeeId: dto.employeeId,
               startTime: currentStart,
               endTime: itemEnd,
-              priceSnapshot: service.price,
+              priceSnapshot: price,
+              commissionSnapshot: commission,
               durationSnapshot: service.durationMinutes,
               serviceNameSnapshot: service.name,
             });

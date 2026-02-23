@@ -1,11 +1,9 @@
 import {
   IsBoolean,
   IsEmail,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
-  Min,
   MinLength,
 } from 'class-validator';
 
@@ -32,16 +30,6 @@ export class CreateEmployeeDto {
 
   @IsUUID('4')
   locationId: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  bufferBeforeMinutes?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  bufferAfterMinutes?: number;
 
   @IsOptional()
   @IsBoolean()
@@ -76,16 +64,6 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsString()
   bio?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  bufferBeforeMinutes?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  bufferAfterMinutes?: number;
 
   @IsOptional()
   @IsBoolean()

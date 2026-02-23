@@ -18,6 +18,8 @@ import { AuditModule } from './modules/audit/audit.module';
 import { EventsModule } from './modules/events/events.module';
 import { HealthModule } from './modules/health/health.module';
 import { PublicBookingModule } from './modules/public-booking/public-booking.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
+import { InviteCodesModule } from './modules/invite-codes/invite-codes.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -47,6 +49,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     EventsModule,
     HealthModule,
     PublicBookingModule,
+    UploadsModule,
+    InviteCodesModule,
   ],
   providers: [
     {

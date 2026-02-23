@@ -9,14 +9,20 @@ import {
   type ReactNode,
 } from 'react';
 import { api } from '../api';
-import { login as authLogin, logout as authLogout, getMe } from '../auth';
-import type { AuthUser } from '../auth';
+import {
+  login as authLogin,
+  logout as authLogout,
+  register as authRegister,
+  getMe,
+} from '../auth';
+import type { AuthUser, RegisterParams } from '../auth';
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (params: RegisterParams) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -53,9 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const data = await authLogin(email, password);
     setUser(data.user);
+    return data.user;
+  }, []);
+
+  const register = useCallback(async (params: RegisterParams): Promise<AuthUser> => {
+    const data = await authRegister(params);
+    setUser(data.user);
+    return data.user;
   }, []);
 
   const logout = useCallback(async () => {
@@ -70,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        register,
         logout,
       }}
     >

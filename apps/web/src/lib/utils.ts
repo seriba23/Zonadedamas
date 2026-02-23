@@ -1,6 +1,9 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+
+dayjs.locale('es');
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -15,7 +18,7 @@ export function formatCurrency(amount: number, currency = 'USD'): string {
   }).format(amount);
 }
 
-export function formatDate(date: string | Date | dayjs.Dayjs, format = 'MMM D, YYYY'): string {
+export function formatDate(date: string | Date | dayjs.Dayjs, format = 'D [de] MMM [de] YYYY'): string {
   return dayjs(date).format(format);
 }
 

@@ -133,6 +133,99 @@ class ApiClient {
   delete<T>(path: string): Promise<T> {
     return this.request<T>('DELETE', path);
   }
+
+  async uploadForm<T>(
+    path: string,
+    fields: Record<string, string>,
+    file?: File,
+  ): Promise<T> {
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+      formData.append(key, value);
+    }
+    if (file) {
+      formData.append('file', file);
+    }
+
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (res.status === 401 && this.accessToken) {
+      const refreshed = await this.tryRefresh();
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${this.accessToken}`;
+        const retry = await fetch(`${this.baseUrl}${path}`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        if (!retry.ok) throw await this.handleError(retry);
+        return retry.json();
+      }
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Sesión expirada');
+    }
+
+    if (!res.ok) throw await this.handleError(res);
+    return res.json();
+  }
+
+  async upload<T>(
+    path: string,
+    file: File,
+    extraFields?: Record<string, string>,
+  ): Promise<T> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (extraFields) {
+      for (const [key, value] of Object.entries(extraFields)) {
+        formData.append(key, value);
+      }
+    }
+
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+    // Do NOT set Content-Type — browser generates it with boundary
+
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (res.status === 401 && this.accessToken) {
+      const refreshed = await this.tryRefresh();
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${this.accessToken}`;
+        const retry = await fetch(`${this.baseUrl}${path}`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        if (!retry.ok) throw await this.handleError(retry);
+        return retry.json();
+      }
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Sesión expirada');
+    }
+
+    if (!res.ok) throw await this.handleError(res);
+    return res.json();
+  }
 }
 
 export const api = new ApiClient();

@@ -7,6 +7,7 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   permissions: string[];
+  employeeId?: string | null;
 }
 
 export interface AuthTokens {
@@ -23,6 +24,23 @@ export async function login(
     email,
     password,
   });
+  api.setAccessToken(res.data.accessToken);
+  localStorage.setItem('refreshToken', res.data.refreshToken);
+  return res.data;
+}
+
+export interface RegisterParams {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  inviteCode?: string;
+  type?: 'business' | 'individual';
+}
+
+export async function register(params: RegisterParams): Promise<AuthTokens> {
+  const res = await api.post<{ data: AuthTokens }>('/api/auth/register', params);
   api.setAccessToken(res.data.accessToken);
   localStorage.setItem('refreshToken', res.data.refreshToken);
   return res.data;

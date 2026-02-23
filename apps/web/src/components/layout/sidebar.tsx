@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -7,11 +8,18 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
+interface NavChild {
+  label: string;
+  href: string;
+  permission?: string;
+}
+
 interface NavItem {
   label: string;
   href: string;
   icon: string;
   permission?: string;
+  children?: NavChild[];
 }
 
 const navItems: NavItem[] = [
@@ -22,7 +30,17 @@ const navItems: NavItem[] = [
   { label: 'Recursos', href: '/resources', icon: '🏠', permission: 'resources.read' },
   { label: 'POS', href: '/pos', icon: '💰', permission: 'payments.create' },
   { label: 'Reportes', href: '/reports', icon: '📊', permission: 'reports.revenue' },
-  { label: 'Horarios', href: '/settings/hours', icon: '🕐', permission: 'tenant.update' },
+  {
+    label: 'Horarios',
+    href: '/settings/hours',
+    icon: '🕐',
+    permission: 'tenant.update',
+    children: [
+      { label: 'Negocio', href: '/settings/hours' },
+      { label: 'Empleados', href: '/settings/hours/employees' },
+    ],
+  },
+  { label: 'Invitaciones', href: '/settings/invite-codes', icon: '🔑', permission: 'tenant.update' },
   { label: 'Configuración', href: '/settings/roles', icon: '⚙️', permission: 'roles.read' },
 ];
 
@@ -34,6 +52,27 @@ export function Sidebar() {
   const visibleItems = navItems.filter(
     (item) => !item.permission || hasPermission(item.permission),
   );
+
+  // Auto-expand if any child matches current path
+  const initialExpanded = navItems
+    .filter((item) => item.children?.some((child) => pathname === child.href))
+    .map((item) => item.label);
+
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(
+    new Set(initialExpanded),
+  );
+
+  function toggleMenu(label: string) {
+    setExpandedMenus((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-20">
@@ -48,6 +87,71 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <ul className="space-y-1">
           {visibleItems.map((item) => {
+            if (item.children) {
+              const isExpanded = expandedMenus.has(item.label);
+              const isChildActive = item.children.some(
+                (child) => pathname === child.href,
+              );
+              const visibleChildren = item.children.filter(
+                (child) => !child.permission || hasPermission(child.permission),
+              );
+
+              return (
+                <li key={item.label}>
+                  <button
+                    onClick={() => toggleMenu(item.label)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                      isChildActive
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                    )}
+                  >
+                    <span className="text-lg leading-none">{item.icon}</span>
+                    <span className="flex-1 text-left">{item.label}</span>
+                    <svg
+                      className={cn(
+                        'w-4 h-4 transition-transform',
+                        isExpanded ? 'rotate-180' : '',
+                      )}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                  {isExpanded && (
+                    <ul className="mt-1 ml-8 space-y-0.5">
+                      {visibleChildren.map((child) => {
+                        const isActive = pathname === child.href;
+                        return (
+                          <li key={child.href}>
+                            <Link
+                              href={child.href}
+                              className={cn(
+                                'block px-3 py-2 rounded-lg text-sm transition-colors',
+                                isActive
+                                  ? 'bg-primary-50 text-primary-700 font-medium'
+                                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700',
+                              )}
+                            >
+                              {child.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </li>
+              );
+            }
+
             const isActive =
               pathname === item.href ||
               (item.href !== '/calendar' && pathname.startsWith(item.href));

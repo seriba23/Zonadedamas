@@ -1,14 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { getInitials } from '@/lib/utils';
-import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
-import { EmployeeTimeOffEditor } from '@/components/staff/employee-time-off-editor';
+import { StarRating } from '@/components/staff/star-rating';
+import Link from 'next/link';
+
+interface EmployeeService {
+  employeeId: string;
+  serviceId: string;
+  service: { id: string; name: string };
+}
 
 interface Employee {
   id: string;
@@ -17,9 +23,15 @@ interface Employee {
   email?: string;
   phone?: string;
   color?: string;
+  bio?: string;
+  avatarUrl?: string | null;
   locationId?: string;
   location?: { name: string };
+  employeeServices?: EmployeeService[];
   services?: Array<{ id: string; name: string }>;
+  _count?: { appointments: number };
+  averageRating?: number | null;
+  totalReviews?: number;
   isActive: boolean;
 }
 
@@ -29,6 +41,7 @@ interface EmployeeForm {
   email: string;
   phone: string;
   color: string;
+  bio: string;
 }
 
 const COLOR_PALETTE = [
@@ -52,6 +65,7 @@ const defaultForm: EmployeeForm = {
   email: '',
   phone: '',
   color: '#008080',
+  bio: '',
 };
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
@@ -65,23 +79,27 @@ export default function StaffPage() {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState<EmployeeForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'datos' | 'horario' | 'ausencias'>('datos');
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: () => api.get<{ data: Employee[] }>('/api/employees'),
   });
 
-  const employees = data?.data || [];
+  // Map employeeServices → services for display
+  const employees = useMemo(() => {
+    const raw = data?.data || [];
+    return raw.map((emp) => ({
+      ...emp,
+      services: emp.employeeServices
+        ? emp.employeeServices.map((es) => es.service)
+        : emp.services || [],
+    }));
+  }, [data]);
 
   const saveMutation = useMutation({
-    mutationFn: (payload: Partial<Employee>) => {
-      if (editingEmployee) {
-        return api.put(`/api/employees/${editingEmployee.id}`, payload);
-      }
+    mutationFn: (payload: Partial<EmployeeForm>) => {
       return api.post('/api/employees', payload);
     },
     onSuccess: () => {
@@ -95,33 +113,15 @@ export default function StaffPage() {
   });
 
   function openCreate() {
-    setEditingEmployee(null);
     setForm(defaultForm);
     setFormError(null);
-    setActiveTab('datos');
-    setIsModalOpen(true);
-  }
-
-  function openEdit(employee: Employee) {
-    setEditingEmployee(employee);
-    setForm({
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      email: employee.email || '',
-      phone: employee.phone || '',
-      color: employee.color || '#008080',
-    });
-    setFormError(null);
-    setActiveTab('datos');
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setIsModalOpen(false);
-    setEditingEmployee(null);
     setForm(defaultForm);
     setFormError(null);
-    setActiveTab('datos');
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -183,26 +183,44 @@ export default function StaffPage() {
               const bgStyle = rgb
                 ? { backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`, color: empColor }
                 : { backgroundColor: 'rgba(0, 128, 128, 0.15)', color: '#008080' };
+              const appointmentCount = employee._count?.appointments ?? 0;
 
               return (
-                <div
+                <Link
                   key={employee.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+                  href={`/staff/${employee.id}`}
+                  className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow border-l-4 cursor-pointer"
+                  style={{ borderLeftColor: empColor }}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start">
                     <div className="flex items-center gap-4">
-                      <div
-                        className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
-                        style={bgStyle}
-                      >
-                        {getInitials(employee.firstName, employee.lastName)}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
+                      {employee.avatarUrl ? (
+                        <img
+                          src={
+                            employee.avatarUrl.startsWith('http')
+                              ? employee.avatarUrl
+                              : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${employee.avatarUrl}`
+                          }
+                          alt={`${employee.firstName} ${employee.lastName}`}
+                          className="w-14 h-14 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+                          style={bgStyle}
+                        >
+                          {getInitials(employee.firstName, employee.lastName)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
                           {employee.firstName} {employee.lastName}
-                        </h3>
+                        </span>
                         {employee.email && (
-                          <p className="text-sm text-gray-500">{employee.email}</p>
+                          <p className="text-sm text-gray-500 truncate">{employee.email}</p>
+                        )}
+                        {employee.phone && (
+                          <p className="text-xs text-gray-400 mt-0.5">{employee.phone}</p>
                         )}
                         {employee.location && (
                           <p className="text-xs text-gray-400 mt-0.5">
@@ -211,35 +229,36 @@ export default function StaffPage() {
                         )}
                       </div>
                     </div>
+                  </div>
 
-                    {hasPermission('employees.update') && (
-                      <button
-                        onClick={() => openEdit(employee)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
+                  {/* Stats row */}
+                  <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {appointmentCount} cita{appointmentCount !== 1 ? 's' : ''}
+                    </span>
+                    {employee.services && employee.services.length > 0 && (
+                      <span>{employee.services.length} servicio{employee.services.length !== 1 ? 's' : ''}</span>
+                    )}
+                    {employee.averageRating != null && (
+                      <span className="flex items-center gap-1">
+                        <StarRating rating={employee.averageRating} size="sm" />
+                        <span className="font-medium text-gray-700">{employee.averageRating}</span>
+                      </span>
                     )}
                   </div>
 
+                  {/* Bio preview */}
+                  {employee.bio && (
+                    <p className="mt-2 text-xs text-gray-500 line-clamp-2">
+                      {employee.bio}
+                    </p>
+                  )}
+
                   {employee.services && employee.services.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-xs text-gray-500 mb-2">
-                        {employee.services.length} servicio
-                        {employee.services.length !== 1 ? 's' : ''}
-                      </p>
+                    <div className="mt-3 pt-3 border-t border-gray-100">
                       <div className="flex flex-wrap gap-1">
                         {employee.services.slice(0, 3).map((s) => (
                           <span
@@ -265,172 +284,137 @@ export default function StaffPage() {
                       </span>
                     </div>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>
         )}
       </div>
 
+      {/* Create Employee Modal */}
       {isModalOpen && (
-        <Modal
-          title={editingEmployee ? `${editingEmployee.firstName} ${editingEmployee.lastName}` : 'Nuevo Empleado'}
-          onClose={closeModal}
-          size={editingEmployee ? 'lg' : 'md'}
-        >
-          {/* Tabs — only show when editing */}
-          {editingEmployee && (
-            <div className="flex gap-1 mb-4 border-b border-gray-200">
-              <button
-                type="button"
-                onClick={() => setActiveTab('datos')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'datos'
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Datos
+        <Modal title="Nuevo Empleado" onClose={closeModal}>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                {formError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre *
+                </label>
+                <input
+                  type="text"
+                  value={form.firstName}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, firstName: e.target.value }))
+                  }
+                  className="input-field"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Apellido *
+                </label>
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, lastName: e.target.value }))
+                  }
+                  className="input-field"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, email: e.target.value }))
+                }
+                className="input-field"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: e.target.value }))
+                }
+                className="input-field"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Color
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, color }))}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                      form.color === color
+                        ? 'border-gray-900 scale-110'
+                        : 'border-transparent hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bio
+              </label>
+              <textarea
+                value={form.bio}
+                onChange={(e) => {
+                  if (e.target.value.length <= 500) {
+                    setForm((f) => ({ ...f, bio: e.target.value }));
+                  }
+                }}
+                className="input-field min-h-[80px] resize-y"
+                rows={3}
+                placeholder="Descripción breve del empleado..."
+              />
+              <p className="text-xs text-gray-400 mt-1 text-right">
+                {form.bio.length}/500
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={closeModal} className="btn-secondary">
+                Cancelar
               </button>
               <button
-                type="button"
-                onClick={() => setActiveTab('horario')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'horario'
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                type="submit"
+                disabled={saveMutation.isPending}
+                className="btn-primary"
               >
-                Horario
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('ausencias')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'ausencias'
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Ausencias
+                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
-          )}
-
-          {/* Tab: Datos */}
-          {activeTab === 'datos' && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {formError && (
-                <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-                  {formError}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre *
-                  </label>
-                  <input
-                    type="text"
-                    value={form.firstName}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, firstName: e.target.value }))
-                    }
-                    className="input-field"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Apellido *
-                  </label>
-                  <input
-                    type="text"
-                    value={form.lastName}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, lastName: e.target.value }))
-                    }
-                    className="input-field"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, email: e.target.value }))
-                  }
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, phone: e.target.value }))
-                  }
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Color
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {COLOR_PALETTE.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, color }))}
-                      className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                        form.color === color
-                          ? 'border-gray-900 scale-110'
-                          : 'border-transparent hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="btn-secondary">
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saveMutation.isPending}
-                  className="btn-primary"
-                >
-                  {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Tab: Horario */}
-          {activeTab === 'horario' && editingEmployee && (
-            <EmployeeScheduleEditor employeeId={editingEmployee.id} />
-          )}
-
-          {/* Tab: Ausencias */}
-          {activeTab === 'ausencias' && editingEmployee && (
-            <EmployeeTimeOffEditor employeeId={editingEmployee.id} />
-          )}
+          </form>
         </Modal>
       )}
     </div>

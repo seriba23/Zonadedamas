@@ -2,12 +2,15 @@ import {
   Injectable,
   UnauthorizedException,
   NotFoundException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RbacService } from '../rbac/rbac.service';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -51,6 +54,250 @@ export class AuthService {
         firstName: matchedUser.firstName,
         lastName: matchedUser.lastName,
         tenantId: matchedUser.tenantId,
+        permissions: tokens.permissions,
+      },
+    };
+  }
+
+  async register(dto: RegisterDto) {
+    if (dto.inviteCode) {
+      return this.registerWithInviteCode(dto);
+    }
+    if (dto.type === 'individual') {
+      return this.registerIndividual(dto);
+    }
+    throw new BadRequestException(
+      'Debes proporcionar un código de invitación o registrarte como particular',
+    );
+  }
+
+  private async registerWithInviteCode(dto: RegisterDto) {
+    const invite = await this.prisma.tenantInviteCode.findUnique({
+      where: { code: dto.inviteCode },
+      include: { tenant: true },
+    });
+
+    if (!invite || !invite.isActive) {
+      throw new BadRequestException('Código de invitación inválido o inactivo');
+    }
+
+    if (invite.expiresAt && new Date() > invite.expiresAt) {
+      throw new BadRequestException('El código de invitación ha expirado');
+    }
+
+    if (invite.maxUses > 0 && invite.usedCount >= invite.maxUses) {
+      throw new BadRequestException(
+        'El código de invitación ha alcanzado el límite de usos',
+      );
+    }
+
+    // Check if email already exists in this tenant
+    const existingUser = await this.prisma.user.findUnique({
+      where: {
+        tenantId_email: { tenantId: invite.tenantId, email: dto.email },
+      },
+    });
+    if (existingUser) {
+      throw new ConflictException('Ya existe una cuenta con este correo en este negocio');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    // Get first location of the tenant
+    const location = await this.prisma.location.findFirst({
+      where: { tenantId: invite.tenantId, isActive: true },
+    });
+    if (!location) {
+      throw new BadRequestException('El negocio no tiene ubicaciones activas');
+    }
+
+    // Get staff role
+    const staffRole = await this.prisma.role.findUnique({
+      where: {
+        tenantId_slug: { tenantId: invite.tenantId, slug: 'staff' },
+      },
+    });
+    if (!staffRole) {
+      throw new BadRequestException('Configuración de roles incompleta');
+    }
+
+    // Create user + employee + role assignment in transaction
+    const user = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          tenantId: invite.tenantId,
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          phone: dto.phone || null,
+          isActive: true,
+        },
+      });
+
+      await tx.employee.create({
+        data: {
+          tenantId: invite.tenantId,
+          userId: newUser.id,
+          locationId: location.id,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          email: dto.email,
+          phone: dto.phone || null,
+          isActive: true,
+        },
+      });
+
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: staffRole.id,
+          tenantId: invite.tenantId,
+        },
+      });
+
+      // Increment invite code usage
+      await tx.tenantInviteCode.update({
+        where: { id: invite.id },
+        data: { usedCount: { increment: 1 } },
+      });
+
+      return newUser;
+    });
+
+    const tokens = await this.generateTokens(user);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        tenantId: user.tenantId,
+        permissions: tokens.permissions,
+      },
+    };
+  }
+
+  private async registerIndividual(dto: RegisterDto) {
+    // Generate unique slug
+    const baseSlug = `${dto.firstName}-${dto.lastName}`
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '')
+      .substring(0, 30);
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    const slug = `${baseSlug}-${randomSuffix}`;
+
+    // Check slug uniqueness
+    const existingTenant = await this.prisma.tenant.findUnique({
+      where: { slug },
+    });
+    if (existingTenant) {
+      throw new ConflictException('Por favor intenta de nuevo');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    // Get owner role from any tenant to know the permissions
+    const ownerRolePermissions = await this.prisma.permission.findMany();
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      // Create personal tenant
+      const tenant = await tx.tenant.create({
+        data: {
+          name: `${dto.firstName} ${dto.lastName}`,
+          slug,
+          email: dto.email,
+          phone: dto.phone || null,
+          timezone: 'America/New_York',
+          currency: 'USD',
+          subscriptionPlan: 'free',
+          subscriptionStatus: 'active',
+        },
+      });
+
+      // Create default location
+      const location = await tx.location.create({
+        data: {
+          tenantId: tenant.id,
+          name: 'Principal',
+          isActive: true,
+        },
+      });
+
+      // Create user
+      const newUser = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          phone: dto.phone || null,
+          isActive: true,
+        },
+      });
+
+      // Create employee linked to user
+      await tx.employee.create({
+        data: {
+          tenantId: tenant.id,
+          userId: newUser.id,
+          locationId: location.id,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          email: dto.email,
+          phone: dto.phone || null,
+          isActive: true,
+        },
+      });
+
+      // Create Owner role for this tenant with all permissions
+      const ownerRole = await tx.role.create({
+        data: {
+          tenantId: tenant.id,
+          name: 'Owner',
+          slug: 'owner',
+          description: 'Full access to all features including billing',
+          isSystem: true,
+        },
+      });
+
+      // Assign all permissions to owner role
+      if (ownerRolePermissions.length > 0) {
+        await tx.rolePermission.createMany({
+          data: ownerRolePermissions.map((p) => ({
+            roleId: ownerRole.id,
+            permissionId: p.id,
+          })),
+        });
+      }
+
+      // Assign owner role to user
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: ownerRole.id,
+          tenantId: tenant.id,
+        },
+      });
+
+      return newUser;
+    });
+
+    const tokens = await this.generateTokens(user);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        tenantId: user.tenantId,
         permissions: tokens.permissions,
       },
     };
@@ -142,7 +389,13 @@ export class AuthService {
       tenantId,
     );
 
-    return { ...user, permissions };
+    // Find linked employee
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId, tenantId },
+      select: { id: true },
+    });
+
+    return { ...user, permissions, employeeId: employee?.id || null };
   }
 
   private async generateTokens(user: { id: string; tenantId: string; email: string }) {

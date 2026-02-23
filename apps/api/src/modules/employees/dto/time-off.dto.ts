@@ -1,4 +1,5 @@
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString, IsArray, ValidateNested, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateTimeOffDto {
   @IsDateString()
@@ -12,6 +13,24 @@ export class CreateTimeOffDto {
   reason?: string;
 }
 
+export class ServiceConfigDto {
+  @IsString()
+  serviceId: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  commission?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  customPrice?: number;
+}
+
 export class SetServicesDto {
-  serviceIds: string[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ServiceConfigDto)
+  services: ServiceConfigDto[];
 }

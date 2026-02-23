@@ -3,6 +3,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { AuthProvider } from '@/lib/hooks/use-auth';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+
+dayjs.locale('es');
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(

@@ -35,6 +35,7 @@ const PERMISSIONS = [
   { module: 'employees', action: 'delete', description: 'Delete employees' },
   { module: 'employees', action: 'manage_schedule', description: 'Manage employee schedules' },
   { module: 'employees', action: 'manage_time_off', description: 'Manage employee time off' },
+  { module: 'employees', action: 'manage_services', description: 'Manage employee services and commissions' },
   // resources
   { module: 'resources', action: 'create', description: 'Create resources' },
   { module: 'resources', action: 'read', description: 'Read/view resources' },
@@ -506,7 +507,11 @@ async function main() {
       color: '#6366f1',
       bio: 'Senior stylist with 10 years of experience',
       locationId: downtownLocation.id,
-      services: ['Haircut', 'Hair Color', 'Blowout'],
+      services: [
+        { name: 'Haircut', commission: 15.0 },
+        { name: 'Hair Color', commission: 40.0 },
+        { name: 'Blowout', commission: 20.0 },
+      ],
     },
     {
       firstName: 'James',
@@ -516,7 +521,10 @@ async function main() {
       color: '#10b981',
       bio: 'Specialist in hair coloring and treatments',
       locationId: downtownLocation.id,
-      services: ['Haircut', 'Hair Color'],
+      services: [
+        { name: 'Haircut', commission: 15.0 },
+        { name: 'Hair Color', commission: 40.0 },
+      ],
     },
     {
       firstName: 'Sofia',
@@ -526,7 +534,10 @@ async function main() {
       color: '#f59e0b',
       bio: 'Expert in nail care and facial treatments',
       locationId: mallLocation.id,
-      services: ['Manicure', 'Facial'],
+      services: [
+        { name: 'Manicure', commission: 12.0 },
+        { name: 'Facial', commission: 25.0 },
+      ],
     },
   ];
 
@@ -564,16 +575,20 @@ async function main() {
       });
       employeeId = employee.id;
 
-      // Assign services
-      for (const svcName of empServices) {
-        const svcId = serviceMap.get(svcName);
+      // Assign services with commissions
+      for (const svcConfig of empServices) {
+        const svcId = serviceMap.get(svcConfig.name);
         if (svcId) {
           await prisma.employeeService.upsert({
             where: {
               employeeId_serviceId: { employeeId, serviceId: svcId },
             },
-            update: {},
-            create: { employeeId, serviceId: svcId },
+            update: { commission: svcConfig.commission },
+            create: {
+              employeeId,
+              serviceId: svcId,
+              commission: svcConfig.commission,
+            },
           });
         }
       }
@@ -607,7 +622,76 @@ async function main() {
   }
   console.log(`  ${employeesData.length} employees seeded.`);
 
-  // 9. Create demo clients
+  // 9. Create user accounts for demo employees
+  console.log('Seeding employee user accounts...');
+  const staffPasswordHash = await bcrypt.hash('Staff123!', 12);
+  const staffRoleId = roleMap.get('staff');
+
+  for (const empData of employeesData) {
+    const employee = await prisma.employee.findFirst({
+      where: { tenantId: tenant.id, email: empData.email },
+    });
+    if (!employee) continue;
+
+    // Skip if employee already has a user
+    if (employee.userId) continue;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { tenantId_email: { tenantId: tenant.id, email: empData.email } },
+    });
+
+    if (!existingUser) {
+      const empUser = await prisma.user.create({
+        data: {
+          tenantId: tenant.id,
+          email: empData.email,
+          passwordHash: staffPasswordHash,
+          firstName: empData.firstName,
+          lastName: empData.lastName,
+          phone: empData.phone,
+          isActive: true,
+        },
+      });
+
+      // Link employee to user
+      await prisma.employee.update({
+        where: { id: employee.id },
+        data: { userId: empUser.id },
+      });
+
+      // Assign staff role
+      if (staffRoleId) {
+        await prisma.userRole.create({
+          data: {
+            userId: empUser.id,
+            roleId: staffRoleId,
+            tenantId: tenant.id,
+          },
+        });
+      }
+
+      console.log(`  Employee user: ${empUser.email}`);
+    }
+  }
+
+  // 9b. Create demo invite code
+  console.log('Seeding demo invite code...');
+  const existingInviteCode = await prisma.tenantInviteCode.findUnique({
+    where: { code: 'DEMOSALON' },
+  });
+  if (!existingInviteCode) {
+    await prisma.tenantInviteCode.create({
+      data: {
+        tenantId: tenant.id,
+        code: 'DEMOSALON',
+        maxUses: 0, // unlimited
+        isActive: true,
+      },
+    });
+    console.log('  Invite code: DEMOSALON');
+  }
+
+  // 10. Create demo clients
   console.log('Seeding clients...');
 
   const clientsData = [
@@ -700,9 +784,12 @@ async function main() {
 
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
-  console.log(`Tenant:   Demo Salon (slug: demo-salon)`);
-  console.log(`Login:    admin@zonadedamas.com`);
-  console.log(`Password: Admin123!`);
+  console.log(`Tenant:        Demo Salon (slug: demo-salon)`);
+  console.log(`Admin login:   admin@zonadedamas.com / Admin123!`);
+  console.log(`Staff logins:  maria@demo-salon.com / Staff123!`);
+  console.log(`               james@demo-salon.com / Staff123!`);
+  console.log(`               sofia@demo-salon.com / Staff123!`);
+  console.log(`Invite code:   DEMOSALON`);
   console.log('─────────────────────────────────────────────');
 }
 

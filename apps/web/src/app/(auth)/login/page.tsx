@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 
 interface FormState {
@@ -46,8 +47,10 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      await login(form.email, form.password);
-      router.push('/calendar');
+      const user = await login(form.email, form.password);
+      // Smart redirect: employees go to /employee, admins go to /calendar
+      const isEmployee = !user.permissions.includes('employees.create');
+      router.push(isEmployee ? '/employee' : '/calendar');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(
@@ -176,7 +179,17 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center mt-6 text-xs text-gray-400">
+        <p className="text-center mt-6 text-sm text-gray-500">
+          ¿No tienes cuenta?{' '}
+          <Link
+            href="/register"
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Crear cuenta
+          </Link>
+        </p>
+
+        <p className="text-center mt-4 text-xs text-gray-400">
           &copy; {new Date().getFullYear()} Zona de Damas. Todos los derechos
           reservados.
         </p>
