@@ -58,7 +58,7 @@ export class ClientsService {
 
   async findOne(id: string, tenantId: string) {
     const client = await this.prisma.client.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, isActive: true },
       include: {
         tags: {
           include: { tag: true },

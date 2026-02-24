@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { CheckAfterDto } from './dto/check-after.dto';
 
 type TimeBlock = { start: Date; end: Date };
 
@@ -430,6 +431,284 @@ export class AvailabilityService {
     }
 
     return { scheduleStart, scheduleEnd, slots };
+  }
+
+  async checkAfterTime(dto: CheckAfterDto, tenantId: string) {
+    // 1. Calculate total duration of requested services
+    const services = await this.prisma.service.findMany({
+      where: { id: { in: dto.serviceIds }, tenantId },
+    });
+    const totalDuration = services.reduce(
+      (sum, s) => sum + s.durationMinutes,
+      0,
+    );
+    if (totalDuration === 0) {
+      return {
+        immediatelyAvailable: false,
+        immediateSlot: null,
+        nextAvailable: null,
+      };
+    }
+
+    const afterTime = new Date(dto.afterTime);
+    const afterDateStr = afterTime.toISOString().split('T')[0];
+
+    // 2. Check immediate availability on the same day
+    const sameDayResult = await this.getAllSlotsForEmployee(
+      dto.employeeId,
+      afterDateStr,
+      dto.serviceIds,
+      tenantId,
+    );
+
+    if (sameDayResult.slots && sameDayResult.slots.length > 0) {
+      const afterTimeStr = afterTime.toISOString().substring(11, 16);
+      // Find a slot that starts at or after the requested time
+      const immediateSlot = sameDayResult.slots.find(
+        (s) => s.available && s.startTime >= afterTimeStr,
+      );
+      if (immediateSlot) {
+        // Check if this slot starts exactly at afterTime (immediate)
+        const isImmediate = immediateSlot.startTime === afterTimeStr;
+        return {
+          immediatelyAvailable: isImmediate,
+          immediateSlot: {
+            startTime: `${afterDateStr}T${immediateSlot.startTime}:00Z`,
+            endTime: `${afterDateStr}T${immediateSlot.endTime}:00Z`,
+          },
+          nextAvailable: isImmediate
+            ? null
+            : {
+                date: afterDateStr,
+                startTime: immediateSlot.startTime,
+                endTime: immediateSlot.endTime,
+              },
+        };
+      }
+    }
+
+    // 3. Search next 14 days for first available slot
+    const searchStart = new Date(afterTime);
+    searchStart.setDate(searchStart.getDate() + 1);
+
+    for (let i = 0; i < 14; i++) {
+      const searchDate = new Date(searchStart);
+      searchDate.setDate(searchDate.getDate() + i);
+      const searchDateStr = searchDate.toISOString().split('T')[0];
+
+      const dayResult = await this.getAllSlotsForEmployee(
+        dto.employeeId,
+        searchDateStr,
+        dto.serviceIds,
+        tenantId,
+      );
+
+      if (dayResult.slots && dayResult.slots.length > 0) {
+        const firstAvailable = dayResult.slots.find((s) => s.available);
+        if (firstAvailable) {
+          return {
+            immediatelyAvailable: false,
+            immediateSlot: null,
+            nextAvailable: {
+              date: searchDateStr,
+              startTime: firstAvailable.startTime,
+              endTime: firstAvailable.endTime,
+            },
+          };
+        }
+      }
+    }
+
+    // 4. Nothing found in 14 days
+    return {
+      immediatelyAvailable: false,
+      immediateSlot: null,
+      nextAvailable: null,
+    };
+  }
+
+  async isAvailableAtTime(
+    employeeId: string,
+    startTime: Date,
+    endTime: Date,
+    tenantId: string,
+  ): Promise<boolean> {
+    const dateStr = startTime.toISOString().split('T')[0];
+    const dayOfWeek = this.getDayOfWeek(new Date(dateStr + 'T00:00:00Z'));
+
+    // Check employee works this day
+    const schedule = await this.prisma.employeeSchedule.findFirst({
+      where: {
+        employeeId,
+        dayOfWeek,
+        isWorking: true,
+        effectiveFrom: { lte: new Date(dateStr + 'T00:00:00Z') },
+        OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: new Date(dateStr + 'T00:00:00Z') } }],
+      },
+    });
+    if (!schedule) return false;
+
+    // Check time is within schedule window
+    const schedStart = new Date(`${dateStr}T${schedule.startTime}:00Z`);
+    const schedEnd = new Date(`${dateStr}T${schedule.endTime}:00Z`);
+    if (startTime < schedStart || endTime > schedEnd) return false;
+
+    // Check no overlapping appointments
+    const overlap = await this.prisma.appointment.findFirst({
+      where: {
+        employeeId,
+        tenantId,
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      },
+    });
+    if (overlap) return false;
+
+    // Check no time-offs
+    const timeOff = await this.prisma.employeeTimeOff.findFirst({
+      where: {
+        employeeId,
+        startDatetime: { lt: endTime },
+        endDatetime: { gt: startTime },
+      },
+    });
+    if (timeOff) return false;
+
+    return true;
+  }
+
+  async findEarliestSlot(
+    employeeId: string,
+    totalDuration: number,
+    afterTime: Date,
+    tenantId: string,
+    extraOccupied?: Array<{ start: Date; end: Date }>,
+    maxDays: number = 30,
+  ): Promise<{ startTime: Date; endTime: Date } | null> {
+    if (totalDuration === 0) return null;
+
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenantId, isActive: true },
+    });
+    if (!employee) return null;
+
+    const now = new Date();
+
+    const [businessHours, closures] = await Promise.all([
+      this.prisma.businessHours.findMany({ where: { tenantId } }),
+      this.prisma.businessClosure.findMany({
+        where: {
+          tenantId,
+          endDate: { gte: new Date(afterTime.toISOString().split('T')[0] + 'T00:00:00Z') },
+        },
+      }),
+    ]);
+
+    const closedDays = new Set(
+      businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek),
+    );
+
+    for (let i = 0; i < maxDays; i++) {
+      const searchDate = new Date(afterTime);
+      searchDate.setUTCDate(searchDate.getUTCDate() + i);
+      const dateStr = searchDate.toISOString().split('T')[0];
+
+      const dayOfWeek = this.getDayOfWeek(new Date(dateStr + 'T00:00:00Z'));
+      if (closedDays.has(dayOfWeek)) continue;
+
+      const isClosed = closures.some((c) => {
+        const cStart = c.startDate.toISOString().split('T')[0];
+        const cEnd = c.endDate.toISOString().split('T')[0];
+        return dateStr >= cStart && dateStr <= cEnd;
+      });
+      if (isClosed) continue;
+
+      const schedule = await this.prisma.employeeSchedule.findFirst({
+        where: {
+          employeeId,
+          dayOfWeek,
+          isWorking: true,
+          effectiveFrom: { lte: new Date(dateStr + 'T00:00:00Z') },
+          OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: new Date(dateStr + 'T00:00:00Z') } }],
+        },
+      });
+      if (!schedule) continue;
+
+      const dayStart = new Date(`${dateStr}T00:00:00Z`);
+      const dayEnd = new Date(`${dateStr}T23:59:59Z`);
+
+      const [appointments, timeOffs] = await Promise.all([
+        this.prisma.appointment.findMany({
+          where: {
+            employeeId,
+            tenantId,
+            startTime: { gte: dayStart, lt: dayEnd },
+            status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+          },
+          orderBy: { startTime: 'asc' },
+        }),
+        this.prisma.employeeTimeOff.findMany({
+          where: {
+            employeeId,
+            startDatetime: { lt: dayEnd },
+            endDatetime: { gt: dayStart },
+          },
+        }),
+      ]);
+
+      const occupiedBlocks: TimeBlock[] = [];
+      for (const appt of appointments) {
+        occupiedBlocks.push({
+          start: new Date(appt.startTime.getTime() - employee.bufferBeforeMinutes * 60000),
+          end: new Date(appt.endTime.getTime() + employee.bufferAfterMinutes * 60000),
+        });
+      }
+      for (const to of timeOffs) {
+        occupiedBlocks.push({ start: to.startDatetime, end: to.endDatetime });
+      }
+
+      // Add shadow bookings for this employee on this day
+      if (extraOccupied) {
+        for (const block of extraOccupied) {
+          if (block.start >= dayStart && block.start < dayEnd) {
+            occupiedBlocks.push(block);
+          }
+        }
+      }
+
+      occupiedBlocks.sort((a, b) => a.start.getTime() - b.start.getTime());
+      const merged = this.mergeBlocks(occupiedBlocks);
+
+      const windowStart = new Date(`${dateStr}T${schedule.startTime}:00Z`);
+      const windowEnd = new Date(`${dateStr}T${schedule.endTime}:00Z`);
+      const granularity = 15;
+
+      // Always start from schedule start, but never in the past
+      const nowMs = Math.ceil(now.getTime() / (granularity * 60000)) * (granularity * 60000);
+      const current = new Date(Math.max(nowMs, windowStart.getTime()));
+
+      while (current.getTime() + totalDuration * 60000 <= windowEnd.getTime()) {
+        const slotEnd = new Date(current.getTime() + totalDuration * 60000);
+        let conflict = false;
+
+        for (const block of merged) {
+          if (current < block.end && slotEnd > block.start) {
+            conflict = true;
+            current.setTime(
+              Math.ceil(block.end.getTime() / (granularity * 60000)) * (granularity * 60000),
+            );
+            break;
+          }
+        }
+
+        if (!conflict) {
+          return { startTime: new Date(current), endTime: slotEnd };
+        }
+      }
+    }
+
+    return null;
   }
 
   private generateSlots(

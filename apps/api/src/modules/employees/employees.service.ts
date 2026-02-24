@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/create-employee.dto';
 import { SetSchedulesDto } from './dto/schedule.dto';
@@ -12,18 +13,28 @@ import { CreateReviewDto } from './dto/review.dto';
 import { UpdatePersonalInfoDto } from './dto/personal-info.dto';
 import { CreateDocumentDto } from './dto/document.dto';
 import { CreateTrainingDto } from './dto/training.dto';
+import { DeactivateEmployeeDto, DeactivateAction } from './dto/deactivate-employee.dto';
 import { PaginationDto, buildPaginatedResponse } from '../../common/dto/pagination.dto';
+import { AuditService } from '../audit/audit.service';
+import { EventsService } from '../events/events.service';
+import { AvailabilityService } from '../availability/availability.service';
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+    private readonly eventsService: EventsService,
+    private readonly availabilityService: AvailabilityService,
+  ) {}
 
-  async findAll(tenantId: string, pagination: PaginationDto, locationId?: string) {
+  async findAll(tenantId: string, pagination: PaginationDto, locationId?: string, includeInactive?: boolean) {
     const page = pagination.page ?? 1;
     const perPage = pagination.perPage ?? 20;
     const skip = (page - 1) * perPage;
 
     const where: any = { tenantId };
+    if (!includeInactive) where.isActive = true;
     if (locationId) where.locationId = locationId;
 
     const [data, total] = await Promise.all([
@@ -273,7 +284,7 @@ export class EmployeesService {
         where: {
           employeeId,
           tenantId,
-          status: { in: ['PENDING', 'CONFIRMED'] },
+          status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] },
           startTime: { gte: now },
         },
         orderBy: { startTime: 'asc' },
@@ -673,5 +684,543 @@ export class EmployeesService {
 
     await this.prisma.employeeTraining.delete({ where: { id: trainingId } });
     return training;
+  }
+
+  // ─── DEACTIVATION ────────────────────────────────────
+
+  async countPendingAppointments(employeeId: string, tenantId: string): Promise<number> {
+    await this.findOne(employeeId, tenantId);
+    return this.prisma.appointment.count({
+      where: {
+        employeeId,
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] },
+        startTime: { gte: new Date() },
+      },
+    });
+  }
+
+  async deactivate(
+    employeeId: string,
+    tenantId: string,
+    dto: DeactivateEmployeeDto,
+    userId: string,
+  ) {
+    const employee = await this.findOne(employeeId, tenantId);
+
+    if (dto.action === DeactivateAction.SMART_RESCHEDULE) {
+      return this.deactivateWithSmartReschedule(employee, tenantId, userId);
+    }
+
+    if (dto.action === DeactivateAction.REASSIGN) {
+      return this.deactivateWithReassign(employee, tenantId, dto.targetEmployeeId!, userId);
+    }
+
+    if (dto.action === DeactivateAction.CANCEL) {
+      return this.deactivateWithCancel(employee, tenantId, dto.cancelReason, userId);
+    }
+
+    // KEEP — just deactivate
+    await this.prisma.employee.update({
+      where: { id: employeeId },
+      data: { isActive: false },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'employee.deactivated',
+      entityType: 'employee',
+      entityId: employeeId,
+      newValues: { action: 'keep' },
+    });
+
+    return { message: 'Empleado desactivado', action: 'keep', affectedAppointments: 0 };
+  }
+
+  private async deactivateWithReassign(
+    employee: any,
+    tenantId: string,
+    targetEmployeeId: string,
+    userId: string,
+  ) {
+    if (targetEmployeeId === employee.id) {
+      throw new BadRequestException('No se puede reasignar al mismo empleado');
+    }
+
+    const target = await this.prisma.employee.findFirst({
+      where: { id: targetEmployeeId, tenantId, isActive: true },
+    });
+    if (!target) {
+      throw new NotFoundException('Empleado destino no encontrado o inactivo');
+    }
+
+    const pendingAppointments = await this.prisma.appointment.findMany({
+      where: {
+        employeeId: employee.id,
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] },
+        startTime: { gte: new Date() },
+      },
+      include: {
+        items: true,
+        client: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    // Pre-fetch target's future appointments for in-memory overlap detection
+    const targetAppointments = await this.prisma.appointment.findMany({
+      where: {
+        employeeId: targetEmployeeId,
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] },
+        startTime: { gte: new Date() },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const nonConflicting: typeof pendingAppointments = [];
+    const conflicting: Array<{
+      appointment: (typeof pendingAppointments)[0];
+      conflictsWith: { appointmentId: string; startTime: Date; endTime: Date };
+    }> = [];
+
+    for (const apt of pendingAppointments) {
+      const overlap = targetAppointments.find(
+        (ta) => ta.startTime < apt.endTime && ta.endTime > apt.startTime,
+      );
+      if (overlap) {
+        conflicting.push({
+          appointment: apt,
+          conflictsWith: {
+            appointmentId: overlap.id,
+            startTime: overlap.startTime,
+            endTime: overlap.endTime,
+          },
+        });
+      } else {
+        nonConflicting.push(apt);
+      }
+    }
+
+    // Reassign non-conflicting in transaction
+    if (nonConflicting.length > 0) {
+      await this.prisma.$transaction(
+        async (tx) => {
+          for (const apt of nonConflicting) {
+            await tx.appointment.update({
+              where: { id: apt.id },
+              data: { employeeId: targetEmployeeId },
+            });
+            await tx.appointmentItem.updateMany({
+              where: { appointmentId: apt.id, employeeId: employee.id },
+              data: { employeeId: targetEmployeeId },
+            });
+            await tx.appointmentStatusHistory.create({
+              data: {
+                appointmentId: apt.id,
+                fromStatus: apt.status,
+                toStatus: apt.status,
+                changedBy: userId,
+                notes: `Reasignada de ${employee.firstName} ${employee.lastName} a ${target.firstName} ${target.lastName} por desactivación de empleado`,
+              },
+            });
+          }
+
+          // Only deactivate if no conflicts remain
+          if (conflicting.length === 0) {
+            await tx.employee.update({
+              where: { id: employee.id },
+              data: { isActive: false },
+            });
+          }
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } else if (conflicting.length === 0) {
+      // No appointments at all — just deactivate
+      await this.prisma.employee.update({
+        where: { id: employee.id },
+        data: { isActive: false },
+      });
+    }
+
+    // Post-transaction: audit + events + cache
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'employee.deactivated',
+      entityType: 'employee',
+      entityId: employee.id,
+      newValues: {
+        action: 'reassign',
+        targetEmployeeId,
+        reassignedCount: nonConflicting.length,
+        conflictCount: conflicting.length,
+      },
+    });
+
+    for (const apt of nonConflicting) {
+      await this.eventsService.emitAppointmentRescheduled(tenantId, apt.id, {
+        oldEmployeeId: employee.id,
+        newEmployeeId: targetEmployeeId,
+        reason: 'employee_deactivation',
+      });
+    }
+
+    if (employee.locationId) {
+      await this.availabilityService.invalidateCacheForEmployee(tenantId, employee.locationId, employee.id);
+      await this.availabilityService.invalidateCacheForEmployee(tenantId, employee.locationId, targetEmployeeId);
+    }
+
+    return {
+      message: conflicting.length === 0
+        ? 'Empleado desactivado y citas reasignadas'
+        : `${nonConflicting.length} citas reasignadas, ${conflicting.length} con conflicto`,
+      action: 'reassign',
+      reassignedCount: nonConflicting.length,
+      targetEmployeeId,
+      deactivated: conflicting.length === 0,
+      conflicts: conflicting.map((c) => ({
+        id: c.appointment.id,
+        startTime: c.appointment.startTime.toISOString(),
+        endTime: c.appointment.endTime.toISOString(),
+        status: c.appointment.status,
+        clientName: `${c.appointment.client.firstName} ${c.appointment.client.lastName}`,
+        services: c.appointment.items.map((item) => ({
+          serviceId: item.serviceId,
+          serviceName: item.serviceNameSnapshot,
+          durationMinutes: item.durationSnapshot,
+        })),
+        conflictsWith: {
+          appointmentId: c.conflictsWith.appointmentId,
+          startTime: c.conflictsWith.startTime.toISOString(),
+          endTime: c.conflictsWith.endTime.toISOString(),
+        },
+      })),
+    };
+  }
+
+  private async deactivateWithCancel(
+    employee: any,
+    tenantId: string,
+    cancelReason: string | undefined,
+    userId: string,
+  ) {
+    const pendingAppointments = await this.prisma.appointment.findMany({
+      where: {
+        employeeId: employee.id,
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] },
+        startTime: { gte: new Date() },
+      },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const apt of pendingAppointments) {
+        await tx.appointment.update({
+          where: { id: apt.id },
+          data: {
+            status: 'CANCELLED',
+            cancellationReason: cancelReason || 'Cancelada por desactivación de empleado',
+            cancelledBy: userId,
+          },
+        });
+
+        await tx.appointmentStatusHistory.create({
+          data: {
+            appointmentId: apt.id,
+            fromStatus: apt.status,
+            toStatus: 'CANCELLED',
+            changedBy: userId,
+            notes: cancelReason || 'Cancelada por desactivación de empleado',
+          },
+        });
+      }
+
+      await tx.employee.update({
+        where: { id: employee.id },
+        data: { isActive: false },
+      });
+    });
+
+    // Post-transaction: audit + events + cache
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'employee.deactivated',
+      entityType: 'employee',
+      entityId: employee.id,
+      newValues: {
+        action: 'cancel',
+        affectedAppointments: pendingAppointments.length,
+        cancelReason,
+      },
+    });
+
+    for (const apt of pendingAppointments) {
+      await this.eventsService.emitAppointmentCancelled(tenantId, apt.id, {
+        reason: 'employee_deactivation',
+        employeeId: employee.id,
+      });
+    }
+
+    if (employee.locationId) {
+      await this.availabilityService.invalidateCacheForEmployee(tenantId, employee.locationId, employee.id);
+    }
+
+    return {
+      message: 'Empleado desactivado y citas canceladas',
+      action: 'cancel',
+      affectedAppointments: pendingAppointments.length,
+    };
+  }
+
+  // ─── SMART RESCHEDULE ────────────────────────────────
+
+  private async deactivateWithSmartReschedule(
+    employee: any,
+    tenantId: string,
+    userId: string,
+  ) {
+    const pendingAppointments = await this.prisma.appointment.findMany({
+      where: {
+        employeeId: employee.id,
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] },
+        startTime: { gte: new Date() },
+      },
+      include: {
+        items: true,
+        client: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    if (pendingAppointments.length === 0) {
+      await this.prisma.employee.update({
+        where: { id: employee.id },
+        data: { isActive: false },
+      });
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'employee.deactivated',
+        entityType: 'employee',
+        entityId: employee.id,
+        newValues: { action: 'smart_reschedule', total: 0 },
+      });
+      return {
+        message: 'Empleado desactivado (sin citas pendientes)',
+        action: 'smart_reschedule',
+        reassignedCount: 0,
+        deactivated: true,
+        reassignments: [],
+        conflicts: [],
+      };
+    }
+
+    // Shadow bookings: track planned assignments to avoid double-assigning same slot
+    const shadowBookings = new Map<string, Array<{ start: Date; end: Date }>>();
+    const reassignmentPlan: Array<{
+      appointment: (typeof pendingAppointments)[0];
+      targetEmployeeId: string;
+      targetEmployeeName: string;
+    }> = [];
+    const conflicts: Array<(typeof pendingAppointments)[0]> = [];
+
+    for (const apt of pendingAppointments) {
+      const serviceIds = apt.items.map((item) => item.serviceId);
+
+      // Find eligible employees (must have ALL services, active, not the one being deactivated)
+      const candidates = await this.prisma.employee.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+          id: { not: employee.id },
+          employeeServices: { some: { serviceId: { in: serviceIds } } },
+        },
+        include: { employeeServices: true },
+      });
+
+      const eligible = candidates.filter((emp) =>
+        serviceIds.every((sid) =>
+          emp.employeeServices.some((es: any) => es.serviceId === sid),
+        ),
+      );
+
+      let assigned = false;
+
+      for (const candidate of eligible) {
+        // Check shadow bookings first (planned but not yet in DB)
+        const shadowBlocks = shadowBookings.get(candidate.id) || [];
+        const hasShadowConflict = shadowBlocks.some(
+          (b) => b.start < apt.endTime && b.end > apt.startTime,
+        );
+        if (hasShadowConflict) continue;
+
+        // Check real availability at the exact same time
+        const isAvailable = await this.availabilityService.isAvailableAtTime(
+          candidate.id,
+          apt.startTime,
+          apt.endTime,
+          tenantId,
+        );
+        if (!isAvailable) continue;
+
+        // Found a match — register shadow booking and plan assignment
+        const existing = shadowBookings.get(candidate.id) || [];
+        existing.push({ start: apt.startTime, end: apt.endTime });
+        shadowBookings.set(candidate.id, existing);
+
+        reassignmentPlan.push({
+          appointment: apt,
+          targetEmployeeId: candidate.id,
+          targetEmployeeName: `${candidate.firstName} ${candidate.lastName}`,
+        });
+        assigned = true;
+        break;
+      }
+
+      if (!assigned) {
+        conflicts.push(apt);
+      }
+    }
+
+    // Execute auto-assignments in Serializable transaction
+    if (reassignmentPlan.length > 0) {
+      await this.prisma.$transaction(
+        async (tx) => {
+          for (const plan of reassignmentPlan) {
+            const apt = plan.appointment;
+
+            await tx.appointment.update({
+              where: { id: apt.id },
+              data: {
+                employeeId: plan.targetEmployeeId,
+                status: 'RESCHEDULED',
+              },
+            });
+
+            await tx.appointmentItem.updateMany({
+              where: { appointmentId: apt.id, employeeId: employee.id },
+              data: { employeeId: plan.targetEmployeeId },
+            });
+
+            await tx.appointmentStatusHistory.create({
+              data: {
+                appointmentId: apt.id,
+                fromStatus: apt.status,
+                toStatus: 'RESCHEDULED',
+                changedBy: userId,
+                notes: `Reasignada automáticamente a ${plan.targetEmployeeName} (mismo horario)`,
+              },
+            });
+          }
+
+          // Only deactivate if no conflicts remain
+          if (conflicts.length === 0) {
+            await tx.employee.update({
+              where: { id: employee.id },
+              data: { isActive: false },
+            });
+          }
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } else if (conflicts.length === 0) {
+      await this.prisma.employee.update({
+        where: { id: employee.id },
+        data: { isActive: false },
+      });
+    }
+
+    // Post-transaction: audit + events + cache
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'employee.deactivated',
+      entityType: 'employee',
+      entityId: employee.id,
+      newValues: {
+        action: 'smart_reschedule',
+        reassigned: reassignmentPlan.length,
+        conflicts: conflicts.length,
+      },
+    });
+
+    const affectedEmployeeIds = new Set<string>();
+    for (const plan of reassignmentPlan) {
+      await this.eventsService.emitAppointmentRescheduled(tenantId, plan.appointment.id, {
+        oldEmployeeId: employee.id,
+        newEmployeeId: plan.targetEmployeeId,
+        reason: 'smart_reschedule',
+      });
+      affectedEmployeeIds.add(plan.targetEmployeeId);
+    }
+
+    if (employee.locationId) {
+      await this.availabilityService.invalidateCacheForEmployee(tenantId, employee.locationId, employee.id);
+      for (const empId of affectedEmployeeIds) {
+        await this.availabilityService.invalidateCacheForEmployee(tenantId, employee.locationId, empId);
+      }
+    }
+
+    return {
+      message: conflicts.length === 0
+        ? `Empleado desactivado. ${reassignmentPlan.length} citas reasignadas`
+        : `${reassignmentPlan.length} citas reasignadas, ${conflicts.length} con conflicto`,
+      action: 'smart_reschedule',
+      reassignedCount: reassignmentPlan.length,
+      deactivated: conflicts.length === 0,
+      reassignments: reassignmentPlan.map((p) => ({
+        appointmentId: p.appointment.id,
+        clientName: `${p.appointment.client.firstName} ${p.appointment.client.lastName}`,
+        services: p.appointment.items.map((i) => i.serviceNameSnapshot),
+        startTime: p.appointment.startTime.toISOString(),
+        endTime: p.appointment.endTime.toISOString(),
+        newEmployeeId: p.targetEmployeeId,
+        newEmployeeName: p.targetEmployeeName,
+      })),
+      conflicts: conflicts.map((apt) => ({
+        id: apt.id,
+        startTime: apt.startTime.toISOString(),
+        endTime: apt.endTime.toISOString(),
+        status: apt.status,
+        clientName: `${apt.client.firstName} ${apt.client.lastName}`,
+        services: apt.items.map((i) => ({
+          serviceId: i.serviceId,
+          serviceName: i.serviceNameSnapshot,
+          durationMinutes: i.durationSnapshot,
+        })),
+      })),
+    };
+  }
+
+  // ─── FINALIZE DEACTIVATION ────────────────────────────
+
+  async finalizeDeactivation(employeeId: string, tenantId: string, userId: string) {
+    const employee = await this.findOne(employeeId, tenantId);
+
+    if (!employee.isActive) {
+      return { message: 'Empleado ya está desactivado', action: 'finalize' };
+    }
+
+    await this.prisma.employee.update({
+      where: { id: employeeId },
+      data: { isActive: false },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'employee.deactivated',
+      entityType: 'employee',
+      entityId: employeeId,
+      newValues: { action: 'finalize_after_conflict_resolution' },
+    });
+
+    return { message: 'Empleado desactivado', action: 'finalize' };
   }
 }

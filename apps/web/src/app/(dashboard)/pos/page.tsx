@@ -11,7 +11,7 @@ interface Appointment {
   id: string;
   startTime: string;
   client?: { firstName: string; lastName: string };
-  items?: Array<{ service?: { name: string }; price: number }>;
+  items?: Array<{ serviceNameSnapshot: string; priceSnapshot: number; durationSnapshot: number }>;
   status: string;
 }
 
@@ -27,12 +27,12 @@ export default function PosPage() {
     queryKey: ['appointments-today'],
     queryFn: () =>
       api.get<{ data: Appointment[] }>(
-        `/api/appointments?startDate=${today}T00:00:00&endDate=${today}T23:59:59&status=confirmed`,
+        `/api/appointments?startDate=${today}&endDate=${today}&status=CONFIRMED`,
       ),
   });
 
   const appointments = (data?.data || []).filter(
-    (a) => a.status !== 'completed' && a.status !== 'cancelled',
+    (a) => a.status !== 'COMPLETED' && a.status !== 'CANCELLED',
   );
 
   if (checkoutComplete) {
@@ -131,7 +131,7 @@ export default function PosPage() {
                   {apt.items && apt.items.length > 0 && (
                     <p className="text-xs text-gray-500">
                       {apt.items
-                        .map((i) => i.service?.name)
+                        .map((i) => i.serviceNameSnapshot)
                         .filter(Boolean)
                         .join(', ')}
                     </p>

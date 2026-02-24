@@ -15,7 +15,7 @@ export class FilterAppointmentsDto extends PaginationDto {
   clientId?: string;
 
   @IsOptional()
-  @IsEnum(['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'])
+  @IsEnum(['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'])
   status?: string;
 
   @IsOptional()

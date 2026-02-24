@@ -332,7 +332,11 @@ export class TenantsService {
     });
     if (!location) throw new NotFoundException('Ubicación no encontrada');
 
-    await this.prisma.location.delete({ where: { id } });
+    // Soft delete to preserve related data (employees, appointments)
+    await this.prisma.location.update({
+      where: { id },
+      data: { isActive: false },
+    });
     return { message: 'Ubicación eliminada' };
   }
 

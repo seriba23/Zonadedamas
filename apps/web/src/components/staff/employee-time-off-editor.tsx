@@ -92,8 +92,8 @@ export function EmployeeTimeOffEditor({ employeeId }: EmployeeTimeOffEditorProps
     if (!finalReason) return;
 
     addMutation.mutate({
-      startDatetime: `${startDate}T${startTime}:00Z`,
-      endDatetime: `${endDate}T${endTime}:00Z`,
+      startDatetime: `${startDate}T${startTime}:00`,
+      endDatetime: `${endDate}T${endTime}:00`,
       reason: finalReason,
     });
   }

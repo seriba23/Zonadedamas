@@ -43,17 +43,15 @@ export default function ReportsPage() {
 
   const bounds = getDateBounds();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['reports', bounds.start, bounds.end],
     queryFn: () =>
       api.get<{ data: ReportStats }>(
         `/api/reports?startDate=${bounds.start}&endDate=${bounds.end}`,
       ),
-    // If endpoint doesn't exist yet, use placeholder data
     retry: false,
   });
 
-  // Placeholder data for display when API isn't available
   const stats: ReportStats = data?.data || {
     totalRevenue: 0,
     totalAppointments: 0,
@@ -136,6 +134,25 @@ export default function ReportsPage() {
             </div>
           )}
         </div>
+
+        {/* Info banner when API is not available */}
+        {isError && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-amber-800">
+                  Modulo de reportes en desarrollo
+                </p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  Los reportes avanzados estaran disponibles proximamente. Puedes ver las estadisticas basicas en el panel de cada empleado.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

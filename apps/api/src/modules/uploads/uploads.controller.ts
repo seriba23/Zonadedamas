@@ -1,22 +1,14 @@
-import { Controller, Get, Param, Res, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, Res, NotFoundException, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { UploadsService } from './uploads.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import * as path from 'path';
 
 @Controller('uploads')
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
-  @Get(':folder/:filename')
-  serveFile(
-    @Param('folder') folder: string,
-    @Param('filename') filename: string,
-    @Res() res: Response,
-  ) {
-    if (!['avatars', 'portfolio', 'documents'].includes(folder)) {
-      throw new NotFoundException('Carpeta no válida');
-    }
-
+  private sendFile(folder: string, filename: string, res: Response) {
     const filePath = this.uploadsService.getFilePath(folder, filename);
     if (!filePath) {
       throw new NotFoundException('Archivo no encontrado');
@@ -34,5 +26,29 @@ export class UploadsController {
     res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.sendFile(filePath);
+  }
+
+  // Protected route for employee documents (ID scans, contracts, etc.)
+  // Must be defined BEFORE the wildcard :folder route
+  @Get('documents/:filename')
+  @UseGuards(JwtAuthGuard)
+  serveDocument(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    this.sendFile('documents', filename, res);
+  }
+
+  // Public routes for avatars and portfolio images
+  @Get(':folder/:filename')
+  serveFile(
+    @Param('folder') folder: string,
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    if (!['avatars', 'portfolio'].includes(folder)) {
+      throw new NotFoundException('Carpeta no válida');
+    }
+    this.sendFile(folder, filename, res);
   }
 }

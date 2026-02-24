@@ -782,6 +782,140 @@ async function main() {
   }
   console.log(`  ${businessHoursData.length} business hours seeded.`);
 
+  // 11. Create demo appointments for March 2026
+  console.log('Seeding March 2026 appointments...');
+
+  // Fetch employees and clients
+  const allEmployees = await prisma.employee.findMany({
+    where: { tenantId: tenant.id },
+    include: { employeeServices: { include: { service: true } } },
+  });
+
+  const allClients = await prisma.client.findMany({
+    where: { tenantId: tenant.id },
+  });
+
+  if (allEmployees.length > 0 && allClients.length > 0) {
+    // Check if March 2026 appointments already exist
+    const existingMarchApts = await prisma.appointment.count({
+      where: {
+        tenantId: tenant.id,
+        startTime: { gte: new Date('2026-03-01T00:00:00Z') },
+        endTime: { lte: new Date('2026-03-31T23:59:59Z') },
+      },
+    });
+
+    // If incomplete set exists, clean up first
+    if (existingMarchApts > 0 && existingMarchApts < 30) {
+      const oldApts = await prisma.appointment.findMany({
+        where: {
+          tenantId: tenant.id,
+          startTime: { gte: new Date('2026-03-01T00:00:00Z') },
+          endTime: { lte: new Date('2026-03-31T23:59:59Z') },
+        },
+        select: { id: true },
+      });
+      const oldIds = oldApts.map(a => a.id);
+      await prisma.appointmentStatusHistory.deleteMany({ where: { appointmentId: { in: oldIds } } });
+      await prisma.appointmentItem.deleteMany({ where: { appointmentId: { in: oldIds } } });
+      await prisma.appointment.deleteMany({ where: { id: { in: oldIds } } });
+      console.log(`  Cleaned ${oldIds.length} incomplete March appointments.`);
+    }
+
+    if (existingMarchApts < 30) {
+      const statuses: Array<'PENDING' | 'CONFIRMED'> = ['PENDING', 'CONFIRMED'];
+
+      // Define 10 appointment slots per employee: [day, hour, minute]
+      const slotsByEmployee: Array<Array<[number, number, number]>> = [
+        // Maria Garcia – spread across March
+        [[2, 9, 0], [4, 10, 30], [6, 11, 0], [9, 14, 0], [11, 9, 30], [13, 15, 0], [17, 10, 0], [20, 11, 30], [24, 13, 0], [27, 16, 0]],
+        // James Wilson – different days/times
+        [[3, 9, 0], [5, 11, 0], [7, 14, 30], [10, 10, 0], [12, 9, 0], [16, 13, 0], [18, 15, 30], [21, 10, 30], [25, 11, 0], [28, 9, 30]],
+        // Sofia Martinez – different days/times
+        [[2, 10, 0], [4, 13, 0], [6, 9, 30], [9, 11, 0], [11, 14, 0], [14, 10, 30], [18, 9, 0], [20, 15, 0], [23, 13, 30], [26, 11, 0]],
+      ];
+
+      let totalCreated = 0;
+
+      for (let empIdx = 0; empIdx < allEmployees.length; empIdx++) {
+        const emp = allEmployees[empIdx];
+        const empServices = emp.employeeServices;
+        if (empServices.length === 0) continue;
+
+        const slots = slotsByEmployee[empIdx] || slotsByEmployee[0];
+
+        for (let i = 0; i < slots.length; i++) {
+          const [day, hour, minute] = slots[i];
+          const client = allClients[i % allClients.length];
+          const empSvc = empServices[i % empServices.length];
+          const service = empSvc.service;
+          const status = statuses[i % statuses.length];
+
+          const startTime = new Date(Date.UTC(2026, 2, day, hour, minute, 0)); // month=2 → March
+          const endTime = new Date(startTime.getTime() + service.durationMinutes * 60 * 1000);
+
+          const notes = [
+            'Cliente habitual',
+            'Primera visita',
+            'Pidió turno temprano',
+            'Referida por otra clienta',
+            null,
+            'Llamar para confirmar un día antes',
+            'Prefiere productos orgánicos',
+            null,
+            'Tiene prisa, puntualidad importante',
+            'Viene con acompañante',
+          ][i] || null;
+
+          const appointment = await prisma.appointment.create({
+            data: {
+              tenantId: tenant.id,
+              locationId: emp.locationId,
+              clientId: client.id,
+              employeeId: emp.id,
+              status,
+              startTime,
+              endTime,
+              notes,
+              source: 'MANUAL',
+              createdBy: ownerUser.id,
+            },
+          });
+
+          await prisma.appointmentItem.create({
+            data: {
+              appointmentId: appointment.id,
+              serviceId: service.id,
+              employeeId: emp.id,
+              startTime,
+              endTime,
+              priceSnapshot: service.price,
+              durationSnapshot: service.durationMinutes,
+              serviceNameSnapshot: service.name,
+              commissionSnapshot: empSvc.commission,
+            },
+          });
+
+          await prisma.appointmentStatusHistory.create({
+            data: {
+              appointmentId: appointment.id,
+              fromStatus: null,
+              toStatus: status,
+              changedBy: ownerUser.id,
+              notes: 'Creada por seed',
+            },
+          });
+
+          totalCreated++;
+        }
+      }
+
+      console.log(`  ${totalCreated} appointments created for March 2026.`);
+    } else {
+      console.log(`  March 2026 appointments already complete (${existingMarchApts}), skipping.`);
+    }
+  }
+
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
   console.log(`Tenant:        Demo Salon (slug: demo-salon)`);

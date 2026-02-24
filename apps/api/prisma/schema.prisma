@@ -12,6 +12,7 @@ datasource db {
 enum AppointmentStatus {
   PENDING
   CONFIRMED
+  RESCHEDULED
   IN_PROGRESS
   COMPLETED
   CANCELLED

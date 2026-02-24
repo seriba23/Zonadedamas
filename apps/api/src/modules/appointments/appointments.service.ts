@@ -27,6 +27,22 @@ export class AppointmentsService {
   ) {}
 
   async create(dto: CreateAppointmentDto, tenantId: string, userId?: string) {
+    // Validate employee belongs to tenant
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: dto.employeeId, tenantId, isActive: true },
+    });
+    if (!employee) {
+      throw new NotFoundException('Empleado no encontrado o inactivo');
+    }
+
+    // Validate client belongs to tenant
+    const client = await this.prisma.client.findFirst({
+      where: { id: dto.clientId, tenantId, isActive: true },
+    });
+    if (!client) {
+      throw new NotFoundException('Cliente no encontrado o inactivo');
+    }
+
     // Fetch services for snapshot data
     const services = await this.prisma.service.findMany({
       where: { id: { in: dto.serviceIds }, tenantId },
@@ -58,6 +74,22 @@ export class AppointmentsService {
     try {
       const result = await this.prisma.$transaction(
         async (tx) => {
+          // Check for overlapping appointments (double-booking prevention)
+          const overlap = await tx.appointment.findFirst({
+            where: {
+              employeeId: dto.employeeId,
+              tenantId,
+              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+              startTime: { lt: endTime },
+              endTime: { gt: startTime },
+            },
+          });
+          if (overlap) {
+            throw new ConflictException(
+              'Este horario ya está reservado. Por favor selecciona otro horario.',
+            );
+          }
+
           // Create the appointment
           const appointment = await tx.appointment.create({
             data: {
@@ -254,8 +286,18 @@ export class AppointmentsService {
       );
     }
 
+    // Fetch original services to include bufferAfterMinutes (matching create behavior)
+    const serviceIds = appointment.items.map((item) => item.serviceId);
+    const services = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds }, tenantId },
+    });
+    const serviceBufferMap = new Map(
+      services.map((s) => [s.id, s.bufferAfterMinutes]),
+    );
+
     const totalDuration = appointment.items.reduce(
-      (sum, item) => sum + item.durationSnapshot,
+      (sum, item) =>
+        sum + item.durationSnapshot + (serviceBufferMap.get(item.serviceId) ?? 0),
       0,
     );
     const newStartTime = new Date(dto.startTime);
@@ -267,6 +309,23 @@ export class AppointmentsService {
     try {
       const updated = await this.prisma.$transaction(
         async (tx) => {
+          // Check for overlapping appointments (exclude current appointment)
+          const overlap = await tx.appointment.findFirst({
+            where: {
+              employeeId,
+              tenantId,
+              id: { not: id },
+              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+              startTime: { lt: newEndTime },
+              endTime: { gt: newStartTime },
+            },
+          });
+          if (overlap) {
+            throw new ConflictException(
+              'Este horario ya está reservado.',
+            );
+          }
+
           const result = await tx.appointment.update({
             where: { id },
             data: {
@@ -276,6 +335,24 @@ export class AppointmentsService {
               status: 'PENDING',
             },
           });
+
+          // Update individual item start/end times to match new schedule
+          let itemStart = new Date(newStartTime);
+          for (const item of appointment.items) {
+            const buffer = serviceBufferMap.get(item.serviceId) ?? 0;
+            const itemEnd = new Date(
+              itemStart.getTime() + item.durationSnapshot * 60000,
+            );
+            await tx.appointmentItem.update({
+              where: { id: item.id },
+              data: {
+                employeeId,
+                startTime: itemStart,
+                endTime: itemEnd,
+              },
+            });
+            itemStart = new Date(itemEnd.getTime() + buffer * 60000);
+          }
 
           await tx.appointmentStatusHistory.create({
             data: {
@@ -335,8 +412,10 @@ export class AppointmentsService {
       throw new NotFoundException('Cita no encontrada');
     }
 
-    if (appointment.status === 'CANCELLED') {
-      throw new BadRequestException('La cita ya está cancelada');
+    if (['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(appointment.status)) {
+      throw new BadRequestException(
+        `No se puede cancelar una cita con estado: ${appointment.status}`,
+      );
     }
 
     const updated = await this.prisma.appointment.update({
@@ -428,6 +507,46 @@ export class AppointmentsService {
     await this.eventsService.emitAppointmentCompleted(tenantId, id, {
       locationId: appointment.locationId,
       employeeId: appointment.employeeId,
+    });
+
+    return { data: updated };
+  }
+
+  async confirm(id: string, tenantId: string, userId?: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    if (!['PENDING', 'RESCHEDULED'].includes(appointment.status)) {
+      throw new BadRequestException('Solo se pueden confirmar citas pendientes o reagendadas');
+    }
+
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { status: 'CONFIRMED' },
+    });
+
+    await this.prisma.appointmentStatusHistory.create({
+      data: {
+        appointmentId: id,
+        fromStatus: appointment.status,
+        toStatus: 'CONFIRMED',
+        changedBy: userId,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'appointment.confirmed',
+      entityType: 'appointment',
+      entityId: id,
+      oldValues: { status: appointment.status },
+      newValues: { status: 'CONFIRMED' },
     });
 
     return { data: updated };

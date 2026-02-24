@@ -84,6 +84,16 @@ export class AppointmentsController {
     return this.appointmentsService.cancel(id, dto, tenantId, user.userId);
   }
 
+  @Post(':id/confirm')
+  @RequirePermissions('appointments.update')
+  async confirm(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.confirm(id, tenantId, user.userId);
+  }
+
   @Post(':id/complete')
   @RequirePermissions('appointments.complete')
   async complete(

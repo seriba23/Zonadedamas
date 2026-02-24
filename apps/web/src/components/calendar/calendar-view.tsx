@@ -119,6 +119,16 @@ const STATUS_DECORATIONS: Record<string, string> = {
   no_show: 'opacity-60',
 };
 
+const STATUS_DOT_COLORS: Record<string, string> = {
+  pending: '#eab308',
+  confirmed: '#22c55e',
+  rescheduled: '#f97316',
+  in_progress: '#3b82f6',
+  completed: '#9ca3af',
+  cancelled: '#ef4444',
+  no_show: '#f97316',
+};
+
 interface LayoutInfo {
   column: number;
   totalColumns: number;
@@ -303,11 +313,16 @@ function DayColumn({
       {!closure && dayAppointments.map((apt) => {
         const { top, height } = getAppointmentStyle(apt.startTime, apt.endTime);
         const serviceName = apt.items?.[0]?.serviceNameSnapshot || 'Servicio';
+        const extraServices = (apt.items?.length || 1) - 1;
+        const serviceLabel = extraServices > 0 ? `${serviceName} +${extraServices}` : serviceName;
         const totalPrice = apt.items?.reduce((sum, item) => sum + (Number(item.priceSnapshot) || 0), 0) ?? 0;
         const employeeColor = apt.employee?.color || '#008080';
         const rgb = hexToRgb(employeeColor);
         const bgColor = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)` : 'rgba(0, 128, 128, 0.12)';
-        const statusExtra = STATUS_DECORATIONS[apt.status] || '';
+        const statusLower = apt.status?.toLowerCase() || '';
+        const statusExtra = STATUS_DECORATIONS[statusLower] || '';
+        const statusDotColor = STATUS_DOT_COLORS[statusLower] || '#9ca3af';
+        const empInitial = apt.employee ? apt.employee.firstName.charAt(0).toUpperCase() : '';
 
         const info = layout.get(apt.id) || { column: 0, totalColumns: 1 };
         const widthPercent = 100 / info.totalColumns;
@@ -330,22 +345,38 @@ function DayColumn({
               onAppointmentClick(apt);
             }}
           >
-            <p className="text-xs font-semibold truncate text-gray-900">
-              {apt.client
-                ? `${apt.client.firstName} ${apt.client.lastName}`
-                : 'Cliente'}
-            </p>
+            <div className="flex items-center gap-1">
+              <span
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: statusDotColor }}
+              />
+              <p className="text-xs font-semibold truncate text-gray-900">
+                {apt.client
+                  ? `${apt.client.firstName} ${apt.client.lastName}`
+                  : 'Cliente'}
+              </p>
+            </div>
             <p className="text-xs truncate text-gray-700">
-              {serviceName}{totalPrice > 0 ? ` · $${totalPrice.toFixed(2)}` : ''}
+              {serviceLabel}{totalPrice > 0 ? ` · $${totalPrice.toFixed(2)}` : ''}
             </p>
             {height > 40 && (
-              <p className="text-xs text-gray-500">
-                {formatTime(
-                  new Date(apt.startTime).toTimeString().slice(0, 5),
+              <div className="flex items-center gap-1.5">
+                {height > 35 && empInitial && (
+                  <span
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
+                    style={{ backgroundColor: employeeColor }}
+                  >
+                    {empInitial}
+                  </span>
                 )}
-                {' - '}
-                {formatTime(new Date(apt.endTime).toTimeString().slice(0, 5))}
-              </p>
+                <p className="text-xs text-gray-500">
+                  {formatTime(
+                    new Date(apt.startTime).toTimeString().slice(0, 5),
+                  )}
+                  {' - '}
+                  {formatTime(new Date(apt.endTime).toTimeString().slice(0, 5))}
+                </p>
+              </div>
             )}
           </div>
         );

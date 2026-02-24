@@ -12,7 +12,7 @@ export class ServicesService {
     const perPage = pagination.perPage ?? 20;
     const skip = (page - 1) * perPage;
 
-    const where = { tenantId };
+    const where = { tenantId, isActive: true };
 
     const [data, total] = await Promise.all([
       this.prisma.service.findMany({

@@ -72,7 +72,7 @@ export default function EmployeeAppointmentsPage() {
 
   const completeMutation = useMutation({
     mutationFn: (id: string) =>
-      api.patch(`/api/appointments/${id}/status`, { status: 'COMPLETED' }),
+      api.post(`/api/appointments/${id}/complete`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
     },
@@ -121,7 +121,7 @@ export default function EmployeeAppointmentsPage() {
                 (sum, i) => sum + Number(i.priceSnapshot),
                 0,
               );
-              const canComplete = apt.status === 'CONFIRMED';
+              const canComplete = ['CONFIRMED', 'IN_PROGRESS'].includes(apt.status);
 
               return (
                 <li key={apt.id} className="px-5 py-4 hover:bg-gray-50">

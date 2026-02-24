@@ -72,8 +72,8 @@ export function EmployeePersonalInfo({
   canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
-  const ineInputRef = useRef<HTMLInputElement>(null);
-  const comprobanteInputRef = useRef<HTMLInputElement>(null);
+  const ineInputRef = useRef<HTMLInputElement>(null!);
+  const comprobanteInputRef = useRef<HTMLInputElement>(null!);
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -604,7 +604,7 @@ function DocumentSlot({
   doc?: { id: string; fileUrl: string; createdAt: string };
   canEdit: boolean;
   uploading: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDelete: () => void;
   deleting: boolean;

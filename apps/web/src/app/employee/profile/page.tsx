@@ -96,7 +96,6 @@ export default function EmployeeProfilePage() {
             phone: employee.phone || '',
             color: employee.color,
             bio: employee.bio || '',
-            avatarUrl: employee.avatarUrl,
             bloodType: employee.bloodType,
             emergencyContactName: employee.emergencyContactName,
             emergencyContactLastName: employee.emergencyContactLastName,

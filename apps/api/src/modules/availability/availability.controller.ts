@@ -2,6 +2,7 @@ import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AvailabilityService } from './availability.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { AllSlotsQueryDto } from './dto/all-slots-query.dto';
+import { CheckAfterDto } from './dto/check-after.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -56,6 +57,16 @@ export class AvailabilityController {
       query.serviceIds,
       tenantId,
     );
+    return { data: result };
+  }
+
+  @Post('check-after')
+  @RequirePermissions('availability.read')
+  async checkAfter(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: CheckAfterDto,
+  ) {
+    const result = await this.availabilityService.checkAfterTime(dto, tenantId);
     return { data: result };
   }
 }

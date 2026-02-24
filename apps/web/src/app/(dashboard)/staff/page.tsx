@@ -81,10 +81,14 @@ export default function StaffPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<EmployeeForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => api.get<{ data: Employee[] }>('/api/employees'),
+    queryKey: ['employees', showInactive],
+    queryFn: () =>
+      api.get<{ data: Employee[] }>(
+        `/api/employees?perPage=100${showInactive ? '&includeInactive=true' : ''}`,
+      ),
   });
 
   // Map employeeServices → services for display
@@ -139,9 +143,27 @@ export default function StaffPage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">
-            {employees.length} empleado{employees.length !== 1 ? 's' : ''}
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-gray-500">
+              {employees.length} empleado{employees.length !== 1 ? 's' : ''}
+            </p>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setShowInactive((v) => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+                  showInactive ? 'bg-primary-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    showInactive ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-gray-500">Mostrar inactivos</span>
+            </label>
+          </div>
           {hasPermission('employees.create') && (
             <button onClick={openCreate} className="btn-primary">
               + Nuevo Empleado
@@ -189,8 +211,10 @@ export default function StaffPage() {
                 <Link
                   key={employee.id}
                   href={`/staff/${employee.id}`}
-                  className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow border-l-4 cursor-pointer"
-                  style={{ borderLeftColor: empColor }}
+                  className={`block rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow border-l-4 cursor-pointer ${
+                    employee.isActive ? 'bg-white' : 'bg-gray-50 opacity-60'
+                  }`}
+                  style={{ borderLeftColor: employee.isActive ? empColor : '#9ca3af' }}
                 >
                   <div className="flex items-start">
                     <div className="flex items-center gap-4">

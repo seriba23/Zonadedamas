@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
@@ -30,11 +30,11 @@ export default function ClientsPage() {
   const perPage = 20;
 
   // Debounce search
-  let debounceTimer: ReturnType<typeof setTimeout>;
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   function handleSearchChange(value: string) {
     setSearch(value);
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
       setDebouncedSearch(value);
       setPage(1);
     }, 400);

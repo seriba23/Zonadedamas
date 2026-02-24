@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -52,22 +52,24 @@ export function PosCheckout({
       api.get<{
         data: {
           id: string;
-          items?: Array<{ id: string; service?: { name: string }; price: number }>;
+          items?: Array<{ id: string; serviceNameSnapshot: string; priceSnapshot: number; durationSnapshot: number }>;
         };
       }>(`/api/appointments/${appointmentId}`),
     enabled: !!appointmentId,
-    onSuccess(res) {
-      if (res.data.items && items.length === 0) {
-        const cartItems = res.data.items.map((item, idx) => ({
-          id: `item-${idx}`,
-          name: item.service?.name || 'Servicio',
-          price: item.price,
-          quantity: 1,
-        }));
-        setItems(cartItems);
-      }
-    },
-  } as Parameters<typeof useQuery>[0]);
+  });
+
+  useEffect(() => {
+    if (appointmentData?.data?.items && items.length === 0) {
+      const cartItems = appointmentData.data.items.map((item, idx) => ({
+        id: `item-${idx}`,
+        name: item.serviceNameSnapshot || 'Servicio',
+        price: Number(item.priceSnapshot),
+        quantity: 1,
+      }));
+      setItems(cartItems);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentData]);
 
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
@@ -139,7 +141,7 @@ export function PosCheckout({
 
   const discountAmount =
     discountType === 'percent'
-      ? subtotal * (parseFloat(discount) / 100)
+      ? subtotal * ((parseFloat(discount) || 0) / 100)
       : parseFloat(discount) || 0;
 
   const afterDiscount = Math.max(0, subtotal - discountAmount);

@@ -65,12 +65,29 @@ export class PaymentsService {
       include: { items: true },
     });
 
-    // If linked to appointment, mark appointment as completed
+    // If linked to appointment, mark appointment as completed (with validation)
     if (dto.appointmentId) {
-      await this.prisma.appointment.update({
-        where: { id: dto.appointmentId },
-        data: { status: 'COMPLETED' },
-      }).catch(() => {}); // Non-blocking
+      const appointment = await this.prisma.appointment.findFirst({
+        where: { id: dto.appointmentId, tenantId },
+      });
+      if (
+        appointment &&
+        ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(appointment.status)
+      ) {
+        await this.prisma.appointment.update({
+          where: { id: dto.appointmentId },
+          data: { status: 'COMPLETED' },
+        });
+        await this.prisma.appointmentStatusHistory.create({
+          data: {
+            appointmentId: dto.appointmentId,
+            fromStatus: appointment.status,
+            toStatus: 'COMPLETED',
+            changedBy: userId,
+            notes: 'Completada automaticamente al registrar pago',
+          },
+        });
+      }
     }
 
     await this.auditService.log({

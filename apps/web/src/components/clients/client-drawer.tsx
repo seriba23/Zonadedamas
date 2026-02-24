@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/drawer';
@@ -22,7 +22,7 @@ interface Appointment {
   id: string;
   startTime: string;
   status: string;
-  items?: Array<{ service?: { name: string }; price: number }>;
+  items?: Array<{ serviceNameSnapshot: string; priceSnapshot: number; durationSnapshot: number }>;
 }
 
 interface Payment {
@@ -57,8 +57,11 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
     queryKey: ['client', clientId],
     queryFn: () => api.get<{ data: Client }>(`/api/clients/${clientId}`),
     enabled: !!clientId,
-    onSuccess(res) {
-      const c = res.data;
+  });
+
+  useEffect(() => {
+    if (clientData?.data) {
+      const c = clientData.data;
       setForm({
         firstName: c.firstName,
         lastName: c.lastName,
@@ -66,8 +69,8 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
         phone: c.phone || '',
         notes: c.notes || '',
       });
-    },
-  } as Parameters<typeof useQuery>[0]);
+    }
+  }, [clientData]);
 
   const { data: appointmentsData } = useQuery({
     queryKey: ['client-appointments', clientId],
@@ -357,12 +360,12 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                         new Date(apt.startTime).toTimeString().slice(0, 5),
                       )}
                     </p>
-                    <AppointmentStatusBadge status={apt.status} />
+                    <AppointmentStatusBadge status={apt.status.toLowerCase()} />
                   </div>
                   {apt.items && apt.items.length > 0 && (
                     <p className="text-xs text-gray-500">
                       {apt.items
-                        .map((i) => i.service?.name)
+                        .map((i) => i.serviceNameSnapshot)
                         .filter(Boolean)
                         .join(', ')}
                     </p>
@@ -396,12 +399,12 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                   </div>
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      payment.status === 'completed'
+                      payment.status === 'COMPLETED'
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {payment.status === 'completed' ? 'Pagado' : payment.status}
+                    {payment.status === 'COMPLETED' ? 'Pagado' : payment.status}
                   </span>
                 </div>
               ))

@@ -119,6 +119,15 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
   }
 
   function handleSave() {
+    // Validate startTime < endTime for working days
+    const invalid = schedules.find(
+      (s) => s.isWorking && !businessClosedDays.has(s.dayOfWeek) && s.startTime >= s.endTime,
+    );
+    if (invalid) {
+      alert(`${DAY_LABELS[invalid.dayOfWeek]}: La hora de inicio debe ser anterior a la hora de fin.`);
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0];
     saveMutation.mutate({
       schedules: schedules.map((s) => ({

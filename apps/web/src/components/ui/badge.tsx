@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 export interface BadgeProps {
   children: ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'orange';
   size?: 'sm' | 'md';
   className?: string;
 }
@@ -15,6 +15,7 @@ const variantClasses: Record<NonNullable<BadgeProps['variant']>, string> = {
   danger: 'bg-red-100 text-red-700',
   info: 'bg-blue-100 text-blue-700',
   purple: 'bg-purple-100 text-purple-700',
+  orange: 'bg-orange-100 text-orange-700',
 };
 
 const sizeClasses: Record<NonNullable<BadgeProps['size']>, string> = {
@@ -54,6 +55,7 @@ export function AppointmentStatusBadge({
   > = {
     pending: { label: 'Pendiente', variant: 'warning' },
     confirmed: { label: 'Confirmada', variant: 'info' },
+    rescheduled: { label: 'Reagendada', variant: 'orange' },
     in_progress: { label: 'En progreso', variant: 'purple' },
     completed: { label: 'Completada', variant: 'success' },
     cancelled: { label: 'Cancelada', variant: 'danger' },

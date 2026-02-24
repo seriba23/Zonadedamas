@@ -52,6 +52,8 @@ export default function CalendarPage() {
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
+  const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
 
   // Filter state
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
@@ -211,12 +213,26 @@ export default function CalendarPage() {
     setIsModalOpen(false);
     setSelectedSlot(null);
     setSelectedAppointmentId(null);
+    setPrefillClientId(undefined);
+    setPrefillEmployeeId(undefined);
   }
 
   function handleModalSave() {
+    // Only show confetti when creating a new appointment, not on cancel/complete/reschedule
+    const isCreating = !selectedAppointmentId;
     handleModalClose();
     refetch();
-    setShowConfetti(true);
+    if (isCreating) {
+      setShowConfetti(true);
+    }
+  }
+
+  function handleCreateAnother(clientId: string, employeeId: string) {
+    setPrefillClientId(clientId);
+    setPrefillEmployeeId(employeeId);
+    setSelectedAppointmentId(null);
+    setSelectedSlot(currentDate.format('YYYY-MM-DD') + 'T09:00:00');
+    setIsModalOpen(true);
   }
 
   return (
@@ -425,8 +441,11 @@ export default function CalendarPage() {
         <AppointmentModal
           appointmentId={selectedAppointmentId || undefined}
           initialStartTime={selectedSlot || undefined}
+          initialClientId={prefillClientId}
+          initialEmployeeId={prefillEmployeeId}
           onClose={handleModalClose}
           onSave={handleModalSave}
+          onCreateAnother={handleCreateAnother}
         />
       )}
 

@@ -11,7 +11,7 @@ import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 interface Service {
   id: string;
   name: string;
-  duration: number;
+  durationMinutes: number;
   price: number;
   color?: string;
 }
@@ -30,6 +30,15 @@ interface Client {
   email?: string;
 }
 
+interface AppointmentItem {
+  id: string;
+  serviceId: string;
+  serviceNameSnapshot: string;
+  priceSnapshot: number;
+  durationSnapshot: number;
+  commissionSnapshot: number | null;
+}
+
 interface Appointment {
   id: string;
   clientId: string;
@@ -40,32 +49,45 @@ interface Appointment {
   endTime: string;
   status: string;
   notes?: string;
-  items?: Array<{ id: string; service?: Service; price: number }>;
+  internalNotes?: string;
+  items?: AppointmentItem[];
+}
+
+interface CheckAfterResult {
+  immediatelyAvailable: boolean;
+  immediateSlot: { startTime: string; endTime: string } | null;
+  nextAvailable: { date: string; startTime: string; endTime: string } | null;
 }
 
 interface AppointmentModalProps {
   appointmentId?: string;
   initialStartTime?: string;
+  initialClientId?: string;
+  initialEmployeeId?: string;
   onClose: () => void;
   onSave: () => void;
+  onCreateAnother?: (clientId: string, employeeId: string) => void;
 }
 
 export function AppointmentModal({
   appointmentId,
   initialStartTime,
+  initialClientId,
+  initialEmployeeId,
   onClose,
   onSave,
+  onCreateAnother,
 }: AppointmentModalProps) {
   const queryClient = useQueryClient();
   const isEditing = !!appointmentId;
 
   // Form state for new appointment
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || '');
   const [selectedStartTime, setSelectedStartTime] = useState('');
   const [selectedEndTime, setSelectedEndTime] = useState('');
   const [clientSearch, setClientSearch] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedClientId, setSelectedClientId] = useState<string>(initialClientId || '');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -73,6 +95,13 @@ export function AppointmentModal({
   const [rescheduleMode, setRescheduleMode] = useState(false);
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
+
+  // Add services flow state
+  const [addServicesMode, setAddServicesMode] = useState(false);
+  const [newServiceIds, setNewServiceIds] = useState<string[]>([]);
+  const [checkAfterResult, setCheckAfterResult] = useState<CheckAfterResult | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [addServiceError, setAddServiceError] = useState<string | null>(null);
 
   // Fetch existing appointment
   const { data: appointmentData, isLoading: loadingAppointment } = useQuery({
@@ -104,6 +133,13 @@ export function AppointmentModal({
     enabled: clientSearch.length >= 2,
   });
 
+  // Pre-fill: if initialClientId, fetch that client's name
+  const { data: initialClientData } = useQuery({
+    queryKey: ['client', initialClientId],
+    queryFn: () => api.get<{ data: Client }>(`/api/clients/${initialClientId}`),
+    enabled: !!initialClientId && !isEditing,
+  });
+
   const appointment = appointmentData?.data;
   const services = servicesData?.data || [];
   const employees = employeesData?.data || [];
@@ -127,6 +163,28 @@ export function AppointmentModal({
     },
   });
 
+  // Mutation for creating follow-up appointment from add-services flow
+  const addServicesMutation = useMutation({
+    mutationFn: (payload: {
+      clientId: string;
+      employeeId: string;
+      locationId: string;
+      startTime: string;
+      serviceIds: string[];
+    }) => api.post('/api/appointments', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      setAddServicesMode(false);
+      setNewServiceIds([]);
+      setCheckAfterResult(null);
+      onSave();
+    },
+    onError: (err: { message?: string }) => {
+      setAddServiceError(err.message || 'Error al agendar servicios adicionales');
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/cancel`, {
@@ -137,6 +195,9 @@ export function AppointmentModal({
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       onSave();
     },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al cancelar la cita');
+    },
   });
 
   const completeMutation = useMutation({
@@ -146,6 +207,22 @@ export function AppointmentModal({
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       onSave();
+    },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al completar la cita');
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/api/appointments/${appointmentId}/confirm`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      onSave();
+    },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al confirmar la cita');
     },
   });
 
@@ -161,7 +238,59 @@ export function AppointmentModal({
       setRescheduleMode(false);
       onSave();
     },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al reagendar la cita');
+    },
   });
+
+  // Check availability after appointment ends
+  async function handleCheckAfter() {
+    if (!appointment || newServiceIds.length === 0) return;
+    setCheckingAvailability(true);
+    setAddServiceError(null);
+    setCheckAfterResult(null);
+    try {
+      const result = await api.post<{ data: CheckAfterResult }>(
+        '/api/availability/check-after',
+        {
+          employeeId: appointment.employeeId,
+          serviceIds: newServiceIds,
+          afterTime: appointment.endTime,
+        },
+      );
+      setCheckAfterResult(result.data);
+    } catch (err: any) {
+      setAddServiceError(err.message || 'Error al verificar disponibilidad');
+    } finally {
+      setCheckingAvailability(false);
+    }
+  }
+
+  // Auto-check availability when services change in add-services mode
+  useEffect(() => {
+    if (addServicesMode && newServiceIds.length > 0 && appointment) {
+      handleCheckAfter();
+    } else {
+      setCheckAfterResult(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newServiceIds, addServicesMode]);
+
+  function handleConfirmAddServices(startTime: string) {
+    if (!appointment) return;
+    const employee = employees.find((e) => e.id === appointment.employeeId);
+    if (!employee?.locationId) {
+      setAddServiceError('El profesional no tiene ubicación asignada');
+      return;
+    }
+    addServicesMutation.mutate({
+      clientId: appointment.clientId,
+      employeeId: appointment.employeeId,
+      locationId: employee.locationId,
+      startTime,
+      serviceIds: newServiceIds,
+    });
+  }
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -196,15 +325,47 @@ export function AppointmentModal({
     });
   }
 
+  const statusLower = appointment?.status?.toLowerCase() || '';
   const canCancel =
     appointment &&
-    ['pending', 'confirmed'].includes(appointment.status);
+    ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
   const canComplete =
     appointment &&
-    ['confirmed', 'in_progress'].includes(appointment.status);
+    ['confirmed', 'in_progress'].includes(statusLower);
   const canReschedule =
     appointment &&
-    ['pending', 'confirmed'].includes(appointment.status);
+    ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
+  const canConfirm =
+    appointment &&
+    ['pending', 'rescheduled'].includes(statusLower);
+  const canAddServices =
+    appointment &&
+    ['pending', 'confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
+
+  const totalPrice = appointment?.items?.reduce(
+    (sum, item) => sum + Number(item.priceSnapshot || 0),
+    0,
+  ) ?? 0;
+
+  const totalDuration = appointment?.items?.reduce(
+    (sum, item) => sum + Number(item.durationSnapshot || 0),
+    0,
+  ) ?? 0;
+
+  // Get the display name for pre-filled client
+  const getPrefilledClientName = () => {
+    if (initialClientId) {
+      const fromSearch = clientResults.find((c) => c.id === initialClientId);
+      if (fromSearch) return `${fromSearch.firstName} ${fromSearch.lastName}`;
+      if (initialClientData?.data) {
+        const c = initialClientData.data;
+        return `${c.firstName} ${c.lastName}`;
+      }
+      return 'Cliente seleccionado';
+    }
+    const found = clientResults.find((c) => c.id === selectedClientId);
+    return found ? `${found.firstName} ${found.lastName}` : 'Cliente seleccionado';
+  };
 
   const modalTitle = isEditing
     ? loadingAppointment
@@ -216,7 +377,7 @@ export function AppointmentModal({
     <Modal
       title={modalTitle}
       onClose={onClose}
-      size={isEditing ? 'lg' : 'lg'}
+      size="lg"
     >
       {isEditing ? (
         // View mode
@@ -228,9 +389,15 @@ export function AppointmentModal({
           </div>
         ) : appointment ? (
           <div className="space-y-5">
+            {formError && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                {formError}
+              </div>
+            )}
+
             {/* Status */}
             <div className="flex items-center justify-between">
-              <AppointmentStatusBadge status={appointment.status} />
+              <AppointmentStatusBadge status={appointment.status.toLowerCase()} />
               <p className="text-sm text-gray-500">
                 {formatDate(appointment.startTime)},{' '}
                 {formatTime(
@@ -278,20 +445,35 @@ export function AppointmentModal({
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Servicios
                 </p>
-                <div className="space-y-2">
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                   {appointment.items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex justify-between items-center py-1"
+                      className="flex justify-between items-center"
                     >
-                      <span className="text-sm text-gray-700">
-                        {item.service?.name || 'Servicio'}
-                      </span>
+                      <div>
+                        <span className="text-sm text-gray-700">
+                          {item.serviceNameSnapshot}
+                        </span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {item.durationSnapshot} min
+                        </span>
+                      </div>
                       <span className="text-sm font-medium text-gray-900">
-                        {formatCurrency(item.price)}
+                        {formatCurrency(Number(item.priceSnapshot))}
                       </span>
                     </div>
                   ))}
+                  {appointment.items.length > 1 && (
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                      <span className="text-sm font-semibold text-gray-800">
+                        Total ({totalDuration} min)
+                      </span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {formatCurrency(totalPrice)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -307,6 +489,209 @@ export function AppointmentModal({
               </div>
             )}
 
+            {appointment.internalNotes && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  Notas internas
+                </p>
+                <p className="text-sm text-gray-600 bg-amber-50 rounded-lg p-3 border border-amber-100">
+                  {appointment.internalNotes}
+                </p>
+              </div>
+            )}
+
+            {/* Add services mode */}
+            {addServicesMode && (
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    Agregar servicios
+                  </p>
+                  <button
+                    onClick={() => {
+                      setAddServicesMode(false);
+                      setNewServiceIds([]);
+                      setCheckAfterResult(null);
+                      setAddServiceError(null);
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto mb-3">
+                  {services.map((s) => (
+                    <label
+                      key={s.id}
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                        newServiceIds.includes(s.id)
+                          ? 'border-primary-400 bg-primary-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newServiceIds.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setNewServiceIds((ids) => [...ids, s.id]);
+                          } else {
+                            setNewServiceIds((ids) =>
+                              ids.filter((id) => id !== s.id),
+                            );
+                          }
+                        }}
+                        className="sr-only"
+                      />
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: s.color || '#008080' }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-900 truncate">
+                          {s.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {s.durationMinutes}min · {formatCurrency(s.price)}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {addServiceError && (
+                  <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm mb-3">
+                    {addServiceError}
+                  </div>
+                )}
+
+                {checkingAvailability && (
+                  <div className="p-3 rounded-lg bg-gray-50 text-gray-600 text-sm mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Verificando disponibilidad...
+                  </div>
+                )}
+
+                {checkAfterResult && !checkingAvailability && (
+                  <div className="space-y-3">
+                    {checkAfterResult.immediatelyAvailable && checkAfterResult.immediateSlot && (
+                      <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                        <p className="text-sm text-green-800 font-medium">
+                          Disponible justo despues de la cita a las{' '}
+                          {formatTime(
+                            new Date(checkAfterResult.immediateSlot.startTime)
+                              .toTimeString()
+                              .slice(0, 5),
+                          )}
+                        </p>
+                        <button
+                          onClick={() =>
+                            handleConfirmAddServices(
+                              checkAfterResult.immediateSlot!.startTime,
+                            )
+                          }
+                          disabled={addServicesMutation.isPending}
+                          className="btn-primary text-sm mt-2 w-full"
+                        >
+                          {addServicesMutation.isPending
+                            ? 'Agendando...'
+                            : 'Confirmar'}
+                        </button>
+                      </div>
+                    )}
+
+                    {!checkAfterResult.immediatelyAvailable &&
+                      checkAfterResult.immediateSlot && (
+                        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                          <p className="text-sm text-blue-800 font-medium">
+                            Disponible hoy a las{' '}
+                            {formatTime(
+                              new Date(checkAfterResult.immediateSlot.startTime)
+                                .toTimeString()
+                                .slice(0, 5),
+                            )}
+                          </p>
+                          <button
+                            onClick={() =>
+                              handleConfirmAddServices(
+                                checkAfterResult.immediateSlot!.startTime,
+                              )
+                            }
+                            disabled={addServicesMutation.isPending}
+                            className="btn-primary text-sm mt-2 w-full"
+                          >
+                            {addServicesMutation.isPending
+                              ? 'Agendando...'
+                              : `Agendar a las ${formatTime(
+                                  new Date(checkAfterResult.immediateSlot.startTime)
+                                    .toTimeString()
+                                    .slice(0, 5),
+                                )}`}
+                          </button>
+                        </div>
+                      )}
+
+                    {!checkAfterResult.immediatelyAvailable &&
+                      !checkAfterResult.immediateSlot &&
+                      checkAfterResult.nextAvailable && (
+                        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                          <p className="text-sm text-amber-800 font-medium">
+                            Sin espacio despues de la cita. Proxima disponibilidad:
+                          </p>
+                          <p className="text-sm text-amber-700 mt-1">
+                            {formatDate(checkAfterResult.nextAvailable.date)} a las{' '}
+                            {formatTime(checkAfterResult.nextAvailable.startTime)}
+                          </p>
+                          <button
+                            onClick={() =>
+                              handleConfirmAddServices(
+                                `${checkAfterResult.nextAvailable!.date}T${checkAfterResult.nextAvailable!.startTime}:00Z`,
+                              )
+                            }
+                            disabled={addServicesMutation.isPending}
+                            className="btn-primary text-sm mt-2 w-full"
+                          >
+                            {addServicesMutation.isPending
+                              ? 'Agendando...'
+                              : `Agendar el ${formatDate(checkAfterResult.nextAvailable.date, 'D [de] MMM')}`}
+                          </button>
+                        </div>
+                      )}
+
+                    {!checkAfterResult.immediatelyAvailable &&
+                      !checkAfterResult.immediateSlot &&
+                      !checkAfterResult.nextAvailable && (
+                        <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                          <p className="text-sm text-red-800">
+                            No se encontro disponibilidad en los proximos 14 dias.
+                          </p>
+                        </div>
+                      )}
+
+                    {/* Always show "Crear otra cita" fallback */}
+                    {onCreateAnother && (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onCreateAnother(
+                            appointment.clientId,
+                            appointment.employeeId,
+                          );
+                        }}
+                        className="btn-secondary text-sm w-full"
+                      >
+                        Crear otra cita manualmente
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Reschedule mode */}
             {rescheduleMode && (
               <div className="border-t border-gray-200 pt-4">
@@ -316,7 +701,7 @@ export function AppointmentModal({
                 <AvailabilityPicker
                   serviceIds={
                     appointment.items
-                      ?.map((i) => i.service?.id)
+                      ?.map((i) => i.serviceId)
                       .filter((id): id is string => !!id) || []
                   }
                   employeeId={appointment.employeeId}
@@ -351,14 +736,14 @@ export function AppointmentModal({
             {showCancelForm && (
               <div className="border-t border-gray-200 pt-4">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
-                  Motivo de cancelación
+                  Motivo de cancelacion
                 </p>
                 <textarea
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   className="input-field resize-none"
                   rows={3}
-                  placeholder="Razón de la cancelación..."
+                  placeholder="Razon de la cancelacion..."
                 />
                 <div className="mt-3 flex gap-3">
                   <button
@@ -368,7 +753,7 @@ export function AppointmentModal({
                   >
                     {cancelMutation.isPending
                       ? 'Cancelando...'
-                      : 'Confirmar cancelación'}
+                      : 'Confirmar cancelacion'}
                   </button>
                   <button
                     onClick={() => setShowCancelForm(false)}
@@ -381,8 +766,25 @@ export function AppointmentModal({
             )}
 
             {/* Action buttons */}
-            {!rescheduleMode && !showCancelForm && (
-              <div className="flex gap-3 pt-2 border-t border-gray-200">
+            {!rescheduleMode && !showCancelForm && !addServicesMode && (
+              <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-200">
+                {canAddServices && (
+                  <button
+                    onClick={() => setAddServicesMode(true)}
+                    className="btn-secondary flex-1"
+                  >
+                    + Agregar servicios
+                  </button>
+                )}
+                {canConfirm && (
+                  <button
+                    onClick={() => confirmMutation.mutate()}
+                    disabled={confirmMutation.isPending}
+                    className="btn-primary flex-1"
+                  >
+                    {confirmMutation.isPending ? 'Confirmando...' : 'Confirmar cita'}
+                  </button>
+                )}
                 {canReschedule && (
                   <button
                     onClick={() => setRescheduleMode(true)}
@@ -412,7 +814,7 @@ export function AppointmentModal({
             )}
           </div>
         ) : (
-          <p className="text-gray-500">No se encontró la cita</p>
+          <p className="text-gray-500">No se encontro la cita</p>
         )
       ) : (
         // Create mode
@@ -431,9 +833,7 @@ export function AppointmentModal({
             {selectedClientId ? (
               <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg border border-primary-200">
                 <span className="text-sm text-primary-800">
-                  {clientResults.find((c) => c.id === selectedClientId)
-                    ? `${clientResults.find((c) => c.id === selectedClientId)!.firstName} ${clientResults.find((c) => c.id === selectedClientId)!.lastName}`
-                    : 'Cliente seleccionado'}
+                  {getPrefilledClientName()}
                 </span>
                 <button
                   type="button"
@@ -521,7 +921,7 @@ export function AppointmentModal({
                       {s.name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {s.duration}min · {formatCurrency(s.price)}
+                      {s.durationMinutes}min · {formatCurrency(s.price)}
                     </p>
                   </div>
                 </label>

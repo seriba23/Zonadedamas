@@ -21,10 +21,12 @@ import { CreateReviewDto } from './dto/review.dto';
 import { UpdatePersonalInfoDto } from './dto/personal-info.dto';
 import { CreateDocumentDto } from './dto/document.dto';
 import { CreateTrainingDto } from './dto/training.dto';
+import { DeactivateEmployeeDto } from './dto/deactivate-employee.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { UploadsService } from '../uploads/uploads.service';
 import { IsDateString, IsOptional, IsString } from 'class-validator';
@@ -42,6 +44,10 @@ class EmployeeQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   locationId?: string;
+
+  @IsOptional()
+  @IsString()
+  includeInactive?: string;
 }
 
 class TimeOffQueryDto {
@@ -66,7 +72,7 @@ export class EmployeesController {
     @CurrentTenant() tenantId: string,
     @Query() query: EmployeeQueryDto,
   ) {
-    return this.employeesService.findAll(tenantId, query, query.locationId);
+    return this.employeesService.findAll(tenantId, query, query.locationId, query.includeInactive === 'true');
   }
 
   @Get('time-offs')
@@ -91,6 +97,39 @@ export class EmployeesController {
   ) {
     const employee = await this.employeesService.create(tenantId, dto);
     return { data: employee };
+  }
+
+  @Get(':id/pending-appointments-count')
+  @RequirePermissions('employees.delete')
+  async getPendingAppointmentsCount(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const count = await this.employeesService.countPendingAppointments(id, tenantId);
+    return { data: { count } };
+  }
+
+  @Post(':id/deactivate')
+  @RequirePermissions('employees.delete')
+  async deactivate(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: DeactivateEmployeeDto,
+  ) {
+    const result = await this.employeesService.deactivate(id, tenantId, dto, user.userId);
+    return { data: result };
+  }
+
+  @Post(':id/finalize-deactivation')
+  @RequirePermissions('employees.delete')
+  async finalizeDeactivation(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const result = await this.employeesService.finalizeDeactivation(id, tenantId, user.userId);
+    return { data: result };
   }
 
   @Get(':id')

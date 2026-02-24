@@ -94,6 +94,48 @@ interface ReviewsData {
   totalReviews: number;
 }
 
+interface SmartReassignment {
+  appointmentId: string;
+  clientName: string;
+  services: string[];
+  startTime: string;
+  endTime: string;
+  newEmployeeId: string;
+  newEmployeeName: string;
+}
+
+interface SmartResult {
+  action: 'smart_reschedule';
+  reassignedCount: number;
+  deactivated: boolean;
+  reassignments: SmartReassignment[];
+  conflicts: ConflictInfo[];
+}
+
+interface ConflictInfo {
+  id: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  clientName: string;
+  services: Array<{ serviceId: string; serviceName: string; durationMinutes: number }>;
+  conflictsWith?: { appointmentId: string; startTime: string; endTime: string };
+}
+
+interface ReassignResult {
+  action: 'reassign';
+  reassignedCount: number;
+  targetEmployeeId: string;
+  deactivated: boolean;
+  conflicts: ConflictInfo[];
+}
+
+interface SlotInfo {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+}
+
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
@@ -124,6 +166,34 @@ export default function EmployeeProfilePage() {
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
 
   const canEdit = hasPermission('employees.update');
+  const canDelete = hasPermission('employees.delete');
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [deactivateAction, setDeactivateAction] = useState<'smart_reschedule' | 'reassign' | 'cancel' | 'keep'>('smart_reschedule');
+  const [targetEmployeeId, setTargetEmployeeId] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
+  const [loadingPendingCount, setLoadingPendingCount] = useState(false);
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+
+  // Smart reschedule result
+  const [showSmartResult, setShowSmartResult] = useState(false);
+  const [smartResult, setSmartResult] = useState<SmartResult | null>(null);
+
+  // Conflict wizard
+  const [showConflictWizard, setShowConflictWizard] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
+  const [currentConflictIdx, setCurrentConflictIdx] = useState(0);
+  const [reassignTargetId, setReassignTargetId] = useState('');
+  const [reassignedBeforeConflicts, setReassignedBeforeConflicts] = useState(0);
+  const [wizardMode, setWizardMode] = useState<'reassign' | 'smart'>('reassign');
+  const [conflictEmployeeId, setConflictEmployeeId] = useState('');
+  const [conflictDate, setConflictDate] = useState('');
+  const [conflictSlots, setConflictSlots] = useState<SlotInfo[]>([]);
+  const [conflictSelectedSlot, setConflictSelectedSlot] = useState<string | null>(null);
+  const [loadingConflictSlots, setLoadingConflictSlots] = useState(false);
+  const [conflictCancelReason, setConflictCancelReason] = useState('');
+  const [processingConflict, setProcessingConflict] = useState(false);
+  const [resolvedConflicts, setResolvedConflicts] = useState<Array<{ id: string; action: string }>>([]);
 
   const { data: employeeData, isLoading: loadingEmployee } = useQuery({
     queryKey: ['employee', employeeId],
@@ -142,6 +212,137 @@ export default function EmployeeProfilePage() {
     queryFn: () => api.get<{ data: ReviewsData }>(`/api/employees/${employeeId}/reviews`),
     enabled: !!employeeId && activeTab === 'resenas',
   });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: (isActive: boolean) =>
+      api.put(`/api/employees/${employeeId}`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setShowDeactivateConfirm(false);
+    },
+  });
+
+  // Fetch active employees for reassign dropdown
+  const { data: allEmployeesData } = useQuery({
+    queryKey: ['employees', 'active-for-reassign'],
+    queryFn: () => api.get<{ data: Array<{ id: string; firstName: string; lastName: string }> }>('/api/employees?perPage=100'),
+    enabled: (showDeactivateConfirm && pendingCount > 0) || showConflictWizard,
+  });
+
+  const activeEmployees = (allEmployeesData?.data || []).filter(
+    (e: any) => e.id !== employeeId && e.isActive !== false,
+  );
+
+  const deactivateMutation = useMutation({
+    mutationFn: (body: { action: string; targetEmployeeId?: string; cancelReason?: string }) =>
+      api.post<{ data: any }>(`/api/employees/${employeeId}/deactivate`, body),
+    onSuccess: (res: any) => {
+      const result = res.data;
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      setDeactivateError(null);
+
+      if (result.action === 'smart_reschedule') {
+        if (result.conflicts?.length > 0) {
+          // Has conflicts — show result summary first, then wizard
+          setSmartResult(result);
+          setConflicts(result.conflicts);
+          setReassignedBeforeConflicts(result.reassignedCount || 0);
+          setCurrentConflictIdx(0);
+          setResolvedConflicts([]);
+          setWizardMode('smart');
+          setConflictEmployeeId('');
+          setShowDeactivateConfirm(false);
+          setShowSmartResult(true);
+        } else {
+          // All reassigned successfully
+          setSmartResult(result);
+          setShowDeactivateConfirm(false);
+          setShowSmartResult(true);
+        }
+      } else if (result.action === 'reassign' && result.conflicts?.length > 0) {
+        setConflicts(result.conflicts);
+        setReassignTargetId(result.targetEmployeeId);
+        setReassignedBeforeConflicts(result.reassignedCount || 0);
+        setCurrentConflictIdx(0);
+        setResolvedConflicts([]);
+        setWizardMode('reassign');
+        setShowDeactivateConfirm(false);
+        setShowConflictWizard(true);
+      } else {
+        setShowDeactivateConfirm(false);
+      }
+    },
+    onError: (err: any) => {
+      const msg = err?.message || err?.error || 'Error al desactivar';
+      setDeactivateError(msg);
+    },
+  });
+
+  const finalizeMutation = useMutation({
+    mutationFn: () => api.post(`/api/employees/${employeeId}/finalize-deactivation`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setShowConflictWizard(false);
+      setConflicts([]);
+    },
+  });
+
+  const fetchConflictSlots = async (date: string, empId: string, serviceIds: string[]) => {
+    setLoadingConflictSlots(true);
+    setConflictSelectedSlot(null);
+    try {
+      const res = await api.post<{ data: { slots: SlotInfo[] } }>('/api/availability/all-slots', {
+        employeeId: empId,
+        date,
+        serviceIds,
+      });
+      setConflictSlots(res.data?.slots || []);
+    } catch {
+      setConflictSlots([]);
+    }
+    setLoadingConflictSlots(false);
+  };
+
+  const handleResolveConflict = async (action: 'reschedule' | 'cancel' | 'skip') => {
+    const conflict = conflicts[currentConflictIdx];
+    if (!conflict) return;
+    setProcessingConflict(true);
+    const targetEmpId = wizardMode === 'smart' ? conflictEmployeeId : reassignTargetId;
+    try {
+      if (action === 'reschedule' && conflictSelectedSlot && conflictDate && targetEmpId) {
+        await api.post(`/api/appointments/${conflict.id}/reschedule`, {
+          startTime: `${conflictDate}T${conflictSelectedSlot}:00Z`,
+          employeeId: targetEmpId,
+        });
+      } else if (action === 'cancel') {
+        await api.post(`/api/appointments/${conflict.id}/cancel`, {
+          reason: conflictCancelReason || undefined,
+        });
+      }
+      // skip → do nothing
+
+      setResolvedConflicts((prev) => [...prev, { id: conflict.id, action }]);
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+
+      // Move to next conflict or finish
+      if (currentConflictIdx < conflicts.length - 1) {
+        setCurrentConflictIdx((prev) => prev + 1);
+        setConflictDate('');
+        setConflictSlots([]);
+        setConflictSelectedSlot(null);
+        setConflictCancelReason('');
+        setConflictEmployeeId('');
+      }
+      // If last one, stay on same idx — UI will show summary
+    } catch (err: any) {
+      setDeactivateError(err?.message || 'Error al resolver conflicto');
+    }
+    setProcessingConflict(false);
+  };
 
   const avatarMutation = useMutation({
     mutationFn: (file: File) =>
@@ -298,9 +499,247 @@ export default function EmployeeProfilePage() {
                   &quot;{employee.bio}&quot;
                 </p>
               )}
+
+              {/* Deactivate / Reactivate button */}
+              {canDelete && (
+                <div className="mt-3">
+                  {employee.isActive ? (
+                    <button
+                      type="button"
+                      disabled={loadingPendingCount}
+                      onClick={async () => {
+                        setLoadingPendingCount(true);
+                        setDeactivateError(null);
+                        setDeactivateAction('smart_reschedule');
+                        setTargetEmployeeId('');
+                        setCancelReason('');
+                        try {
+                          const res = await api.get<{ data: { count: number } }>(`/api/employees/${employeeId}/pending-appointments-count`);
+                          setPendingCount(res.data.count);
+                        } catch {
+                          setPendingCount(0);
+                        }
+                        setLoadingPendingCount(false);
+                        setShowDeactivateConfirm(true);
+                      }}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                    >
+                      {loadingPendingCount ? 'Verificando...' : 'Desactivar empleado'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => toggleActiveMutation.mutate(true)}
+                      disabled={toggleActiveMutation.isPending}
+                      className="text-xs text-green-600 hover:text-green-700 font-medium"
+                    >
+                      {toggleActiveMutation.isPending ? 'Reactivando...' : 'Reactivar empleado'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Deactivate confirmation dialog */}
+        {showDeactivateConfirm && (
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200">
+            <p className="text-sm font-medium text-red-800 mb-1">
+              Desactivar a {employee.firstName} {employee.lastName}?
+            </p>
+
+            {pendingCount === 0 ? (
+              <>
+                <p className="text-xs text-red-600 mb-3">
+                  El empleado no tiene citas pendientes. Dejará de aparecer en el calendario, filtros y al crear citas. Puedes reactivarlo en cualquier momento.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => deactivateMutation.mutate({ action: 'keep' })}
+                    disabled={deactivateMutation.isPending}
+                    className="btn-danger text-sm py-1.5 px-4"
+                  >
+                    {deactivateMutation.isPending ? 'Desactivando...' : 'Confirmar desactivación'}
+                  </button>
+                  <button
+                    onClick={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
+                    className="btn-secondary text-sm py-1.5 px-4"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                  <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span className="text-sm font-medium text-amber-800">
+                    Este empleado tiene {pendingCount} cita{pendingCount !== 1 ? 's' : ''} pendiente{pendingCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <p className="text-xs text-gray-600 mb-3">Elige qué hacer con las citas antes de desactivar:</p>
+
+                <div className="space-y-2 mb-4">
+                  {/* Option: Smart Reschedule */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      deactivateAction === 'smart_reschedule'
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="deactivateAction"
+                      value="smart_reschedule"
+                      checked={deactivateAction === 'smart_reschedule'}
+                      onChange={() => setDeactivateAction('smart_reschedule')}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">Reagendar inteligente</p>
+                      <p className="text-xs text-gray-500">
+                        Las citas se mantienen en el mismo horario y se asignan automáticamente a
+                        otro empleado capacitado con disponibilidad. Si alguna no puede reasignarse, podrás resolverla manualmente.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Option: Reassign */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      deactivateAction === 'reassign'
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="deactivateAction"
+                      value="reassign"
+                      checked={deactivateAction === 'reassign'}
+                      onChange={() => setDeactivateAction('reassign')}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">Reasignar a otro empleado</p>
+                      <p className="text-xs text-gray-500">Las citas se transferirán al empleado seleccionado</p>
+                      {deactivateAction === 'reassign' && (
+                        <select
+                          value={targetEmployeeId}
+                          onChange={(e) => { setTargetEmployeeId(e.target.value); setDeactivateError(null); }}
+                          className="mt-2 w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                          <option value="">Seleccionar empleado...</option>
+                          {activeEmployees.map((emp: any) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.firstName} {emp.lastName}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </label>
+
+                  {/* Option: Cancel */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      deactivateAction === 'cancel'
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="deactivateAction"
+                      value="cancel"
+                      checked={deactivateAction === 'cancel'}
+                      onChange={() => setDeactivateAction('cancel')}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">Cancelar todas las citas</p>
+                      <p className="text-xs text-gray-500">Todas las citas pendientes serán canceladas</p>
+                      {deactivateAction === 'cancel' && (
+                        <textarea
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          placeholder="Motivo de cancelación (opcional)"
+                          rows={2}
+                          className="mt-2 w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                        />
+                      )}
+                    </div>
+                  </label>
+
+                  {/* Option: Keep */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      deactivateAction === 'keep'
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="deactivateAction"
+                      value="keep"
+                      checked={deactivateAction === 'keep'}
+                      onChange={() => setDeactivateAction('keep')}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">Mantener citas como están</p>
+                      <p className="text-xs text-gray-500">El empleado se desactiva pero sus citas quedan sin cambios</p>
+                      {deactivateAction === 'keep' && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          Las citas seguirán asignadas a un empleado inactivo
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                </div>
+
+                {/* Error message */}
+                {deactivateError && (
+                  <div className="mb-3 p-2 rounded-lg bg-red-100 border border-red-300">
+                    <p className="text-xs text-red-700">{deactivateError}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const body: any = { action: deactivateAction };
+                      if (deactivateAction === 'reassign') body.targetEmployeeId = targetEmployeeId;
+                      if (deactivateAction === 'cancel' && cancelReason) body.cancelReason = cancelReason;
+                      deactivateMutation.mutate(body);
+                    }}
+                    disabled={
+                      deactivateMutation.isPending ||
+                      (deactivateAction === 'reassign' && !targetEmployeeId)
+                    }
+                    className="btn-danger text-sm py-1.5 px-4"
+                  >
+                    {deactivateMutation.isPending
+                      ? (deactivateAction === 'smart_reschedule' ? 'Reagendando...' : 'Procesando...')
+                      : 'Confirmar desactivación'}
+                  </button>
+                  <button
+                    onClick={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
+                    className="btn-secondary text-sm py-1.5 px-4"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200">
@@ -413,10 +852,12 @@ export default function EmployeeProfilePage() {
                             className={`text-xs px-1.5 py-0.5 rounded-full ${
                               apt.status === 'CONFIRMED'
                                 ? 'bg-green-50 text-green-700'
+                                : apt.status === 'RESCHEDULED'
+                                ? 'bg-orange-50 text-orange-700'
                                 : 'bg-yellow-50 text-yellow-700'
                             }`}
                           >
-                            {apt.status === 'CONFIRMED' ? 'Confirmada' : 'Pendiente'}
+                            {apt.status === 'CONFIRMED' ? 'Confirmada' : apt.status === 'RESCHEDULED' ? 'Reagendada' : 'Pendiente'}
                           </span>
                         </div>
                       </div>
@@ -570,6 +1011,304 @@ export default function EmployeeProfilePage() {
           />
         )}
       </div>
+
+      {/* Smart Reschedule Result Modal */}
+      {showSmartResult && smartResult && (
+        <Modal
+          title="Resultado de reagendar inteligente"
+          onClose={() => { setShowSmartResult(false); setSmartResult(null); }}
+        >
+          <div className="space-y-4">
+            {/* Summary bar */}
+            <div className="flex gap-3">
+              <div className="flex-1 p-3 rounded-lg bg-green-50 border border-green-200 text-center">
+                <p className="text-2xl font-bold text-green-700">{smartResult.reassignedCount}</p>
+                <p className="text-xs text-green-600">Reasignadas</p>
+              </div>
+              {smartResult.conflicts.length > 0 && (
+                <div className="flex-1 p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                  <p className="text-2xl font-bold text-amber-700">{smartResult.conflicts.length}</p>
+                  <p className="text-xs text-amber-600">Con conflicto</p>
+                </div>
+              )}
+            </div>
+
+            {/* Reassignments list */}
+            {smartResult.reassignments.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Citas reasignadas (mismo horario)</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {smartResult.reassignments.map((r) => (
+                    <div key={r.appointmentId} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-xs">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-gray-800">{r.clientName}</p>
+                          <p className="text-gray-500">{r.services.join(', ')}</p>
+                        </div>
+                        <span className="text-green-600 font-medium flex-shrink-0 ml-2">{r.newEmployeeName}</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {dayjs(r.startTime).format('D/M/YYYY HH:mm')} - {dayjs(r.endTime).format('HH:mm')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Conflicts preview */}
+            {smartResult.conflicts.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-amber-700 mb-2">
+                  Citas sin empleado disponible en ese horario
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {smartResult.conflicts.map((c) => (
+                    <div key={c.id} className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs">
+                      <p className="font-medium text-gray-800">{c.clientName}</p>
+                      <p className="text-gray-500">{c.services.map((s) => s.serviceName).join(', ')}</p>
+                      <p className="text-amber-600 mt-1">{dayjs(c.startTime).format('D/M/YYYY HH:mm')} - {dayjs(c.endTime).format('HH:mm')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {smartResult.conflicts.length > 0 ? (
+              <button
+                onClick={() => {
+                  setShowSmartResult(false);
+                  setShowConflictWizard(true);
+                }}
+                className="btn-primary w-full"
+              >
+                Resolver conflictos manualmente
+              </button>
+            ) : (
+              <button
+                onClick={() => { setShowSmartResult(false); setSmartResult(null); }}
+                className="btn-primary w-full"
+              >
+                Entendido
+              </button>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Conflict Resolution Wizard */}
+      {showConflictWizard && conflicts.length > 0 && (
+        <Modal
+          title={
+            resolvedConflicts.length >= conflicts.length
+              ? 'Conflictos resueltos'
+              : `Resolver conflicto ${currentConflictIdx + 1} de ${conflicts.length}`
+          }
+          onClose={() => { setShowConflictWizard(false); setConflicts([]); }}
+        >
+          {resolvedConflicts.length >= conflicts.length ? (
+            /* All conflicts resolved — show summary and finalize */
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                <p className="text-sm font-medium text-green-800">
+                  {reassignedBeforeConflicts} cita{reassignedBeforeConflicts !== 1 ? 's' : ''} reasignada{reassignedBeforeConflicts !== 1 ? 's' : ''} automáticamente
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  {resolvedConflicts.filter((r) => r.action === 'reschedule').length} reagendada{resolvedConflicts.filter((r) => r.action === 'reschedule').length !== 1 ? 's' : ''} manualmente,{' '}
+                  {resolvedConflicts.filter((r) => r.action === 'cancel').length} cancelada{resolvedConflicts.filter((r) => r.action === 'cancel').length !== 1 ? 's' : ''},{' '}
+                  {resolvedConflicts.filter((r) => r.action === 'skip').length} omitida{resolvedConflicts.filter((r) => r.action === 'skip').length !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {deactivateError && (
+                <div className="p-2 rounded-lg bg-red-100 border border-red-300">
+                  <p className="text-xs text-red-700">{deactivateError}</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setDeactivateError(null);
+                  finalizeMutation.mutate();
+                }}
+                disabled={finalizeMutation.isPending}
+                className="btn-danger w-full"
+              >
+                {finalizeMutation.isPending ? 'Finalizando...' : 'Finalizar desactivación'}
+              </button>
+            </div>
+          ) : (
+            /* Show current conflict */
+            (() => {
+              const conflict = conflicts[currentConflictIdx];
+              const serviceIds = conflict.services.map((s) => s.serviceId);
+              const currentTargetEmpId = wizardMode === 'smart' ? conflictEmployeeId : reassignTargetId;
+              return (
+                <div className="space-y-4">
+                  {/* Conflict info */}
+                  <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                    <p className="text-sm font-medium text-gray-800">{conflict.clientName}</p>
+                    <p className="text-xs text-gray-500">
+                      {conflict.services.map((s) => s.serviceName).join(', ')}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {dayjs(conflict.startTime).format('D/M/YYYY HH:mm')} - {dayjs(conflict.endTime).format('HH:mm')}
+                    </p>
+                    {conflict.conflictsWith ? (
+                      <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
+                        <p className="text-xs text-amber-700">
+                          Conflicto: el empleado destino tiene una cita de{' '}
+                          {dayjs(conflict.conflictsWith.startTime).format('HH:mm')} a{' '}
+                          {dayjs(conflict.conflictsWith.endTime).format('HH:mm')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
+                        <p className="text-xs text-amber-700">
+                          Ningún empleado disponible en este horario
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Employee selector (smart mode) */}
+                  {wizardMode === 'smart' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Seleccionar empleado
+                      </label>
+                      <select
+                        value={conflictEmployeeId}
+                        onChange={(e) => {
+                          setConflictEmployeeId(e.target.value);
+                          setConflictSlots([]);
+                          setConflictSelectedSlot(null);
+                          // Auto-fetch slots if date is already selected
+                          if (conflictDate && e.target.value) {
+                            fetchConflictSlots(conflictDate, e.target.value, serviceIds);
+                          }
+                        }}
+                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">-- Selecciona un empleado --</option>
+                        {activeEmployees.map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Date picker + slot grid for reschedule */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {wizardMode === 'smart' ? 'Seleccionar fecha y hora' : 'Reagendar a otra fecha/hora'}
+                    </label>
+                    <input
+                      type="date"
+                      value={conflictDate}
+                      min={dayjs().format('YYYY-MM-DD')}
+                      onChange={(e) => {
+                        setConflictDate(e.target.value);
+                        if (e.target.value && currentTargetEmpId) {
+                          fetchConflictSlots(e.target.value, currentTargetEmpId, serviceIds);
+                        } else {
+                          setConflictSlots([]);
+                        }
+                      }}
+                      disabled={wizardMode === 'smart' && !conflictEmployeeId}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    />
+
+                    {loadingConflictSlots && (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-600" />
+                        Buscando horarios...
+                      </div>
+                    )}
+
+                    {conflictDate && !loadingConflictSlots && conflictSlots.length > 0 && (
+                      <div className="mt-2 grid grid-cols-4 gap-1 max-h-40 overflow-y-auto">
+                        {conflictSlots
+                          .filter((s) => s.available)
+                          .map((slot) => (
+                            <button
+                              key={slot.startTime}
+                              type="button"
+                              onClick={() => setConflictSelectedSlot(slot.startTime)}
+                              className={`text-xs py-1.5 px-2 rounded border transition-colors ${
+                                conflictSelectedSlot === slot.startTime
+                                  ? 'bg-primary-600 text-white border-primary-600'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-primary-400'
+                              }`}
+                            >
+                              {slot.startTime}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+
+                    {conflictDate && !loadingConflictSlots && conflictSlots.filter((s) => s.available).length === 0 && (
+                      <p className="mt-2 text-xs text-gray-400">No hay horarios disponibles en esta fecha</p>
+                    )}
+                  </div>
+
+                  {deactivateError && (
+                    <div className="p-2 rounded-lg bg-red-100 border border-red-300">
+                      <p className="text-xs text-red-700">{deactivateError}</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => { setDeactivateError(null); handleResolveConflict('reschedule'); }}
+                      disabled={!conflictSelectedSlot || !conflictDate || !currentTargetEmpId || processingConflict}
+                      className="btn-primary w-full text-sm py-1.5"
+                    >
+                      {processingConflict ? 'Reagendando...' : 'Reagendar a este horario'}
+                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setDeactivateError(null); handleResolveConflict('cancel'); }}
+                        disabled={processingConflict}
+                        className="flex-1 btn-danger text-sm py-1.5"
+                      >
+                        Cancelar cita
+                      </button>
+                      <button
+                        onClick={() => { setDeactivateError(null); handleResolveConflict('skip'); }}
+                        disabled={processingConflict}
+                        className="flex-1 btn-secondary text-sm py-1.5"
+                      >
+                        Omitir
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Progress */}
+                  <div className="flex gap-1">
+                    {conflicts.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full ${
+                          i < currentConflictIdx || (i === currentConflictIdx && resolvedConflicts.length > currentConflictIdx)
+                            ? 'bg-green-400'
+                            : i === currentConflictIdx
+                            ? 'bg-primary-400'
+                            : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </Modal>
+      )}
 
       {/* Review Form Modal */}
       {showReviewForm && (
