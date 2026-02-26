@@ -169,37 +169,6 @@ function isDateInClosure(date: Dayjs, closures: BusinessClosure[]): BusinessClos
   return null;
 }
 
-function getTimeOffStyle(
-  startDatetime: string,
-  endDatetime: string,
-  dayStr: string,
-): { top: number; height: number } {
-  const dayStart = HOUR_START * 60;
-  const dayEnd = HOUR_END * 60;
-
-  let startMins = timeToMinutes(startDatetime);
-  let endMins = timeToMinutes(endDatetime);
-
-  const toStartDate = new Date(startDatetime).toISOString().split('T')[0];
-  const toEndDate = new Date(endDatetime).toISOString().split('T')[0];
-
-  if (toStartDate < dayStr) startMins = dayStart;
-  if (toEndDate > dayStr) endMins = dayEnd;
-
-  startMins = Math.max(startMins, dayStart);
-  endMins = Math.min(endMins, dayEnd);
-
-  if (endMins <= startMins) return { top: 0, height: 0 };
-
-  const startOffset = startMins - dayStart;
-  const durationMins = endMins - startMins;
-
-  const top = (startOffset / SLOT_MINUTES) * SLOT_HEIGHT;
-  const height = Math.max((durationMins / SLOT_MINUTES) * SLOT_HEIGHT, 10);
-
-  return { top, height };
-}
-
 interface DragState {
   appointmentId: string;
   appointment: Appointment;
@@ -463,10 +432,12 @@ export function CalendarView({
 
         {weekDays.map((day, i) => {
           const closure = closureByDay[i];
+          const dayTimeOffs = timeOffsByDay[i];
+          const hasTimeOffs = dayTimeOffs.length > 0 && !closure;
           return (
             <div
               key={day.format('YYYY-MM-DD')}
-              className={`text-center py-2 border-l border-gray-100 ${
+              className={`text-center py-2 border-l border-gray-100 relative group ${
                 closure ? 'bg-gray-100' : isToday(day) ? 'bg-blue-50/50' : ''
               }`}
             >
@@ -486,6 +457,50 @@ export function CalendarView({
               </p>
               {closure && (
                 <p className="text-xs text-gray-400 truncate px-1">Cerrado</p>
+              )}
+              {hasTimeOffs && (
+                <>
+                  <div className="flex justify-center gap-0.5 mt-0.5">
+                    {dayTimeOffs.map((to) => (
+                      <span
+                        key={to.id}
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: to.employee?.color || '#6b7280' }}
+                      />
+                    ))}
+                  </div>
+                  {/* Tooltip on hover */}
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 hidden group-hover:block w-52">
+                    <div className="bg-gray-900 text-white rounded-lg shadow-lg px-3 py-2 text-left">
+                      <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Permisos / Ausencias</p>
+                      {dayTimeOffs.map((to) => {
+                        const empColor = to.employee?.color || '#6b7280';
+                        const empName = to.employee
+                          ? `${to.employee.firstName} ${to.employee.lastName.charAt(0)}.`
+                          : 'Empleado';
+                        const startH = new Date(to.startDatetime).toTimeString().slice(0, 5);
+                        const endH = new Date(to.endDatetime).toTimeString().slice(0, 5);
+                        return (
+                          <div key={to.id} className="flex items-start gap-2 py-1">
+                            <span
+                              className="w-2 h-2 rounded-full mt-1 flex-shrink-0"
+                              style={{ backgroundColor: empColor }}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate">{empName}</p>
+                              <p className="text-[10px] text-gray-300">
+                                {formatTime(startH)} - {formatTime(endH)}
+                              </p>
+                              {to.reason && (
+                                <p className="text-[10px] text-gray-400 truncate">{to.reason}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           );
@@ -567,49 +582,6 @@ export function CalendarView({
                 <span className="text-xs text-gray-500 mt-0.5 px-2 text-center">{closure.reason}</span>
               </div>
             );
-          })}
-
-          {/* Employee time-off blocks */}
-          {weekDays.map((day, dayIdx) => {
-            if (closureByDay[dayIdx]) return null;
-            const dayStr = day.format('YYYY-MM-DD');
-            const dayTimeOffs = timeOffsByDay[dayIdx];
-            return dayTimeOffs.map((to) => {
-              const { top, height } = getTimeOffStyle(to.startDatetime, to.endDatetime, dayStr);
-              if (height <= 0) return null;
-              const empColor = to.employee?.color || '#6b7280';
-              const rgb = hexToRgb(empColor);
-              const bgColor = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)` : 'rgba(107, 114, 128, 0.15)';
-              const empName = to.employee ? `${to.employee.firstName} ${to.employee.lastName.charAt(0)}.` : '';
-
-              return (
-                <div
-                  key={to.id}
-                  className="absolute rounded-md border border-dashed overflow-hidden z-[5] pointer-events-none"
-                  style={{
-                    top,
-                    height,
-                    left: `calc(${HORA_COL_WIDTH}px + ${dayIdx} * ((100% - ${HORA_COL_WIDTH}px) / ${numDays}) + 4px)`,
-                    width: `calc((100% - ${HORA_COL_WIDTH}px) / ${numDays} - 8px)`,
-                    borderColor: empColor,
-                    backgroundColor: bgColor,
-                    backgroundImage: `repeating-linear-gradient(
-                      -45deg,
-                      transparent,
-                      transparent 4px,
-                      ${rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.08)` : 'rgba(107, 114, 128, 0.08)'} 4px,
-                      ${rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.08)` : 'rgba(107, 114, 128, 0.08)'} 8px
-                    )`,
-                  }}
-                >
-                  <div className="px-1.5 py-0.5">
-                    <p className="text-xs font-medium truncate" style={{ color: empColor }}>
-                      {empName} - {to.reason || 'Ausencia'}
-                    </p>
-                  </div>
-                </div>
-              );
-            });
           })}
 
           {/* Appointment blocks */}
