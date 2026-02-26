@@ -235,6 +235,15 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   }
 
+  async function handleAppointmentDragEnd(appointmentId: string, newStartTime: string) {
+    try {
+      await api.post(`/api/appointments/${appointmentId}/reschedule`, { startTime: newStartTime });
+      refetch();
+    } catch (err) {
+      console.error('Error rescheduling:', err);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <Header title="Calendario" />
@@ -334,20 +343,35 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Filters bar */}
-      <div className="flex items-center gap-3 px-6 py-3 bg-gray-50 border-b border-gray-200 flex-wrap">
-        <select
-          value={filterEmployeeId}
-          onChange={(e) => setFilterEmployeeId(e.target.value)}
-          className="input-field text-sm py-1.5 w-44"
+      {/* Employee pills filter */}
+      <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 border-b border-gray-200 flex-wrap">
+        <button
+          onClick={() => setFilterEmployeeId('')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+            filterEmployeeId === ''
+              ? 'bg-gray-900 text-white border-gray-900'
+              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+          }`}
         >
-          <option value="">Todos los empleados</option>
-          {activeEmployees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.firstName} {emp.lastName}
-            </option>
-          ))}
-        </select>
+          <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+          Todos
+        </button>
+        {activeEmployees.map((emp) => (
+          <button
+            key={emp.id}
+            onClick={() => setFilterEmployeeId(filterEmployeeId === emp.id ? '' : emp.id)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+              filterEmployeeId === emp.id
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: emp.color || '#008080' }} />
+            {emp.firstName}
+          </button>
+        ))}
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <select
           value={filterClientId}
@@ -408,21 +432,6 @@ export default function CalendarPage() {
             Limpiar filtros
           </button>
         )}
-
-        {/* Employee color legend */}
-        <div className="ml-auto flex items-center gap-3 flex-wrap">
-          {activeEmployees.map((emp) => (
-            <div key={emp.id} className="flex items-center gap-1.5">
-              <span
-                className="w-3 h-3 rounded-full flex-shrink-0"
-                style={{ backgroundColor: emp.color || '#008080' }}
-              />
-              <span className="text-xs text-gray-600">
-                {emp.firstName} {emp.lastName.charAt(0)}.
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="flex-1 overflow-hidden">
@@ -432,6 +441,7 @@ export default function CalendarPage() {
           viewMode={viewMode}
           onSlotClick={handleSlotClick}
           onAppointmentClick={handleAppointmentClick}
+          onAppointmentDragEnd={handleAppointmentDragEnd}
           closures={closures}
           employeeTimeOffs={employeeTimeOffs}
         />
