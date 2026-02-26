@@ -18,6 +18,7 @@ import { PaginationDto, buildPaginatedResponse } from '../../common/dto/paginati
 import { AuditService } from '../audit/audit.service';
 import { EventsService } from '../events/events.service';
 import { AvailabilityService } from '../availability/availability.service';
+import { PlanLimitsService } from '../subscriptions/plan-limits.service';
 
 @Injectable()
 export class EmployeesService {
@@ -26,6 +27,7 @@ export class EmployeesService {
     private readonly auditService: AuditService,
     private readonly eventsService: EventsService,
     private readonly availabilityService: AvailabilityService,
+    private readonly planLimitsService: PlanLimitsService,
   ) {}
 
   async findAll(tenantId: string, pagination: PaginationDto, locationId?: string, includeInactive?: boolean) {
@@ -97,6 +99,9 @@ export class EmployeesService {
   }
 
   async create(tenantId: string, dto: CreateEmployeeDto) {
+    // Check plan employee limit
+    await this.planLimitsService.checkEmployeeLimit(tenantId);
+
     // Verify location belongs to tenant
     const location = await this.prisma.location.findFirst({
       where: { id: dto.locationId, tenantId },

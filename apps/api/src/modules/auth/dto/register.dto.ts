@@ -4,6 +4,7 @@ import {
   MinLength,
   IsOptional,
   IsIn,
+  IsBoolean,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -33,4 +34,29 @@ export class RegisterDto {
   @IsOptional()
   @IsIn(['business', 'individual'])
   type?: 'business' | 'individual';
+
+  // New fields for individual registration wizard
+  @IsOptional()
+  @IsString()
+  businessName?: string;
+
+  @IsOptional()
+  @IsIn(['SALON', 'BARBERIA', 'SPA', 'CLINICA'])
+  businessType?: string;
+
+  @IsOptional()
+  @IsString()
+  businessAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  businessPhone?: string;
+
+  @IsOptional()
+  @IsIn(['BASICO', 'PLUS', 'PRO'])
+  selectedPlan?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acceptContract?: boolean;
 }

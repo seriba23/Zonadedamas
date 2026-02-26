@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsService } from '../events/events.service';
 import { AvailabilityService } from '../availability/availability.service';
+import { PlanLimitsService } from '../subscriptions/plan-limits.service';
 import { CreateAppointmentDto, UpdateAppointmentDto } from './dto/create-appointment.dto';
 import { RescheduleDto, CancelDto } from './dto/reschedule.dto';
 import { FilterAppointmentsDto } from './dto/filter-appointments.dto';
@@ -24,9 +25,13 @@ export class AppointmentsService {
     private readonly auditService: AuditService,
     private readonly eventsService: EventsService,
     private readonly availabilityService: AvailabilityService,
+    private readonly planLimitsService: PlanLimitsService,
   ) {}
 
   async create(dto: CreateAppointmentDto, tenantId: string, userId?: string) {
+    // Check plan appointment limit
+    await this.planLimitsService.checkAppointmentLimit(tenantId);
+
     // Validate employee belongs to tenant
     const employee = await this.prisma.employee.findFirst({
       where: { id: dto.employeeId, tenantId, isActive: true },

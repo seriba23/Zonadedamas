@@ -63,6 +63,67 @@ enum DayOfWeek {
   SUNDAY
 }
 
+enum SubscriptionPlan {
+  BASICO
+  PLUS
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum BusinessType {
+  SALON
+  BARBERIA
+  SPA
+  CLINICA
+}
+
+// ─── PLATFORM USERS (Super Admin) ──────────────────
+
+model PlatformUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens PlatformRefreshToken[]
+
+  @@map("platform_users")
+}
+
+model PlatformRefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  tokenHint String    @default("") @map("token_hint")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHint])
+  @@index([userId])
+  @@map("platform_refresh_tokens")
+}
+
 // ─── TENANTS ────────────────────────────────────────
 
 model Tenant {
@@ -75,6 +136,10 @@ model Tenant {
   timezone           String    @default("UTC")
   currency           String    @default("USD")
   settings           Json?
+  businessType       String?   @map("business_type")
+  address            String?
+  businessPhone      String?   @map("business_phone")
+  contractAcceptedAt DateTime? @map("contract_accepted_at")
   subscriptionPlan   String    @default("free") @map("subscription_plan")
   subscriptionStatus String    @default("active") @map("subscription_status")
   createdAt          DateTime  @default(now()) @map("created_at")
@@ -99,8 +164,57 @@ model Tenant {
   businessClosures      BusinessClosure[]
   employeeReviews       EmployeeReview[]
   inviteCodes           TenantInviteCode[]
+  subscription          Subscription?
+  invoices              Invoice[]
 
   @@map("tenants")
+}
+
+// ─── SUBSCRIPTIONS ─────────────────────────────────
+
+model Subscription {
+  id                String             @id @default(uuid())
+  tenantId          String             @unique @map("tenant_id")
+  plan              SubscriptionPlan   @default(BASICO)
+  status            SubscriptionStatus @default(ACTIVE)
+  monthlyAmountUsd  Decimal            @map("monthly_amount_usd") @db.Decimal(10, 2)
+  contractStartDate DateTime           @map("contract_start_date")
+  contractEndDate   DateTime           @map("contract_end_date")
+  nextBillingDate   DateTime           @map("next_billing_date")
+  lastPaymentDate   DateTime?          @map("last_payment_date")
+  gracePeriodEndsAt DateTime?          @map("grace_period_ends_at")
+  cancelledAt       DateTime?          @map("cancelled_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  subscriptionId String        @map("subscription_id")
+  tenantId       String        @map("tenant_id")
+  invoiceNumber  String        @unique @map("invoice_number")
+  amountUsd      Decimal       @map("amount_usd") @db.Decimal(10, 2)
+  status         InvoiceStatus @default(PENDING)
+  periodStart    DateTime      @map("period_start")
+  periodEnd      DateTime      @map("period_end")
+  dueDate        DateTime      @map("due_date")
+  paidAt         DateTime?     @map("paid_at")
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@map("invoices")
 }
 
 // ─── LOCATIONS ──────────────────────────────────────

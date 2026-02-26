@@ -182,10 +182,12 @@ export class AuthService {
   }
 
   private async registerIndividual(dto: RegisterDto) {
-    // Generate unique slug
-    const baseSlug = `${dto.firstName}-${dto.lastName}`
+    // Generate unique slug from business name or personal name
+    const nameForSlug = dto.businessName || `${dto.firstName} ${dto.lastName}`;
+    const baseSlug = nameForSlug
       .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '')
+      .replace(/[^a-z0-9-\s]/g, '')
+      .replace(/\s+/g, '-')
       .substring(0, 30);
     const randomSuffix = Math.random().toString(36).substring(2, 6);
     const slug = `${baseSlug}-${randomSuffix}`;
@@ -199,22 +201,68 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
+    const selectedPlan = (dto.selectedPlan as 'BASICO' | 'PLUS' | 'PRO') || 'BASICO';
+
+    const planPrices: Record<string, number> = {
+      BASICO: 29.99,
+      PLUS: 49.99,
+      PRO: 79.99,
+    };
+    const monthlyPrice = planPrices[selectedPlan] || 29.99;
 
     // Get owner role from any tenant to know the permissions
     const ownerRolePermissions = await this.prisma.permission.findMany();
 
     const user = await this.prisma.$transaction(async (tx) => {
-      // Create personal tenant
+      const now = new Date();
+      const oneYearLater = new Date(now);
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      const oneMonthLater = new Date(now);
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+
+      // Create tenant with business info
       const tenant = await tx.tenant.create({
         data: {
-          name: `${dto.firstName} ${dto.lastName}`,
+          name: dto.businessName || `${dto.firstName} ${dto.lastName}`,
           slug,
           email: dto.email,
           phone: dto.phone || null,
+          businessType: dto.businessType || null,
+          address: dto.businessAddress || null,
+          businessPhone: dto.businessPhone || null,
+          contractAcceptedAt: dto.acceptContract ? now : null,
           timezone: 'America/New_York',
           currency: 'USD',
-          subscriptionPlan: 'free',
+          subscriptionPlan: selectedPlan,
           subscriptionStatus: 'active',
+        },
+      });
+
+      // Create subscription
+      const subscription = await tx.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          plan: selectedPlan as any,
+          status: 'ACTIVE',
+          monthlyAmountUsd: monthlyPrice,
+          contractStartDate: now,
+          contractEndDate: oneYearLater,
+          nextBillingDate: oneMonthLater,
+        },
+      });
+
+      // Create first invoice (pending)
+      const invoiceNumber = `INV-${now.getFullYear()}-${Date.now().toString().slice(-6)}`;
+      await tx.invoice.create({
+        data: {
+          subscriptionId: subscription.id,
+          tenantId: tenant.id,
+          invoiceNumber,
+          amountUsd: monthlyPrice,
+          status: 'PENDING',
+          periodStart: now,
+          periodEnd: oneMonthLater,
+          dueDate: oneMonthLater,
         },
       });
 
@@ -395,7 +443,19 @@ export class AuthService {
       select: { id: true },
     });
 
-    return { ...user, permissions, employeeId: employee?.id || null };
+    // Get subscription status
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { tenantId },
+      select: { status: true, plan: true },
+    });
+
+    return {
+      ...user,
+      permissions,
+      employeeId: employee?.id || null,
+      subscriptionStatus: subscription?.status || 'ACTIVE',
+      subscriptionPlan: subscription?.plan || 'BASICO',
+    };
   }
 
   private async generateTokens(user: { id: string; tenantId: string; email: string }) {
@@ -411,6 +471,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
+      issuer: 'zonadedamas-tenant',
     });
 
     const refreshToken = uuidv4();

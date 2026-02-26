@@ -916,6 +916,66 @@ async function main() {
     }
   }
 
+  // 12. Create Platform Super Admin
+  console.log('Seeding platform super admin...');
+  const superPasswordHash = await bcrypt.hash('Super123!', 12);
+  await prisma.platformUser.upsert({
+    where: { email: 'super@zonadedamas.com' },
+    update: {},
+    create: {
+      email: 'super@zonadedamas.com',
+      passwordHash: superPasswordHash,
+      firstName: 'Super',
+      lastName: 'Admin',
+      isActive: true,
+    },
+  });
+  console.log('  Platform admin: super@zonadedamas.com / Super123!');
+
+  // 13. Create Subscription for demo tenant
+  console.log('Seeding demo subscription...');
+  const existingSub = await prisma.subscription.findUnique({
+    where: { tenantId: tenant.id },
+  });
+  if (!existingSub) {
+    const now = new Date();
+    const oneYearLater = new Date(now);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    const oneMonthLater = new Date(now);
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+
+    const subscription = await prisma.subscription.create({
+      data: {
+        tenantId: tenant.id,
+        plan: 'BASICO',
+        status: 'ACTIVE',
+        monthlyAmountUsd: 29.99,
+        contractStartDate: now,
+        contractEndDate: oneYearLater,
+        nextBillingDate: oneMonthLater,
+        lastPaymentDate: now,
+      },
+    });
+
+    // Create first invoice (paid)
+    await prisma.invoice.create({
+      data: {
+        subscriptionId: subscription.id,
+        tenantId: tenant.id,
+        invoiceNumber: 'INV-2026-0001',
+        amountUsd: 29.99,
+        status: 'PAID',
+        periodStart: now,
+        periodEnd: oneMonthLater,
+        dueDate: oneMonthLater,
+        paidAt: now,
+      },
+    });
+    console.log('  Subscription BASICO + first invoice created.');
+  } else {
+    console.log('  Subscription already exists, skipping.');
+  }
+
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
   console.log(`Tenant:        Demo Salon (slug: demo-salon)`);
@@ -924,6 +984,7 @@ async function main() {
   console.log(`               james@demo-salon.com / Staff123!`);
   console.log(`               sofia@demo-salon.com / Staff123!`);
   console.log(`Invite code:   DEMOSALON`);
+  console.log(`Super Admin:   super@zonadedamas.com / Super123!`);
   console.log('─────────────────────────────────────────────');
 }
 

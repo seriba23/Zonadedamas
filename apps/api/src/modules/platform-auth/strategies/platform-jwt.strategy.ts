@@ -3,11 +3,11 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-export interface JwtPayload {
+export interface PlatformJwtPayload {
   sub: string;
-  tenantId: string;
   email: string;
-  permissions?: string[];
+  role: 'platform_admin';
+  iss?: string;
   iat?: number;
   exp?: number;
 }
@@ -19,8 +19,8 @@ function getJwtSecret(): string {
       throw new Error('JWT_SECRET environment variable is required in production');
     }
     Logger.warn(
-      'JWT_SECRET not set — using insecure default. Set JWT_SECRET for production.',
-      'JwtStrategy',
+      'JWT_SECRET not set — using insecure default.',
+      'PlatformJwtStrategy',
     );
     return 'zonadedamas-dev-secret-NOT-FOR-PRODUCTION';
   }
@@ -28,42 +28,33 @@ function getJwtSecret(): string {
 }
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class PlatformJwtStrategy extends PassportStrategy(Strategy, 'platform-jwt') {
   constructor(private readonly prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: getJwtSecret(),
+      issuer: 'zonadedamas-platform',
     });
   }
 
-  async validate(payload: JwtPayload) {
-    // Reject platform tokens on tenant endpoints
-    if ((payload as any).role === 'platform_admin') {
-      throw new UnauthorizedException('Token de plataforma no válido para endpoints de tenant');
+  async validate(payload: PlatformJwtPayload) {
+    if (payload.role !== 'platform_admin') {
+      throw new UnauthorizedException('Token inválido para esta plataforma');
     }
 
-    if (!payload.tenantId) {
-      throw new UnauthorizedException('Token inválido: falta tenantId');
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: {
-        id: payload.sub,
-        tenantId: payload.tenantId,
-        isActive: true,
-      },
+    const user = await this.prisma.platformUser.findFirst({
+      where: { id: payload.sub, isActive: true },
     });
 
     if (!user) {
-      throw new UnauthorizedException('Usuario no encontrado o inactivo');
+      throw new UnauthorizedException('Usuario de plataforma no encontrado o inactivo');
     }
 
     return {
       userId: payload.sub,
-      tenantId: payload.tenantId,
       email: payload.email,
-      permissions: payload.permissions || [],
+      role: 'platform_admin' as const,
     };
   }
 }

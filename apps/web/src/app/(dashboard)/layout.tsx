@@ -1,23 +1,35 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
+import { SubscriptionBanner } from '@/components/subscription-banner';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Redirect to suspended page if subscription is suspended
+  useEffect(() => {
+    if (
+      user?.subscriptionStatus === 'SUSPENDED' &&
+      pathname !== '/suspended'
+    ) {
+      router.replace('/suspended');
+    }
+  }, [user?.subscriptionStatus, pathname, router]);
 
   if (isLoading) {
     return (
@@ -56,6 +68,7 @@ export default function DashboardLayout({
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col ml-64 min-w-0">
+        <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

@@ -8,6 +8,8 @@ export interface AuthUser {
   lastName: string;
   permissions: string[];
   employeeId?: string | null;
+  subscriptionStatus?: string;
+  subscriptionPlan?: string;
 }
 
 export interface AuthTokens {
@@ -37,6 +39,12 @@ export interface RegisterParams {
   phone?: string;
   inviteCode?: string;
   type?: 'business' | 'individual';
+  businessName?: string;
+  businessType?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  selectedPlan?: string;
+  acceptContract?: boolean;
 }
 
 export async function register(params: RegisterParams): Promise<AuthTokens> {

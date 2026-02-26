@@ -20,9 +20,13 @@ import { HealthModule } from './modules/health/health.module';
 import { PublicBookingModule } from './modules/public-booking/public-booking.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { InviteCodesModule } from './modules/invite-codes/invite-codes.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { PlatformAuthModule } from './modules/platform-auth/platform-auth.module';
+import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { SubscriptionStatusInterceptor } from './modules/subscriptions/subscription-status.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 @Module({
@@ -51,6 +55,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     PublicBookingModule,
     UploadsModule,
     InviteCodesModule,
+    SubscriptionsModule,
+    PlatformAuthModule,
+    PlatformAdminModule,
   ],
   providers: [
     {
@@ -64,6 +71,10 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: SubscriptionStatusInterceptor,
     },
     {
       provide: APP_FILTER,
