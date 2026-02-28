@@ -53,6 +53,11 @@ enum PaymentItemType {
   OTHER
 }
 
+enum NotificationStatus {
+  SENT
+  FAILED
+}
+
 enum DayOfWeek {
   MONDAY
   TUESDAY
@@ -159,6 +164,7 @@ model Tenant {
   userRoles             UserRole[]
   automationRules       AutomationRule[]
   notificationTemplates NotificationTemplate[]
+  notificationLogs      NotificationLog[]
   clientTags            ClientTag[]
   businessHours         BusinessHours[]
   businessClosures      BusinessClosure[]
@@ -823,10 +829,36 @@ model NotificationTemplate {
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logs   NotificationLog[]
 
   @@index([tenantId, eventTrigger])
   @@map("notification_templates")
+}
+
+model NotificationLog {
+  id             String             @id @default(uuid())
+  tenantId       String             @map("tenant_id")
+  templateId     String?            @map("template_id")
+  channel        NotificationType
+  eventName      String             @map("event_name")
+  recipientEmail String?            @map("recipient_email")
+  recipientPhone String?            @map("recipient_phone")
+  subject        String?
+  body           String             @db.Text
+  status         NotificationStatus
+  error          String?            @db.Text
+  metadata       Json?
+  sentAt         DateTime?          @map("sent_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, eventName])
+  @@index([status])
+  @@map("notification_logs")
 }
 
 // ─── TENANT INVITE CODES ──────────────────────────

@@ -23,6 +23,7 @@ import { InviteCodesModule } from './modules/invite-codes/invite-codes.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { PlatformAuthModule } from './modules/platform-auth/platform-auth.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -58,6 +59,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     SubscriptionsModule,
     PlatformAuthModule,
     PlatformAdminModule,
+    NotificationsModule,
   ],
   providers: [
     {

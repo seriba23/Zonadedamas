@@ -554,6 +554,58 @@ export class AppointmentsService {
       newValues: { status: 'CONFIRMED' },
     });
 
+    await this.eventsService.emitAppointmentConfirmed(tenantId, id, {
+      locationId: appointment.locationId,
+      employeeId: appointment.employeeId,
+    });
+
+    return { data: updated };
+  }
+
+  async noShow(id: string, tenantId: string, userId?: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    if (['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(appointment.status)) {
+      throw new BadRequestException(
+        `No se puede marcar como no-show una cita con estado: ${appointment.status}`,
+      );
+    }
+
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { status: 'NO_SHOW' },
+    });
+
+    await this.prisma.appointmentStatusHistory.create({
+      data: {
+        appointmentId: id,
+        fromStatus: appointment.status,
+        toStatus: 'NO_SHOW',
+        changedBy: userId,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'appointment.no_show',
+      entityType: 'appointment',
+      entityId: id,
+      oldValues: { status: appointment.status },
+      newValues: { status: 'NO_SHOW' },
+    });
+
+    await this.eventsService.emitAppointmentNoShow(tenantId, id, {
+      locationId: appointment.locationId,
+      employeeId: appointment.employeeId,
+    });
+
     return { data: updated };
   }
 }

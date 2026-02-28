@@ -976,6 +976,141 @@ async function main() {
     console.log('  Subscription already exists, skipping.');
   }
 
+  // ─── NOTIFICATION TEMPLATES ───────────────────────────────────────────────
+  console.log('Seeding notification templates...');
+
+  const NOTIFICATION_TEMPLATES = [
+    {
+      eventTrigger: 'appointment.created',
+      templates: [
+        {
+          type: 'EMAIL' as const,
+          subject: 'Tu cita ha sido agendada - {{date}}',
+          bodyTemplate:
+            'Hola {{clientFirstName}},\n\nTu cita ha sido agendada exitosamente.\n\nDetalles:\n- Fecha: {{date}}\n- Hora: {{time}}\n- Servicio(s): {{services}}\n- Profesional: {{employeeName}}\n- Total: ${{totalPrice}}\n\nTe esperamos.',
+        },
+        {
+          type: 'WHATSAPP' as const,
+          subject: null,
+          bodyTemplate:
+            'Hola {{clientFirstName}}! Tu cita ha sido agendada para el {{date}} a las {{time}} con {{employeeName}}. Servicio(s): {{services}}. Te esperamos!',
+        },
+      ],
+    },
+    {
+      eventTrigger: 'appointment.confirmed',
+      templates: [
+        {
+          type: 'EMAIL' as const,
+          subject: 'Tu cita ha sido confirmada - {{date}}',
+          bodyTemplate:
+            'Hola {{clientFirstName}},\n\nTu cita para el {{date}} a las {{time}} ha sido confirmada.\n\nServicio(s): {{services}}\nProfesional: {{employeeName}}\n\nTe esperamos.',
+        },
+        {
+          type: 'WHATSAPP' as const,
+          subject: null,
+          bodyTemplate:
+            'Hola {{clientFirstName}}! Tu cita del {{date}} a las {{time}} con {{employeeName}} ha sido confirmada. Te esperamos!',
+        },
+      ],
+    },
+    {
+      eventTrigger: 'appointment.rescheduled',
+      templates: [
+        {
+          type: 'EMAIL' as const,
+          subject: 'Tu cita ha sido reagendada',
+          bodyTemplate:
+            'Hola {{clientFirstName}},\n\nTu cita ha sido reagendada.\n\nNueva fecha: {{newDate}}\nNueva hora: {{newTime}}\nServicio(s): {{services}}\nProfesional: {{employeeName}}\n\nSi tienes alguna pregunta, no dudes en contactarnos.',
+        },
+        {
+          type: 'WHATSAPP' as const,
+          subject: null,
+          bodyTemplate:
+            'Hola {{clientFirstName}}! Tu cita ha sido reagendada al {{newDate}} a las {{newTime}} con {{employeeName}}. Si tienes preguntas, contactanos.',
+        },
+      ],
+    },
+    {
+      eventTrigger: 'appointment.cancelled',
+      templates: [
+        {
+          type: 'EMAIL' as const,
+          subject: 'Tu cita ha sido cancelada',
+          bodyTemplate:
+            'Hola {{clientFirstName}},\n\nLamentamos informarte que tu cita del {{date}} a las {{time}} ha sido cancelada.\n\nServicio(s): {{services}}\nProfesional: {{employeeName}}\n\nPuedes reagendar en cualquier momento.',
+        },
+        {
+          type: 'WHATSAPP' as const,
+          subject: null,
+          bodyTemplate:
+            'Hola {{clientFirstName}}, tu cita del {{date}} a las {{time}} ha sido cancelada. Puedes reagendar en cualquier momento.',
+        },
+      ],
+    },
+    {
+      eventTrigger: 'appointment.completed',
+      templates: [
+        {
+          type: 'EMAIL' as const,
+          subject: 'Gracias por tu visita',
+          bodyTemplate:
+            'Hola {{clientFirstName}},\n\nGracias por visitarnos.\n\nServicio(s): {{services}}\nProfesional: {{employeeName}}\n\nEsperamos verte pronto.',
+        },
+        {
+          type: 'WHATSAPP' as const,
+          subject: null,
+          bodyTemplate:
+            'Hola {{clientFirstName}}! Gracias por tu visita. Esperamos que hayas disfrutado tu {{services}} con {{employeeName}}. Te esperamos pronto!',
+        },
+      ],
+    },
+    {
+      eventTrigger: 'payment.completed',
+      templates: [
+        {
+          type: 'EMAIL' as const,
+          subject: 'Pago recibido - ${{amount}}',
+          bodyTemplate:
+            'Hola {{clientFirstName}},\n\nHemos recibido tu pago.\n\nMonto: ${{amount}} {{currency}}\nMetodo: {{paymentMethod}}\nFecha: {{date}}\n\nGracias.',
+        },
+        {
+          type: 'WHATSAPP' as const,
+          subject: null,
+          bodyTemplate:
+            'Hola {{clientFirstName}}! Pago recibido: ${{amount}} {{currency}} via {{paymentMethod}}. Gracias!',
+        },
+      ],
+    },
+  ];
+
+  let templatesCreated = 0;
+  for (const group of NOTIFICATION_TEMPLATES) {
+    for (const tmpl of group.templates) {
+      const existing = await prisma.notificationTemplate.findFirst({
+        where: {
+          tenantId: tenant.id,
+          eventTrigger: group.eventTrigger,
+          type: tmpl.type,
+        },
+      });
+      if (!existing) {
+        await prisma.notificationTemplate.create({
+          data: {
+            tenantId: tenant.id,
+            type: tmpl.type,
+            eventTrigger: group.eventTrigger,
+            subject: tmpl.subject,
+            bodyTemplate: tmpl.bodyTemplate,
+            isActive: true,
+          },
+        });
+        templatesCreated++;
+      }
+    }
+  }
+  console.log(`  ${templatesCreated} notification templates seeded.`);
+
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
   console.log(`Tenant:        Demo Salon (slug: demo-salon)`);

@@ -118,4 +118,32 @@ export class EventsService {
       payload,
     });
   }
+
+  async emitAppointmentConfirmed(
+    tenantId: string,
+    appointmentId: string,
+    payload: Record<string, any>,
+  ) {
+    await this.emit({
+      type: 'appointment.confirmed',
+      tenantId,
+      aggregateId: appointmentId,
+      aggregateType: 'Appointment',
+      payload,
+    });
+  }
+
+  async emitAppointmentNoShow(
+    tenantId: string,
+    appointmentId: string,
+    payload: Record<string, any>,
+  ) {
+    await this.emit({
+      type: 'appointment.no_show',
+      tenantId,
+      aggregateId: appointmentId,
+      aggregateType: 'Appointment',
+      payload,
+    });
+  }
 }

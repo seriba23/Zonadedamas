@@ -103,4 +103,14 @@ export class AppointmentsController {
   ) {
     return this.appointmentsService.complete(id, tenantId, user.userId);
   }
+
+  @Post(':id/no-show')
+  @RequirePermissions('appointments.update')
+  async noShow(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.noShow(id, tenantId, user.userId);
+  }
 }

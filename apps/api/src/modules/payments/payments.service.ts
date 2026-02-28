@@ -87,6 +87,14 @@ export class PaymentsService {
             notes: 'Completada automaticamente al registrar pago',
           },
         });
+        await this.eventsService.emitAppointmentCompleted(
+          tenantId,
+          dto.appointmentId,
+          {
+            locationId: appointment.locationId,
+            employeeId: appointment.employeeId,
+          },
+        );
       }
     }
 
