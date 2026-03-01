@@ -24,6 +24,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { PlatformAuthModule } from './modules/platform-auth/platform-auth.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -60,6 +61,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     PlatformAuthModule,
     PlatformAdminModule,
     NotificationsModule,
+    ClientPortalModule,
   ],
   providers: [
     {

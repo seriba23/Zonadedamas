@@ -1,13 +1,17 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
   Put,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto, UpdateAppointmentDto } from './dto/create-appointment.dto';
 import { RescheduleDto, CancelDto } from './dto/reschedule.dto';
@@ -17,11 +21,17 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { UploadsService } from '../uploads/uploads.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    private readonly uploadsService: UploadsService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   @RequirePermissions('appointments.read')
@@ -112,5 +122,73 @@ export class AppointmentsController {
     @Param('id') id: string,
   ) {
     return this.appointmentsService.noShow(id, tenantId, user.userId);
+  }
+
+  // ─── APPOINTMENT PHOTOS ──────────────────────────────
+
+  @Get(':id/photos')
+  @RequirePermissions('appointments.read')
+  async getPhotos(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    const photos = await this.prisma.appointmentPhoto.findMany({
+      where: { appointmentId: id, tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return { data: photos };
+  }
+
+  @Post(':id/photos')
+  @RequirePermissions('appointments.update')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPhoto(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+    @Body('caption') caption?: string,
+  ) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+    });
+    if (!appointment) {
+      throw new Error('Cita no encontrada');
+    }
+
+    const imageUrl = await this.uploadsService.saveFile(file, 'results');
+
+    const photo = await this.prisma.appointmentPhoto.create({
+      data: {
+        tenantId,
+        appointmentId: id,
+        imageUrl,
+        caption,
+        uploadedById: user.userId,
+      },
+    });
+
+    return { data: photo };
+  }
+
+  @Delete(':id/photos/:photoId')
+  @RequirePermissions('appointments.update')
+  async deletePhoto(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @Param('photoId') photoId: string,
+  ) {
+    const photo = await this.prisma.appointmentPhoto.findFirst({
+      where: { id: photoId, appointmentId: id, tenantId },
+    });
+
+    if (!photo) {
+      throw new Error('Foto no encontrada');
+    }
+
+    await this.uploadsService.deleteFile(photo.imageUrl);
+    await this.prisma.appointmentPhoto.delete({ where: { id: photoId } });
+
+    return { message: 'Foto eliminada' };
   }
 }

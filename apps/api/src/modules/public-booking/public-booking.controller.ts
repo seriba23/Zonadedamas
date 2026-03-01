@@ -2,10 +2,14 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PublicBookingService } from './public-booking.service';
 import { PublicAvailabilityQueryDto, PublicBookDto } from './dto/public-booking.dto';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('public/:tenantSlug')
 export class PublicBookingController {
-  constructor(private readonly publicBookingService: PublicBookingService) {}
+  constructor(
+    private readonly publicBookingService: PublicBookingService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get('services')
   async getServices(@Param('tenantSlug') tenantSlug: string) {
@@ -61,5 +65,59 @@ export class PublicBookingController {
   ) {
     const tenant = await this.publicBookingService.resolveTenant(tenantSlug);
     return this.publicBookingService.book(dto, tenant.id);
+  }
+
+  @Get('reputation')
+  async getReputation(@Param('tenantSlug') tenantSlug: string) {
+    const tenant = await this.publicBookingService.resolveTenant(tenantSlug);
+
+    const overallAgg = await this.prisma.employeeReview.aggregate({
+      where: { tenantId: tenant.id, isVisible: true },
+      _avg: { rating: true },
+      _count: { id: true },
+    });
+
+    const employeeRatings = await this.prisma.employeeReview.groupBy({
+      by: ['employeeId'],
+      where: { tenantId: tenant.id, isVisible: true },
+      _avg: { rating: true },
+      _count: { id: true },
+    });
+
+    const employeeIds = employeeRatings.map((r) => r.employeeId);
+    const employees = employeeIds.length
+      ? await this.prisma.employee.findMany({
+          where: { id: { in: employeeIds } },
+          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+        })
+      : [];
+    const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+    return {
+      data: {
+        business: {
+          id: tenant.id,
+          name: tenant.name,
+          logoUrl: tenant.logoUrl,
+          averageRating: overallAgg._avg.rating
+            ? Math.round(overallAgg._avg.rating * 10) / 10
+            : null,
+          totalReviews: overallAgg._count.id,
+        },
+        employees: employeeRatings.map((r) => {
+          const emp = employeeMap.get(r.employeeId);
+          return {
+            id: r.employeeId,
+            firstName: emp?.firstName || '',
+            lastName: emp?.lastName || '',
+            avatarUrl: emp?.avatarUrl || null,
+            averageRating: r._avg.rating
+              ? Math.round(r._avg.rating * 10) / 10
+              : null,
+            totalReviews: r._count.id,
+          };
+        }),
+      },
+    };
   }
 }

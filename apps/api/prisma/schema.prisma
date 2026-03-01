@@ -172,6 +172,7 @@ model Tenant {
   inviteCodes           TenantInviteCode[]
   subscription          Subscription?
   invoices              Invoice[]
+  appointmentPhotos     AppointmentPhoto[]
 
   @@map("tenants")
 }
@@ -266,11 +267,12 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee      Employee?
-  refreshTokens RefreshToken[]
-  userRoles     UserRole[]
-  auditLogs     AuditLog[]
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee       Employee?
+  refreshTokens  RefreshToken[]
+  userRoles      UserRole[]
+  auditLogs      AuditLog[]
+  uploadedPhotos AppointmentPhoto[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -359,26 +361,30 @@ model UserRole {
 // ─── CLIENTS ────────────────────────────────────────
 
 model Client {
-  id          String    @id @default(uuid())
-  tenantId    String    @map("tenant_id")
-  firstName   String    @map("first_name")
-  lastName    String    @map("last_name")
-  email       String?
-  phone       String?
-  gender      String?
-  dateOfBirth DateTime? @map("date_of_birth") @db.Date
-  notes       String?   @db.Text
-  avatarUrl   String?   @map("avatar_url")
-  isActive    Boolean   @default(true) @map("is_active")
-  source      String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id                 String    @id @default(uuid())
+  tenantId           String    @map("tenant_id")
+  firstName          String    @map("first_name")
+  lastName           String    @map("last_name")
+  email              String?
+  phone              String?
+  gender             String?
+  dateOfBirth        DateTime? @map("date_of_birth") @db.Date
+  notes              String?   @db.Text
+  avatarUrl          String?   @map("avatar_url")
+  isActive           Boolean   @default(true) @map("is_active")
+  source             String?
+  passwordHash       String?   @map("password_hash")
+  portalRegisteredAt DateTime? @map("portal_registered_at")
+  lastLoginAt        DateTime? @map("last_login_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  appointments Appointment[]
-  payments     Payment[]
-  tags         ClientTagMap[]
-  reviews      EmployeeReview[]
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments  Appointment[]
+  payments      Payment[]
+  tags          ClientTagMap[]
+  reviews       EmployeeReview[]
+  refreshTokens ClientRefreshToken[]
 
   @@index([tenantId])
   @@index([tenantId, email])
@@ -411,6 +417,24 @@ model ClientTagMap {
 
   @@id([clientId, tagId])
   @@map("client_tag_map")
+}
+
+// ─── CLIENT REFRESH TOKENS ─────────────────────────
+
+model ClientRefreshToken {
+  id        String    @id @default(uuid())
+  clientId  String    @map("client_id")
+  tokenHash String    @map("token_hash")
+  tokenHint String    @default("") @map("token_hint")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHint])
+  @@index([clientId])
+  @@map("client_refresh_tokens")
 }
 
 // ─── SERVICES ───────────────────────────────────────
@@ -611,6 +635,7 @@ model Appointment {
   statusHistory AppointmentStatusHistory[]
   payments      Payment[]
   review        EmployeeReview?
+  photos        AppointmentPhoto[]
 
   @@index([tenantId, locationId, startTime])
   @@index([employeeId, startTime, endTime])
@@ -656,6 +681,25 @@ model AppointmentStatusHistory {
 
   @@index([appointmentId])
   @@map("appointment_status_history")
+}
+
+// ─── APPOINTMENT PHOTOS ────────────────────────────
+
+model AppointmentPhoto {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  appointmentId String   @map("appointment_id")
+  imageUrl      String   @map("image_url")
+  caption       String?  @db.VarChar(255)
+  uploadedById  String?  @map("uploaded_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  uploadedBy  User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, appointmentId])
+  @@map("appointment_photos")
 }
 
 // ─── PAYMENTS ───────────────────────────────────────

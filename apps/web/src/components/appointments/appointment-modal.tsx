@@ -39,6 +39,13 @@ interface AppointmentItem {
   commissionSnapshot: number | null;
 }
 
+interface AppointmentPhoto {
+  id: string;
+  imageUrl: string;
+  caption: string | null;
+  createdAt: string;
+}
+
 interface Appointment {
   id: string;
   clientId: string;
@@ -51,6 +58,7 @@ interface Appointment {
   notes?: string;
   internalNotes?: string;
   items?: AppointmentItem[];
+  photos?: AppointmentPhoto[];
 }
 
 interface CheckAfterResult {
@@ -96,6 +104,9 @@ export function AppointmentModal({
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
 
+  // Photo upload state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
   // Add services flow state
   const [addServicesMode, setAddServicesMode] = useState(false);
   const [newServiceIds, setNewServiceIds] = useState<string[]>([]);
@@ -110,6 +121,39 @@ export function AppointmentModal({
       api.get<{ data: Appointment }>(`/api/appointments/${appointmentId}`),
     enabled: isEditing,
   });
+
+  // Fetch appointment photos
+  const { data: photosData } = useQuery({
+    queryKey: ['appointment-photos', appointmentId],
+    queryFn: () =>
+      api.get<{ data: AppointmentPhoto[] }>(`/api/appointments/${appointmentId}/photos`),
+    enabled: isEditing && !!appointmentId,
+  });
+
+  const photos = photosData?.data || [];
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!appointmentId) return;
+    setUploadingPhoto(true);
+    try {
+      await api.upload(`/api/appointments/${appointmentId}/photos`, file);
+      queryClient.invalidateQueries({ queryKey: ['appointment-photos', appointmentId] });
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoDelete = async (photoId: string) => {
+    if (!appointmentId) return;
+    try {
+      await api.delete(`/api/appointments/${appointmentId}/photos/${photoId}`);
+      queryClient.invalidateQueries({ queryKey: ['appointment-photos', appointmentId] });
+    } catch (err) {
+      console.error('Error deleting photo:', err);
+    }
+  };
 
   // Fetch services
   const { data: servicesData } = useQuery({
@@ -497,6 +541,57 @@ export function AppointmentModal({
                 <p className="text-sm text-gray-600 bg-amber-50 rounded-lg p-3 border border-amber-100">
                   {appointment.internalNotes}
                 </p>
+              </div>
+            )}
+
+            {/* Result Photos — visible for COMPLETED appointments */}
+            {appointment.status.toUpperCase() === 'COMPLETED' && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Fotos de resultado
+                </p>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  {photos.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {photos.map((photo) => (
+                        <div key={photo.id} className="relative group aspect-square">
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${photo.imageUrl}`}
+                            alt={photo.caption || 'Resultado'}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                          <button
+                            onClick={() => handlePhotoDelete(photo.id)}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Eliminar"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handlePhotoUpload(file);
+                        e.target.value = '';
+                      }}
+                      disabled={uploadingPhoto}
+                    />
+                    {uploadingPhoto ? (
+                      <span className="text-sm text-gray-500">Subiendo...</span>
+                    ) : (
+                      <span className="text-sm text-gray-500">
+                        + Subir foto de resultado
+                      </span>
+                    )}
+                  </label>
+                </div>
               </div>
             )}
 
