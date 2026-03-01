@@ -41,6 +41,7 @@ const navItems: NavItem[] = [
     ],
   },
   { label: 'Invitaciones', href: '/settings/invite-codes', icon: '🔑', permission: 'tenant.update' },
+  { label: 'Código QR', href: '/settings/qr', icon: '📱', permission: 'tenant.read' },
   { label: 'Notificaciones', href: '/settings/notifications', icon: '🔔', permission: 'notifications.manage' },
   { label: 'Configuración', href: '/settings/roles', icon: '⚙️', permission: 'roles.read' },
 ];

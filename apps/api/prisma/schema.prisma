@@ -129,26 +129,65 @@ model PlatformRefreshToken {
   @@map("platform_refresh_tokens")
 }
 
+// ─── MARKETPLACE USERS (Global Client Identity) ────
+
+model MarketplaceUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  phone        String?   @unique
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens MarketplaceRefreshToken[]
+  clients       Client[]
+
+  @@map("marketplace_users")
+}
+
+model MarketplaceRefreshToken {
+  id                String    @id @default(uuid())
+  marketplaceUserId String    @map("marketplace_user_id")
+  tokenHash         String    @map("token_hash")
+  tokenHint         String    @default("") @map("token_hint") @db.VarChar(8)
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user MarketplaceUser @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
+
+  @@index([marketplaceUserId])
+  @@map("marketplace_refresh_tokens")
+}
+
 // ─── TENANTS ────────────────────────────────────────
 
 model Tenant {
-  id                 String    @id @default(uuid())
-  name               String
-  slug               String    @unique
-  email              String
-  phone              String?
-  logoUrl            String?   @map("logo_url")
-  timezone           String    @default("UTC")
-  currency           String    @default("USD")
-  settings           Json?
-  businessType       String?   @map("business_type")
-  address            String?
-  businessPhone      String?   @map("business_phone")
-  contractAcceptedAt DateTime? @map("contract_accepted_at")
-  subscriptionPlan   String    @default("free") @map("subscription_plan")
-  subscriptionStatus String    @default("active") @map("subscription_status")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                   String    @id @default(uuid())
+  name                 String
+  slug                 String    @unique
+  email                String
+  phone                String?
+  logoUrl              String?   @map("logo_url")
+  timezone             String    @default("UTC")
+  currency             String    @default("USD")
+  settings             Json?
+  businessType         String?   @map("business_type")
+  address              String?
+  businessPhone        String?   @map("business_phone")
+  description          String?   @db.Text
+  coverImageUrl        String?   @map("cover_image_url")
+  isMarketplaceListed  Boolean   @default(false) @map("is_marketplace_listed")
+  contractAcceptedAt   DateTime? @map("contract_accepted_at")
+  subscriptionPlan     String    @default("free") @map("subscription_plan")
+  subscriptionStatus   String    @default("active") @map("subscription_status")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   locations             Location[]
   users                 User[]
@@ -234,6 +273,8 @@ model Location {
   phone     String?
   email     String?
   timezone  String?
+  latitude  Float?
+  longitude Float?
   isActive  Boolean  @default(true) @map("is_active")
   settings  Json?
   createdAt DateTime @default(now()) @map("created_at")
@@ -376,19 +417,22 @@ model Client {
   passwordHash       String?   @map("password_hash")
   portalRegisteredAt DateTime? @map("portal_registered_at")
   lastLoginAt        DateTime? @map("last_login_at")
+  marketplaceUserId  String?   @map("marketplace_user_id")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  appointments  Appointment[]
-  payments      Payment[]
-  tags          ClientTagMap[]
-  reviews       EmployeeReview[]
-  refreshTokens ClientRefreshToken[]
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  marketplaceUser MarketplaceUser?    @relation(fields: [marketplaceUserId], references: [id], onDelete: SetNull)
+  appointments    Appointment[]
+  payments        Payment[]
+  tags            ClientTagMap[]
+  reviews         EmployeeReview[]
+  refreshTokens   ClientRefreshToken[]
 
   @@index([tenantId])
   @@index([tenantId, email])
   @@index([tenantId, phone])
+  @@index([marketplaceUserId])
   @@map("clients")
 }
 

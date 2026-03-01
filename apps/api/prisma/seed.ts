@@ -1111,6 +1111,52 @@ async function main() {
   }
   console.log(`  ${templatesCreated} notification templates seeded.`);
 
+  // ─── MARKETPLACE SETUP ──────────────────────────────
+  console.log('\nSeeding marketplace data...');
+
+  // Update tenant with marketplace fields
+  await prisma.tenant.update({
+    where: { id: tenant.id },
+    data: {
+      description: 'El mejor salón de belleza de la zona. Servicios profesionales de corte, color, manicura y más.',
+      isMarketplaceListed: true,
+      businessType: 'SALON',
+    },
+  });
+
+  // Add GPS coordinates to locations
+  await prisma.location.update({
+    where: { id: downtownLocation.id },
+    data: { latitude: 40.7128, longitude: -74.0060 },
+  });
+  await prisma.location.update({
+    where: { id: mallLocation.id },
+    data: { latitude: 40.7580, longitude: -73.9855 },
+  });
+
+  // Create demo marketplace user
+  const mktPasswordHash = await bcrypt.hash('Cliente123!', 12);
+  const existingMktUser = await prisma.marketplaceUser.findUnique({
+    where: { email: 'cliente@zonadedamas.com' },
+  });
+  if (!existingMktUser) {
+    await prisma.marketplaceUser.create({
+      data: {
+        email: 'cliente@zonadedamas.com',
+        passwordHash: mktPasswordHash,
+        firstName: 'Maria',
+        lastName: 'Garcia',
+        phone: '+1-555-0200',
+      },
+    });
+    console.log('  Marketplace user created.');
+  } else {
+    console.log('  Marketplace user already exists.');
+  }
+
+  console.log('  Tenant marketplace fields updated.');
+  console.log('  Location GPS coordinates added.');
+
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
   console.log(`Tenant:        Demo Salon (slug: demo-salon)`);
@@ -1120,6 +1166,7 @@ async function main() {
   console.log(`               sofia@demo-salon.com / Staff123!`);
   console.log(`Invite code:   DEMOSALON`);
   console.log(`Super Admin:   super@zonadedamas.com / Super123!`);
+  console.log(`Marketplace:   cliente@zonadedamas.com / Cliente123!`);
   console.log('─────────────────────────────────────────────');
 }
 

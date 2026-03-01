@@ -3,12 +3,10 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-export interface ClientJwtPayload {
+export interface MarketplaceJwtPayload {
   sub: string;
-  tenantId: string;
-  email?: string;
-  phone?: string;
-  type: 'client';
+  email: string;
+  type: 'marketplace';
   iat?: number;
   exp?: number;
 }
@@ -21,7 +19,7 @@ function getJwtSecret(): string {
     }
     Logger.warn(
       'JWT_SECRET not set — using insecure default. Set JWT_SECRET for production.',
-      'ClientJwtStrategy',
+      'MarketplaceJwtStrategy',
     );
     return 'zonadedamas-dev-secret-NOT-FOR-PRODUCTION';
   }
@@ -29,7 +27,7 @@ function getJwtSecret(): string {
 }
 
 @Injectable()
-export class ClientJwtStrategy extends PassportStrategy(Strategy, 'client-jwt') {
+export class MarketplaceJwtStrategy extends PassportStrategy(Strategy, 'marketplace-jwt') {
   constructor(private readonly prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -38,37 +36,23 @@ export class ClientJwtStrategy extends PassportStrategy(Strategy, 'client-jwt') 
     });
   }
 
-  async validate(payload: ClientJwtPayload) {
-    if (payload.type !== 'client') {
-      throw new UnauthorizedException('Token no válido para portal de clientes');
+  async validate(payload: MarketplaceJwtPayload) {
+    if (payload.type !== 'marketplace') {
+      throw new UnauthorizedException('Token no válido para marketplace');
     }
 
-    if (!payload.tenantId) {
-      throw new UnauthorizedException('Token inválido: falta tenantId');
-    }
-
-    const client = await this.prisma.client.findFirst({
-      where: {
-        id: payload.sub,
-        tenantId: payload.tenantId,
-        isActive: true,
-        OR: [
-          { passwordHash: { not: null } },
-          { marketplaceUserId: { not: null } },
-        ],
-      },
+    const user = await this.prisma.marketplaceUser.findFirst({
+      where: { id: payload.sub, isActive: true },
     });
 
-    if (!client) {
-      throw new UnauthorizedException('Cliente no encontrado o inactivo');
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
     }
 
     return {
-      clientId: payload.sub,
-      tenantId: payload.tenantId,
+      marketplaceUserId: payload.sub,
       email: payload.email,
-      phone: payload.phone,
-      type: 'client' as const,
+      type: 'marketplace' as const,
     };
   }
 }
