@@ -32,3 +32,24 @@ coverage/
 # Logs
 *.log
 npm-debug.log*
+
+# TypeScript build artifacts
+*.tsbuildinfo
+*.d.ts
+*.js.map
+
+# Prisma seed build artifacts
+apps/api/prisma/seed.js
+apps/api/prisma/seed.d.ts
+apps/api/prisma/seed.js.map
+
+# Jest config build artifacts
+apps/api/jest.config.js
+apps/api/jest.config.d.ts
+apps/api/jest.config.js.map
+
+# Uploads (runtime)
+uploads/
+
+# Claude Code
+.claude/
