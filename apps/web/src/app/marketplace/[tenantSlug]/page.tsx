@@ -460,28 +460,36 @@ export default function BusinessDetailPage() {
           );
         })()}
 
-        {/* Employees */}
+        {/* Employees carousel */}
         {employees.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Profesionales</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex gap-4 overflow-x-auto pb-2 scroll-smooth snap-x snap-mandatory" style={{ scrollbarWidth: 'none' }}>
               {employees.map((emp) => (
-                <div key={emp.id} className="flex items-center gap-3">
+                <div key={emp.id} className="flex flex-col items-center flex-shrink-0 snap-start" style={{ minWidth: 80 }}>
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-bold overflow-hidden"
                     style={{ backgroundColor: emp.color }}
                   >
-                    {emp.firstName[0]}
-                    {emp.lastName[0]}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {emp.firstName} {emp.lastName}
-                    </p>
-                    {emp.bio && (
-                      <p className="text-xs text-gray-500 truncate">{emp.bio}</p>
+                    {emp.avatarUrl ? (
+                      <img
+                        src={`${API_URL}${emp.avatarUrl}`}
+                        alt={`${emp.firstName} ${emp.lastName}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        {emp.firstName[0]}
+                        {emp.lastName[0]}
+                      </>
                     )}
                   </div>
+                  <p className="text-xs font-medium text-gray-900 mt-1.5 text-center truncate w-full">
+                    {emp.firstName}
+                  </p>
+                  <p className="text-[10px] text-gray-500 text-center truncate w-full">
+                    {emp.lastName}
+                  </p>
                 </div>
               ))}
             </div>
