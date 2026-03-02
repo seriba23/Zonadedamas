@@ -10,6 +10,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
 import { SetBusinessHoursDto } from './dto/business-hours.dto';
 import { CreateBusinessClosureDto } from './dto/business-closure.dto';
+import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 
 // All 53 permissions for the platform
 const ALL_PERMISSIONS = [
@@ -292,6 +293,44 @@ export class TenantsService {
     return tenant;
   }
 
+  async updateProfile(tenantId: string, dto: UpdateTenantProfileDto) {
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.businessType !== undefined && { businessType: dto.businessType }),
+        ...(dto.address !== undefined && { address: dto.address }),
+        ...(dto.businessPhone !== undefined && { businessPhone: dto.businessPhone }),
+        ...(dto.isMarketplaceListed !== undefined && { isMarketplaceListed: dto.isMarketplaceListed }),
+      },
+    });
+  }
+
+  async updateLogo(tenantId: string, imageUrl: string): Promise<string | null> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { logoUrl: true },
+    });
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { logoUrl: imageUrl },
+    });
+    return tenant?.logoUrl || null;
+  }
+
+  async updateCover(tenantId: string, imageUrl: string): Promise<string | null> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { coverImageUrl: true },
+    });
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { coverImageUrl: imageUrl },
+    });
+    return tenant?.coverImageUrl || null;
+  }
+
   // Locations
   async createLocation(tenantId: string, dto: CreateLocationDto) {
     return this.prisma.location.create({
@@ -421,5 +460,32 @@ export class TenantsService {
     if (!closure) throw new NotFoundException('Cierre no encontrado');
     await this.prisma.businessClosure.delete({ where: { id } });
     return { message: 'Cierre eliminado' };
+  }
+
+  // Gallery
+  async getGallery(tenantId: string) {
+    return this.prisma.tenantGalleryImage.findMany({
+      where: { tenantId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async addGalleryImage(tenantId: string, imageUrl: string, caption?: string) {
+    const count = await this.prisma.tenantGalleryImage.count({ where: { tenantId } });
+    if (count >= 10) {
+      throw new BadRequestException('Máximo 10 fotos en la galería');
+    }
+    return this.prisma.tenantGalleryImage.create({
+      data: { tenantId, imageUrl, caption, sortOrder: count },
+    });
+  }
+
+  async removeGalleryImage(tenantId: string, imageId: string) {
+    const image = await this.prisma.tenantGalleryImage.findFirst({
+      where: { id: imageId, tenantId },
+    });
+    if (!image) throw new NotFoundException('Imagen no encontrada');
+    await this.prisma.tenantGalleryImage.delete({ where: { id: imageId } });
+    return image;
   }
 }

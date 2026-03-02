@@ -1,0 +1,27 @@
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
+
+export class UpdateTenantProfileDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  businessType?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  businessPhone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isMarketplaceListed?: boolean;
+}

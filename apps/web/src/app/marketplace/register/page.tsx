@@ -68,7 +68,7 @@ export default function MarketplaceRegisterPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-indigo-600 tracking-tight">ZONADEDAMAS</h1>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#008080' }}>ZONADEDAMAS</h1>
           <p className="text-sm text-gray-500 mt-1">Crea tu cuenta gratuita</p>
         </div>
 
@@ -81,7 +81,9 @@ export default function MarketplaceRegisterPage() {
                 value={form.firstName}
                 onChange={(e) => updateField('firstName', e.target.value)}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
               />
             </div>
             <div>
@@ -91,7 +93,9 @@ export default function MarketplaceRegisterPage() {
                 value={form.lastName}
                 onChange={(e) => updateField('lastName', e.target.value)}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
               />
             </div>
           </div>
@@ -103,7 +107,9 @@ export default function MarketplaceRegisterPage() {
               value={form.email}
               onChange={(e) => updateField('email', e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
               placeholder="tu@email.com"
             />
           </div>
@@ -116,7 +122,9 @@ export default function MarketplaceRegisterPage() {
               type="tel"
               value={form.phone}
               onChange={(e) => updateField('phone', e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
             />
           </div>
 
@@ -127,7 +135,9 @@ export default function MarketplaceRegisterPage() {
               value={form.password}
               onChange={(e) => updateField('password', e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
               placeholder="Mín. 8 caracteres, 1 número, 1 símbolo"
             />
           </div>
@@ -139,7 +149,9 @@ export default function MarketplaceRegisterPage() {
               value={form.confirmPassword}
               onChange={(e) => updateField('confirmPassword', e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
             />
           </div>
 
@@ -150,7 +162,10 @@ export default function MarketplaceRegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="w-full text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: '#008080' }}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#006666'; }}
+            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#008080'; }}
           >
             {loading ? 'Registrando...' : 'Crear cuenta'}
           </button>
@@ -160,7 +175,10 @@ export default function MarketplaceRegisterPage() {
           ¿Ya tienes cuenta?{' '}
           <Link
             href={`/marketplace/login${redirect ? `?redirect=${redirect}` : ''}`}
-            className="text-indigo-600 font-medium hover:text-indigo-700"
+            className="font-medium"
+            style={{ color: '#008080' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#006666')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#008080')}
           >
             Inicia sesión
           </Link>

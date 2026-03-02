@@ -29,6 +29,7 @@ export class PublicBookingService {
         price: true,
         color: true,
         category: true,
+        subcategory: true,
       },
       orderBy: { sortOrder: 'asc' },
     });

@@ -212,6 +212,7 @@ model Tenant {
   subscription          Subscription?
   invoices              Invoice[]
   appointmentPhotos     AppointmentPhoto[]
+  galleryImages         TenantGalleryImage[]
 
   @@map("tenants")
 }
@@ -418,6 +419,7 @@ model Client {
   portalRegisteredAt DateTime? @map("portal_registered_at")
   lastLoginAt        DateTime? @map("last_login_at")
   marketplaceUserId  String?   @map("marketplace_user_id")
+  loyaltyPoints      Int       @default(0) @map("loyalty_points")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -495,6 +497,10 @@ model Service {
   currency            String   @default("USD")
   color               String   @default("#6366f1")
   category            String?
+  subcategory         String?
+  pointsReward        Int?     @map("points_reward")
+  redeemableWithPoints Boolean @default(false) @map("redeemable_with_points")
+  pointsRequired      Int?     @map("points_required")
   isActive            Boolean  @default(true) @map("is_active")
   sortOrder           Int      @default(0) @map("sort_order")
   createdAt           DateTime @default(now()) @map("created_at")
@@ -1038,4 +1044,20 @@ model EmployeeTraining {
 
   @@index([employeeId])
   @@map("employee_trainings")
+}
+
+// ─── TENANT GALLERY ──────────────────────────────
+
+model TenantGalleryImage {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  imageUrl  String   @map("image_url")
+  caption   String?  @db.VarChar(255)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_gallery_images")
 }

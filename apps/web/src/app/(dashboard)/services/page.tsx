@@ -12,26 +12,92 @@ interface Service {
   id: string;
   name: string;
   description?: string;
-  duration: number;
+  durationMinutes: number;
   price: number;
   color?: string;
   isActive: boolean;
+  category?: string;
+  subcategory?: string;
+  redeemableWithPoints?: boolean;
+  pointsRequired?: number | null;
 }
 
 interface ServiceForm {
   name: string;
   description: string;
-  duration: number | string;
+  durationMinutes: number | string;
   price: number | string;
   color: string;
+  category: string;
+  subcategory: string;
+  redeemableWithPoints: boolean;
+  pointsRequired: number | string;
 }
+
+const SERVICE_CATEGORIES: Record<string, { label: string; subcategories: string[] }> = {
+  SALON: {
+    label: 'Salón',
+    subcategories: [
+      'Coloración',
+      'Corte',
+      'Tratamientos Capilares',
+      'Alisados y Texturizados',
+      'Peinados y Styling',
+      'Extensiones',
+      'Mechas y Balayage',
+    ],
+  },
+  BARBERIA: {
+    label: 'Barbería',
+    subcategories: [
+      'Cabello',
+      'Barba',
+      'Tratamientos',
+      'Afeitado Clásico',
+    ],
+  },
+  SPA: {
+    label: 'SPA',
+    subcategories: [
+      'Masajes',
+      'Faciales',
+      'Tratamientos Corporales',
+      'Exfoliación',
+      'Aromaterapia',
+    ],
+  },
+  CLINICA: {
+    label: 'Clínica',
+    subcategories: [
+      'Dermatología',
+      'Medicina Estética',
+      'Depilación Láser',
+      'Tratamientos Faciales',
+      'Nutrición',
+    ],
+  },
+  GENERAL: {
+    label: 'General',
+    subcategories: [
+      'Manicure y Pedicure',
+      'Maquillaje',
+      'Cejas y Pestañas',
+      'Depilación',
+      'Otros',
+    ],
+  },
+};
 
 const defaultForm: ServiceForm = {
   name: '',
   description: '',
-  duration: 60,
+  durationMinutes: 60,
   price: 0,
   color: '#008080',
+  category: '',
+  subcategory: '',
+  redeemableWithPoints: false,
+  pointsRequired: '',
 };
 
 const SERVICE_COLORS = [
@@ -55,7 +121,7 @@ export default function ServicesPage() {
   const services = data?.data || [];
 
   const saveMutation = useMutation({
-    mutationFn: (payload: Partial<Service>) => {
+    mutationFn: (payload: Record<string, any>) => {
       if (editingService) {
         return api.put(`/api/services/${editingService.id}`, payload);
       }
@@ -89,9 +155,13 @@ export default function ServicesPage() {
     setForm({
       name: service.name,
       description: service.description || '',
-      duration: service.duration,
+      durationMinutes: service.durationMinutes,
       price: service.price,
       color: service.color || '#008080',
+      category: service.category || '',
+      subcategory: service.subcategory || '',
+      redeemableWithPoints: service.redeemableWithPoints || false,
+      pointsRequired: service.pointsRequired ?? '',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -110,13 +180,22 @@ export default function ServicesPage() {
       setFormError('El nombre es requerido');
       return;
     }
-    saveMutation.mutate({
+    const payload: Record<string, any> = {
       name: form.name,
       description: form.description,
-      duration: Number(form.duration),
+      durationMinutes: Number(form.durationMinutes),
       price: Number(form.price),
       color: form.color,
-    });
+      category: form.category || null,
+      subcategory: form.subcategory || null,
+      redeemableWithPoints: form.redeemableWithPoints,
+    };
+    if (form.redeemableWithPoints && form.pointsRequired !== '') {
+      payload.pointsRequired = Number(form.pointsRequired);
+    } else {
+      payload.pointsRequired = null;
+    }
+    saveMutation.mutate(payload);
   }
 
   return (
@@ -178,9 +257,16 @@ export default function ServicesPage() {
                       <h3 className="font-semibold text-gray-900 text-sm">
                         {service.name}
                       </h3>
-                      {!service.isActive && (
-                        <span className="text-xs text-gray-400">Inactivo</span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {service.subcategory && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-600">
+                            {service.subcategory}
+                          </span>
+                        )}
+                        {!service.isActive && (
+                          <span className="text-xs text-gray-400">Inactivo</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {hasPermission('services.update') && (
@@ -226,11 +312,18 @@ export default function ServicesPage() {
                         d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <span className="text-xs">{service.duration} min</span>
+                    <span className="text-xs">{service.durationMinutes} min</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(service.price)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {service.redeemableWithPoints && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-50 text-amber-700">
+                        {service.pointsRequired} pts
+                      </span>
+                    )}
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(service.price)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -282,15 +375,58 @@ export default function ServicesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Categoría
+                </label>
+                <select
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, category: e.target.value, subcategory: '' }))
+                  }
+                  className="input-field"
+                >
+                  <option value="">Sin categoría</option>
+                  {Object.entries(SERVICE_CATEGORIES).map(([key, cat]) => (
+                    <option key={key} value={key}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Subcategoría
+                </label>
+                <select
+                  value={form.subcategory}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, subcategory: e.target.value }))
+                  }
+                  className="input-field"
+                  disabled={!form.category}
+                >
+                  <option value="">Sin subcategoría</option>
+                  {form.category &&
+                    SERVICE_CATEGORIES[form.category]?.subcategories.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Duración (min) *
                 </label>
                 <input
                   type="number"
                   min="5"
                   step="5"
-                  value={form.duration}
+                  value={form.durationMinutes}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, duration: e.target.value }))
+                    setForm((f) => ({ ...f, durationMinutes: e.target.value }))
                   }
                   className="input-field"
                   required
@@ -329,6 +465,49 @@ export default function ServicesPage() {
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Points section */}
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between cursor-pointer mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Canjeable con puntos</p>
+                  <p className="text-xs text-gray-400">Los clientes pueden usar puntos para adquirir este servicio</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={form.redeemableWithPoints}
+                    onChange={(e) => setForm((f) => ({ ...f, redeemableWithPoints: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+
+              {form.redeemableWithPoints && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Puntos requeridos *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.pointsRequired}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, pointsRequired: e.target.value }))
+                    }
+                    className="input-field"
+                    placeholder="Ej: 500"
+                    required={form.redeemableWithPoints}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Cantidad de puntos que un cliente necesita para canjear este servicio
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

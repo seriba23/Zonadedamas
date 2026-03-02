@@ -12,6 +12,11 @@ import { TenantsService } from '../tenants/tenants.service';
 import { MarketplaceRegisterDto } from './dto/marketplace-register.dto';
 import { MarketplaceLoginDto } from './dto/marketplace-login.dto';
 import { MarketplaceDiscoverDto } from './dto/marketplace-discover.dto';
+import { UpdateMarketplaceProfileDto } from './dto/update-marketplace-profile.dto';
+import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.dto';
+import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
+import { MarketplaceBookDto } from './dto/marketplace-book.dto';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class MarketplaceService {
@@ -19,6 +24,7 @@ export class MarketplaceService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly tenantsService: TenantsService,
+    private readonly appointmentsService: AppointmentsService,
   ) {}
 
   // ─── AUTH ────────────────────────────────────────────
@@ -196,7 +202,7 @@ export class MarketplaceService {
     const params: any[] = [];
 
     if (category) {
-      conditions.push('t.business_type = ?');
+      conditions.push('FIND_IN_SET(?, t.business_type) > 0');
       params.push(category);
     }
 
@@ -218,9 +224,9 @@ export class MarketplaceService {
     // Main query with distance
     let selectDistance = 'NULL as distance';
     let joinClause = '';
-    let havingClause = '';
-    let orderClause = 't.name ASC';
+    let orderClause = 'name ASC';
     const mainParams: any[] = [];
+    const havingConditions: string[] = [];
 
     if (hasGps) {
       selectDistance = `MIN(
@@ -234,14 +240,22 @@ export class MarketplaceService {
       ) as distance`;
       mainParams.push(lat, lng, lat);
       joinClause = 'LEFT JOIN locations l ON l.tenant_id = t.id AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL AND l.is_active = true';
-      havingClause = `HAVING distance IS NULL OR distance <= ?`;
-      orderClause = 'distance ASC, t.name ASC';
+      // No filter by distance — show all businesses, sorted by proximity
+      orderClause = 'COALESCE(distance, 999999) ASC, name ASC';
+    }
+
+    if (minRating) {
+      havingConditions.push('averageRating >= ?');
     }
 
     // Add filter params after GPS params
     mainParams.push(...params);
 
-    const mainSql = `
+    const havingClause = havingConditions.length > 0
+      ? `HAVING ${havingConditions.join(' AND ')}`
+      : '';
+
+    const innerSql = `
       SELECT
         t.id, t.name, t.slug, t.logo_url as logoUrl,
         t.cover_image_url as coverImageUrl,
@@ -250,21 +264,21 @@ export class MarketplaceService {
         ${selectDistance},
         (SELECT AVG(er.rating) FROM employee_reviews er WHERE er.tenant_id = t.id AND er.is_visible = true) as averageRating,
         (SELECT COUNT(*) FROM employee_reviews er WHERE er.tenant_id = t.id AND er.is_visible = true) as totalReviews,
+        (SELECT COUNT(*) FROM appointments a WHERE a.tenant_id = t.id AND a.status = 'COMPLETED') as completedAppointments,
         (SELECT MIN(l2.address) FROM locations l2 WHERE l2.tenant_id = t.id AND l2.is_active = true) as locationAddress
       FROM tenants t
       ${joinClause}
       WHERE ${conditions.join(' AND ')}
       GROUP BY t.id
       ${havingClause}
-      ${minRating ? 'HAVING averageRating >= ?' : ''}
+    `;
+    const mainSql = `
+      SELECT * FROM (${innerSql}) sub
       ORDER BY ${orderClause}
       LIMIT ? OFFSET ?
     `;
 
-    // Add having params
-    if (hasGps) {
-      mainParams.push(radiusKm);
-    }
+    // Add having params (must match order in havingConditions)
     if (minRating) {
       mainParams.push(minRating);
     }
@@ -287,6 +301,7 @@ export class MarketplaceService {
           ? Math.round(Number(b.averageRating) * 10) / 10
           : null,
         totalReviews: Number(b.totalReviews || 0),
+        completedAppointments: Number(b.completedAppointments || 0),
       })),
       meta: {
         total,
@@ -332,6 +347,7 @@ export class MarketplaceService {
         price: true,
         color: true,
         category: true,
+        subcategory: true,
       },
       orderBy: { sortOrder: 'asc' },
     });
@@ -346,8 +362,16 @@ export class MarketplaceService {
         avatarUrl: true,
         color: true,
         bio: true,
+        employeeServices: {
+          select: { serviceId: true },
+        },
       },
       orderBy: { sortOrder: 'asc' },
+    });
+
+    // Get completed appointments count
+    const completedAppointments = await this.prisma.appointment.count({
+      where: { tenantId: tenant.id, status: 'COMPLETED' },
     });
 
     // Get rating
@@ -387,6 +411,13 @@ export class MarketplaceService {
       },
     });
 
+    // Get gallery images
+    const gallery = await this.prisma.tenantGalleryImage.findMany({
+      where: { tenantId: tenant.id },
+      select: { id: true, imageUrl: true, caption: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+
     return {
       data: {
         ...tenant,
@@ -394,6 +425,7 @@ export class MarketplaceService {
           ? Math.round(ratingAgg._avg.rating * 10) / 10
           : null,
         totalReviews: ratingAgg._count.id,
+        completedAppointments,
         services,
         employees,
         reviews: reviews.map((r) => ({
@@ -406,6 +438,7 @@ export class MarketplaceService {
         })),
         businessHours,
         locations,
+        gallery,
       },
     };
   }
@@ -540,6 +573,335 @@ export class MarketplaceService {
     };
   }
 
+  // ─── PROFILE ────────────────────────────────────────
+
+  async updateProfile(marketplaceUserId: string, dto: UpdateMarketplaceProfileDto) {
+    const current = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+    });
+    if (!current) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const updateData: any = {};
+    if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
+    if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
+
+    const user = await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
+    });
+
+    // Sync linked Client records
+    const clientUpdate: any = {};
+    if (dto.firstName !== undefined) clientUpdate.firstName = dto.firstName;
+    if (dto.lastName !== undefined) clientUpdate.lastName = dto.lastName;
+
+    if (Object.keys(clientUpdate).length > 0) {
+      await this.prisma.client.updateMany({
+        where: { marketplaceUserId },
+        data: clientUpdate,
+      });
+    }
+
+    return user;
+  }
+
+  async updateContact(
+    marketplaceUserId: string,
+    dto: { email?: string; phone?: string; currentPassword: string },
+  ) {
+    const current = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+    });
+    if (!current) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Verify password
+    const valid = await bcrypt.compare(dto.currentPassword, current.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Contraseña incorrecta');
+    }
+
+    if (!dto.email && !dto.phone) {
+      throw new ConflictException('Debes proporcionar un email o teléfono nuevo');
+    }
+
+    const updateData: any = {};
+    const clientUpdate: any = {};
+
+    // Check email uniqueness
+    if (dto.email && dto.email !== current.email) {
+      const existing = await this.prisma.marketplaceUser.findFirst({
+        where: { email: dto.email, id: { not: marketplaceUserId } },
+      });
+      if (existing) {
+        throw new ConflictException('Ya existe una cuenta con este email');
+      }
+      updateData.email = dto.email;
+      clientUpdate.email = dto.email;
+    }
+
+    // Check phone uniqueness
+    if (dto.phone !== undefined && dto.phone !== current.phone) {
+      if (dto.phone) {
+        const existing = await this.prisma.marketplaceUser.findFirst({
+          where: { phone: dto.phone, id: { not: marketplaceUserId } },
+        });
+        if (existing) {
+          throw new ConflictException('Ya existe una cuenta con este teléfono');
+        }
+      }
+      updateData.phone = dto.phone || null;
+      clientUpdate.phone = dto.phone || null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new ConflictException('No hay cambios que aplicar');
+    }
+
+    const user = await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
+    });
+
+    if (Object.keys(clientUpdate).length > 0) {
+      await this.prisma.client.updateMany({
+        where: { marketplaceUserId },
+        data: clientUpdate,
+      });
+    }
+
+    return user;
+  }
+
+  async updateAvatar(marketplaceUserId: string, avatarUrl: string): Promise<string | null> {
+    const current = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+      select: { avatarUrl: true },
+    });
+    const oldUrl = current?.avatarUrl || null;
+
+    await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: { avatarUrl },
+    });
+
+    return oldUrl;
+  }
+
+  async changePassword(marketplaceUserId: string, dto: ChangeMarketplacePasswordDto) {
+    const user = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Contraseña actual incorrecta');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: { passwordHash },
+    });
+
+    return { message: 'Contraseña actualizada' };
+  }
+
+  async getMyAppointments(
+    marketplaceUserId: string,
+    filter: 'upcoming' | 'past',
+    page: number,
+    perPage: number,
+  ) {
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    if (clientIds.length === 0) {
+      return { data: [], meta: { total: 0, page, perPage, totalPages: 0 } };
+    }
+
+    const now = new Date();
+    const where: any = {
+      clientId: { in: clientIds },
+    };
+
+    if (filter === 'upcoming') {
+      where.startTime = { gte: now };
+      where.status = { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] };
+    } else {
+      where.OR = [
+        { startTime: { lt: now } },
+        { status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW'] } },
+      ];
+    }
+
+    const [appointments, total] = await Promise.all([
+      this.prisma.appointment.findMany({
+        where,
+        include: {
+          tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+          employee: {
+            select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
+          },
+          items: {
+            select: {
+              id: true,
+              serviceNameSnapshot: true,
+              priceSnapshot: true,
+              durationSnapshot: true,
+            },
+          },
+        },
+        orderBy: { startTime: filter === 'upcoming' ? 'asc' : 'desc' },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      this.prisma.appointment.count({ where }),
+    ]);
+
+    return {
+      data: appointments,
+      meta: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  // ─── STATS & GALLERY ─────────────────────────────────
+
+  async getMyStats(marketplaceUserId: string) {
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true, loyaltyPoints: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    if (clientIds.length === 0) {
+      return { data: { totalServices: 0, totalPoints: 0, totalPhotos: 0 } };
+    }
+
+    const [totalServices, totalPhotos] = await Promise.all([
+      this.prisma.appointment.count({
+        where: { clientId: { in: clientIds }, status: 'COMPLETED' },
+      }),
+      this.prisma.appointmentPhoto.count({
+        where: {
+          appointment: {
+            clientId: { in: clientIds },
+            status: 'COMPLETED',
+          },
+        },
+      }),
+    ]);
+
+    const totalPoints = clients.reduce((sum, c) => sum + c.loyaltyPoints, 0);
+
+    return { data: { totalServices, totalPoints, totalPhotos } };
+  }
+
+  async getMyGallery(marketplaceUserId: string) {
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    if (clientIds.length === 0) {
+      return { data: [] };
+    }
+
+    const photos = await this.prisma.appointmentPhoto.findMany({
+      where: {
+        appointment: {
+          clientId: { in: clientIds },
+          status: 'COMPLETED',
+        },
+      },
+      include: {
+        appointment: {
+          select: {
+            id: true,
+            startTime: true,
+            items: {
+              select: {
+                serviceNameSnapshot: true,
+                service: { select: { category: true } },
+              },
+              take: 1,
+            },
+            tenant: { select: { name: true, slug: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Group by service category
+    const byCategory: Record<
+      string,
+      {
+        id: string;
+        imageUrl: string;
+        serviceName: string;
+        date: Date;
+        tenantName: string;
+        tenantSlug: string;
+      }[]
+    > = {};
+
+    for (const photo of photos) {
+      const category =
+        photo.appointment.items[0]?.service?.category || 'Otros';
+      if (!byCategory[category]) byCategory[category] = [];
+      byCategory[category].push({
+        id: photo.id,
+        imageUrl: photo.imageUrl,
+        serviceName:
+          photo.appointment.items[0]?.serviceNameSnapshot || 'Servicio',
+        date: photo.appointment.startTime,
+        tenantName: photo.appointment.tenant.name,
+        tenantSlug: photo.appointment.tenant.slug,
+      });
+    }
+
+    return {
+      data: Object.entries(byCategory).map(([name, items]) => ({
+        name,
+        photos: items,
+      })),
+    };
+  }
+
   // ─── PRIVATE HELPERS ─────────────────────────────────
 
   private async generateTokens(user: { id: string; email: string }) {
@@ -570,5 +932,78 @@ export class MarketplaceService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  // ─── BOOKING ──────────────────────────────────────────
+
+  async bookAppointment(
+    marketplaceUserId: string,
+    tenantSlug: string,
+    dto: MarketplaceBookDto,
+  ) {
+    const tenant = await this.tenantsService.findBySlug(tenantSlug);
+    const mktUser = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+    });
+
+    if (!mktUser) {
+      throw new NotFoundException('Usuario marketplace no encontrado');
+    }
+
+    // Find or create client linked to marketplace user (same logic as enterBusiness)
+    let client = await this.prisma.client.findFirst({
+      where: { tenantId: tenant.id, marketplaceUserId },
+    });
+
+    if (!client && mktUser.email) {
+      client = await this.prisma.client.findFirst({
+        where: { tenantId: tenant.id, email: mktUser.email },
+      });
+      if (client) {
+        await this.prisma.client.update({
+          where: { id: client.id },
+          data: { marketplaceUserId },
+        });
+      }
+    }
+
+    if (!client) {
+      client = await this.prisma.client.create({
+        data: {
+          tenantId: tenant.id,
+          marketplaceUserId,
+          firstName: mktUser.firstName,
+          lastName: mktUser.lastName,
+          email: mktUser.email,
+          phone: mktUser.phone,
+          source: 'MARKETPLACE',
+          portalRegisteredAt: new Date(),
+        },
+      });
+    }
+
+    // Resolve employee's locationId
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: dto.employeeId, tenantId: tenant.id, isActive: true },
+      select: { id: true, locationId: true },
+    });
+
+    if (!employee) {
+      throw new NotFoundException('Profesional no encontrado');
+    }
+
+    // Delegate to AppointmentsService
+    return this.appointmentsService.create(
+      {
+        locationId: employee.locationId,
+        clientId: client.id,
+        employeeId: dto.employeeId,
+        serviceIds: dto.serviceIds,
+        startTime: dto.startTime,
+        notes: dto.notes,
+        source: 'ONLINE',
+      },
+      tenant.id,
+    );
   }
 }

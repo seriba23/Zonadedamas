@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
+import MarketplaceHeader from './marketplace-header';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -28,10 +28,10 @@ interface Business {
   distance: number | null;
   averageRating: number | null;
   totalReviews: number;
+  completedAppointments: number;
 }
 
 export default function MarketplacePage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -71,32 +71,7 @@ export default function MarketplacePage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-indigo-600 tracking-tight">ZONADEDAMAS</h1>
-            <p className="text-xs text-gray-500">Tu plataforma de belleza</p>
-          </div>
-          {authLoading ? null : isAuthenticated ? (
-            <button
-              onClick={() => router.push('/marketplace/login')}
-              className="flex items-center gap-2 text-sm text-gray-700"
-            >
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </div>
-            </button>
-          ) : (
-            <button
-              onClick={() => router.push('/marketplace/login')}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-            >
-              Iniciar sesión
-            </button>
-          )}
-        </div>
-      </div>
+      <MarketplaceHeader />
 
       <div className="max-w-2xl mx-auto px-4 py-4">
         {/* Search */}
@@ -115,7 +90,10 @@ export default function MarketplacePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar salón, barbería, spa..."
-            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:outline-none"
+            style={{ ['--tw-ring-color' as any]: '#008080' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
 
@@ -127,9 +105,20 @@ export default function MarketplacePage() {
               onClick={() => setCategory(cat.value)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 category === cat.value
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
+                  ? 'text-white'
+                  : 'bg-white border border-gray-200 text-gray-600'
               }`}
+              style={
+                category === cat.value
+                  ? { backgroundColor: '#008080' }
+                  : undefined
+              }
+              onMouseEnter={(e) => {
+                if (category !== cat.value) e.currentTarget.style.borderColor = '#008080';
+              }}
+              onMouseLeave={(e) => {
+                if (category !== cat.value) e.currentTarget.style.borderColor = '#e5e7eb';
+              }}
             >
               {cat.label}
             </button>
@@ -139,7 +128,7 @@ export default function MarketplacePage() {
         {/* Results */}
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: '#008080' }} />
             <p className="text-sm text-gray-400 mt-3">Buscando negocios...</p>
           </div>
         ) : businesses.length === 0 ? (
@@ -158,7 +147,7 @@ export default function MarketplacePage() {
                 className="w-full bg-white rounded-xl border border-gray-200 overflow-hidden text-left hover:shadow-md transition-shadow"
               >
                 {/* Cover */}
-                <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-500 relative">
+                <div className="h-32 relative" style={{ background: 'linear-gradient(to right, #008080, #006666)' }}>
                   {biz.coverImageUrl && (
                     <img
                       src={`${API_URL}${biz.coverImageUrl}`}
@@ -176,7 +165,7 @@ export default function MarketplacePage() {
                 <div className="p-4">
                   <div className="flex items-start gap-3">
                     {/* Logo */}
-                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 -mt-8 border-2 border-white shadow-sm">
+                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 -mt-12 border-4 border-white shadow-md z-10 relative">
                       {biz.logoUrl ? (
                         <img
                           src={`${API_URL}${biz.logoUrl}`}
@@ -184,7 +173,7 @@ export default function MarketplacePage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-lg font-bold text-gray-400">
+                        <span className="text-2xl font-bold text-gray-400">
                           {biz.name[0]}
                         </span>
                       )}
@@ -195,30 +184,46 @@ export default function MarketplacePage() {
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
                           {biz.name}
                         </h3>
-                        {biz.businessType && (
-                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-full flex-shrink-0">
-                            {biz.businessType === 'SALON' ? 'Salón' :
-                             biz.businessType === 'BARBERIA' ? 'Barbería' :
-                             biz.businessType === 'CLINICA' ? 'Clínica' :
-                             biz.businessType}
+                        {biz.businessType && biz.businessType.split(',').map((type: string) => (
+                          <span key={type} className="px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0" style={{ backgroundColor: '#e0f2f1', color: '#008080' }}>
+                            {type === 'SALON' ? 'Salón' :
+                             type === 'BARBERIA' ? 'Barbería' :
+                             type === 'CLINICA' ? 'Clínica' :
+                             type}
                           </span>
-                        )}
+                        ))}
                       </div>
 
-                      {/* Rating */}
-                      {biz.averageRating != null && (
-                        <div className="flex items-center gap-1 mt-1">
+                      {/* Rating + Stats */}
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex items-center gap-1">
                           <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
-                          <span className="text-sm font-medium text-gray-700">
-                            {biz.averageRating}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            ({biz.totalReviews})
-                          </span>
+                          {biz.averageRating != null ? (
+                            <>
+                              <span className="text-sm font-medium text-gray-700">
+                                {biz.averageRating}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                ({biz.totalReviews})
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-400">Nuevo</span>
+                          )}
                         </div>
-                      )}
+                        {biz.completedAppointments > 0 && (
+                          <div className="flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-xs text-gray-500">
+                              {biz.completedAppointments} servicio{biz.completedAppointments !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Address */}
                       {biz.address && (

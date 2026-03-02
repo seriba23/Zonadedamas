@@ -26,6 +26,7 @@ interface MarketplaceAuthContextType {
     phone?: string;
   }) => Promise<MarketplaceUser>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   enterBusiness: (tenantSlug: string) => Promise<{
     clientAccessToken: string;
     clientRefreshToken: string;
@@ -77,6 +78,15 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await marketplaceApi.get<{ data: MarketplaceUser }>('/auth/me');
+      setUser(res.data);
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   const enterBusiness = useCallback(
     async (tenantSlug: string) => {
       const res: any = await marketplaceApi.post(`/enter/${tenantSlug}`);
@@ -106,6 +116,7 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
         enterBusiness,
       }}
     >

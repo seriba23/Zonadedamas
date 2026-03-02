@@ -1,10 +1,11 @@
-import { Module, Logger } from '@nestjs/common';
+import { Module, Logger, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceService } from './marketplace.service';
 import { MarketplaceJwtStrategy } from './strategies/marketplace-jwt.strategy';
 import { TenantsModule } from '../tenants/tenants.module';
+import { AppointmentsModule } from '../appointments/appointments.module';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -33,6 +34,7 @@ function getJwtSecret(): string {
       }),
     }),
     TenantsModule,
+    forwardRef(() => AppointmentsModule),
   ],
   controllers: [MarketplaceController],
   providers: [MarketplaceService, MarketplaceJwtStrategy],

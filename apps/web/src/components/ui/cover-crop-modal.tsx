@@ -2,19 +2,19 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-interface AvatarCropModalProps {
+interface CoverCropModalProps {
   imageFile: File;
   onAccept: (croppedFile: File) => void;
   onCancel: () => void;
   onChooseAnother: () => void;
 }
 
-export function AvatarCropModal({
+export function CoverCropModal({
   imageFile,
   onAccept,
   onCancel,
   onChooseAnother,
-}: AvatarCropModalProps) {
+}: CoverCropModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +25,13 @@ export function AvatarCropModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const PREVIEW_SIZE = 300;
+  // Preview dimensions (16:5 aspect ratio)
+  const PREVIEW_W = 480;
+  const PREVIEW_H = 150;
+
+  // Output dimensions
+  const OUTPUT_W = 1280;
+  const OUTPUT_H = 400;
 
   // Load the image
   useEffect(() => {
@@ -33,7 +39,6 @@ export function AvatarCropModal({
     img.onload = () => {
       imageRef.current = img;
       setImageLoaded(true);
-      // Center the image
       setOffset({ x: 0, y: 0 });
       setZoom(1);
     };
@@ -50,26 +55,24 @@ export function AvatarCropModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = PREVIEW_SIZE;
-    canvas.height = PREVIEW_SIZE;
+    canvas.width = PREVIEW_W;
+    canvas.height = PREVIEW_H;
 
-    ctx.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
+    ctx.clearRect(0, 0, PREVIEW_W, PREVIEW_H);
 
-    // Calculate scaled dimensions
-    const scale = Math.max(PREVIEW_SIZE / img.width, PREVIEW_SIZE / img.height) * zoom;
+    // Scale image to cover the preview area
+    const scale = Math.max(PREVIEW_W / img.width, PREVIEW_H / img.height) * zoom;
     const scaledW = img.width * scale;
     const scaledH = img.height * scale;
 
-    // Center + offset
-    const x = (PREVIEW_SIZE - scaledW) / 2 + offset.x;
-    const y = (PREVIEW_SIZE - scaledH) / 2 + offset.y;
+    const x = (PREVIEW_W - scaledW) / 2 + offset.x;
+    const y = (PREVIEW_H - scaledH) / 2 + offset.y;
 
-    // Clip to circle
+    // Rectangular clip (no circle)
     ctx.save();
     ctx.beginPath();
-    ctx.arc(PREVIEW_SIZE / 2, PREVIEW_SIZE / 2, PREVIEW_SIZE / 2, 0, Math.PI * 2);
+    ctx.rect(0, 0, PREVIEW_W, PREVIEW_H);
     ctx.clip();
-
     ctx.drawImage(img, x, y, scaledW, scaledH);
     ctx.restore();
   }, [zoom, offset]);
@@ -78,7 +81,6 @@ export function AvatarCropModal({
     if (imageLoaded) drawCanvas();
   }, [imageLoaded, drawCanvas]);
 
-  // Mouse/touch drag handlers
   function handlePointerDown(e: React.PointerEvent) {
     setDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
@@ -97,36 +99,31 @@ export function AvatarCropModal({
     setDragging(false);
   }
 
-  // Generate cropped file on accept
   async function handleAccept() {
     const canvas = document.createElement('canvas');
     const img = imageRef.current;
     if (!img) return;
 
-    // Output at 400x400 for good quality
-    const OUTPUT_SIZE = 400;
-    canvas.width = OUTPUT_SIZE;
-    canvas.height = OUTPUT_SIZE;
+    canvas.width = OUTPUT_W;
+    canvas.height = OUTPUT_H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const scale = Math.max(PREVIEW_SIZE / img.width, PREVIEW_SIZE / img.height) * zoom;
+    const scale = Math.max(PREVIEW_W / img.width, PREVIEW_H / img.height) * zoom;
     const scaledW = img.width * scale;
     const scaledH = img.height * scale;
-    const x = (PREVIEW_SIZE - scaledW) / 2 + offset.x;
-    const y = (PREVIEW_SIZE - scaledH) / 2 + offset.y;
+    const x = (PREVIEW_W - scaledW) / 2 + offset.x;
+    const y = (PREVIEW_H - scaledH) / 2 + offset.y;
 
-    // Scale up for output
-    const outputScale = OUTPUT_SIZE / PREVIEW_SIZE;
-    ctx.beginPath();
-    ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
+    const outputScaleX = OUTPUT_W / PREVIEW_W;
+    const outputScaleY = OUTPUT_H / PREVIEW_H;
+
     ctx.drawImage(
       img,
-      x * outputScale,
-      y * outputScale,
-      scaledW * outputScale,
-      scaledH * outputScale,
+      x * outputScaleX,
+      y * outputScaleY,
+      scaledW * outputScaleX,
+      scaledH * outputScaleY,
     );
 
     canvas.toBlob(
@@ -145,30 +142,30 @@ export function AvatarCropModal({
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6"
+        className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-1 text-center">
-          Ajustar fotografía
+          Ajustar portada
         </h3>
         <p className="text-xs text-gray-400 text-center mb-4">
-          Tamaño recomendado: 400 x 400 px (cuadrada)
+          Tamaño recomendado: 1280 x 400 px (panorámica)
         </p>
 
-        {/* Circular preview */}
+        {/* Rectangular preview */}
         <div className="flex justify-center mb-4">
           <div
             ref={containerRef}
-            className="relative rounded-full overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing"
-            style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
+            className="relative rounded-xl overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing"
+            style={{ width: PREVIEW_W, height: PREVIEW_H }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
           >
             <canvas
               ref={canvasRef}
-              width={PREVIEW_SIZE}
-              height={PREVIEW_SIZE}
+              width={PREVIEW_W}
+              height={PREVIEW_H}
               className="block"
             />
           </div>

@@ -544,8 +544,8 @@ export function AppointmentModal({
               </div>
             )}
 
-            {/* Result Photos — visible for COMPLETED appointments */}
-            {appointment.status.toUpperCase() === 'COMPLETED' && (
+            {/* Result Photos — visible for CONFIRMED, IN_PROGRESS, COMPLETED */}
+            {['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(appointment.status.toUpperCase()) && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Fotos de resultado
@@ -891,10 +891,15 @@ export function AppointmentModal({
                 {canComplete && (
                   <button
                     onClick={() => completeMutation.mutate()}
-                    disabled={completeMutation.isPending}
+                    disabled={completeMutation.isPending || photos.length === 0}
                     className="btn-primary flex-1"
+                    title={photos.length === 0 ? 'Sube al menos una foto del resultado' : ''}
                   >
-                    {completeMutation.isPending ? 'Procesando...' : 'Completar'}
+                    {completeMutation.isPending
+                      ? 'Procesando...'
+                      : photos.length === 0
+                        ? 'Sube foto para completar'
+                        : 'Completar'}
                   </button>
                 )}
                 {canCancel && (

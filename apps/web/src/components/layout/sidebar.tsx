@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { label: 'Recursos', href: '/resources', icon: '🏠', permission: 'resources.read' },
   { label: 'POS', href: '/pos', icon: '💰', permission: 'payments.create' },
   { label: 'Reportes', href: '/reports', icon: '📊', permission: 'reports.revenue' },
+  { label: 'Mi Negocio', href: '/settings/business', icon: '🏪', permission: 'tenant.update' },
   {
     label: 'Horarios',
     href: '/settings/hours',

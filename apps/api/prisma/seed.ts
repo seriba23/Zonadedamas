@@ -412,58 +412,68 @@ async function main() {
 
   const servicesData = [
     {
-      name: 'Haircut',
-      description: 'Professional haircut and styling',
+      name: 'Corte de Cabello',
+      description: 'Corte profesional con lavado y secado',
       durationMinutes: 30,
       bufferBeforeMinutes: 0,
       bufferAfterMinutes: 5,
       price: 25.0,
+      pointsReward: 25,
       color: '#6366f1',
-      category: 'Hair',
+      category: 'SALON',
+      subcategory: 'Corte',
       sortOrder: 1,
     },
     {
-      name: 'Hair Color',
-      description: 'Full hair coloring service with premium products',
+      name: 'Tinte Completo',
+      description: 'Coloración completa con productos premium',
       durationMinutes: 90,
       bufferBeforeMinutes: 5,
       bufferAfterMinutes: 10,
       price: 80.0,
+      pointsReward: 80,
       color: '#8b5cf6',
-      category: 'Hair',
+      category: 'SALON',
+      subcategory: 'Coloración',
       sortOrder: 2,
     },
     {
-      name: 'Blowout',
-      description: 'Wash, blow-dry, and style',
+      name: 'Peinado y Brushing',
+      description: 'Lavado, secado y peinado profesional',
       durationMinutes: 45,
       bufferBeforeMinutes: 0,
       bufferAfterMinutes: 5,
       price: 35.0,
+      pointsReward: 35,
       color: '#ec4899',
-      category: 'Hair',
+      category: 'SALON',
+      subcategory: 'Peinados y Styling',
       sortOrder: 3,
     },
     {
-      name: 'Manicure',
-      description: 'Classic manicure with nail shaping and polish',
+      name: 'Manicure Clásico',
+      description: 'Manicure clásico con limado y esmaltado',
       durationMinutes: 30,
       bufferBeforeMinutes: 0,
       bufferAfterMinutes: 5,
       price: 20.0,
+      pointsReward: 20,
       color: '#f43f5e',
-      category: 'Nails',
+      category: 'GENERAL',
+      subcategory: 'Manicure y Pedicure',
       sortOrder: 4,
     },
     {
-      name: 'Facial',
-      description: 'Deep cleansing facial treatment',
+      name: 'Facial Profundo',
+      description: 'Tratamiento facial de limpieza profunda',
       durationMinutes: 60,
       bufferBeforeMinutes: 5,
       bufferAfterMinutes: 10,
       price: 50.0,
+      pointsReward: 50,
       color: '#14b8a6',
-      category: 'Skin Care',
+      category: 'SPA',
+      subcategory: 'Faciales',
       sortOrder: 5,
     },
   ];
@@ -505,12 +515,12 @@ async function main() {
       email: 'maria@demo-salon.com',
       phone: '+1-555-0201',
       color: '#6366f1',
-      bio: 'Senior stylist with 10 years of experience',
+      bio: 'Estilista senior con 10 años de experiencia',
       locationId: downtownLocation.id,
       services: [
-        { name: 'Haircut', commission: 15.0 },
-        { name: 'Hair Color', commission: 40.0 },
-        { name: 'Blowout', commission: 20.0 },
+        { name: 'Corte de Cabello', commission: 15.0 },
+        { name: 'Tinte Completo', commission: 40.0 },
+        { name: 'Peinado y Brushing', commission: 20.0 },
       ],
     },
     {
@@ -519,11 +529,11 @@ async function main() {
       email: 'james@demo-salon.com',
       phone: '+1-555-0202',
       color: '#10b981',
-      bio: 'Specialist in hair coloring and treatments',
+      bio: 'Especialista en coloración y tratamientos capilares',
       locationId: downtownLocation.id,
       services: [
-        { name: 'Haircut', commission: 15.0 },
-        { name: 'Hair Color', commission: 40.0 },
+        { name: 'Corte de Cabello', commission: 15.0 },
+        { name: 'Tinte Completo', commission: 40.0 },
       ],
     },
     {
@@ -532,11 +542,11 @@ async function main() {
       email: 'sofia@demo-salon.com',
       phone: '+1-555-0203',
       color: '#f59e0b',
-      bio: 'Expert in nail care and facial treatments',
+      bio: 'Experta en cuidado de uñas y tratamientos faciales',
       locationId: mallLocation.id,
       services: [
-        { name: 'Manicure', commission: 12.0 },
-        { name: 'Facial', commission: 25.0 },
+        { name: 'Manicure Clásico', commission: 12.0 },
+        { name: 'Facial Profundo', commission: 25.0 },
       ],
     },
   ];
@@ -823,7 +833,7 @@ async function main() {
     }
 
     if (existingMarchApts < 30) {
-      const statuses: Array<'PENDING' | 'CONFIRMED'> = ['PENDING', 'CONFIRMED'];
+      const completedAppointmentIds: { id: string; employeeId: string; clientId: string }[] = [];
 
       // Define 10 appointment slots per employee: [day, hour, minute]
       const slotsByEmployee: Array<Array<[number, number, number]>> = [
@@ -849,7 +859,8 @@ async function main() {
           const client = allClients[i % allClients.length];
           const empSvc = empServices[i % empServices.length];
           const service = empSvc.service;
-          const status = statuses[i % statuses.length];
+          // First 3 slots per employee → COMPLETED (past dates), rest alternate PENDING/CONFIRMED
+          const status = i < 3 ? 'COMPLETED' as const : (i % 2 === 0 ? 'CONFIRMED' as const : 'PENDING' as const);
 
           const startTime = new Date(Date.UTC(2026, 2, day, hour, minute, 0)); // month=2 → March
           const endTime = new Date(startTime.getTime() + service.durationMinutes * 60 * 1000);
@@ -906,11 +917,57 @@ async function main() {
             },
           });
 
+          if (status === 'COMPLETED') {
+            completedAppointmentIds.push({
+              id: appointment.id,
+              employeeId: emp.id,
+              clientId: client.id,
+            });
+          }
+
           totalCreated++;
         }
       }
 
       console.log(`  ${totalCreated} appointments created for March 2026.`);
+
+      // Create reviews for completed appointments
+      console.log('  Seeding reviews for completed appointments...');
+      const reviewComments = [
+        'Excelente servicio, muy profesional.',
+        'Me encanto el resultado, definitivamente volvere.',
+        'Muy buena atencion, el lugar es muy agradable.',
+        'Buen trabajo, aunque hubo un poco de espera.',
+        'Increible experiencia, super recomendado.',
+        'El mejor salon al que he ido, trato impecable.',
+        'Muy satisfecha con el resultado final.',
+        'Profesionales de primera, ambiente muy limpio.',
+        'Excelente relacion calidad-precio.',
+      ];
+      const reviewRatings = [5, 5, 4, 3, 5, 5, 4, 5, 4];
+
+      let reviewsCreated = 0;
+      for (let ri = 0; ri < completedAppointmentIds.length; ri++) {
+        const apt = completedAppointmentIds[ri];
+        const existingReview = await prisma.employeeReview.findUnique({
+          where: { appointmentId: apt.id },
+        });
+        if (!existingReview) {
+          await prisma.employeeReview.create({
+            data: {
+              tenantId: tenant.id,
+              employeeId: apt.employeeId,
+              clientId: apt.clientId,
+              appointmentId: apt.id,
+              rating: reviewRatings[ri % reviewRatings.length],
+              comment: reviewComments[ri % reviewComments.length],
+              isVisible: true,
+            },
+          });
+          reviewsCreated++;
+        }
+      }
+      console.log(`  ${reviewsCreated} reviews seeded.`);
     } else {
       console.log(`  March 2026 appointments already complete (${existingMarchApts}), skipping.`);
     }

@@ -32,11 +32,24 @@ export class CreateServiceDto {
 
   @IsOptional()
   @IsString()
+  subcategory?: string;
+
+  @IsOptional()
+  @IsString()
   color?: string;
 
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  redeemableWithPoints?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsRequired?: number;
 
   @IsOptional()
   @IsUUID('4')
@@ -69,9 +82,22 @@ export class UpdateServiceDto {
 
   @IsOptional()
   @IsString()
+  subcategory?: string;
+
+  @IsOptional()
+  @IsString()
   color?: string;
 
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  redeemableWithPoints?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsRequired?: number;
 }

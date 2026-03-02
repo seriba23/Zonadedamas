@@ -25,7 +25,7 @@ export default function QrSettingsPage() {
 
   const { data: locationsData } = useQuery({
     queryKey: ['locations'],
-    queryFn: () => api.get<{ data: Location[] }>('/locations'),
+    queryFn: () => api.get<{ data: Location[] }>('/api/locations'),
   });
 
   const locations: Location[] = (locationsData as any)?.data || [];
@@ -34,7 +34,7 @@ export default function QrSettingsPage() {
     queryKey: ['qr-data', selectedLocationId],
     queryFn: () => {
       const params = selectedLocationId ? `?locationId=${selectedLocationId}` : '';
-      return api.get<{ data: QrData }>(`/marketplace/qr${params}`);
+      return api.get<{ data: QrData }>(`/api/marketplace/qr${params}`);
     },
   });
 

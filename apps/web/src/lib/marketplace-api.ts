@@ -102,6 +102,34 @@ class MarketplaceApiClient {
     return this.request<T>('PUT', path, body);
   }
 
+  async uploadFile<T>(path: string, file: File, fieldName = 'file'): Promise<T> {
+    const url = `${BASE_URL}/api/marketplace${path}`;
+    const formData = new FormData();
+    formData.append(fieldName, file);
+
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    let res = await fetch(url, { method: 'POST', headers, body: formData });
+
+    if (res.status === 401 && this.getRefreshToken()) {
+      const refreshed = await this.tryRefresh();
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${this.accessToken}`;
+        res = await fetch(url, { method: 'POST', headers, body: formData });
+      }
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Error de red' }));
+      throw new Error(err.message || `Error ${res.status}`);
+    }
+
+    return res.json();
+  }
+
   async loginAndStore(email: string, password: string) {
     const res: any = await this.post('/auth/login', { email, password });
     const data = res.data;

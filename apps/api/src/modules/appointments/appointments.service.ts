@@ -485,10 +485,37 @@ export class AppointmentsService {
       throw new BadRequestException('No se puede completar una cita cancelada');
     }
 
+    // Require at least 1 result photo before completing
+    const photoCount = await this.prisma.appointmentPhoto.count({
+      where: { appointmentId: id, tenantId },
+    });
+    if (photoCount === 0) {
+      throw new BadRequestException(
+        'Debes subir al menos una foto del resultado antes de completar la cita',
+      );
+    }
+
     const updated = await this.prisma.appointment.update({
       where: { id },
       data: { status: 'COMPLETED' },
     });
+
+    // Award loyalty points to client
+    const items = await this.prisma.appointmentItem.findMany({
+      where: { appointmentId: id },
+      include: { service: { select: { pointsReward: true, price: true } } },
+    });
+    const totalPoints = items.reduce((sum, item) => {
+      const pts =
+        item.service.pointsReward ?? Math.floor(Number(item.service.price));
+      return sum + pts;
+    }, 0);
+    if (totalPoints > 0 && appointment.clientId) {
+      await this.prisma.client.update({
+        where: { id: appointment.clientId },
+        data: { loyaltyPoints: { increment: totalPoints } },
+      });
+    }
 
     await this.prisma.appointmentStatusHistory.create({
       data: {
