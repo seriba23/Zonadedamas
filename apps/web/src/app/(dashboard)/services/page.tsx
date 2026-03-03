@@ -18,6 +18,7 @@ interface Service {
   isActive: boolean;
   category?: string;
   subcategory?: string;
+  pointsReward?: number | null;
   redeemableWithPoints?: boolean;
   pointsRequired?: number | null;
 }
@@ -30,6 +31,7 @@ interface ServiceForm {
   color: string;
   category: string;
   subcategory: string;
+  pointsReward: number | string;
   redeemableWithPoints: boolean;
   pointsRequired: number | string;
 }
@@ -96,6 +98,7 @@ const defaultForm: ServiceForm = {
   color: '#008080',
   category: '',
   subcategory: '',
+  pointsReward: '',
   redeemableWithPoints: false,
   pointsRequired: '',
 };
@@ -160,6 +163,7 @@ export default function ServicesPage() {
       color: service.color || '#008080',
       category: service.category || '',
       subcategory: service.subcategory || '',
+      pointsReward: service.pointsReward ?? '',
       redeemableWithPoints: service.redeemableWithPoints || false,
       pointsRequired: service.pointsRequired ?? '',
     });
@@ -189,6 +193,7 @@ export default function ServicesPage() {
       category: form.category || null,
       subcategory: form.subcategory || null,
       redeemableWithPoints: form.redeemableWithPoints,
+      pointsReward: form.pointsReward !== '' ? Number(form.pointsReward) : null,
     };
     if (form.redeemableWithPoints && form.pointsRequired !== '') {
       payload.pointsRequired = Number(form.pointsRequired);
@@ -469,6 +474,26 @@ export default function ServicesPage() {
 
             {/* Points section */}
             <div className="border-t border-gray-100 pt-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Puntos que otorga
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.pointsReward}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, pointsReward: e.target.value }))
+                  }
+                  className="input-field"
+                  placeholder={`Auto: ${Math.floor(Number(form.price) || 0)} pts (= precio)`}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Puntos que el cliente recibe al completar este servicio. Si se deja vacío, se usan los puntos equivalentes al precio.
+                </p>
+              </div>
+
               <label className="flex items-center justify-between cursor-pointer mb-3">
                 <div>
                   <p className="text-sm font-medium text-gray-700">Canjeable con puntos</p>

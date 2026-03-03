@@ -157,6 +157,33 @@ export class MarketplaceController {
     return { data: result };
   }
 
+  // ─── REWARDS (auth required) ────────────────────────
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Get('my-rewards')
+  async getMyRewards(@Req() req: any) {
+    return this.marketplaceService.getMyRewards(req.user.marketplaceUserId);
+  }
+
+  @Get(':tenantSlug/rewards')
+  async getBusinessRewards(@Param('tenantSlug') tenantSlug: string) {
+    return this.marketplaceService.getBusinessRewards(tenantSlug);
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('rewards/redeem')
+  async redeemReward(
+    @Req() req: any,
+    @Body() body: { rewardId: string; tenantSlug: string },
+  ) {
+    const result = await this.marketplaceService.redeemReward(
+      req.user.marketplaceUserId,
+      body.tenantSlug,
+      body.rewardId,
+    );
+    return { data: result };
+  }
+
   // ─── ENTER BUSINESS (auth required) ──────────────────
 
   @UseGuards(MarketplaceJwtGuard)

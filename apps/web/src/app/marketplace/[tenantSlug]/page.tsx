@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
@@ -56,6 +56,7 @@ type BookingStep = null | 'service' | 'employee' | 'datetime' | 'confirm' | 'suc
 export default function BusinessDetailPage() {
   const { isAuthenticated } = useMarketplaceAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const tenantSlug = params.tenantSlug as string;
 
@@ -127,6 +128,14 @@ export default function BusinessDetailPage() {
     ? Array.from(new Map(slots.map((s) => [s.startTime, s])).values())
     : slots;
 
+  // Business rewards
+  const { data: bizRewardsData } = useQuery({
+    queryKey: ['marketplace-biz-rewards', tenantSlug],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>(`/${tenantSlug}/rewards`),
+    enabled: !!tenantSlug,
+  });
+  const bizRewards: any[] = (bizRewardsData as any)?.data || [];
+
   // Booking mutation
   const bookMutation = useMutation({
     mutationFn: () =>
@@ -137,6 +146,22 @@ export default function BusinessDetailPage() {
         notes: bookingNotes || undefined,
       }),
     onSuccess: () => setBookingStep('success'),
+  });
+
+  const [redeemResult, setRedeemResult] = useState<{ code: string; name: string } | null>(null);
+
+  const redeemMutation = useMutation({
+    mutationFn: (rewardId: string) =>
+      marketplaceApi.post('/rewards/redeem', {
+        rewardId,
+        tenantSlug,
+      }),
+    onSuccess: (res: any) => {
+      const result = res?.data || res;
+      setRedeemResult({ code: result.code, name: result.reward?.name || 'Recompensa' });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-biz-rewards', tenantSlug] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-stats'] });
+    },
   });
 
   const handleBook = () => {
@@ -492,6 +517,83 @@ export default function BusinessDetailPage() {
                   </p>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rewards */}
+        {bizRewards.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Recompensas</h2>
+            <div className="space-y-2">
+              {bizRewards.map((reward: any) => (
+                <div key={reward.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 truncate">{reward.name}</p>
+                      <span className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
+                        reward.type === 'SERVICIO' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {reward.type === 'SERVICIO' ? 'Servicio' : 'Descuento'}
+                      </span>
+                    </div>
+                    {reward.description && (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{reward.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <span className="text-xs font-semibold" style={{ color: TEAL }}>{reward.pointsRequired} pts</span>
+                    {isAuthenticated && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Canjear "${reward.name}" por ${reward.pointsRequired} puntos?`)) {
+                            redeemMutation.mutate(reward.id);
+                          }
+                        }}
+                        disabled={redeemMutation.isPending}
+                        className="px-3 py-1 text-xs font-medium text-white rounded-full transition-colors"
+                        style={{ backgroundColor: TEAL }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
+                      >
+                        Canjear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {redeemMutation.isError && (
+              <div className="mt-2 p-2 rounded-lg bg-red-50 text-red-700 text-xs">
+                {(redeemMutation.error as any)?.message || 'Error al canjear'}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Redeem success modal */}
+        {redeemResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setRedeemResult(null)}>
+            <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full text-center" onClick={(e) => e.stopPropagation()}>
+              <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: TEAL_LIGHT }}>
+                <svg className="w-8 h-8" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Recompensa canjeada</h3>
+              <p className="text-sm text-gray-500 mb-4">{redeemResult.name}</p>
+              <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: TEAL_LIGHT }}>
+                <p className="text-xs text-gray-500 mb-1">Tu código de cupón</p>
+                <p className="text-2xl font-mono font-bold tracking-widest" style={{ color: TEAL }}>{redeemResult.code}</p>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">Muestra este código al personal del negocio</p>
+              <button
+                onClick={() => setRedeemResult(null)}
+                className="w-full py-2.5 text-white rounded-xl text-sm font-medium"
+                style={{ backgroundColor: TEAL }}
+              >
+                Aceptar
+              </button>
             </div>
           </div>
         )}

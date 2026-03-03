@@ -84,6 +84,11 @@ const PERMISSIONS = [
   { module: 'locations', action: 'delete', description: 'Delete locations' },
   // notifications
   { module: 'notifications', action: 'manage', description: 'Manage notification templates' },
+  // rewards
+  { module: 'rewards', action: 'create', description: 'Create rewards' },
+  { module: 'rewards', action: 'read', description: 'Read/view rewards' },
+  { module: 'rewards', action: 'update', description: 'Update rewards' },
+  { module: 'rewards', action: 'delete', description: 'Delete/deactivate rewards' },
 ];
 
 // ─── ROLE PERMISSION MAPPING ─────────────────────────────────────────────────
@@ -131,6 +136,7 @@ const MANAGER_PERMISSIONS: PermissionKey[] = [
   permKey('locations', 'read'),
   permKey('users', 'read'),
   permKey('roles', 'read'),
+  permKey('rewards', 'read'),
 ];
 
 const FRONTDESK_PERMISSIONS: PermissionKey[] = [
@@ -150,6 +156,7 @@ const FRONTDESK_PERMISSIONS: PermissionKey[] = [
   permKey('payments', 'create'),
   permKey('payments', 'read'),
   permKey('locations', 'read'),
+  permKey('rewards', 'read'),
 ];
 
 const STAFF_PERMISSIONS: PermissionKey[] = [
@@ -1211,8 +1218,161 @@ async function main() {
     console.log('  Marketplace user already exists.');
   }
 
+  // Create Alfredo marketplace user
+  const alfredoMktHash = await bcrypt.hash('Cliente123!', 12);
+  const existingAlfredo = await prisma.marketplaceUser.findUnique({
+    where: { email: 'alfredo@zonadedamas.com' },
+  });
+  let alfredoMktUser = existingAlfredo;
+  if (!existingAlfredo) {
+    alfredoMktUser = await prisma.marketplaceUser.create({
+      data: {
+        email: 'alfredo@zonadedamas.com',
+        passwordHash: alfredoMktHash,
+        firstName: 'Alfredo',
+        lastName: 'Rodriguez',
+        phone: '+1-555-0201',
+      },
+    });
+    console.log('  Alfredo marketplace user created.');
+  } else {
+    console.log('  Alfredo marketplace user already exists.');
+  }
+
+  // Link Alfredo's existing client record (or create one) and give him loyalty points + appointments
+  if (alfredoMktUser) {
+    let alfredoClient = await prisma.client.findFirst({
+      where: { tenantId: tenant.id, email: 'alfredo@zonadedamas.com' },
+    });
+
+    if (alfredoClient) {
+      // Link to marketplace user and give loyalty points
+      await prisma.client.update({
+        where: { id: alfredoClient.id },
+        data: { marketplaceUserId: alfredoMktUser.id, loyaltyPoints: 600 },
+      });
+    } else {
+      alfredoClient = await prisma.client.create({
+        data: {
+          tenantId: tenant.id,
+          marketplaceUserId: alfredoMktUser.id,
+          firstName: 'Alfredo',
+          lastName: 'Rodriguez',
+          email: 'alfredo@zonadedamas.com',
+          phone: '+1-555-0201',
+          source: 'MARKETPLACE',
+          portalRegisteredAt: new Date(),
+          loyaltyPoints: 600,
+        },
+      });
+    }
+
+    // Create completed appointments for Alfredo so he has history
+    const alfredoAptsCount = await prisma.appointment.count({
+      where: { clientId: alfredoClient.id },
+    });
+
+    if (alfredoAptsCount === 0 && allEmployees.length > 0) {
+      const emp = allEmployees[0];
+      const empServices = emp.employeeServices;
+      const alfredoSlots: [number, number, number, 'COMPLETED' | 'CONFIRMED' | 'PENDING'][] = [
+        [1, 10, 0, 'COMPLETED'],
+        [3, 14, 0, 'COMPLETED'],
+        [5, 11, 30, 'COMPLETED'],
+        [8, 9, 0, 'COMPLETED'],
+        [15, 10, 0, 'CONFIRMED'],
+        [22, 14, 30, 'PENDING'],
+      ];
+
+      for (let i = 0; i < alfredoSlots.length; i++) {
+        const [day, hour, minute, status] = alfredoSlots[i];
+        const empSvc = empServices[i % empServices.length];
+        const service = empSvc.service;
+        const startTime = new Date(Date.UTC(2026, 2, day, hour, minute, 0));
+        const endTime = new Date(startTime.getTime() + service.durationMinutes * 60 * 1000);
+
+        const apt = await prisma.appointment.create({
+          data: {
+            tenantId: tenant.id,
+            locationId: emp.locationId,
+            clientId: alfredoClient.id,
+            employeeId: emp.id,
+            status,
+            startTime,
+            endTime,
+            notes: i === 0 ? 'Cliente frecuente' : null,
+            source: 'ONLINE' as const,
+            createdBy: ownerUser.id,
+          },
+        });
+
+        await prisma.appointmentItem.create({
+          data: {
+            appointmentId: apt.id,
+            serviceId: service.id,
+            employeeId: emp.id,
+            startTime,
+            endTime,
+            priceSnapshot: service.price,
+            durationSnapshot: service.durationMinutes,
+            serviceNameSnapshot: service.name,
+            commissionSnapshot: empSvc.commission,
+          },
+        });
+
+        await prisma.appointmentStatusHistory.create({
+          data: {
+            appointmentId: apt.id,
+            fromStatus: null,
+            toStatus: status,
+            changedBy: ownerUser.id,
+            notes: 'Creada por seed',
+          },
+        });
+      }
+      console.log('  6 appointments created for Alfredo (4 completed, 1 confirmed, 1 pending).');
+    }
+  }
+
   console.log('  Tenant marketplace fields updated.');
   console.log('  Location GPS coordinates added.');
+
+  // ─── DEMO REWARDS ──────────────────────────────────
+  console.log('\nSeeding demo rewards...');
+
+  const corteServiceId = serviceMap.get('Corte de Cabello');
+  const existingRewards = await prisma.reward.count({ where: { tenantId: tenant.id } });
+
+  if (existingRewards === 0) {
+    await prisma.reward.create({
+      data: {
+        tenantId: tenant.id,
+        name: 'Corte Gratis',
+        description: 'Canjea tus puntos por un corte de cabello completamente gratis.',
+        type: 'SERVICIO',
+        pointsRequired: 500,
+        serviceId: corteServiceId || null,
+        isActive: true,
+      },
+    });
+
+    await prisma.reward.create({
+      data: {
+        tenantId: tenant.id,
+        name: '10% de Descuento',
+        description: 'Obtén un 10% de descuento en cualquier servicio.',
+        type: 'DESCUENTO',
+        pointsRequired: 200,
+        discountAmount: 10,
+        discountMode: 'PERCENTAGE',
+        isActive: true,
+      },
+    });
+
+    console.log('  2 demo rewards created.');
+  } else {
+    console.log('  Rewards already exist, skipping.');
+  }
 
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
@@ -1224,6 +1384,7 @@ async function main() {
   console.log(`Invite code:   DEMOSALON`);
   console.log(`Super Admin:   super@zonadedamas.com / Super123!`);
   console.log(`Marketplace:   cliente@zonadedamas.com / Cliente123!`);
+  console.log(`               alfredo@zonadedamas.com / Cliente123!`);
   console.log('─────────────────────────────────────────────');
 }
 

@@ -107,6 +107,10 @@ export function AppointmentModal({
   // Photo upload state
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  // Active date for employee filtering (synced with AvailabilityPicker mini-calendar)
+  const initialDateStr = initialStartTime ? initialStartTime.split('T')[0] : undefined;
+  const [activeDate, setActiveDate] = useState<string | undefined>(initialDateStr);
+
   // Add services flow state
   const [addServicesMode, setAddServicesMode] = useState(false);
   const [newServiceIds, setNewServiceIds] = useState<string[]>([]);
@@ -161,10 +165,13 @@ export function AppointmentModal({
     queryFn: () => api.get<{ data: Service[] }>('/api/services'),
   });
 
-  // Fetch employees
+  // Fetch employees — filter by working date (synced with AvailabilityPicker date)
   const { data: employeesData } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => api.get<{ data: Employee[] }>('/api/employees'),
+    queryKey: ['employees', activeDate || 'all'],
+    queryFn: () => {
+      const params = activeDate ? `?workingDate=${activeDate}` : '';
+      return api.get<{ data: Employee[] }>(`/api/employees${params}`);
+    },
   });
 
   // Search clients
@@ -188,6 +195,13 @@ export function AppointmentModal({
   const services = servicesData?.data || [];
   const employees = employeesData?.data || [];
   const clientResults = clientsData?.data || [];
+
+  // Clear employee selection if the selected employee is not available on the new date
+  useEffect(() => {
+    if (selectedEmployeeId && employees.length > 0 && !employees.find((e) => e.id === selectedEmployeeId)) {
+      setSelectedEmployeeId('');
+    }
+  }, [employees, selectedEmployeeId]);
 
   const createMutation = useMutation({
     mutationFn: (payload: {
@@ -1066,6 +1080,11 @@ export function AppointmentModal({
                   setSelectedEmployeeId(empId);
                   setSelectedStartTime(start);
                   setSelectedEndTime(end);
+                }}
+                onDateChange={(dateStr) => {
+                  setActiveDate(dateStr);
+                  setSelectedStartTime('');
+                  setSelectedEndTime('');
                 }}
               />
             </div>

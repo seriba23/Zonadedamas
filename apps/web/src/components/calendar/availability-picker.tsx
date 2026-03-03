@@ -32,6 +32,7 @@ interface AvailabilityPickerProps {
   employeeId?: string;
   initialDateTime?: string; // e.g. "2026-02-22T09:00:00"
   onSelect: (employeeId: string, startTime: string, endTime: string) => void;
+  onDateChange?: (dateStr: string) => void; // YYYY-MM-DD — fires when mini-calendar date changes
 }
 
 export function AvailabilityPicker({
@@ -40,6 +41,7 @@ export function AvailabilityPicker({
   employeeId,
   initialDateTime,
   onSelect,
+  onDateChange,
 }: AvailabilityPickerProps) {
   const initialDate = initialDateTime ? dayjs(initialDateTime) : dayjs();
   const initialTime = initialDateTime ? initialDateTime.split('T')[1]?.substring(0, 5) : null;
@@ -192,6 +194,7 @@ export function AvailabilityPicker({
                 onClick={() => {
                   setSelectedDate(day);
                   setSelectedSlot(null);
+                  onDateChange?.(day.format('YYYY-MM-DD'));
                 }}
                 className={`text-sm py-1.5 rounded-lg transition-colors ${
                   isSelected

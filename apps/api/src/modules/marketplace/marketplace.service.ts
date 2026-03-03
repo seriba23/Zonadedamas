@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -932,6 +933,193 @@ export class MarketplaceService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  // ─── REWARDS ────────────────────────────────────────
+
+  async getBusinessRewards(tenantSlug: string) {
+    const tenant = await this.tenantsService.findBySlug(tenantSlug);
+
+    const now = new Date();
+    const rewards = await this.prisma.reward.findMany({
+      where: {
+        tenantId: tenant.id,
+        isActive: true,
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: now } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        type: true,
+        pointsRequired: true,
+        discountAmount: true,
+        discountMode: true,
+        maxRedemptions: true,
+        timesRedeemed: true,
+        validUntil: true,
+        service: { select: { id: true, name: true } },
+      },
+      orderBy: { pointsRequired: 'asc' },
+    });
+
+    // Filter out rewards that reached max redemptions
+    const available = rewards.filter(
+      (r) => !r.maxRedemptions || r.timesRedeemed < r.maxRedemptions,
+    );
+
+    return { data: available };
+  }
+
+  async getMyRewards(marketplaceUserId: string) {
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    if (clientIds.length === 0) {
+      return { data: [] };
+    }
+
+    const redemptions = await this.prisma.rewardRedemption.findMany({
+      where: { clientId: { in: clientIds } },
+      include: {
+        reward: {
+          select: {
+            name: true,
+            type: true,
+            description: true,
+            discountAmount: true,
+            discountMode: true,
+            service: { select: { name: true } },
+          },
+        },
+        tenant: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return { data: redemptions };
+  }
+
+  async redeemReward(
+    marketplaceUserId: string,
+    tenantSlug: string,
+    rewardId: string,
+  ) {
+    const tenant = await this.tenantsService.findBySlug(tenantSlug);
+
+    // Find client for this tenant
+    const client = await this.prisma.client.findFirst({
+      where: { tenantId: tenant.id, marketplaceUserId },
+    });
+    if (!client) {
+      throw new NotFoundException(
+        'No tienes una cuenta de cliente en este negocio',
+      );
+    }
+
+    // Validate reward
+    const reward = await this.prisma.reward.findFirst({
+      where: { id: rewardId, tenantId: tenant.id, isActive: true },
+    });
+    if (!reward) {
+      throw new NotFoundException('Recompensa no encontrada');
+    }
+
+    const now = new Date();
+    if (reward.validUntil && reward.validUntil < now) {
+      throw new BadRequestException('Esta recompensa ha expirado');
+    }
+    if (reward.maxRedemptions && reward.timesRedeemed >= reward.maxRedemptions) {
+      throw new BadRequestException(
+        'Esta recompensa ha alcanzado el máximo de canjes',
+      );
+    }
+    if (client.loyaltyPoints < reward.pointsRequired) {
+      throw new BadRequestException(
+        `Necesitas ${reward.pointsRequired} puntos. Tienes ${client.loyaltyPoints}.`,
+      );
+    }
+
+    // Execute in transaction
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        // Re-check points inside transaction
+        const freshClient = await tx.client.findUnique({
+          where: { id: client.id },
+          select: { loyaltyPoints: true },
+        });
+        if (
+          !freshClient ||
+          freshClient.loyaltyPoints < reward.pointsRequired
+        ) {
+          throw new BadRequestException('Puntos insuficientes');
+        }
+
+        // Deduct points
+        await tx.client.update({
+          where: { id: client.id },
+          data: {
+            loyaltyPoints: { decrement: reward.pointsRequired },
+          },
+        });
+
+        // Increment redemption count
+        await tx.reward.update({
+          where: { id: reward.id },
+          data: { timesRedeemed: { increment: 1 } },
+        });
+
+        // Generate unique coupon code
+        const code = this.generateCouponCode();
+
+        // Calculate expiry (30 days from now)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+
+        // Create redemption
+        const redemption = await tx.rewardRedemption.create({
+          data: {
+            tenantId: tenant.id,
+            rewardId: reward.id,
+            clientId: client.id,
+            pointsSpent: reward.pointsRequired,
+            code,
+            expiresAt,
+            status: 'ACTIVE',
+          },
+          include: {
+            reward: {
+              select: {
+                name: true,
+                type: true,
+                discountAmount: true,
+                discountMode: true,
+              },
+            },
+          },
+        });
+
+        return redemption;
+      },
+      { isolationLevel: 'Serializable' },
+    );
+
+    return result;
+  }
+
+  private generateCouponCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
   }
 
   // ─── BOOKING ──────────────────────────────────────────

@@ -48,6 +48,10 @@ class EmployeeQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   includeInactive?: string;
+
+  @IsOptional()
+  @IsString()
+  workingDate?: string; // YYYY-MM-DD — filter employees who work on this date
 }
 
 class TimeOffQueryDto {
@@ -72,7 +76,7 @@ export class EmployeesController {
     @CurrentTenant() tenantId: string,
     @Query() query: EmployeeQueryDto,
   ) {
-    return this.employeesService.findAll(tenantId, query, query.locationId, query.includeInactive === 'true');
+    return this.employeesService.findAll(tenantId, query, query.locationId, query.includeInactive === 'true', query.workingDate);
   }
 
   @Get('time-offs')

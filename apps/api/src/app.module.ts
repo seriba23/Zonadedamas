@@ -26,6 +26,7 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
+import { RewardsModule } from './modules/rewards/rewards.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -64,6 +65,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     NotificationsModule,
     ClientPortalModule,
     MarketplaceModule,
+    RewardsModule,
   ],
   providers: [
     {

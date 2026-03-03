@@ -676,6 +676,14 @@ export default function MarketplaceProfilePage() {
   });
   const galleryCategories: GalleryCategory[] = (galleryData as any)?.data || [];
 
+  // My rewards / coupons
+  const { data: rewardsData } = useQuery({
+    queryKey: ['marketplace-my-rewards'],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-rewards'),
+    enabled: isAuthenticated,
+  });
+  const myRewards: any[] = (rewardsData as any)?.data || [];
+
   const filteredPhotos = selectedCategory
     ? galleryCategories.find((c) => c.name === selectedCategory)?.photos || []
     : galleryCategories.flatMap((c) => c.photos);
@@ -890,16 +898,59 @@ export default function MarketplaceProfilePage() {
           )}
         </div>
 
-        {/* ─── Cupones disponibles ────────────────────── */}
+        {/* ─── Mis cupones ────────────────────────────── */}
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Cupones disponibles</h2>
-          <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
-            <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
-            </svg>
-            <p className="text-gray-400 text-sm">No tienes cupones disponibles</p>
-            <p className="text-xs text-gray-300 mt-1">Acumula puntos para desbloquear cupones</p>
-          </div>
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Mis cupones</h2>
+          {myRewards.length === 0 ? (
+            <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
+              <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+              </svg>
+              <p className="text-gray-400 text-sm">No tienes cupones canjeados</p>
+              <p className="text-xs text-gray-300 mt-1">Canjea puntos en los negocios que visitas</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {myRewards.map((r: any) => {
+                const statusColors: Record<string, string> = {
+                  ACTIVE: 'bg-green-50 text-green-700',
+                  USED: 'bg-gray-100 text-gray-500',
+                  EXPIRED: 'bg-red-50 text-red-600',
+                };
+                const statusLabels: Record<string, string> = {
+                  ACTIVE: 'Activo',
+                  USED: 'Usado',
+                  EXPIRED: 'Expirado',
+                };
+                return (
+                  <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{r.reward?.name}</p>
+                        <p className="text-xs text-gray-500">{r.tenant?.name}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${statusColors[r.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {statusLabels[r.status] || r.status}
+                      </span>
+                    </div>
+                    {r.status === 'ACTIVE' && (
+                      <div className="flex items-center gap-2 mt-2 p-2 rounded-lg" style={{ backgroundColor: TEAL_LIGHT }}>
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+                        </svg>
+                        <span className="font-mono text-sm font-bold tracking-widest" style={{ color: TEAL }}>{r.code}</span>
+                      </div>
+                    )}
+                    {r.expiresAt && r.status === 'ACTIVE' && (
+                      <p className="text-[10px] text-gray-400 mt-1.5">
+                        Expira: {dayjs(r.expiresAt).format('D MMM YYYY')}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* ─── Logout ────────────────────────────────── */}

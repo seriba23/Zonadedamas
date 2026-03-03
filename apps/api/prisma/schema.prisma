@@ -213,6 +213,8 @@ model Tenant {
   invoices              Invoice[]
   appointmentPhotos     AppointmentPhoto[]
   galleryImages         TenantGalleryImage[]
+  rewards               Reward[]
+  rewardRedemptions     RewardRedemption[]
 
   @@map("tenants")
 }
@@ -428,8 +430,9 @@ model Client {
   appointments    Appointment[]
   payments        Payment[]
   tags            ClientTagMap[]
-  reviews         EmployeeReview[]
-  refreshTokens   ClientRefreshToken[]
+  reviews            EmployeeReview[]
+  refreshTokens      ClientRefreshToken[]
+  rewardRedemptions  RewardRedemption[]
 
   @@index([tenantId])
   @@index([tenantId, email])
@@ -511,6 +514,7 @@ model Service {
   addons           ServiceAddon[]
   appointmentItems AppointmentItem[]
   serviceResources ServiceResource[]
+  rewards          Reward[]
 
   @@index([tenantId])
   @@index([tenantId, isActive])
@@ -1060,4 +1064,53 @@ model TenantGalleryImage {
 
   @@index([tenantId])
   @@map("tenant_gallery_images")
+}
+
+// ─── REWARDS ──────────────────────────────────────
+
+model Reward {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  name           String    @db.VarChar(200)
+  description    String?   @db.Text
+  type           String    // SERVICIO | DESCUENTO
+  pointsRequired Int       @map("points_required")
+  serviceId      String?   @map("service_id")
+  discountAmount Decimal?  @map("discount_amount") @db.Decimal(10, 2)
+  discountMode   String?   @map("discount_mode") // FLAT | PERCENTAGE
+  isActive       Boolean   @default(true) @map("is_active")
+  maxRedemptions Int?      @map("max_redemptions")
+  timesRedeemed  Int       @default(0) @map("times_redeemed")
+  validUntil     DateTime? @map("valid_until")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service     Service?            @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  redemptions RewardRedemption[]
+
+  @@index([tenantId, isActive])
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  rewardId    String    @map("reward_id")
+  clientId    String    @map("client_id")
+  pointsSpent Int       @map("points_spent")
+  status      String    @default("ACTIVE") // ACTIVE | USED | EXPIRED
+  code        String    @unique @db.VarChar(12)
+  expiresAt   DateTime? @map("expires_at")
+  usedAt      DateTime? @map("used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([code])
+  @@map("reward_redemptions")
 }

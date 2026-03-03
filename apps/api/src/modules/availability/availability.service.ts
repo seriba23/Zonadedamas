@@ -453,7 +453,63 @@ export class AvailabilityService {
     const afterTime = new Date(dto.afterTime);
     const afterDateStr = afterTime.toISOString().split('T')[0];
 
-    // 2. Check immediate availability on the same day
+    // 2. Direct conflict check: see if the slot right after the appointment is free
+    //    This works even if the employee has no formal schedule (e.g., admin-created appointment).
+    const proposedEnd = new Date(afterTime.getTime() + totalDuration * 60000);
+    const dayStart = new Date(`${afterDateStr}T00:00:00Z`);
+    const dayEnd = new Date(`${afterDateStr}T23:59:59Z`);
+
+    const conflictingAppointments = await this.prisma.appointment.findMany({
+      where: {
+        employeeId: dto.employeeId,
+        tenantId,
+        startTime: { gte: dayStart, lt: dayEnd },
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: dto.employeeId, tenantId, isActive: true },
+    });
+    const bufferAfter = employee?.bufferAfterMinutes || 0;
+    const bufferBefore = employee?.bufferBeforeMinutes || 0;
+
+    // Build occupied blocks from other appointments (excluding the gap we want to fill)
+    const occupiedBlocks: TimeBlock[] = [];
+    for (const appt of conflictingAppointments) {
+      occupiedBlocks.push({
+        start: new Date(appt.startTime.getTime() - bufferBefore * 60000),
+        end: new Date(appt.endTime.getTime() + bufferAfter * 60000),
+      });
+    }
+    const merged = this.mergeBlocks(occupiedBlocks);
+
+    // Check if the slot [afterTime, afterTime + totalDuration] is free of conflicts
+    const directSlotStart = afterTime;
+    const directSlotEnd = proposedEnd;
+    let directConflict = false;
+    for (const block of merged) {
+      if (directSlotStart < block.end && directSlotEnd > block.start) {
+        directConflict = true;
+        break;
+      }
+    }
+
+    if (!directConflict) {
+      const startStr = afterTime.toISOString().substring(11, 16);
+      const endStr = proposedEnd.toISOString().substring(11, 16);
+      return {
+        immediatelyAvailable: true,
+        immediateSlot: {
+          startTime: `${afterDateStr}T${startStr}:00Z`,
+          endTime: `${afterDateStr}T${endStr}:00Z`,
+        },
+        nextAvailable: null,
+      };
+    }
+
+    // 3. Try schedule-based slot search for same day (finds next gap)
     const sameDayResult = await this.getAllSlotsForEmployee(
       dto.employeeId,
       afterDateStr,
@@ -468,7 +524,6 @@ export class AvailabilityService {
         (s) => s.available && s.startTime >= afterTimeStr,
       );
       if (immediateSlot) {
-        // Check if this slot starts exactly at afterTime (immediate)
         const isImmediate = immediateSlot.startTime === afterTimeStr;
         return {
           immediatelyAvailable: isImmediate,
@@ -487,13 +542,13 @@ export class AvailabilityService {
       }
     }
 
-    // 3. Search next 14 days for first available slot
+    // 4. Search next 14 days for first available slot
     const searchStart = new Date(afterTime);
-    searchStart.setDate(searchStart.getDate() + 1);
+    searchStart.setUTCDate(searchStart.getUTCDate() + 1);
 
     for (let i = 0; i < 14; i++) {
       const searchDate = new Date(searchStart);
-      searchDate.setDate(searchDate.getDate() + i);
+      searchDate.setUTCDate(searchDate.getUTCDate() + i);
       const searchDateStr = searchDate.toISOString().split('T')[0];
 
       const dayResult = await this.getAllSlotsForEmployee(
@@ -519,7 +574,7 @@ export class AvailabilityService {
       }
     }
 
-    // 4. Nothing found in 14 days
+    // 5. Nothing found in 14 days
     return {
       immediatelyAvailable: false,
       immediateSlot: null,

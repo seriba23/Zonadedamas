@@ -275,8 +275,8 @@ uploads/           -> Archivos subidos (avatars, portfolio, results, documents)
 **Objetivo:** Que un cliente pueda descubrir, reservar, pagar y ser fidelizado sin fricciones.
 **Depende de:** Nada (es lo que sigue ahora)
 
-- [ ] **1.1 Reservar desde marketplace** - Flujo de booking integrado en `/marketplace/[tenantSlug]` sin redirigir al portal separado. Seleccionar servicio -> empleado -> horario -> confirmar, todo dentro del marketplace.
-- [ ] **1.2 Cupones y canje de puntos** - Backend: modelo `Reward` (nombre, puntosRequeridos, tipo: SERVICIO|PRODUCTO, serviceId?, isActive). Endpoints CRUD para que el gerente configure recompensas. Endpoint `POST /marketplace/rewards/redeem` para que el cliente canjee. Frontend: seccion "Cupones disponibles" en perfil muestra recompensas alcanzables.
+- [x] **1.1 Reservar desde marketplace** - Flujo de booking integrado en `/marketplace/[tenantSlug]` sin redirigir al portal separado. Seleccionar servicio -> empleado -> horario -> confirmar, todo dentro del marketplace. *(Ya estaba construido)*
+- [x] **1.2 Cupones y canje de puntos** - Backend: modelos `Reward` + `RewardRedemption`, RewardsModule CRUD con permisos, endpoints marketplace (listar rewards, canjear, mis cupones). Fix: pointsReward en Service DTOs. Frontend: pagina admin de recompensas, cupones reales en perfil marketplace, seccion recompensas en detalle de negocio con canje inline. *(Completado 2026-03-02)*
 - [ ] **1.3 Favoritos** - Backend: tabla `MarketplaceFavorite` (marketplaceUserId, tenantId). Endpoints toggle + list. Frontend: corazon en cards de negocios, seccion "Mis favoritos" en perfil.
 - [ ] **1.4 Busqueda avanzada en marketplace** - Filtros: por servicio ("buscar manicure"), rango de precio, disponibilidad hoy, rating minimo. Mejorar el discover con estos filtros.
 

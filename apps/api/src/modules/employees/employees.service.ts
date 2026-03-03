@@ -30,7 +30,14 @@ export class EmployeesService {
     private readonly planLimitsService: PlanLimitsService,
   ) {}
 
-  async findAll(tenantId: string, pagination: PaginationDto, locationId?: string, includeInactive?: boolean) {
+  private getDayOfWeek(date: Date): 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY' {
+    const days: ('SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY')[] = [
+      'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY',
+    ];
+    return days[date.getUTCDay()];
+  }
+
+  async findAll(tenantId: string, pagination: PaginationDto, locationId?: string, includeInactive?: boolean, workingDate?: string) {
     const page = pagination.page ?? 1;
     const perPage = pagination.perPage ?? 20;
     const skip = (page - 1) * perPage;
@@ -38,6 +45,26 @@ export class EmployeesService {
     const where: any = { tenantId };
     if (!includeInactive) where.isActive = true;
     if (locationId) where.locationId = locationId;
+
+    // Filter by employees who have a working schedule on the given date
+    if (workingDate) {
+      const dateObj = new Date(workingDate + 'T00:00:00Z');
+      const dayOfWeek = this.getDayOfWeek(dateObj);
+      // Find employee IDs who work on this day
+      const workingSchedules = await this.prisma.employeeSchedule.findMany({
+        where: {
+          dayOfWeek,
+          isWorking: true,
+          effectiveFrom: { lte: dateObj },
+          OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: dateObj } }],
+          employee: { tenantId },
+        },
+        select: { employeeId: true },
+        distinct: ['employeeId'],
+      });
+      const workingEmployeeIds = workingSchedules.map((s) => s.employeeId);
+      where.id = { in: workingEmployeeIds };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.employee.findMany({

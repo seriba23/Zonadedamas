@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { label: 'Calendario', href: '/calendar', icon: '📅', permission: 'appointments.read' },
   { label: 'Clientes', href: '/clients', icon: '👥', permission: 'clients.read' },
   { label: 'Servicios', href: '/services', icon: '✂️', permission: 'services.read' },
+  { label: 'Recompensas', href: '/rewards', icon: '🎁', permission: 'rewards.read' },
   { label: 'Personal', href: '/staff', icon: '👤', permission: 'employees.read' },
   { label: 'Recursos', href: '/resources', icon: '🏠', permission: 'resources.read' },
   { label: 'POS', href: '/pos', icon: '💰', permission: 'payments.create' },

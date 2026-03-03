@@ -43,6 +43,11 @@ export class CreateServiceDto {
   isActive?: boolean;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsReward?: number;
+
+  @IsOptional()
   @IsBoolean()
   redeemableWithPoints?: boolean;
 
@@ -91,6 +96,11 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsReward?: number;
 
   @IsOptional()
   @IsBoolean()
