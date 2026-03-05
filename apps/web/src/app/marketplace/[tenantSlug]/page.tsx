@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -148,6 +148,34 @@ export default function BusinessDetailPage() {
     onSuccess: () => setBookingStep('success'),
   });
 
+  // Favorite state
+  const [isFavorited, setIsFavorited] = useState(false);
+
+  // Sync isFavorited from biz data
+  useEffect(() => {
+    if (biz) setIsFavorited(!!biz.isFavorited);
+  }, [biz]);
+
+  const favMutation = useMutation({
+    mutationFn: () =>
+      marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${tenantSlug}`),
+    onMutate: () => {
+      setIsFavorited((prev) => !prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-business', tenantSlug] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-favorites'] });
+    },
+  });
+
+  const handleToggleFavorite = () => {
+    if (!isAuthenticated) {
+      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      return;
+    }
+    favMutation.mutate();
+  };
+
   const [redeemResult, setRedeemResult] = useState<{ code: string; name: string } | null>(null);
 
   const redeemMutation = useMutation({
@@ -270,6 +298,21 @@ export default function BusinessDetailPage() {
             stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <button
+          onClick={handleToggleFavorite}
+          className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
+          title={isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+        >
+          <svg
+            className="w-5 h-5"
+            fill={isFavorited ? '#008080' : 'none'}
+            stroke={isFavorited ? '#008080' : '#6b7280'}
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
           </svg>
         </button>
       </div>

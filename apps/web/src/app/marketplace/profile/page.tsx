@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
@@ -64,6 +64,18 @@ interface GalleryCategory {
     tenantName: string;
     tenantSlug: string;
   }[];
+}
+
+interface FavoriteBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  coverImageUrl: string | null;
+  businessType: string | null;
+  address: string | null;
+  averageRating: number | null;
+  totalReviews: number;
 }
 
 interface Stats {
@@ -626,9 +638,11 @@ export default function MarketplaceProfilePage() {
   const { user, isAuthenticated, isLoading: authLoading, logout, refreshUser } =
     useMarketplaceAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showPastAppointments, setShowPastAppointments] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<GalleryCategory['photos'][0] | null>(null);
 
@@ -683,6 +697,22 @@ export default function MarketplaceProfilePage() {
     enabled: isAuthenticated,
   });
   const myRewards: any[] = (rewardsData as any)?.data || [];
+
+  // Favorites
+  const { data: favoritesData, isLoading: favoritesLoading } = useQuery({
+    queryKey: ['marketplace-my-favorites'],
+    queryFn: () => marketplaceApi.get<{ data: FavoriteBusiness[] }>('/my-favorites'),
+    enabled: isAuthenticated,
+  });
+  const favorites: FavoriteBusiness[] = (favoritesData as any)?.data || [];
+
+  const removeFavMutation = useMutation({
+    mutationFn: (slug: string) =>
+      marketplaceApi.post(`/favorites/${slug}`),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-favorites'] });
+    },
+  });
 
   const filteredPhotos = selectedCategory
     ? galleryCategories.find((c) => c.name === selectedCategory)?.photos || []
@@ -753,7 +783,7 @@ export default function MarketplaceProfilePage() {
         )}
 
         {/* ─── Stats + Gallery Button ────────────────── */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <p className="text-2xl font-bold" style={{ color: TEAL }}>
               {stats.totalPoints.toLocaleString()}
@@ -776,6 +806,23 @@ export default function MarketplaceProfilePage() {
               {stats.totalServices}
             </p>
             <p className="text-xs text-gray-500 mt-1">Servicios</p>
+          </button>
+          <button
+            onClick={() => setShowFavorites(!showFavorites)}
+            className="rounded-xl border p-4 text-center transition-all"
+            style={showFavorites ? {
+              backgroundColor: TEAL_LIGHT,
+              borderColor: TEAL,
+              boxShadow: `0 0 0 2px ${TEAL_LIGHT}`,
+            } : {
+              backgroundColor: 'white',
+              borderColor: '#e5e7eb',
+            }}
+          >
+            <p className="text-2xl font-bold" style={{ color: TEAL }}>
+              {favorites.length}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Favoritos</p>
           </button>
           <button
             onClick={() => { setShowGallery(!showGallery); setSelectedCategory(null); }}
@@ -803,6 +850,92 @@ export default function MarketplaceProfilePage() {
               <div className="space-y-3">
                 {pastAppointments.map((apt) => (
                   <AppointmentCard key={apt.id} apt={apt} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Favorites (toggles from Favoritos) ────── */}
+        {showFavorites && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Mis favoritos</h3>
+            {favoritesLoading ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: TEAL }} />
+              </div>
+            ) : favorites.length === 0 ? (
+              <div className="text-center py-6">
+                <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                </svg>
+                <p className="text-gray-400 text-sm">Aun no tienes favoritos</p>
+                <Link
+                  href="/marketplace"
+                  className="text-sm font-medium mt-2 inline-block"
+                  style={{ color: TEAL }}
+                >
+                  Explorar negocios
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {favorites.map((biz) => (
+                  <div
+                    key={biz.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/marketplace/${biz.slug}`)}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {biz.logoUrl ? (
+                        <img
+                          src={`${API_URL}${biz.logoUrl}`}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-lg font-bold text-gray-400">
+                          {biz.name[0]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{biz.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {biz.businessType && (
+                          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
+                            {biz.businessType === 'SALON' ? 'Salón' :
+                             biz.businessType === 'BARBERIA' ? 'Barbería' :
+                             biz.businessType === 'CLINICA' ? 'Clínica' :
+                             biz.businessType}
+                          </span>
+                        )}
+                        {biz.averageRating != null && (
+                          <div className="flex items-center gap-0.5">
+                            <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span className="text-xs text-gray-600">{biz.averageRating}</span>
+                          </div>
+                        )}
+                      </div>
+                      {biz.address && (
+                        <p className="text-xs text-gray-400 truncate mt-0.5">{biz.address}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFavMutation.mutate(biz.slug);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                      title="Quitar de favoritos"
+                    >
+                      <svg className="w-5 h-5" fill="#008080" stroke="#008080" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                      </svg>
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

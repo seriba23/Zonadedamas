@@ -21,6 +21,7 @@ import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
 import { MarketplaceJwtGuard } from './guards/marketplace-jwt.guard';
+import { MarketplaceJwtOptionalGuard } from './guards/marketplace-jwt-optional.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -128,6 +129,27 @@ export class MarketplaceController {
     return this.marketplaceService.getMyGallery(req.user.marketplaceUserId);
   }
 
+  // ─── FAVORITES (auth required) ────────────────────────
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('favorites/:tenantSlug')
+  async toggleFavorite(
+    @Req() req: any,
+    @Param('tenantSlug') tenantSlug: string,
+  ) {
+    const result = await this.marketplaceService.toggleFavorite(
+      req.user.marketplaceUserId,
+      tenantSlug,
+    );
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Get('my-favorites')
+  async getMyFavorites(@Req() req: any) {
+    return this.marketplaceService.getMyFavorites(req.user.marketplaceUserId);
+  }
+
   // ─── DISCOVERY (public) ──────────────────────────────
 
   @Get('discover')
@@ -135,9 +157,14 @@ export class MarketplaceController {
     return this.marketplaceService.discover(dto);
   }
 
+  @UseGuards(MarketplaceJwtOptionalGuard)
   @Get('discover/:tenantSlug')
-  async getBusinessDetail(@Param('tenantSlug') tenantSlug: string) {
-    return this.marketplaceService.getBusinessDetail(tenantSlug);
+  async getBusinessDetail(
+    @Req() req: any,
+    @Param('tenantSlug') tenantSlug: string,
+  ) {
+    const marketplaceUserId = req.user?.marketplaceUserId;
+    return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
   }
 
   // ─── BOOKING (auth required) ─────────────────────────

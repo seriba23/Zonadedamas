@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
+import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import MarketplaceHeader from './marketplace-header';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -33,10 +34,13 @@ interface Business {
 
 export default function MarketplacePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { isAuthenticated } = useMarketplaceAuth();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsAsked, setGpsAsked] = useState(false);
+  const [favoriteSlugs, setFavoriteSlugs] = useState<Set<string>>(new Set());
 
   // Request GPS
   useEffect(() => {
@@ -66,6 +70,41 @@ export default function MarketplacePage() {
       return marketplaceApi.get<{ data: Business[]; meta: any }>(`/discover?${params}`);
     },
   });
+
+  // Fetch favorites if authenticated
+  const { data: favData } = useQuery({
+    queryKey: ['marketplace-my-favorites'],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-favorites'),
+    enabled: isAuthenticated,
+  });
+
+  useEffect(() => {
+    const favs = (favData as any)?.data || [];
+    setFavoriteSlugs(new Set(favs.map((f: any) => f.slug)));
+  }, [favData]);
+
+  const toggleFavMutation = useMutation({
+    mutationFn: (slug: string) =>
+      marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${slug}`),
+    onMutate: async (slug) => {
+      // Optimistic update
+      setFavoriteSlugs((prev) => {
+        const next = new Set(prev);
+        if (next.has(slug)) next.delete(slug);
+        else next.add(slug);
+        return next;
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-favorites'] });
+    },
+  });
+
+  const handleToggleFavorite = (e: React.MouseEvent, slug: string) => {
+    e.stopPropagation();
+    if (!isAuthenticated) return;
+    toggleFavMutation.mutate(slug);
+  };
 
   const businesses: Business[] = (data as any)?.data || [];
 
@@ -155,11 +194,28 @@ export default function MarketplacePage() {
                       className="w-full h-full object-cover"
                     />
                   )}
-                  {biz.distance != null && (
-                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-full text-xs font-medium text-gray-700">
-                      {biz.distance} km
-                    </span>
-                  )}
+                  <div className="absolute top-3 right-3 flex items-center gap-2">
+                    {biz.distance != null && (
+                      <span className="bg-white/90 backdrop-blur px-2 py-1 rounded-full text-xs font-medium text-gray-700">
+                        {biz.distance} km
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => handleToggleFavorite(e, biz.slug)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur hover:bg-white transition-colors"
+                      title={isAuthenticated ? (favoriteSlugs.has(biz.slug) ? 'Quitar de favoritos' : 'Guardar en favoritos') : 'Inicia sesión para guardar favoritos'}
+                    >
+                      <svg
+                        className="w-4.5 h-4.5"
+                        fill={favoriteSlugs.has(biz.slug) ? '#008080' : 'none'}
+                        stroke={favoriteSlugs.has(biz.slug) ? '#008080' : '#6b7280'}
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4">

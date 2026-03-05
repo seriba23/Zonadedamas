@@ -146,6 +146,7 @@ model MarketplaceUser {
 
   refreshTokens MarketplaceRefreshToken[]
   clients       Client[]
+  favorites     MarketplaceFavorite[]
 
   @@map("marketplace_users")
 }
@@ -215,6 +216,7 @@ model Tenant {
   galleryImages         TenantGalleryImage[]
   rewards               Reward[]
   rewardRedemptions     RewardRedemption[]
+  marketplaceFavorites  MarketplaceFavorite[]
 
   @@map("tenants")
 }
@@ -1113,4 +1115,20 @@ model RewardRedemption {
   @@index([clientId])
   @@index([code])
   @@map("reward_redemptions")
+}
+
+// ─── MARKETPLACE FAVORITES ────────────────────────
+
+model MarketplaceFavorite {
+  id                String   @id @default(cuid())
+  marketplaceUserId String   @map("marketplace_user_id")
+  tenantId          String   @map("tenant_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  marketplaceUser MarketplaceUser @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([marketplaceUserId, tenantId])
+  @@index([marketplaceUserId])
+  @@map("marketplace_favorites")
 }

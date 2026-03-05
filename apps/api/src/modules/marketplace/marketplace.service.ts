@@ -313,7 +313,88 @@ export class MarketplaceService {
     };
   }
 
-  async getBusinessDetail(tenantSlug: string) {
+  // ─── FAVORITES ──────────────────────────────────────
+
+  async toggleFavorite(marketplaceUserId: string, tenantSlug: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+      select: { id: true, isMarketplaceListed: true },
+    });
+
+    if (!tenant || !tenant.isMarketplaceListed) {
+      throw new NotFoundException('Negocio no encontrado');
+    }
+
+    const existing = await this.prisma.marketplaceFavorite.findUnique({
+      where: {
+        marketplaceUserId_tenantId: {
+          marketplaceUserId,
+          tenantId: tenant.id,
+        },
+      },
+    });
+
+    if (existing) {
+      await this.prisma.marketplaceFavorite.delete({
+        where: { id: existing.id },
+      });
+      return { favorited: false };
+    }
+
+    await this.prisma.marketplaceFavorite.create({
+      data: {
+        marketplaceUserId,
+        tenantId: tenant.id,
+      },
+    });
+    return { favorited: true };
+  }
+
+  async getMyFavorites(marketplaceUserId: string) {
+    const favorites = await this.prisma.marketplaceFavorite.findMany({
+      where: { marketplaceUserId },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+            coverImageUrl: true,
+            businessType: true,
+            address: true,
+            description: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Enrich with rating data
+    const enriched = await Promise.all(
+      favorites.map(async (fav) => {
+        const ratingAgg = await this.prisma.employeeReview.aggregate({
+          where: { tenantId: fav.tenantId, isVisible: true },
+          _avg: { rating: true },
+          _count: { id: true },
+        });
+
+        return {
+          ...fav.tenant,
+          favoriteId: fav.id,
+          favoritedAt: fav.createdAt,
+          averageRating: ratingAgg._avg.rating
+            ? Math.round(ratingAgg._avg.rating * 10) / 10
+            : null,
+          totalReviews: ratingAgg._count.id,
+        };
+      }),
+    );
+
+    return { data: enriched };
+  }
+
+  async getBusinessDetail(tenantSlug: string, marketplaceUserId?: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: tenantSlug },
       select: {
@@ -419,6 +500,20 @@ export class MarketplaceService {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
 
+    // Check if favorited
+    let isFavorited = false;
+    if (marketplaceUserId) {
+      const fav = await this.prisma.marketplaceFavorite.findUnique({
+        where: {
+          marketplaceUserId_tenantId: {
+            marketplaceUserId,
+            tenantId: tenant.id,
+          },
+        },
+      });
+      isFavorited = !!fav;
+    }
+
     return {
       data: {
         ...tenant,
@@ -440,6 +535,7 @@ export class MarketplaceService {
         businessHours,
         locations,
         gallery,
+        isFavorited,
       },
     };
   }
