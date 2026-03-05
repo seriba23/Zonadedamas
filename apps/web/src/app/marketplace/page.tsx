@@ -41,6 +41,7 @@ export default function MarketplacePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsAsked, setGpsAsked] = useState(false);
   const [favoriteSlugs, setFavoriteSlugs] = useState<Set<string>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Request GPS
   useEffect(() => {
@@ -106,7 +107,138 @@ export default function MarketplacePage() {
     toggleFavMutation.mutate(slug);
   };
 
-  const businesses: Business[] = (data as any)?.data || [];
+  const allBusinesses: Business[] = (data as any)?.data || [];
+  const favoriteBusinesses = allBusinesses.filter((b) => favoriteSlugs.has(b.slug));
+  const businesses = showFavoritesOnly ? favoriteBusinesses : allBusinesses;
+
+  // Group favorites by businessType for sectioned view
+  const CATEGORY_LABELS: Record<string, string> = { SALON: 'Salón', BARBERIA: 'Barbería', SPA: 'SPA', CLINICA: 'Clínica' };
+  const favoritesByCategory = showFavoritesOnly && !category
+    ? Object.entries(
+        favoriteBusinesses.reduce<Record<string, Business[]>>((acc, biz) => {
+          const type = biz.businessType?.split(',')[0] || 'OTRO';
+          (acc[type] ||= []).push(biz);
+          return acc;
+        }, {}),
+      ).sort(([a], [b]) => {
+        const order = ['SALON', 'BARBERIA', 'SPA', 'CLINICA'];
+        return (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b));
+      })
+    : null;
+
+  const renderBusinessCard = (biz: Business) => (
+    <button
+      key={biz.id}
+      onClick={() => router.push(`/marketplace/${biz.slug}`)}
+      className="w-full bg-white rounded-xl border border-gray-200 overflow-hidden text-left hover:shadow-md transition-shadow"
+    >
+      {/* Cover */}
+      <div className="h-32 relative" style={{ background: 'linear-gradient(to right, #008080, #006666)' }}>
+        {biz.coverImageUrl && (
+          <img
+            src={`${API_URL}${biz.coverImageUrl}`}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        )}
+        <div className="absolute top-3 right-3 flex items-center gap-2">
+          {biz.distance != null && (
+            <span className="bg-white/90 backdrop-blur px-2 py-1 rounded-full text-xs font-medium text-gray-700">
+              {biz.distance} km
+            </span>
+          )}
+          <button
+            onClick={(e) => handleToggleFavorite(e, biz.slug)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur hover:bg-white transition-colors"
+            title={isAuthenticated ? (favoriteSlugs.has(biz.slug) ? 'Quitar de favoritos' : 'Guardar en favoritos') : 'Inicia sesión para guardar favoritos'}
+          >
+            <svg
+              className="w-4.5 h-4.5"
+              fill={favoriteSlugs.has(biz.slug) ? '#008080' : 'none'}
+              stroke={favoriteSlugs.has(biz.slug) ? '#008080' : '#6b7280'}
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Logo */}
+          <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 -mt-12 border-4 border-white shadow-md z-10 relative">
+            {biz.logoUrl ? (
+              <img
+                src={`${API_URL}${biz.logoUrl}`}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl font-bold text-gray-400">
+                {biz.name[0]}
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-900 truncate">
+                {biz.name}
+              </h3>
+              {biz.businessType && biz.businessType.split(',').map((type: string) => (
+                <span key={type} className="px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0" style={{ backgroundColor: '#e0f2f1', color: '#008080' }}>
+                  {type === 'SALON' ? 'Salón' :
+                   type === 'BARBERIA' ? 'Barbería' :
+                   type === 'CLINICA' ? 'Clínica' :
+                   type}
+                </span>
+              ))}
+            </div>
+
+            {/* Rating + Stats */}
+            <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-1">
+                <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                {biz.averageRating != null ? (
+                  <>
+                    <span className="text-sm font-medium text-gray-700">
+                      {biz.averageRating}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      ({biz.totalReviews})
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-400">Nuevo</span>
+                )}
+              </div>
+              {biz.completedAppointments > 0 && (
+                <div className="flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-xs text-gray-500">
+                    {biz.completedAppointments} servicio{biz.completedAppointments !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Address */}
+            {biz.address && (
+              <p className="text-xs text-gray-500 mt-1 truncate">
+                {biz.address}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
 
   return (
     <div className="min-h-screen">
@@ -141,27 +273,49 @@ export default function MarketplacePage() {
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
-              onClick={() => setCategory(cat.value)}
+              onClick={() => { setCategory(cat.value); setShowFavoritesOnly(false); }}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                category === cat.value
+                category === cat.value && !showFavoritesOnly
                   ? 'text-white'
                   : 'bg-white border border-gray-200 text-gray-600'
               }`}
               style={
-                category === cat.value
+                category === cat.value && !showFavoritesOnly
                   ? { backgroundColor: '#008080' }
                   : undefined
               }
               onMouseEnter={(e) => {
-                if (category !== cat.value) e.currentTarget.style.borderColor = '#008080';
+                if (category !== cat.value || showFavoritesOnly) e.currentTarget.style.borderColor = '#008080';
               }}
               onMouseLeave={(e) => {
-                if (category !== cat.value) e.currentTarget.style.borderColor = '#e5e7eb';
+                if (category !== cat.value || showFavoritesOnly) e.currentTarget.style.borderColor = '#e5e7eb';
               }}
             >
               {cat.label}
             </button>
           ))}
+          {isAuthenticated && (
+            <button
+              onClick={() => setShowFavoritesOnly((prev) => !prev)}
+              className={`ml-auto px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                showFavoritesOnly
+                  ? 'text-white'
+                  : 'bg-white border border-gray-200 text-gray-600'
+              }`}
+              style={showFavoritesOnly ? { backgroundColor: '#008080' } : undefined}
+              onMouseEnter={(e) => {
+                if (!showFavoritesOnly) e.currentTarget.style.borderColor = '#008080';
+              }}
+              onMouseLeave={(e) => {
+                if (!showFavoritesOnly) e.currentTarget.style.borderColor = '#e5e7eb';
+              }}
+            >
+              <svg className="w-4 h-4" fill={showFavoritesOnly ? 'white' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+              </svg>
+              Favoritos
+            </button>
+          )}
         </div>
 
         {/* Results */}
@@ -172,126 +326,37 @@ export default function MarketplacePage() {
           </div>
         ) : businesses.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-400 mb-1">No se encontraron negocios</p>
-            <p className="text-sm text-gray-400">
-              {search ? 'Intenta con otro término de búsqueda' : 'No hay negocios disponibles en esta zona'}
+            <p className="text-gray-400 mb-1">
+              {showFavoritesOnly ? 'No tienes favoritos aún' : 'No se encontraron negocios'}
             </p>
+            <p className="text-sm text-gray-400">
+              {showFavoritesOnly
+                ? 'Pulsa el corazón en los negocios que te gusten para guardarlos aquí'
+                : search ? 'Intenta con otro término de búsqueda' : 'No hay negocios disponibles en esta zona'}
+            </p>
+          </div>
+        ) : favoritesByCategory ? (
+          /* Grouped favorites view */
+          <div className="space-y-6">
+            {favoritesByCategory.map(([type, bizList]) => (
+              <div key={type}>
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-base font-semibold text-gray-800">
+                    {CATEGORY_LABELS[type] || type}
+                  </h2>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#e0f2f1', color: '#008080' }}>
+                    {bizList.length}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {bizList.map((biz) => renderBusinessCard(biz))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="space-y-4">
-            {businesses.map((biz) => (
-              <button
-                key={biz.id}
-                onClick={() => router.push(`/marketplace/${biz.slug}`)}
-                className="w-full bg-white rounded-xl border border-gray-200 overflow-hidden text-left hover:shadow-md transition-shadow"
-              >
-                {/* Cover */}
-                <div className="h-32 relative" style={{ background: 'linear-gradient(to right, #008080, #006666)' }}>
-                  {biz.coverImageUrl && (
-                    <img
-                      src={`${API_URL}${biz.coverImageUrl}`}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute top-3 right-3 flex items-center gap-2">
-                    {biz.distance != null && (
-                      <span className="bg-white/90 backdrop-blur px-2 py-1 rounded-full text-xs font-medium text-gray-700">
-                        {biz.distance} km
-                      </span>
-                    )}
-                    <button
-                      onClick={(e) => handleToggleFavorite(e, biz.slug)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur hover:bg-white transition-colors"
-                      title={isAuthenticated ? (favoriteSlugs.has(biz.slug) ? 'Quitar de favoritos' : 'Guardar en favoritos') : 'Inicia sesión para guardar favoritos'}
-                    >
-                      <svg
-                        className="w-4.5 h-4.5"
-                        fill={favoriteSlugs.has(biz.slug) ? '#008080' : 'none'}
-                        stroke={favoriteSlugs.has(biz.slug) ? '#008080' : '#6b7280'}
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="flex items-start gap-3">
-                    {/* Logo */}
-                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 -mt-12 border-4 border-white shadow-md z-10 relative">
-                      {biz.logoUrl ? (
-                        <img
-                          src={`${API_URL}${biz.logoUrl}`}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-2xl font-bold text-gray-400">
-                          {biz.name[0]}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-gray-900 truncate">
-                          {biz.name}
-                        </h3>
-                        {biz.businessType && biz.businessType.split(',').map((type: string) => (
-                          <span key={type} className="px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0" style={{ backgroundColor: '#e0f2f1', color: '#008080' }}>
-                            {type === 'SALON' ? 'Salón' :
-                             type === 'BARBERIA' ? 'Barbería' :
-                             type === 'CLINICA' ? 'Clínica' :
-                             type}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Rating + Stats */}
-                      <div className="flex items-center gap-3 mt-1">
-                        <div className="flex items-center gap-1">
-                          <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                          {biz.averageRating != null ? (
-                            <>
-                              <span className="text-sm font-medium text-gray-700">
-                                {biz.averageRating}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                ({biz.totalReviews})
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-gray-400">Nuevo</span>
-                          )}
-                        </div>
-                        {biz.completedAppointments > 0 && (
-                          <div className="flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-xs text-gray-500">
-                              {biz.completedAppointments} servicio{biz.completedAppointments !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Address */}
-                      {biz.address && (
-                        <p className="text-xs text-gray-500 mt-1 truncate">
-                          {biz.address}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+            {businesses.map((biz) => renderBusinessCard(biz))}
           </div>
         )}
       </div>
