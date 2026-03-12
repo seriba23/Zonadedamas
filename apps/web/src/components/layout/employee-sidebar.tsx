@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -15,18 +16,20 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Inicio', href: '/employee', icon: '🏠' },
-  { label: 'Mi Perfil', href: '/employee/profile', icon: '👤' },
   { label: 'Mis Citas', href: '/employee/appointments', icon: '📅' },
-  { label: 'Formación', href: '/employee/training', icon: '📚' },
+  { label: 'Reseñas', href: '/employee/reviews', icon: '⭐' },
   { label: 'Mi Horario', href: '/employee/schedule', icon: '🕐' },
+  { label: 'Mi Perfil', href: '/employee/profile', icon: '👤' },
+  { label: 'Formación', href: '/employee/training', icon: '📚' },
 ];
 
 export function EmployeeSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-20">
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-gray-200">
         <span className="text-xl font-bold text-primary-600">
@@ -54,6 +57,7 @@ export function EmployeeSidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={() => setMobileOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                     isActive
@@ -109,6 +113,43 @@ export function EmployeeSidebar() {
           </button>
         </div>
       )}
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white rounded-lg shadow-md border border-gray-200"
+      >
+        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <aside
+        className={cn(
+          'lg:hidden fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-40 transition-transform duration-200',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex-col z-20">
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

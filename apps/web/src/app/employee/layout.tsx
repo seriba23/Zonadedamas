@@ -55,7 +55,7 @@ export default function EmployeeLayout({
   return (
     <div className="flex h-screen bg-gray-50">
       <EmployeeSidebar />
-      <div className="flex-1 flex flex-col ml-64 min-w-0">
+      <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
