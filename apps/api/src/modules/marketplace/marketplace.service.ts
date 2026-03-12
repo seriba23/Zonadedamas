@@ -13,7 +13,7 @@ import { TenantsService } from '../tenants/tenants.service';
 import { MarketplaceRegisterDto } from './dto/marketplace-register.dto';
 import { MarketplaceLoginDto } from './dto/marketplace-login.dto';
 import { MarketplaceDiscoverDto } from './dto/marketplace-discover.dto';
-import { UpdateMarketplaceProfileDto } from './dto/update-marketplace-profile.dto';
+import { UpdateMarketplaceProfileDto, UpdateMarketplaceSettingsDto } from './dto/update-marketplace-profile.dto';
 import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.dto';
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
@@ -68,13 +68,15 @@ export class MarketplaceService {
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
+        gender: user.gender,
       },
     };
   }
 
   async login(dto: MarketplaceLoginDto) {
+    // Also find suspended users so we can reactivate on voluntary login
     const user = await this.prisma.marketplaceUser.findFirst({
-      where: { email: dto.email, isActive: true },
+      where: { email: dto.email },
     });
 
     if (!user) {
@@ -83,6 +85,21 @@ export class MarketplaceService {
 
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    // If user is suspended, reactivate on voluntary login (they chose to come back)
+    let reactivated = false;
+    if (!user.isActive && user.suspendedUntil) {
+      await this.prisma.marketplaceUser.update({
+        where: { id: user.id },
+        data: { isActive: true, suspendedAt: null, suspendedUntil: null },
+      });
+      user.isActive = true;
+      reactivated = true;
+    }
+
+    if (!user.isActive) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -96,12 +113,14 @@ export class MarketplaceService {
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      reactivated,
       user: {
         id: user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
+        gender: user.gender,
       },
     };
   }
@@ -177,6 +196,19 @@ export class MarketplaceService {
         firstName: true,
         lastName: true,
         avatarUrl: true,
+        birthDate: true,
+        gender: true,
+        allergies: true,
+        country: true,
+        language: true,
+        currency: true,
+        searchRadius: true,
+        notifAppointments: true,
+        notifPromotions: true,
+        notifRewards: true,
+        notifMessages: true,
+        suspendedAt: true,
+        suspendedUntil: true,
         createdAt: true,
       },
     });
@@ -185,15 +217,32 @@ export class MarketplaceService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
+    // Auto-reactivate if suspension period ended
+    if (user.suspendedUntil && new Date() >= user.suspendedUntil) {
+      await this.prisma.marketplaceUser.update({
+        where: { id: marketplaceUserId },
+        data: { suspendedAt: null, suspendedUntil: null, isActive: true },
+      });
+      (user as any).suspendedAt = null;
+      (user as any).suspendedUntil = null;
+    }
+
     return user;
   }
 
   // ─── DISCOVERY ───────────────────────────────────────
 
   async discover(dto: MarketplaceDiscoverDto) {
-    const { lat, lng, radiusKm = 25, category, minRating, search, page = 1, perPage = 20 } = dto;
+    const {
+      lat, lng, radiusKm = 25, category, search,
+      sortBy, availableToday, availableNow,
+      page = 1, perPage = 20,
+    } = dto;
     const offset = (page - 1) * perPage;
     const hasGps = lat != null && lng != null;
+
+    // MySQL ELT maps DAYOFWEEK() (1=Sun..7=Sat) to Prisma DayOfWeek enum strings
+    const dayOfWeekExpr = "ELT(DAYOFWEEK(CURDATE()), 'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY')";
 
     // Build WHERE conditions
     const conditions: string[] = [
@@ -208,8 +257,42 @@ export class MarketplaceService {
     }
 
     if (search) {
-      conditions.push('t.name LIKE ?');
-      params.push(`%${search}%`);
+      conditions.push('(t.name LIKE ? OR EXISTS (SELECT 1 FROM services s WHERE s.tenant_id = t.id AND s.is_active = true AND s.name LIKE ?))');
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (availableToday) {
+      conditions.push(`EXISTS (SELECT 1 FROM business_hours bh WHERE bh.tenant_id = t.id AND bh.day_of_week = ${dayOfWeekExpr} AND bh.is_open = true)`);
+    }
+
+    if (availableNow) {
+      // Business must be open RIGHT NOW + at least one active employee working now
+      conditions.push(`EXISTS (
+        SELECT 1 FROM business_hours bh
+        WHERE bh.tenant_id = t.id
+          AND bh.day_of_week = ${dayOfWeekExpr}
+          AND bh.is_open = true
+          AND CURTIME() >= bh.open_time
+          AND CURTIME() < bh.close_time
+      )`);
+      conditions.push(`EXISTS (
+        SELECT 1 FROM employee_schedules es
+        JOIN employees e ON e.id = es.employee_id AND e.is_active = true
+        WHERE e.tenant_id = t.id
+          AND es.day_of_week = ${dayOfWeekExpr}
+          AND es.is_working = true
+          AND es.effective_from <= CURDATE()
+          AND (es.effective_until IS NULL OR es.effective_until >= CURDATE())
+          AND CURTIME() >= es.start_time
+          AND CURTIME() < es.end_time
+          AND NOT EXISTS (
+            SELECT 1 FROM appointments a
+            WHERE a.employee_id = e.id
+              AND a.status IN ('PENDING', 'CONFIRMED')
+              AND a.start_time <= NOW()
+              AND a.end_time > NOW()
+          )
+      )`);
     }
 
     // Count total
@@ -225,9 +308,7 @@ export class MarketplaceService {
     // Main query with distance
     let selectDistance = 'NULL as distance';
     let joinClause = '';
-    let orderClause = 'name ASC';
     const mainParams: any[] = [];
-    const havingConditions: string[] = [];
 
     if (hasGps) {
       selectDistance = `MIN(
@@ -241,20 +322,54 @@ export class MarketplaceService {
       ) as distance`;
       mainParams.push(lat, lng, lat);
       joinClause = 'LEFT JOIN locations l ON l.tenant_id = t.id AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL AND l.is_active = true';
-      // No filter by distance — show all businesses, sorted by proximity
-      orderClause = 'COALESCE(distance, 999999) ASC, name ASC';
     }
 
-    if (minRating) {
-      havingConditions.push('averageRating >= ?');
+    // Determine ORDER BY based on sortBy
+    let orderClause: string;
+    if (sortBy === 'rating') {
+      orderClause = 'COALESCE(averageRating, 0) DESC, completedAppointments DESC, name ASC';
+    } else if (sortBy === 'services') {
+      orderClause = 'completedAppointments DESC, COALESCE(averageRating, 0) DESC, name ASC';
+    } else if (sortBy === 'distance' && hasGps) {
+      orderClause = 'COALESCE(distance, 999999) ASC, name ASC';
+    } else if (hasGps) {
+      orderClause = 'COALESCE(distance, 999999) ASC, name ASC';
+    } else {
+      orderClause = 'name ASC';
     }
 
     // Add filter params after GPS params
     mainParams.push(...params);
 
-    const havingClause = havingConditions.length > 0
-      ? `HAVING ${havingConditions.join(' AND ')}`
-      : '';
+    // Subquery to detect if business has immediate availability
+    const availableNowSelect = `(
+      EXISTS (
+        SELECT 1 FROM business_hours bh2
+        WHERE bh2.tenant_id = t.id
+          AND bh2.day_of_week = ${dayOfWeekExpr}
+          AND bh2.is_open = true
+          AND CURTIME() >= bh2.open_time
+          AND CURTIME() < bh2.close_time
+      )
+      AND EXISTS (
+        SELECT 1 FROM employee_schedules es2
+        JOIN employees e2 ON e2.id = es2.employee_id AND e2.is_active = true
+        WHERE e2.tenant_id = t.id
+          AND es2.day_of_week = ${dayOfWeekExpr}
+          AND es2.is_working = true
+          AND es2.effective_from <= CURDATE()
+          AND (es2.effective_until IS NULL OR es2.effective_until >= CURDATE())
+          AND CURTIME() >= es2.start_time
+          AND CURTIME() < es2.end_time
+          AND NOT EXISTS (
+            SELECT 1 FROM appointments a2
+            WHERE a2.employee_id = e2.id
+              AND a2.status IN ('PENDING', 'CONFIRMED')
+              AND a2.start_time <= NOW()
+              AND a2.end_time > NOW()
+          )
+      )
+    ) as hasImmediateAvailability`;
 
     const innerSql = `
       SELECT
@@ -266,12 +381,14 @@ export class MarketplaceService {
         (SELECT AVG(er.rating) FROM employee_reviews er WHERE er.tenant_id = t.id AND er.is_visible = true) as averageRating,
         (SELECT COUNT(*) FROM employee_reviews er WHERE er.tenant_id = t.id AND er.is_visible = true) as totalReviews,
         (SELECT COUNT(*) FROM appointments a WHERE a.tenant_id = t.id AND a.status = 'COMPLETED') as completedAppointments,
-        (SELECT MIN(l2.address) FROM locations l2 WHERE l2.tenant_id = t.id AND l2.is_active = true) as locationAddress
+        (SELECT MIN(l2.address) FROM locations l2 WHERE l2.tenant_id = t.id AND l2.is_active = true) as locationAddress,
+        (SELECT MIN(s.price) FROM services s WHERE s.tenant_id = t.id AND s.is_active = true) as minServicePrice,
+        (SELECT MAX(s.price) FROM services s WHERE s.tenant_id = t.id AND s.is_active = true) as maxServicePrice,
+        ${availableNowSelect}
       FROM tenants t
       ${joinClause}
       WHERE ${conditions.join(' AND ')}
       GROUP BY t.id
-      ${havingClause}
     `;
     const mainSql = `
       SELECT * FROM (${innerSql}) sub
@@ -279,10 +396,6 @@ export class MarketplaceService {
       LIMIT ? OFFSET ?
     `;
 
-    // Add having params (must match order in havingConditions)
-    if (minRating) {
-      mainParams.push(minRating);
-    }
     mainParams.push(perPage, offset);
 
     const businesses: any[] = await this.prisma.$queryRawUnsafe(mainSql, ...mainParams);
@@ -303,6 +416,10 @@ export class MarketplaceService {
           : null,
         totalReviews: Number(b.totalReviews || 0),
         completedAppointments: Number(b.completedAppointments || 0),
+        priceRange: b.minServicePrice != null
+          ? { min: Number(b.minServicePrice), max: Number(b.maxServicePrice) }
+          : null,
+        hasImmediateAvailability: !!b.hasImmediateAvailability,
       })),
       meta: {
         total,
@@ -683,6 +800,9 @@ export class MarketplaceService {
     const updateData: any = {};
     if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
     if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
+    if (dto.birthDate !== undefined) updateData.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
+    if (dto.gender !== undefined) updateData.gender = dto.gender || null;
+    if (dto.allergies !== undefined) updateData.allergies = dto.allergies || null;
 
     const user = await this.prisma.marketplaceUser.update({
       where: { id: marketplaceUserId },
@@ -694,6 +814,9 @@ export class MarketplaceService {
         firstName: true,
         lastName: true,
         avatarUrl: true,
+        birthDate: true,
+        gender: true,
+        allergies: true,
         createdAt: true,
       },
     });
@@ -711,6 +834,110 @@ export class MarketplaceService {
     }
 
     return user;
+  }
+
+  async updateSettings(marketplaceUserId: string, dto: UpdateMarketplaceSettingsDto) {
+    const current = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+    });
+    if (!current) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const updateData: any = {};
+    if (dto.country !== undefined) updateData.country = dto.country || null;
+    if (dto.language !== undefined) updateData.language = dto.language;
+    if (dto.currency !== undefined) updateData.currency = dto.currency;
+    if (dto.searchRadius !== undefined) updateData.searchRadius = dto.searchRadius;
+    if (dto.notifAppointments !== undefined) updateData.notifAppointments = dto.notifAppointments;
+    if (dto.notifPromotions !== undefined) updateData.notifPromotions = dto.notifPromotions;
+    if (dto.notifRewards !== undefined) updateData.notifRewards = dto.notifRewards;
+    if (dto.notifMessages !== undefined) updateData.notifMessages = dto.notifMessages;
+
+    const user = await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: updateData,
+      select: {
+        country: true,
+        language: true,
+        currency: true,
+        searchRadius: true,
+        notifAppointments: true,
+        notifPromotions: true,
+        notifRewards: true,
+        notifMessages: true,
+      },
+    });
+
+    return user;
+  }
+
+  async suspendAccount(marketplaceUserId: string, days: number) {
+    if (days < 1 || days > 90) {
+      throw new BadRequestException('El periodo debe ser entre 1 y 90 días');
+    }
+
+    const suspendedUntil = new Date();
+    suspendedUntil.setDate(suspendedUntil.getDate() + days);
+
+    await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: {
+        isActive: false,
+        suspendedAt: new Date(),
+        suspendedUntil,
+      },
+    });
+
+    return { suspendedUntil };
+  }
+
+  async deleteAccount(marketplaceUserId: string, password: string) {
+    if (!password) {
+      throw new BadRequestException('Debes confirmar tu contraseña');
+    }
+
+    const user = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Contraseña incorrecta');
+    }
+
+    // Delete avatar file if exists
+    if (user.avatarUrl) {
+      const fs = await import('fs');
+      const path = await import('path');
+      const filePath = path.join(process.cwd(), 'uploads', user.avatarUrl.replace(/^\/uploads\//, ''));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    // Cascade: deletes refresh tokens + favorites. Clients get marketplaceUserId = null.
+    await this.prisma.marketplaceUser.delete({
+      where: { id: marketplaceUserId },
+    });
+
+    return { message: 'Cuenta eliminada' };
+  }
+
+  async reactivateAccount(marketplaceUserId: string) {
+    await this.prisma.marketplaceUser.update({
+      where: { id: marketplaceUserId },
+      data: {
+        isActive: true,
+        suspendedAt: null,
+        suspendedUntil: null,
+      },
+    });
+
+    return { message: 'Cuenta reactivada' };
   }
 
   async updateContact(

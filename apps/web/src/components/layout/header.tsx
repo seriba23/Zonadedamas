@@ -3,6 +3,8 @@
 import { useAuth } from '@/lib/hooks/use-auth';
 import { getInitials } from '@/lib/utils';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface HeaderProps {
   title: string;
 }
@@ -18,8 +20,12 @@ export function Header({ title }: HeaderProps) {
           <span className="text-sm text-gray-600 hidden sm:block">
             {user.firstName} {user.lastName}
           </span>
-          <div className="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold">
-            {getInitials(user.firstName, user.lastName)}
+          <div className="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold overflow-hidden">
+            {user.avatarUrl ? (
+              <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+            ) : (
+              getInitials(user.firstName, user.lastName)
+            )}
           </div>
         </div>
       )}

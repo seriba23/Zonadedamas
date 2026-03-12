@@ -425,6 +425,7 @@ export class AuthService {
         tenantId: true,
         isActive: true,
         createdAt: true,
+        avatarUrl: true,
       },
     });
 
@@ -440,7 +441,7 @@ export class AuthService {
     // Find linked employee
     const employee = await this.prisma.employee.findFirst({
       where: { userId, tenantId },
-      select: { id: true },
+      select: { id: true, avatarUrl: true },
     });
 
     // Get subscription status
@@ -451,6 +452,7 @@ export class AuthService {
 
     return {
       ...user,
+      avatarUrl: employee?.avatarUrl || user.avatarUrl || null,
       permissions,
       employeeId: employee?.id || null,
       subscriptionStatus: subscription?.status || 'ACTIVE',

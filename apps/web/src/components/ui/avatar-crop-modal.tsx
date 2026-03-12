@@ -186,7 +186,8 @@ export function AvatarCropModal({
             step={0.05}
             value={zoom}
             onChange={(e) => setZoom(parseFloat(e.target.value))}
-            className="flex-1 accent-primary-600"
+            className="flex-1"
+            style={{ accentColor: '#008080' }}
           />
           <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
@@ -216,7 +217,10 @@ export function AvatarCropModal({
           <button
             type="button"
             onClick={handleAccept}
-            className="flex-1 px-3 py-2 text-sm rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+            className="flex-1 px-3 py-2 text-sm rounded-lg text-white transition-colors"
+            style={{ backgroundColor: '#008080' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#006666'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#008080'}
           >
             Aceptar
           </button>

@@ -11,13 +11,21 @@ interface MarketplaceUser {
   lastName: string;
   phone: string | null;
   avatarUrl?: string | null;
+  gender?: string | null;
+}
+
+/** Returns gendered suffix: "o" (male), "a" (female), "@" (neutral/unknown) */
+export function genderSuffix(gender?: string | null): string {
+  if (gender === 'MALE') return 'o';
+  if (gender === 'FEMALE') return 'a';
+  return '@';
 }
 
 interface MarketplaceAuthContextType {
   user: MarketplaceUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<MarketplaceUser>;
+  login: (email: string, password: string) => Promise<MarketplaceUser & { reactivated?: boolean }>;
   register: (params: {
     email: string;
     password: string;
@@ -53,9 +61,10 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const u = await marketplaceApi.loginAndStore(email, password);
-    setUser(u);
-    return u;
+    const result = await marketplaceApi.loginAndStore(email, password);
+    const { reactivated, ...userData } = result;
+    setUser(userData);
+    return result;
   }, []);
 
   const register = useCallback(

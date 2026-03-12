@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -139,11 +139,14 @@ function AppointmentCard({ apt }: { apt: Appointment }) {
 
       <div className="flex items-center gap-3">
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
           style={{ backgroundColor: apt.employee.color || TEAL }}
         >
-          {apt.employee.firstName[0]}
-          {apt.employee.lastName[0]}
+          {apt.employee.avatarUrl ? (
+            <img src={`${API_URL}${apt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <>{apt.employee.firstName[0]}{apt.employee.lastName[0]}</>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-700">
@@ -207,431 +210,6 @@ function GalleryLightbox({
 
 // ─── Contact Change Form ───────────────────────────────
 
-function ContactChangeForm({
-  field,
-  label,
-  currentValue,
-  type,
-  onSuccess,
-  onCancel,
-}: {
-  field: 'email' | 'phone';
-  label: string;
-  currentValue: string;
-  type: string;
-  onSuccess: () => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      marketplaceApi.put('/auth/profile/contact', {
-        [field]: value,
-        currentPassword: password,
-      }),
-    onSuccess: () => {
-      onSuccess();
-    },
-    onError: (err: any) => {
-      setError(err.message || 'Error al actualizar');
-    },
-  });
-
-  return (
-    <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-2">
-      <p className="text-xs text-gray-500">Actual: {currentValue}</p>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder={`Nuevo ${label.toLowerCase()}`}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-        style={{ '--tw-ring-color': TEAL } as any}
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Contrasena actual (requerida)"
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-        style={{ '--tw-ring-color': TEAL } as any}
-      />
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          onClick={() => mutation.mutate()}
-          disabled={!value || !password || mutation.isPending}
-          className="flex-1 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
-          style={{ backgroundColor: TEAL }}
-        >
-          {mutation.isPending ? 'Verificando...' : 'Confirmar'}
-        </button>
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Edit Profile Panel ────────────────────────────────
-
-function EditProfilePanel({
-  user,
-  onClose,
-  onSaved,
-}: {
-  user: { firstName: string; lastName: string; email: string; phone: string | null; avatarUrl?: string | null };
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [form, setForm] = useState({
-    firstName: user.firstName || '',
-    lastName: user.lastName || '',
-  });
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [showPasswordSection, setShowPasswordSection] = useState(false);
-  const [changingField, setChangingField] = useState<'email' | 'phone' | null>(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const profileMutation = useMutation({
-    mutationFn: () => marketplaceApi.put('/auth/profile', form),
-    onSuccess: () => {
-      setSuccess('Perfil actualizado');
-      setError('');
-      onSaved();
-      setTimeout(() => setSuccess(''), 3000);
-    },
-    onError: (err: any) => {
-      setError(err.message || 'Error al actualizar');
-      setSuccess('');
-    },
-  });
-
-  const avatarMutation = useMutation({
-    mutationFn: (file: File) => marketplaceApi.uploadFile('/auth/avatar', file),
-    onSuccess: () => {
-      setAvatarPreview(null);
-      onSaved();
-    },
-    onError: (err: any) => {
-      setError(err.message || 'Error al subir foto');
-    },
-  });
-
-  const passwordMutation = useMutation({
-    mutationFn: () =>
-      marketplaceApi.put('/auth/profile/password', {
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-      }),
-    onSuccess: () => {
-      setPasswordSuccess('Contrasena actualizada');
-      setPasswordError('');
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => setPasswordSuccess(''), 3000);
-    },
-    onError: (err: any) => {
-      setPasswordError(err.message || 'Error al cambiar contrasena');
-      setPasswordSuccess('');
-    },
-  });
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarPreview(URL.createObjectURL(file));
-    avatarMutation.mutate(file);
-  };
-
-  const handlePasswordSubmit = () => {
-    setPasswordError('');
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('Las contrasenas no coinciden');
-      return;
-    }
-    if (passwordForm.newPassword.length < 8) {
-      setPasswordError('Minimo 8 caracteres');
-      return;
-    }
-    if (!/[0-9]/.test(passwordForm.newPassword)) {
-      setPasswordError('Debe contener al menos un numero');
-      return;
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`]/.test(passwordForm.newPassword)) {
-      setPasswordError('Debe contener al menos un simbolo');
-      return;
-    }
-    passwordMutation.mutate();
-  };
-
-  const initials = `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase();
-  const avatarSrc = avatarPreview || (user.avatarUrl ? `${API_URL}${user.avatarUrl}` : null);
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900">Editar mi perfil</p>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Avatar upload */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="relative w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 group"
-          style={{ backgroundColor: TEAL_LIGHT }}
-        >
-          {avatarSrc ? (
-            <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xl font-bold" style={{ color: TEAL }}>{initials}</span>
-          )}
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
-            </svg>
-          </div>
-          {avatarMutation.isPending && (
-            <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-full">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: TEAL }} />
-            </div>
-          )}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={handleAvatarChange}
-        />
-        <div>
-          <p className="text-sm font-medium text-gray-700">Foto de perfil</p>
-          <p className="text-xs text-gray-400">JPG, PNG o WebP. Max 5MB</p>
-        </div>
-      </div>
-
-      {/* Name fields */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Nombre</label>
-            <input
-              type="text"
-              value={form.firstName}
-              onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-              style={{ '--tw-ring-color': TEAL } as any}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Apellido</label>
-            <input
-              type="text"
-              value={form.lastName}
-              onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-              style={{ '--tw-ring-color': TEAL } as any}
-            />
-          </div>
-        </div>
-
-        {/* Email — read-only with "Cambiar" */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-gray-500">Email</label>
-            {changingField !== 'email' && (
-              <button
-                onClick={() => { setChangingField('email'); }}
-                className="text-xs font-medium hover:underline"
-                style={{ color: TEAL }}
-              >
-                Cambiar
-              </button>
-            )}
-          </div>
-          {changingField === 'email' ? (
-            <ContactChangeForm
-              field="email"
-              label="Email"
-              currentValue={user.email}
-              type="email"
-              onSuccess={() => { setChangingField(null); onSaved(); }}
-              onCancel={() => setChangingField(null)}
-            />
-          ) : (
-            <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
-              {user.email}
-            </p>
-          )}
-        </div>
-
-        {/* Phone — read-only with "Cambiar" */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-gray-500">Telefono</label>
-            {changingField !== 'phone' && (
-              <button
-                onClick={() => { setChangingField('phone'); }}
-                className="text-xs font-medium hover:underline"
-                style={{ color: TEAL }}
-              >
-                Cambiar
-              </button>
-            )}
-          </div>
-          {changingField === 'phone' ? (
-            <ContactChangeForm
-              field="phone"
-              label="Telefono"
-              currentValue={user.phone || 'No registrado'}
-              type="tel"
-              onSuccess={() => { setChangingField(null); onSaved(); }}
-              onCancel={() => setChangingField(null)}
-            />
-          ) : (
-            <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
-              {user.phone || 'No registrado'}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-      )}
-      {success && (
-        <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{success}</p>
-      )}
-
-      <button
-        onClick={() => profileMutation.mutate()}
-        disabled={profileMutation.isPending}
-        className="w-full text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors"
-        style={{ backgroundColor: TEAL }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
-      >
-        {profileMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
-      </button>
-
-      {/* Change password (collapsible) */}
-      <div className="border-t border-gray-100 pt-4">
-        <button
-          onClick={() => setShowPasswordSection(!showPasswordSection)}
-          className="w-full flex items-center justify-between"
-        >
-          <p className="text-sm font-medium text-gray-700">Cambiar contrasena</p>
-          <svg
-            className={`w-4 h-4 text-gray-400 transition-transform ${
-              showPasswordSection ? 'rotate-180' : ''
-            }`}
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {showPasswordSection && (
-          <div className="mt-3 space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Contrasena actual
-              </label>
-              <input
-                type="password"
-                value={passwordForm.currentPassword}
-                onChange={(e) =>
-                  setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-                style={{ '--tw-ring-color': TEAL } as any}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Nueva contrasena
-              </label>
-              <input
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(e) =>
-                  setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-                style={{ '--tw-ring-color': TEAL } as any}
-                placeholder="Min. 8 caracteres, 1 numero, 1 simbolo"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Confirmar nueva contrasena
-              </label>
-              <input
-                type="password"
-                value={passwordForm.confirmPassword}
-                onChange={(e) =>
-                  setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-                style={{ '--tw-ring-color': TEAL } as any}
-              />
-            </div>
-
-            {passwordError && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-                {passwordError}
-              </p>
-            )}
-            {passwordSuccess && (
-              <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-                {passwordSuccess}
-              </p>
-            )}
-
-            <button
-              onClick={handlePasswordSubmit}
-              disabled={passwordMutation.isPending}
-              className="w-full text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors"
-              style={{ backgroundColor: TEAL }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
-            >
-              {passwordMutation.isPending ? 'Cambiando...' : 'Cambiar contrasena'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Profile Page ─────────────────────────────────
 
 export default function MarketplaceProfilePage() {
@@ -639,7 +217,6 @@ export default function MarketplaceProfilePage() {
     useMarketplaceAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [showEditProfile, setShowEditProfile] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [showPastAppointments, setShowPastAppointments] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
@@ -741,7 +318,18 @@ export default function MarketplaceProfilePage() {
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* ─── Hero Card ─────────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center relative">
+          {/* Settings gear */}
+          <Link
+            href="/marketplace/settings"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Configuración"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+          </Link>
           {/* Avatar */}
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-3 overflow-hidden"
@@ -764,23 +352,7 @@ export default function MarketplaceProfilePage() {
             {user.firstName} {user.lastName}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">{user.email}</p>
-
-          <button
-            onClick={() => setShowEditProfile(!showEditProfile)}
-            className="mt-4 px-5 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            {showEditProfile ? 'Cerrar editor' : 'Editar mi perfil'}
-          </button>
         </div>
-
-        {/* ─── Edit Profile (expandable) ─────────────── */}
-        {showEditProfile && (
-          <EditProfilePanel
-            user={user}
-            onClose={() => setShowEditProfile(false)}
-            onSaved={() => refreshUser()}
-          />
-        )}
 
         {/* ─── Stats + Gallery Button ────────────────── */}
         <div className="grid grid-cols-4 gap-3">

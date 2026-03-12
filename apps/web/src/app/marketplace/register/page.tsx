@@ -159,6 +159,17 @@ export default function MarketplaceRegisterPage() {
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
 
+          <p className="text-xs text-gray-400 text-center leading-relaxed">
+            Al crear tu cuenta, aceptas nuestros{' '}
+            <Link href="/marketplace/legal/terms" className="underline" style={{ color: '#008080' }}>
+              Términos y Condiciones
+            </Link>{' '}
+            y{' '}
+            <Link href="/marketplace/legal/privacy" className="underline" style={{ color: '#008080' }}>
+              Aviso de Privacidad
+            </Link>.
+          </p>
+
           <button
             type="submit"
             disabled={loading}

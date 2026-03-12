@@ -8,6 +8,8 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface NavChild {
   label: string;
   href: string;
@@ -184,8 +186,12 @@ export function Sidebar() {
       {user && (
         <div className="border-t border-gray-200 p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">
-              {getInitials(user.firstName, user.lastName)}
+            <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0 overflow-hidden">
+              {user.avatarUrl ? (
+                <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                getInitials(user.firstName, user.lastName)
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">

@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class MarketplaceDiscoverDto {
@@ -25,15 +25,26 @@ export class MarketplaceDiscoverDto {
   category?: string;
 
   @IsOptional()
-  @Transform(({ value }) => parseFloat(value))
-  @IsNumber()
-  @Min(1)
-  @Max(5)
-  minRating?: number;
-
-  @IsOptional()
   @IsString()
   search?: string;
+
+  /** Sort results: distance (default with GPS), rating, services */
+  @IsOptional()
+  @IsString()
+  @IsEnum(['distance', 'rating', 'services'])
+  sortBy?: string;
+
+  /** Filter businesses open today */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  availableToday?: boolean;
+
+  /** Filter businesses with immediate availability (open now + employee available) */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  availableNow?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => parseInt(value))

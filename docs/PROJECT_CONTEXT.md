@@ -277,11 +277,11 @@ uploads/           -> Archivos subidos (avatars, portfolio, results, documents)
 
 - [x] **1.1 Reservar desde marketplace** - Flujo de booking integrado en `/marketplace/[tenantSlug]` sin redirigir al portal separado. Seleccionar servicio -> empleado -> horario -> confirmar, todo dentro del marketplace. *(Ya estaba construido)*
 - [x] **1.2 Cupones y canje de puntos** - Backend: modelos `Reward` + `RewardRedemption`, RewardsModule CRUD con permisos, endpoints marketplace (listar rewards, canjear, mis cupones). Fix: pointsReward en Service DTOs. Frontend: pagina admin de recompensas, cupones reales en perfil marketplace, seccion recompensas en detalle de negocio con canje inline. *(Completado 2026-03-02)*
-- [ ] **1.3 Favoritos** - Backend: tabla `MarketplaceFavorite` (marketplaceUserId, tenantId). Endpoints toggle + list. Frontend: corazon en cards de negocios, seccion "Mis favoritos" en perfil.
-- [ ] **1.4 Busqueda avanzada en marketplace** - Filtros: por servicio ("buscar manicure"), rango de precio, disponibilidad hoy, rating minimo. Mejorar el discover con estos filtros.
+- [x] **1.3 Favoritos** - Backend: tabla `MarketplaceFavorite` (marketplaceUserId, tenantId). Endpoints toggle + list. Frontend: corazon en cards de negocios, seccion "Mis favoritos" en perfil. *(Completado 2026-03-06)*
+- [x] **1.4 Busqueda avanzada en marketplace** - Filtros: por servicio ("buscar manicure"), rango de precio, disponibilidad hoy, rating minimo. Busqueda unificada por nombre de negocio y servicio. Panel de filtros con pills activos. Rango de precios en cards. *(Completado 2026-03-10)*
 
 **Resultado:** El marketplace es funcional end-to-end para el usuario final.
-**Fecha completado:** ____
+**Fecha completado:** 2026-03-10
 
 ---
 

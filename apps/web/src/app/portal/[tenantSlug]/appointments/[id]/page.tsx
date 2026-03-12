@@ -126,11 +126,14 @@ export default function AppointmentDetailPage() {
           {/* Employee */}
           <div className="flex items-center gap-3 py-3 border-t border-gray-100">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden"
               style={{ backgroundColor: appointment.employee.color }}
             >
-              {appointment.employee.firstName[0]}
-              {appointment.employee.lastName[0]}
+              {appointment.employee.avatarUrl ? (
+                <img src={`${API_URL}${appointment.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <>{appointment.employee.firstName[0]}{appointment.employee.lastName[0]}</>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-900">

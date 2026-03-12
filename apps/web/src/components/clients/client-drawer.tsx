@@ -7,6 +7,8 @@ import { Drawer } from '@/components/ui/drawer';
 import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { formatDate, formatCurrency, formatTime } from '@/lib/utils';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface Client {
   id: string;
   firstName: string;
@@ -14,6 +16,7 @@ interface Client {
   email?: string;
   phone?: string;
   notes?: string;
+  avatarUrl?: string | null;
   tags?: Array<{ id: string; name: string; color: string }>;
   createdAt: string;
 }
@@ -262,9 +265,12 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xl font-bold">
-                        {client.firstName.charAt(0)}
-                        {client.lastName.charAt(0)}
+                      <div className="w-16 h-16 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xl font-bold overflow-hidden">
+                        {client.avatarUrl ? (
+                          <img src={`${API_URL}${client.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <>{client.firstName.charAt(0)}{client.lastName.charAt(0)}</>
+                        )}
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">

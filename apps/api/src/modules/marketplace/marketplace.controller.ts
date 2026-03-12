@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -16,7 +17,7 @@ import { MarketplaceService } from './marketplace.service';
 import { MarketplaceRegisterDto } from './dto/marketplace-register.dto';
 import { MarketplaceLoginDto } from './dto/marketplace-login.dto';
 import { MarketplaceDiscoverDto } from './dto/marketplace-discover.dto';
-import { UpdateMarketplaceProfileDto } from './dto/update-marketplace-profile.dto';
+import { UpdateMarketplaceProfileDto, UpdateMarketplaceSettingsDto } from './dto/update-marketplace-profile.dto';
 import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.dto';
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
@@ -87,6 +88,34 @@ export class MarketplaceController {
   async updateContact(@Req() req: any, @Body() dto: ChangeMarketplaceContactDto) {
     const user = await this.marketplaceService.updateContact(req.user.marketplaceUserId, dto);
     return { data: user };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Put('auth/settings')
+  async updateSettings(@Req() req: any, @Body() dto: UpdateMarketplaceSettingsDto) {
+    const settings = await this.marketplaceService.updateSettings(req.user.marketplaceUserId, dto);
+    return { data: settings };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('auth/suspend')
+  async suspendAccount(@Req() req: any, @Body() body: { days: number }) {
+    const result = await this.marketplaceService.suspendAccount(req.user.marketplaceUserId, body.days);
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('auth/reactivate')
+  async reactivateAccount(@Req() req: any) {
+    const result = await this.marketplaceService.reactivateAccount(req.user.marketplaceUserId);
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Delete('auth/account')
+  async deleteAccount(@Req() req: any, @Body('password') password: string) {
+    await this.marketplaceService.deleteAccount(req.user.marketplaceUserId, password);
+    return { data: { message: 'Cuenta eliminada correctamente' } };
   }
 
   @UseGuards(MarketplaceJwtGuard)

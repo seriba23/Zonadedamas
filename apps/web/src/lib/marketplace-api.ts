@@ -102,6 +102,10 @@ class MarketplaceApiClient {
     return this.request<T>('PUT', path, body);
   }
 
+  del<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>('DELETE', path, body);
+  }
+
   async uploadFile<T>(path: string, file: File, fieldName = 'file'): Promise<T> {
     const url = `${BASE_URL}/api/marketplace${path}`;
     const formData = new FormData();
@@ -135,7 +139,7 @@ class MarketplaceApiClient {
     const data = res.data;
     this.accessToken = data.accessToken;
     this.setRefreshToken(data.refreshToken);
-    return data.user;
+    return { ...data.user, reactivated: !!data.reactivated };
   }
 
   async registerAndStore(params: {

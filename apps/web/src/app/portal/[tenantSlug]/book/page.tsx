@@ -9,6 +9,8 @@ import { formatCurrency } from '@/lib/utils';
 import dayjs from 'dayjs';
 import PortalNav from '../portal-nav';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface Service {
   id: string;
   name: string;
@@ -254,10 +256,14 @@ export default function PortalBookPage() {
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden"
                     style={{ backgroundColor: emp.color }}
                   >
-                    {emp.firstName[0]}{emp.lastName[0]}
+                    {emp.avatarUrl ? (
+                      <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <>{emp.firstName[0]}{emp.lastName[0]}</>
+                    )}
                   </div>
                   <p className="text-sm font-medium text-gray-900">
                     {emp.firstName} {emp.lastName}

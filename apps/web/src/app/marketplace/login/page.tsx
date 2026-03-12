@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+import { useMarketplaceAuth, genderSuffix } from '@/lib/hooks/use-marketplace-auth';
+import { SuccessPopup } from '@/components/ui/success-popup';
 import Link from 'next/link';
 
 export default function MarketplaceLoginPage() {
@@ -15,6 +16,9 @@ export default function MarketplaceLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+  const [welcomeName, setWelcomeName] = useState('');
+  const [welcomeGender, setWelcomeGender] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,8 +26,14 @@ export default function MarketplaceLoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      router.push(redirect || '/marketplace');
+      const result = await login(email, password);
+      if (result.reactivated) {
+        setWelcomeName(result.firstName);
+        setWelcomeGender(result.gender || null);
+        setShowWelcomeBack(true);
+      } else {
+        router.push(redirect || '/marketplace');
+      }
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
     } finally {
@@ -102,6 +112,16 @@ export default function MarketplaceLoginPage() {
           </Link>
         </p>
       </div>
+
+      <SuccessPopup
+        show={showWelcomeBack}
+        title={`¡Bienvenid${genderSuffix(welcomeGender)} de vuelta, ${welcomeName}!`}
+        message="Tu cuenta ha sido reactivada. Te echábamos de menos."
+        onClose={() => {
+          setShowWelcomeBack(false);
+          router.push(redirect || '/marketplace');
+        }}
+      />
     </div>
   );
 }

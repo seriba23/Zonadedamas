@@ -9,6 +9,8 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import dayjs from 'dayjs';
 import PortalNav from '../portal-nav';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface AppointmentItem {
   id: string;
   serviceNameSnapshot: string;
@@ -155,11 +157,14 @@ export default function PortalAppointmentsPage() {
 
                 <div className="flex items-center gap-3 mb-2">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden"
                     style={{ backgroundColor: apt.employee.color }}
                   >
-                    {apt.employee.firstName[0]}
-                    {apt.employee.lastName[0]}
+                    {apt.employee.avatarUrl ? (
+                      <img src={`${API_URL}${apt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <>{apt.employee.firstName[0]}{apt.employee.lastName[0]}</>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-700">

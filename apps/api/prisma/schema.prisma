@@ -139,8 +139,21 @@ model MarketplaceUser {
   firstName    String    @map("first_name")
   lastName     String    @map("last_name")
   avatarUrl    String?   @map("avatar_url")
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at")
+  birthDate    DateTime? @map("birth_date") @db.Date
+  gender       String?   @db.VarChar(20) // MALE, FEMALE, NON_BINARY, PREFER_NOT_SAY
+  allergies    String?   @db.Text // Free-text medical notes / allergies
+  country      String?   @db.VarChar(2) // ISO 3166-1 alpha-2 (MX, US, CO, etc.)
+  language     String    @default("es") @db.VarChar(5) // es, en, pt
+  currency     String    @default("LOCAL") @db.VarChar(10) // LOCAL or USD
+  searchRadius Int       @default(25) @map("search_radius") // Default km for discover
+  notifAppointments Boolean @default(true) @map("notif_appointments")
+  notifPromotions   Boolean @default(true) @map("notif_promotions")
+  notifRewards      Boolean @default(true) @map("notif_rewards")
+  notifMessages     Boolean @default(true) @map("notif_messages")
+  isActive       Boolean   @default(true) @map("is_active")
+  suspendedAt    DateTime? @map("suspended_at")
+  suspendedUntil DateTime? @map("suspended_until")
+  lastLoginAt    DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 

@@ -19,6 +19,8 @@ interface Employee {
   id: string;
   firstName: string;
   lastName: string;
+  avatarUrl?: string | null;
+  color?: string;
 }
 
 interface AvailableSlot {
@@ -372,9 +374,12 @@ export default function BookingPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {emp.firstName.charAt(0)}
-                        {emp.lastName.charAt(0)}
+                      <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0 overflow-hidden">
+                        {emp.avatarUrl ? (
+                          <img src={`${PUBLIC_API}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <>{emp.firstName.charAt(0)}{emp.lastName.charAt(0)}</>
+                        )}
                       </div>
                       <p className="font-medium text-gray-900">
                         {emp.firstName} {emp.lastName}

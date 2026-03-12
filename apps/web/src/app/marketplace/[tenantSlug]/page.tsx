@@ -993,11 +993,14 @@ export default function BusinessDetailPage() {
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden"
                             style={{ backgroundColor: emp.color }}
                           >
-                            {emp.firstName[0]}
-                            {emp.lastName[0]}
+                            {emp.avatarUrl ? (
+                              <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <>{emp.firstName[0]}{emp.lastName[0]}</>
+                            )}
                           </div>
                           <div>
                             <p className="font-medium text-gray-900">
@@ -1231,13 +1234,16 @@ export default function BusinessDetailPage() {
                         </p>
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden"
                             style={{
                               backgroundColor: selectedEmployee.color,
                             }}
                           >
-                            {selectedEmployee.firstName[0]}
-                            {selectedEmployee.lastName[0]}
+                            {selectedEmployee.avatarUrl ? (
+                              <img src={`${API_URL}${selectedEmployee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <>{selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}</>
+                            )}
                           </div>
                           <span className="text-sm text-gray-700">
                             {selectedEmployee.firstName}{' '}

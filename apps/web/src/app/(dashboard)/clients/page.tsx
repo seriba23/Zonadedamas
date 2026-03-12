@@ -10,12 +10,15 @@ import { formatDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Pagination } from '@/components/ui/pagination';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface Client {
   id: string;
   firstName: string;
   lastName: string;
   email?: string;
   phone?: string;
+  avatarUrl?: string | null;
   tags?: Array<{ id: string; name: string; color: string }>;
   lastVisit?: string;
 }
@@ -172,9 +175,12 @@ export default function ClientsPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">
-                          {client.firstName.charAt(0)}
-                          {client.lastName.charAt(0)}
+                        <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-semibold flex-shrink-0 overflow-hidden">
+                          {client.avatarUrl ? (
+                            <img src={`${API_URL}${client.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <>{client.firstName.charAt(0)}{client.lastName.charAt(0)}</>
+                          )}
                         </div>
                         <span className="text-sm font-medium text-gray-900">
                           {client.firstName} {client.lastName}
