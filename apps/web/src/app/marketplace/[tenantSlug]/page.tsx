@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
@@ -534,9 +535,14 @@ export default function BusinessDetailPage() {
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Profesionales</h2>
             <div className="flex gap-4 overflow-x-auto pb-2 scroll-smooth snap-x snap-mandatory" style={{ scrollbarWidth: 'none' }}>
               {employees.map((emp) => (
-                <div key={emp.id} className="flex flex-col items-center flex-shrink-0 snap-start" style={{ minWidth: 80 }}>
+                <Link
+                  key={emp.id}
+                  href={`/marketplace/${tenantSlug}/professional/${emp.id}`}
+                  className="flex flex-col items-center flex-shrink-0 snap-start group"
+                  style={{ minWidth: 80 }}
+                >
                   <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-bold overflow-hidden"
+                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-bold overflow-hidden ring-2 ring-transparent group-hover:ring-[#008080] transition-all"
                     style={{ backgroundColor: emp.color }}
                   >
                     {emp.avatarUrl ? (
@@ -558,7 +564,7 @@ export default function BusinessDetailPage() {
                   <p className="text-[10px] text-gray-500 text-center truncate w-full">
                     {emp.lastName}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -1002,14 +1008,21 @@ export default function BusinessDetailPage() {
                               <>{emp.firstName[0]}{emp.lastName[0]}</>
                             )}
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900">
                               {emp.firstName} {emp.lastName}
                             </p>
                             {emp.bio && (
-                              <p className="text-sm text-gray-500">{emp.bio}</p>
+                              <p className="text-sm text-gray-500 line-clamp-1">{emp.bio}</p>
                             )}
                           </div>
+                          <Link
+                            href={`/marketplace/${tenantSlug}/professional/${emp.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-[#008080] font-medium hover:underline flex-shrink-0"
+                          >
+                            Ver perfil
+                          </Link>
                         </div>
                       </button>
                     ))}

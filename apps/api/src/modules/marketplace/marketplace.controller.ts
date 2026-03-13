@@ -196,6 +196,14 @@ export class MarketplaceController {
     return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
   }
 
+  @Get('professional/:tenantSlug/:employeeId')
+  async getProfessionalProfile(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('employeeId') employeeId: string,
+  ) {
+    return this.marketplaceService.getProfessionalProfile(tenantSlug, employeeId);
+  }
+
   // ─── BOOKING (auth required) ─────────────────────────
 
   @UseGuards(MarketplaceJwtGuard)

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -12,11 +13,20 @@ import { RegisterDto } from './dto/register.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
-import { IsString } from 'class-validator';
+import { IsString, IsOptional, MinLength } from 'class-validator';
 
 class LogoutDto {
   @IsString()
   refreshToken: string;
+}
+
+class ChangePasswordDto {
+  @IsString()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
 }
 
 @Controller('auth')
@@ -59,5 +69,15 @@ export class AuthController {
   async getMe(@CurrentUser() user: JwtPayload) {
     const result = await this.authService.getMe(user.userId, user.tenantId);
     return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('change-password')
+  async changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.authService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
+    return { data: { message: 'Contraseña actualizada' } };
   }
 }

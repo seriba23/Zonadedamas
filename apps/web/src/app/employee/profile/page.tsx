@@ -5,8 +5,8 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
-import { EmployeePersonalInfo } from '@/components/staff/employee-personal-info';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
+import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -185,25 +185,62 @@ export default function EmployeeProfilePage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'info' && (
-        <EmployeePersonalInfo
-          employeeId={user.employeeId}
-          initialData={employee ? {
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            email: employee.email || '',
-            phone: employee.phone || '',
-            color: employee.color,
-            bio: employee.bio || '',
-            bloodType: employee.bloodType,
-            emergencyContactName: employee.emergencyContactName,
-            emergencyContactLastName: employee.emergencyContactLastName,
-            emergencyContactPhone: employee.emergencyContactPhone,
-            emergencyContactRelation: employee.emergencyContactRelation,
-            allergies: employee.allergies,
-          } : undefined}
-          canEdit={true}
-        />
+      {activeTab === 'info' && employee && (
+        <div className="space-y-6">
+          {/* Basic Data */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Datos Básicos</h3>
+              <Link
+                href="/employee/settings"
+                className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InfoField label="Nombre completo" value={`${employee.firstName} ${employee.lastName}`} />
+              <InfoField label="Email" value={employee.email} />
+              <InfoField label="Teléfono" value={employee.phone} />
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Color</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: employee.color }} />
+                  <span className="text-sm text-gray-700">{employee.color}</span>
+                </div>
+              </div>
+            </div>
+            {employee.bio && (
+              <div className="mt-4">
+                <p className="text-xs text-gray-400 mb-1">Bio</p>
+                <p className="text-sm text-gray-700">{employee.bio}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Personal Info */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 className="font-semibold text-gray-900 mb-4">Información Personal</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InfoField label="Tipo de sangre" value={employee.bloodType} placeholder="Sin especificar" />
+              <InfoField label="Alergias" value={employee.allergies} placeholder="Ninguna conocida" />
+            </div>
+            {(employee.emergencyContactName || employee.emergencyContactPhone) && (
+              <div className="pt-4 mt-4 border-t border-gray-100">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3">Contacto de emergencia</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InfoField label="Nombre" value={employee.emergencyContactName} />
+                  <InfoField label="Apellido" value={employee.emergencyContactLastName} />
+                  <InfoField label="Teléfono" value={employee.emergencyContactPhone} />
+                  <InfoField label="Relación" value={employee.emergencyContactRelation} />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {activeTab === 'portfolio' && (
@@ -213,7 +250,7 @@ export default function EmployeeProfilePage() {
         />
       )}
 
-      {activeTab === 'stats' && (
+      {activeTab === 'stats' && employee && (
         <div className="space-y-6">
           {!stats ? (
             <div className="flex justify-center py-12">
@@ -289,6 +326,15 @@ export default function EmployeeProfilePage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function InfoField({ label, value, placeholder = '—' }: { label: string; value?: string | null; placeholder?: string }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <p className="text-sm text-gray-700">{value || placeholder}</p>
     </div>
   );
 }

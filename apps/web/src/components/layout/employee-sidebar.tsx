@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { label: 'Mi Horario', href: '/employee/schedule', icon: '🕐' },
   { label: 'Mi Perfil', href: '/employee/profile', icon: '👤' },
   { label: 'Formación', href: '/employee/training', icon: '📚' },
+  { label: 'Configuración', href: '/employee/settings', icon: '⚙️' },
 ];
 
 export function EmployeeSidebar() {

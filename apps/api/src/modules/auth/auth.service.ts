@@ -460,6 +460,27 @@ export class AuthService {
     };
   }
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Contraseña actual incorrecta');
+    }
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hash },
+    });
+  }
+
   private async generateTokens(user: { id: string; tenantId: string; email: string }) {
     // Fetch permissions once and embed in JWT
     const permissions = await this.rbacService.getUserPermissions(user.id, user.tenantId);

@@ -657,6 +657,117 @@ export class MarketplaceService {
     };
   }
 
+  // ─── PROFESSIONAL PROFILE (public) ─────────────────────
+
+  async getProfessionalProfile(tenantSlug: string, employeeId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+      select: { id: true, name: true, slug: true, isMarketplaceListed: true },
+    });
+
+    if (!tenant || !tenant.isMarketplaceListed) {
+      throw new NotFoundException('Negocio no encontrado');
+    }
+
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenantId: tenant.id, isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        color: true,
+        bio: true,
+      },
+    });
+
+    if (!employee) {
+      throw new NotFoundException('Profesional no encontrado');
+    }
+
+    // Stats, rating, portfolio in parallel
+    const [completedCount, ratingAgg, portfolio, topServices] = await Promise.all([
+      this.prisma.appointment.count({
+        where: { employeeId, tenantId: tenant.id, status: 'COMPLETED' },
+      }),
+      this.prisma.employeeReview.aggregate({
+        where: { employeeId, tenantId: tenant.id, isVisible: true },
+        _avg: { rating: true },
+        _count: { id: true },
+      }),
+      this.prisma.employeePortfolioImage.findMany({
+        where: { employeeId },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        take: 12,
+      }),
+      this.prisma.appointmentItem.groupBy({
+        by: ['serviceNameSnapshot'],
+        where: {
+          appointment: { employeeId, tenantId: tenant.id, status: 'COMPLETED' },
+        },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: 5,
+      }),
+    ]);
+
+    // If no completed work yet, fallback to assigned services
+    let finalTopServices: { serviceName: string; count: number }[];
+    if (topServices.length > 0) {
+      finalTopServices = topServices.map((s) => ({
+        serviceName: s.serviceNameSnapshot,
+        count: s._count.id,
+      }));
+    } else {
+      const assignedServices = await this.prisma.employeeService.findMany({
+        where: { employeeId },
+        include: { service: { select: { name: true } } },
+        take: 5,
+      });
+      finalTopServices = assignedServices.map((es) => ({
+        serviceName: es.service.name,
+        count: 0,
+      }));
+    }
+
+    // Recent reviews for this employee
+    const reviews = await this.prisma.employeeReview.findMany({
+      where: { employeeId, tenantId: tenant.id, isVisible: true },
+      include: {
+        client: { select: { firstName: true, lastName: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    return {
+      data: {
+        ...employee,
+        businessName: tenant.name,
+        tenantSlug: tenant.slug,
+        completedAppointments: completedCount,
+        averageRating: ratingAgg._avg.rating
+          ? Math.round(ratingAgg._avg.rating * 10) / 10
+          : null,
+        totalReviews: ratingAgg._count.id,
+        portfolio: portfolio.map((p) => ({
+          id: p.id,
+          imageUrl: p.imageUrl,
+          caption: p.caption,
+        })),
+        topServices: finalTopServices,
+        reviews: reviews.map((r) => ({
+          id: r.id,
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+          clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
+          clientAvatarUrl: r.client.avatarUrl || null,
+        })),
+      },
+    };
+  }
+
   // ─── ENTER BUSINESS ──────────────────────────────────
 
   async enterBusiness(marketplaceUserId: string, tenantSlug: string) {

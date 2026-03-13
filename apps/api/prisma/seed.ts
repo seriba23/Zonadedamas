@@ -1,7 +1,45 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as https from 'https';
+import * as http from 'http';
 
 const prisma = new PrismaClient();
+const UPLOADS_BASE = path.resolve(__dirname, '..', '..', '..', 'uploads');
+
+// ─── DOWNLOAD HELPER ───────────────────────────────────────────────────────
+
+function downloadFile(url: string, destPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const dir = path.dirname(destPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const file = fs.createWriteStream(destPath);
+    const makeRequest = (reqUrl: string, redirectCount = 0) => {
+      if (redirectCount > 10) { reject(new Error('Too many redirects')); return; }
+      const client = reqUrl.startsWith('https') ? https : http;
+      client.get(reqUrl, (response) => {
+        if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          let redirectUrl = response.headers.location;
+          if (redirectUrl.startsWith('/')) {
+            const parsed = new URL(reqUrl);
+            redirectUrl = `${parsed.protocol}//${parsed.host}${redirectUrl}`;
+          }
+          makeRequest(redirectUrl, redirectCount + 1);
+          return;
+        }
+        if (response.statusCode !== 200) { reject(new Error(`HTTP ${response.statusCode}`)); return; }
+        response.pipe(file);
+        file.on('finish', () => { file.close(); resolve(); });
+      }).on('error', (err) => { fs.unlink(destPath, () => {}); reject(err); });
+    };
+    makeRequest(url);
+  });
+}
+
+function delay(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
 // ─── PERMISSIONS ─────────────────────────────────────────────────────────────
 
@@ -522,7 +560,7 @@ async function main() {
       email: 'maria@demo-salon.com',
       phone: '+1-555-0201',
       color: '#6366f1',
-      bio: 'Estilista senior con 10 años de experiencia',
+      bio: 'Tengo 10 anos transformando vidas desde mi silla. Mi mama me ensenó que la belleza no es vanidad, es amor propio. Cada persona que se sienta frente a mi espejo llega con una historia, y mi trabajo es ayudarla a sentirse como la protagonista que es. No solo corto cabello — devuelvo sonrisas.',
       locationId: downtownLocation.id,
       services: [
         { name: 'Corte de Cabello', commission: 15.0 },
@@ -536,7 +574,7 @@ async function main() {
       email: 'james@demo-salon.com',
       phone: '+1-555-0202',
       color: '#10b981',
-      bio: 'Especialista en coloración y tratamientos capilares',
+      bio: 'Creci en un barrio donde los hombres no hablaban de estilo. Yo fui el primero en desafiar eso. Hoy, despues de 8 anos perfeccionando mi arte, cada tinte que mezclo lleva algo de mi alma. Me inspiran los atardeceres, la musica y esos clientes que llegan nerviosos y se van sintiendose invencibles.',
       locationId: downtownLocation.id,
       services: [
         { name: 'Corte de Cabello', commission: 15.0 },
@@ -549,7 +587,7 @@ async function main() {
       email: 'sofia@demo-salon.com',
       phone: '+1-555-0203',
       color: '#f59e0b',
-      bio: 'Experta en cuidado de uñas y tratamientos faciales',
+      bio: 'Mi abuela siempre decia: "las manos hablan de quien eres". Esas palabras me marcaron para siempre. Llevo 6 anos dedicada al cuidado personal y cada clienta que atiendo se convierte en familia. Un facial no es solo un tratamiento — es una hora donde el mundo se detiene y tu eres lo unico que importa.',
       locationId: mallLocation.id,
       services: [
         { name: 'Manicure Clásico', commission: 12.0 },
@@ -578,6 +616,11 @@ async function main() {
 
     if (existing) {
       employeeId = existing.id;
+      // Always update bio and color in case seed data changed
+      await prisma.employee.update({
+        where: { id: employeeId },
+        data: { bio: empData.bio, color: empData.color },
+      });
     } else {
       const employee = await prisma.employee.create({
         data: {
@@ -752,6 +795,46 @@ async function main() {
       gender: 'female',
       notes: 'VIP client - priority booking',
     },
+    {
+      firstName: 'Andrea',
+      lastName: 'Lopez',
+      email: 'andrea.lopez@example.com',
+      phone: '+1-555-0306',
+      gender: 'female',
+      notes: 'Prefiere citas por la manana',
+    },
+    {
+      firstName: 'Carlos',
+      lastName: 'Ramirez',
+      email: 'carlos.ramirez@example.com',
+      phone: '+1-555-0307',
+      gender: 'male',
+      notes: null,
+    },
+    {
+      firstName: 'Laura',
+      lastName: 'Hernandez',
+      email: 'laura.hernandez@example.com',
+      phone: '+1-555-0308',
+      gender: 'female',
+      notes: 'Cliente frecuente, le gusta probar cosas nuevas',
+    },
+    {
+      firstName: 'Roberto',
+      lastName: 'Torres',
+      email: 'roberto.torres@example.com',
+      phone: '+1-555-0309',
+      gender: 'male',
+      notes: 'Corte clasico siempre',
+    },
+    {
+      firstName: 'Valentina',
+      lastName: 'Diaz',
+      email: 'valentina.diaz@example.com',
+      phone: '+1-555-0310',
+      gender: 'female',
+      notes: 'Piel sensible - verificar productos',
+    },
   ];
 
   for (const clientData of clientsData) {
@@ -771,6 +854,39 @@ async function main() {
     }
   }
   console.log(`  ${clientsData.length} clients seeded.`);
+
+  // Download client avatar photos from i.pravatar.cc
+  console.log('Downloading client avatars...');
+  // i.pravatar.cc image IDs — diverse faces, avoid IDs used for employees
+  const clientAvatarIds = [3, 6, 15, 18, 27, 31, 33, 39, 41, 49];
+  const avatarsDir = path.join(UPLOADS_BASE, 'avatars');
+  if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
+
+  const allClientsForAvatars = await prisma.client.findMany({
+    where: { tenantId: tenant.id, email: { in: clientsData.map(c => c.email) } },
+    select: { id: true, email: true, avatarUrl: true },
+  });
+
+  let clientAvatarsDownloaded = 0;
+  for (let ci = 0; ci < allClientsForAvatars.length; ci++) {
+    const cl = allClientsForAvatars[ci];
+    if (cl.avatarUrl) continue; // already has avatar
+    const imgId = clientAvatarIds[ci % clientAvatarIds.length];
+    const filename = `client-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const destPath = path.join(avatarsDir, filename);
+    try {
+      await downloadFile(`https://i.pravatar.cc/200?img=${imgId}`, destPath);
+      await prisma.client.update({
+        where: { id: cl.id },
+        data: { avatarUrl: `/api/uploads/avatars/${filename}` },
+      });
+      clientAvatarsDownloaded++;
+      await delay(300); // be nice to free API
+    } catch (err) {
+      console.log(`    ! Failed avatar for ${cl.email}: ${(err as Error).message}`);
+    }
+  }
+  console.log(`  ${clientAvatarsDownloaded} client avatars downloaded.`);
 
   // 10. Create business hours
   console.log('Seeding business hours...');
@@ -814,7 +930,7 @@ async function main() {
 
   if (allEmployees.length > 0 && allClients.length > 0) {
     // Check if March 2026 appointments already exist
-    const existingMarchApts = await prisma.appointment.count({
+    let existingMarchApts = await prisma.appointment.count({
       where: {
         tenantId: tenant.id,
         startTime: { gte: new Date('2026-03-01T00:00:00Z') },
@@ -822,8 +938,14 @@ async function main() {
       },
     });
 
-    // If incomplete set exists, clean up first
-    if (existingMarchApts > 0 && existingMarchApts < 30) {
+    // Check if reviews need updating (old seed had only 9 reviews, new one needs 30)
+    const existingReviewCount = await prisma.employeeReview.count({
+      where: { tenantId: tenant.id },
+    });
+    const needsReseed = existingMarchApts > 0 && (existingMarchApts < 30 || existingReviewCount < 20);
+
+    // If incomplete set exists or reviews are missing, clean up first
+    if (needsReseed) {
       const oldApts = await prisma.appointment.findMany({
         where: {
           tenantId: tenant.id,
@@ -833,10 +955,13 @@ async function main() {
         select: { id: true },
       });
       const oldIds = oldApts.map(a => a.id);
+      await prisma.employeeReview.deleteMany({ where: { appointmentId: { in: oldIds } } });
       await prisma.appointmentStatusHistory.deleteMany({ where: { appointmentId: { in: oldIds } } });
       await prisma.appointmentItem.deleteMany({ where: { appointmentId: { in: oldIds } } });
       await prisma.appointment.deleteMany({ where: { id: { in: oldIds } } });
-      console.log(`  Cleaned ${oldIds.length} incomplete March appointments.`);
+      console.log(`  Cleaned ${oldIds.length} old March appointments + reviews.`);
+      // Reset count so the next block creates new appointments
+      existingMarchApts = 0;
     }
 
     if (existingMarchApts < 30) {
@@ -866,8 +991,8 @@ async function main() {
           const client = allClients[i % allClients.length];
           const empSvc = empServices[i % empServices.length];
           const service = empSvc.service;
-          // First 3 slots per employee → COMPLETED (past dates), rest alternate PENDING/CONFIRMED
-          const status = i < 3 ? 'COMPLETED' as const : (i % 2 === 0 ? 'CONFIRMED' as const : 'PENDING' as const);
+          // All 10 slots per employee → COMPLETED for full review coverage
+          const status = 'COMPLETED' as const;
 
           const startTime = new Date(Date.UTC(2026, 2, day, hour, minute, 0)); // month=2 → March
           const endTime = new Date(startTime.getTime() + service.durationMinutes * 60 * 1000);
@@ -941,17 +1066,18 @@ async function main() {
       // Create reviews for completed appointments
       console.log('  Seeding reviews for completed appointments...');
       const reviewComments = [
-        'Excelente servicio, muy profesional.',
-        'Me encanto el resultado, definitivamente volvere.',
-        'Muy buena atencion, el lugar es muy agradable.',
-        'Buen trabajo, aunque hubo un poco de espera.',
-        'Increible experiencia, super recomendado.',
-        'El mejor salon al que he ido, trato impecable.',
-        'Muy satisfecha con el resultado final.',
-        'Profesionales de primera, ambiente muy limpio.',
-        'Excelente relacion calidad-precio.',
+        'Increible experiencia. Maria tiene un don para entender exactamente lo que quieres sin tener que explicar demasiado. Sali sintiendome otra persona.',
+        'Llevaba meses buscando a alguien que entendiera mi tipo de cabello. Desde la primera visita supe que habia encontrado a mi estilista de confianza.',
+        'El ambiente es super relajante y el trato es de primera. Me encanta que se toman el tiempo de escucharte antes de empezar.',
+        'Honestamente no esperaba tanto. Me hicieron un cambio de look completo y no podia dejar de mirarme al espejo. 100% recomendado.',
+        'Lo que mas valoro es la honestidad. Me dijeron que lo que queria no iba con mi tipo de rostro y me sugirieron algo mejor. Tenian toda la razon.',
+        'Ya perdi la cuenta de cuantas veces he venido. Es mi lugar seguro. Siempre salgo feliz y con ganas de volver.',
+        'Vine nerviosa porque nunca me habia tenido el cabello. Me explicaron todo el proceso con paciencia y el resultado fue espectacular.',
+        'Excelente atencion al detalle. Se nota que aman lo que hacen. El salon esta impecable y el equipo es muy profesional.',
+        'Mi hija me recomendo este salon y ahora entiendo por que. La atencion es personalizada y el resultado habla por si solo.',
+        'Fui por un corte sencillo y sali con un look que me hizo sentir 10 anos mas joven. Manos magicas, sin duda.',
       ];
-      const reviewRatings = [5, 5, 4, 3, 5, 5, 4, 5, 4];
+      const reviewRatings = [5, 5, 4, 5, 5, 4, 5, 5, 4, 5];
 
       let reviewsCreated = 0;
       for (let ri = 0; ri < completedAppointmentIds.length; ri++) {
