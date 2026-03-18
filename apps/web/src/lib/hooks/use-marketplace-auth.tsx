@@ -12,6 +12,8 @@ interface MarketplaceUser {
   phone: string | null;
   avatarUrl?: string | null;
   gender?: string | null;
+  birthDate?: string | null;
+  allergies?: string | null;
   socialProvider?: string | null;
 }
 

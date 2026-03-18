@@ -8,6 +8,7 @@ import { marketplaceApi } from '@/lib/marketplace-api';
 import { resolveImageUrl } from '@/lib/utils';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+import { DatePicker } from '@/components/ui/date-picker';
 import MarketplaceHeader from '../marketplace-header';
 
 const TEAL = '#008080';
@@ -504,12 +505,9 @@ function EditProfilePanel({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Fecha de nacimiento</label>
-            <input
-              type="date"
+            <DatePicker
               value={form.birthDate}
-              onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-              style={{ '--tw-ring-color': TEAL } as any}
+              onChange={(v) => setForm((f) => ({ ...f, birthDate: v }))}
             />
           </div>
           <div>
