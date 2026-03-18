@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
+import { resolveImageUrl } from '@/lib/utils';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import MarketplaceHeader from '../marketplace-header';
@@ -411,7 +412,7 @@ function EditProfilePanel({
   };
 
   const initials = `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase();
-  const avatarSrc = avatarPreview || (user.avatarUrl ? `${API_URL}${user.avatarUrl}` : null);
+  const avatarSrc = avatarPreview || resolveImageUrl(user.avatarUrl);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">

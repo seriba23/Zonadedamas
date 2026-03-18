@@ -128,6 +128,7 @@ export class MarketplaceService {
         lastName: user.lastName,
         phone: user.phone,
         gender: user.gender,
+        socialProvider: user.socialProvider,
       },
     };
   }
@@ -167,7 +168,7 @@ export class MarketplaceService {
       if (!user.avatarUrl && profile.avatarUrl) {
         updateData.avatarUrl = profile.avatarUrl;
       }
-      await this.prisma.marketplaceUser.update({
+      user = await this.prisma.marketplaceUser.update({
         where: { id: user.id },
         data: updateData,
       });
@@ -206,6 +207,7 @@ export class MarketplaceService {
         phone: user.phone,
         gender: user.gender,
         avatarUrl: user.avatarUrl,
+        socialProvider: user.socialProvider,
       },
     };
   }
@@ -1313,6 +1315,9 @@ export class MarketplaceService {
 
     // Social-only users can set a password for the first time (currentPassword can be empty)
     if (user.passwordHash) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Debes ingresar tu contraseña actual');
+      }
       const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
       if (!isMatch) {
         throw new UnauthorizedException('Contraseña actual incorrecta');

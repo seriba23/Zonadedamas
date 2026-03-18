@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, resolveImageUrl } from '@/lib/utils';
 import MarketplaceHeader from '../marketplace-header';
 
 dayjs.locale('es');
@@ -337,7 +337,7 @@ export default function MarketplaceProfilePage() {
           >
             {user.avatarUrl ? (
               <img
-                src={`${API_URL}${user.avatarUrl}`}
+                src={resolveImageUrl(user.avatarUrl) || ''}
                 alt=""
                 className="w-full h-full object-cover"
               />

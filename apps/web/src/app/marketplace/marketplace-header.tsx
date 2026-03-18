@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { resolveImageUrl } from '@/lib/utils';
 
 export default function MarketplaceHeader() {
   const { user, isAuthenticated, isLoading } = useMarketplaceAuth();
@@ -26,7 +25,7 @@ export default function MarketplaceHeader() {
               style={{ backgroundColor: '#e0f2f1', color: '#008080' }}
             >
               {user?.avatarUrl ? (
-                <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                <img src={resolveImageUrl(user.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
               ) : (
                 <>{user?.firstName?.[0]}{user?.lastName?.[0]}</>
               )}

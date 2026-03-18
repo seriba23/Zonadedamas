@@ -642,12 +642,6 @@ export default function RegisterPage() {
               </button>
             </form>
 
-            <p className="text-center mt-4 text-xs text-gray-400">
-              Ya tienes cuenta de cliente?{' '}
-              <Link href="/marketplace/auth" className="text-primary-600 hover:text-primary-700 font-medium">
-                Inicia sesión aquí
-              </Link>
-            </p>
           </div>
 
           <p className="text-center mt-6 text-sm text-gray-500">
