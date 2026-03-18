@@ -9,7 +9,7 @@ export class ChangeMarketplaceContactDto {
   @IsString()
   phone?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  currentPassword: string;
+  currentPassword?: string;
 }

@@ -223,6 +223,7 @@ function ContactChangeForm({
   label,
   currentValue,
   type,
+  socialProvider,
   onSuccess,
   onCancel,
 }: {
@@ -230,6 +231,7 @@ function ContactChangeForm({
   label: string;
   currentValue: string;
   type: string;
+  socialProvider?: string | null;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -241,7 +243,7 @@ function ContactChangeForm({
     mutationFn: () =>
       marketplaceApi.put('/auth/profile/contact', {
         [field]: value,
-        currentPassword: password,
+        currentPassword: password || undefined,
       }),
     onSuccess: () => {
       onSuccess();
@@ -262,19 +264,21 @@ function ContactChangeForm({
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
         style={{ '--tw-ring-color': TEAL } as any}
       />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Contraseña actual (requerida)"
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-        style={{ '--tw-ring-color': TEAL } as any}
-      />
+      {!socialProvider && (
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Contraseña actual (requerida)"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+          style={{ '--tw-ring-color': TEAL } as any}
+        />
+      )}
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={() => mutation.mutate()}
-          disabled={!value || !password || mutation.isPending}
+          disabled={!value || (!socialProvider && !password) || mutation.isPending}
           className="flex-1 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
           style={{ backgroundColor: TEAL }}
         >
@@ -301,7 +305,7 @@ function EditProfilePanel({
   user: {
     firstName: string; lastName: string; email: string; phone: string | null;
     avatarUrl?: string | null; birthDate?: string | null; gender?: string | null;
-    allergies?: string | null;
+    allergies?: string | null; socialProvider?: string | null;
   };
   onClose: () => void;
   onSaved: () => void;
@@ -560,6 +564,7 @@ function EditProfilePanel({
               label="Email"
               currentValue={user.email}
               type="email"
+              socialProvider={user.socialProvider}
               onSuccess={() => { setChangingField(null); onSaved(); }}
               onCancel={() => setChangingField(null)}
             />
@@ -590,6 +595,7 @@ function EditProfilePanel({
               label="Teléfono"
               currentValue={user.phone || 'No registrado'}
               type="tel"
+              socialProvider={user.socialProvider}
               onSuccess={() => { setChangingField(null); onSaved(); }}
               onCancel={() => setChangingField(null)}
             />
@@ -622,7 +628,9 @@ function EditProfilePanel({
           onClick={() => setShowPasswordSection(!showPasswordSection)}
           className="w-full flex items-center justify-between"
         >
-          <p className="text-sm font-medium text-gray-700">Cambiar contraseña</p>
+          <p className="text-sm font-medium text-gray-700">
+            {user.socialProvider && !passwordForm.currentPassword ? 'Establecer contraseña' : 'Cambiar contraseña'}
+          </p>
           <svg
             className={`w-4 h-4 text-gray-400 transition-transform ${showPasswordSection ? 'rotate-180' : ''}`}
             fill="none"
@@ -636,16 +644,23 @@ function EditProfilePanel({
 
         {showPasswordSection && (
           <div className="mt-3 space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Contraseña actual</label>
-              <input
-                type="password"
-                value={passwordForm.currentPassword}
-                onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-                style={{ '--tw-ring-color': TEAL } as any}
-              />
-            </div>
+            {user.socialProvider && (
+              <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">
+                Tu cuenta está vinculada con {user.socialProvider === 'google' ? 'Google' : 'Facebook'}. Puedes establecer una contraseña para también iniciar sesión con email.
+              </p>
+            )}
+            {!user.socialProvider && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Contraseña actual</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                  style={{ '--tw-ring-color': TEAL } as any}
+                />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Nueva contraseña</label>
               <input
@@ -680,7 +695,7 @@ function EditProfilePanel({
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
             >
-              {passwordMutation.isPending ? 'Cambiando...' : 'Cambiar contraseña'}
+              {passwordMutation.isPending ? 'Guardando...' : user.socialProvider ? 'Establecer contraseña' : 'Cambiar contraseña'}
             </button>
           </div>
         )}
@@ -1214,13 +1229,15 @@ export default function MarketplaceSettingsPage() {
             <p className="text-sm font-medium text-red-600 mb-4">
               Tu información no podrá ser recuperada.
             </p>
-            <input
-              type="password"
-              value={deletePassword}
-              onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(''); }}
-              placeholder="Confirma tu contraseña"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm mb-3 focus:ring-2 focus:ring-red-400 focus:border-red-400"
-            />
+            {!(user as any).socialProvider && (
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(''); }}
+                placeholder="Confirma tu contraseña"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm mb-3 focus:ring-2 focus:ring-red-400 focus:border-red-400"
+              />
+            )}
             {deleteError && (
               <p className="text-xs text-red-600 mb-3">{deleteError}</p>
             )}
@@ -1232,7 +1249,7 @@ export default function MarketplaceSettingsPage() {
                 Cancelar
               </button>
               <button
-                disabled={!deletePassword || deleteMutation.isPending}
+                disabled={(!(user as any).socialProvider && !deletePassword) || deleteMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
                 onClick={() => deleteMutation.mutate(deletePassword)}
               >

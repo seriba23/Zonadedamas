@@ -1,8 +1,9 @@
-import { IsString, MinLength, Matches } from 'class-validator';
+import { IsOptional, IsString, MinLength, Matches } from 'class-validator';
 
 export class ChangeMarketplacePasswordDto {
+  @IsOptional()
   @IsString()
-  currentPassword: string;
+  currentPassword?: string;
 
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })

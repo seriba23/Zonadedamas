@@ -1207,7 +1207,7 @@ export class MarketplaceService {
 
   async updateContact(
     marketplaceUserId: string,
-    dto: { email?: string; phone?: string; currentPassword: string },
+    dto: { email?: string; phone?: string; currentPassword?: string },
   ) {
     const current = await this.prisma.marketplaceUser.findUnique({
       where: { id: marketplaceUserId },
@@ -1216,13 +1216,15 @@ export class MarketplaceService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Verify password
-    if (!current.passwordHash) {
-      throw new BadRequestException('Esta cuenta no tiene contraseña. Usa el login social.');
-    }
-    const valid = await bcrypt.compare(dto.currentPassword, current.passwordHash);
-    if (!valid) {
-      throw new UnauthorizedException('Contraseña incorrecta');
+    // Verify password (social-only accounts skip this)
+    if (current.passwordHash) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Debes confirmar tu contraseña');
+      }
+      const valid = await bcrypt.compare(dto.currentPassword, current.passwordHash);
+      if (!valid) {
+        throw new UnauthorizedException('Contraseña incorrecta');
+      }
     }
 
     if (!dto.email && !dto.phone) {

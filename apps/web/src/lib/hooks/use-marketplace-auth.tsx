@@ -12,6 +12,7 @@ interface MarketplaceUser {
   phone: string | null;
   avatarUrl?: string | null;
   gender?: string | null;
+  socialProvider?: string | null;
 }
 
 /** Returns gendered suffix: "o" (male), "a" (female), "@" (neutral/unknown) */
