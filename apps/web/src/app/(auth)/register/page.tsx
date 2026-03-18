@@ -4,8 +4,10 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { marketplaceApi } from '@/lib/marketplace-api';
+import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 
-type RegisterMode = 'select' | 'business' | 'individual';
+type RegisterMode = 'select' | 'professional' | 'business' | 'individual' | 'client';
 
 interface FormState {
   // Step 1 - Owner
@@ -228,6 +230,56 @@ export default function RegisterPage() {
     }
   }
 
+  function validateClient(): boolean {
+    const newErrors: FormErrors = {};
+    if (!form.firstName.trim()) newErrors.firstName = 'El nombre es requerido';
+    if (!form.lastName.trim()) newErrors.lastName = 'El apellido es requerido';
+    if (!form.email) {
+      newErrors.email = 'El correo es requerido';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      newErrors.email = 'Ingresa un correo válido';
+    }
+    if (!form.password) {
+      newErrors.password = 'La contraseña es requerida';
+    } else if (form.password.length < 8) {
+      newErrors.password = 'Mínimo 8 caracteres';
+    } else if (!/[0-9]/.test(form.password)) {
+      newErrors.password = 'Debe contener al menos un número';
+    } else if (!/[!@#$%^&*()_+\-=[\]{}|;:'",.<>?/~`]/.test(form.password)) {
+      newErrors.password = 'Debe contener al menos un símbolo';
+    }
+    if (!form.confirmPassword) {
+      newErrors.confirmPassword = 'Confirma tu contraseña';
+    } else if (form.password !== form.confirmPassword) {
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  async function handleSubmitClient(e: FormEvent) {
+    e.preventDefault();
+    setApiError(null);
+    if (!validateClient()) return;
+
+    setIsLoading(true);
+    try {
+      await marketplaceApi.registerAndStore({
+        email: form.email,
+        password: form.password,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: form.phone.trim() || undefined,
+      });
+      router.push('/marketplace');
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function updateField(field: keyof FormState, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
@@ -250,15 +302,30 @@ export default function RegisterPage() {
 
             <div className="space-y-4">
               <button
-                onClick={() => setMode('business')}
+                onClick={() => setMode('client')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">🏢</span>
+                  <span className="text-2xl">💆</span>
                   <div>
-                    <p className="font-semibold text-gray-900">Unirme a un negocio</p>
+                    <p className="font-semibold text-gray-900">Soy cliente</p>
                     <p className="text-sm text-gray-500">
-                      Tengo un código de invitación de mi empresa
+                      Quiero reservar citas y descubrir negocios
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setMode('professional')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">✂️</span>
+                  <div>
+                    <p className="font-semibold text-gray-900">Soy profesionista</p>
+                    <p className="text-sm text-gray-500">
+                      Trabajo para un negocio o soy independiente
                     </p>
                   </div>
                 </div>
@@ -269,11 +336,75 @@ export default function RegisterPage() {
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">👤</span>
+                  <span className="text-2xl">🏢</span>
                   <div>
-                    <p className="font-semibold text-gray-900">Crear mi negocio</p>
+                    <p className="font-semibold text-gray-900">Soy empresario</p>
                     <p className="text-sm text-gray-500">
-                      Quiero registrar mi salón, barbería, spa o clínica
+                      Quiero registrar mi negocio para ofrecer servicios
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <p className="text-center mt-6 text-sm text-gray-500">
+            ¿Ya tienes cuenta?{' '}
+            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+              Iniciar sesión
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── PROFESSIONAL SUB-SELECTION ─────────────────
+  if (mode === 'professional') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-primary-600">Zona de Damas</h1>
+            <p className="mt-2 text-gray-500 text-sm">Registro profesional</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            <div className="flex items-center gap-2 mb-6">
+              <button onClick={() => setMode('select')} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h2 className="text-xl font-semibold text-gray-900">¿Cómo trabajas?</h2>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={() => setMode('business')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🏢</span>
+                  <div>
+                    <p className="font-semibold text-gray-900">Unirme a un negocio</p>
+                    <p className="text-sm text-gray-500">
+                      Tengo un código de invitación para unirme a un equipo
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setMode('individual')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">💼</span>
+                  <div>
+                    <p className="font-semibold text-gray-900">Soy independiente</p>
+                    <p className="text-sm text-gray-500">
+                      Trabajo por mi cuenta y quiero gestionar mis citas
                     </p>
                   </div>
                 </div>
@@ -304,7 +435,7 @@ export default function RegisterPage() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6">
-              <button onClick={() => setMode('select')} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setMode('professional')} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -402,6 +533,132 @@ export default function RegisterPage() {
     );
   }
 
+  // ─── CLIENT (MARKETPLACE) ───────────────────────
+  if (mode === 'client') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-primary-600">Zona de Damas</h1>
+            <p className="mt-2 text-gray-500 text-sm">Descubre y reserva en los mejores negocios</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            <div className="flex items-center gap-2 mb-6">
+              <button onClick={() => setMode('select')} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h2 className="text-xl font-semibold text-gray-900">Crear cuenta de cliente</h2>
+            </div>
+
+            <SocialLoginButtons
+              onSocialLogin={async (provider, token) => {
+                setApiError(null);
+                setIsLoading(true);
+                try {
+                  await marketplaceApi.socialLoginAndStore(provider, token);
+                  router.push('/marketplace');
+                } catch (err: unknown) {
+                  const error = err as { message?: string };
+                  setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            />
+
+            {apiError && (
+              <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3">
+                <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-red-700">{apiError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitClient} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="clientFirstName" className="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
+                  <input id="clientFirstName" type="text" value={form.firstName}
+                    onChange={(e) => updateField('firstName', e.target.value)}
+                    className={`input-field ${errors.firstName ? 'border-red-400' : ''}`} placeholder="Tu nombre" />
+                  {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
+                </div>
+                <div>
+                  <label htmlFor="clientLastName" className="block text-sm font-medium text-gray-700 mb-1.5">Apellido</label>
+                  <input id="clientLastName" type="text" value={form.lastName}
+                    onChange={(e) => updateField('lastName', e.target.value)}
+                    className={`input-field ${errors.lastName ? 'border-red-400' : ''}`} placeholder="Tu apellido" />
+                  {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="clientEmail" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
+                <input id="clientEmail" type="email" autoComplete="email" value={form.email}
+                  onChange={(e) => updateField('email', e.target.value)}
+                  className={`input-field ${errors.email ? 'border-red-400' : ''}`} placeholder="correo@ejemplo.com" />
+                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="clientPhone" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Teléfono <span className="text-gray-400">(opcional)</span>
+                </label>
+                <input id="clientPhone" type="tel" value={form.phone}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                  className="input-field" placeholder="+1-555-0000" />
+              </div>
+
+              <div>
+                <label htmlFor="clientPassword" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
+                <input id="clientPassword" type="password" autoComplete="new-password" value={form.password}
+                  onChange={(e) => updateField('password', e.target.value)}
+                  className={`input-field ${errors.password ? 'border-red-400' : ''}`} placeholder="Mínimo 8 caracteres" />
+                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="clientConfirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña</label>
+                <input id="clientConfirmPassword" type="password" autoComplete="new-password" value={form.confirmPassword}
+                  onChange={(e) => updateField('confirmPassword', e.target.value)}
+                  className={`input-field ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Repite tu contraseña" />
+                {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+              </div>
+
+              <button type="submit" disabled={isLoading}
+                className="w-full btn-primary flex items-center justify-center gap-2 py-2.5">
+                {isLoading && (
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
+              </button>
+            </form>
+
+            <p className="text-center mt-4 text-xs text-gray-400">
+              Ya tienes cuenta de cliente?{' '}
+              <Link href="/marketplace/auth" className="text-primary-600 hover:text-primary-700 font-medium">
+                Inicia sesión aquí
+              </Link>
+            </p>
+          </div>
+
+          <p className="text-center mt-6 text-sm text-gray-500">
+            ¿Ya tienes cuenta?{' '}
+            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ─── INDIVIDUAL (WIZARD) ─────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
@@ -435,7 +692,7 @@ export default function RegisterPage() {
               onClick={() => {
                 setApiError(null);
                 if (step > 1) setStep(step - 1);
-                else setMode('select');
+                else setMode('professional');
               }}
               className="text-gray-400 hover:text-gray-600"
             >

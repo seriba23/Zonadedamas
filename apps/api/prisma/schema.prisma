@@ -133,12 +133,14 @@ model PlatformRefreshToken {
 
 model MarketplaceUser {
   id           String    @id @default(uuid())
-  email        String    @unique
-  phone        String?   @unique
-  passwordHash String    @map("password_hash")
-  firstName    String    @map("first_name")
-  lastName     String    @map("last_name")
-  avatarUrl    String?   @map("avatar_url")
+  email          String    @unique
+  phone          String?   @unique
+  passwordHash   String?   @map("password_hash")
+  socialProvider String?   @map("social_provider") @db.VarChar(20) // google, facebook
+  socialId       String?   @map("social_id") @db.VarChar(255)
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  avatarUrl      String?   @map("avatar_url")
   birthDate    DateTime? @map("birth_date") @db.Date
   gender       String?   @db.VarChar(20) // MALE, FEMALE, NON_BINARY, PREFER_NOT_SAY
   allergies    String?   @db.Text // Free-text medical notes / allergies

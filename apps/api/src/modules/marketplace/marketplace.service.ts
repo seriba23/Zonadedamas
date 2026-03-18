@@ -17,6 +17,7 @@ import { UpdateMarketplaceProfileDto, UpdateMarketplaceSettingsDto } from './dto
 import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.dto';
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
+import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
@@ -83,6 +84,12 @@ export class MarketplaceService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        `Esta cuenta fue creada con ${user.socialProvider === 'google' ? 'Google' : 'Facebook'}. Inicia sesión con ese método.`,
+      );
+    }
+
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
       throw new UnauthorizedException('Credenciales inválidas');
@@ -122,6 +129,150 @@ export class MarketplaceService {
         phone: user.phone,
         gender: user.gender,
       },
+    };
+  }
+
+  async socialLogin(dto: MarketplaceSocialLoginDto) {
+    // Verify token with provider and extract profile
+    const profile = dto.provider === 'google'
+      ? await this.verifyGoogleToken(dto.token)
+      : await this.verifyFacebookToken(dto.token);
+
+    // Find existing user by email
+    let user = await this.prisma.marketplaceUser.findFirst({
+      where: { email: profile.email },
+    });
+
+    let isNewUser = false;
+
+    if (user) {
+      // Reactivate if suspended
+      if (!user.isActive && user.suspendedUntil) {
+        await this.prisma.marketplaceUser.update({
+          where: { id: user.id },
+          data: { isActive: true, suspendedAt: null, suspendedUntil: null },
+        });
+        user.isActive = true;
+      }
+      if (!user.isActive) {
+        throw new UnauthorizedException('Cuenta desactivada');
+      }
+
+      // Update social info if not set yet and update avatar if user doesn't have one
+      const updateData: any = { lastLoginAt: new Date() };
+      if (!user.socialProvider) {
+        updateData.socialProvider = dto.provider;
+        updateData.socialId = profile.socialId;
+      }
+      if (!user.avatarUrl && profile.avatarUrl) {
+        updateData.avatarUrl = profile.avatarUrl;
+      }
+      await this.prisma.marketplaceUser.update({
+        where: { id: user.id },
+        data: updateData,
+      });
+    } else {
+      // Create new user (no password needed)
+      user = await this.prisma.marketplaceUser.create({
+        data: {
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl || null,
+          socialProvider: dto.provider,
+          socialId: profile.socialId,
+        },
+      });
+      isNewUser = true;
+
+      // Link existing Client records
+      await this.prisma.client.updateMany({
+        where: { email: profile.email, marketplaceUserId: null },
+        data: { marketplaceUserId: user.id },
+      });
+    }
+
+    const tokens = await this.generateTokens(user);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      isNewUser,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        gender: user.gender,
+        avatarUrl: user.avatarUrl,
+      },
+    };
+  }
+
+  private async verifyGoogleToken(token: string): Promise<{
+    email: string; firstName: string; lastName: string;
+    avatarUrl?: string; socialId: string;
+  }> {
+    // Try as id_token first (from Google Sign-In / One Tap)
+    const idTokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (idTokenRes.ok) {
+      const payload = await idTokenRes.json();
+      if (!payload.email || payload.email_verified === 'false') {
+        throw new UnauthorizedException('El email de Google no está verificado');
+      }
+      return {
+        email: payload.email,
+        firstName: payload.given_name || payload.email.split('@')[0],
+        lastName: payload.family_name || '',
+        avatarUrl: payload.picture || undefined,
+        socialId: payload.sub,
+      };
+    }
+
+    // Fallback: try as access_token via userinfo
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!userInfoRes.ok) {
+      throw new UnauthorizedException('Token de Google inválido');
+    }
+    const payload = await userInfoRes.json();
+    if (!payload.email || !payload.email_verified) {
+      throw new UnauthorizedException('El email de Google no está verificado');
+    }
+    return {
+      email: payload.email,
+      firstName: payload.given_name || payload.email.split('@')[0],
+      lastName: payload.family_name || '',
+      avatarUrl: payload.picture || undefined,
+      socialId: payload.sub,
+    };
+  }
+
+  private async verifyFacebookToken(token: string): Promise<{
+    email: string; firstName: string; lastName: string;
+    avatarUrl?: string; socialId: string;
+  }> {
+    // Verify with Facebook Graph API
+    const res = await fetch(
+      `https://graph.facebook.com/me?fields=id,email,first_name,last_name,picture.type(large)&access_token=${token}`,
+    );
+    if (!res.ok) {
+      throw new UnauthorizedException('Token de Facebook inválido');
+    }
+    const payload = await res.json();
+
+    if (!payload.email) {
+      throw new UnauthorizedException('No se pudo obtener el email de Facebook. Asegúrate de autorizar el acceso al email.');
+    }
+
+    return {
+      email: payload.email,
+      firstName: payload.first_name || payload.email.split('@')[0],
+      lastName: payload.last_name || '',
+      avatarUrl: payload.picture?.data?.url || undefined,
+      socialId: payload.id,
     };
   }
 
@@ -207,6 +358,7 @@ export class MarketplaceService {
         notifPromotions: true,
         notifRewards: true,
         notifMessages: true,
+        socialProvider: true,
         suspendedAt: true,
         suspendedUntil: true,
         createdAt: true,
@@ -1004,10 +1156,6 @@ export class MarketplaceService {
   }
 
   async deleteAccount(marketplaceUserId: string, password: string) {
-    if (!password) {
-      throw new BadRequestException('Debes confirmar tu contraseña');
-    }
-
     const user = await this.prisma.marketplaceUser.findUnique({
       where: { id: marketplaceUserId },
     });
@@ -1015,9 +1163,15 @@ export class MarketplaceService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      throw new UnauthorizedException('Contraseña incorrecta');
+    // Social-only accounts can delete without password; password accounts require it
+    if (user.passwordHash) {
+      if (!password) {
+        throw new BadRequestException('Debes confirmar tu contraseña');
+      }
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        throw new UnauthorizedException('Contraseña incorrecta');
+      }
     }
 
     // Delete avatar file if exists
@@ -1063,6 +1217,9 @@ export class MarketplaceService {
     }
 
     // Verify password
+    if (!current.passwordHash) {
+      throw new BadRequestException('Esta cuenta no tiene contraseña. Usa el login social.');
+    }
     const valid = await bcrypt.compare(dto.currentPassword, current.passwordHash);
     if (!valid) {
       throw new UnauthorizedException('Contraseña incorrecta');
@@ -1152,9 +1309,12 @@ export class MarketplaceService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-    if (!isMatch) {
-      throw new UnauthorizedException('Contraseña actual incorrecta');
+    // Social-only users can set a password for the first time (currentPassword can be empty)
+    if (user.passwordHash) {
+      const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+      if (!isMatch) {
+        throw new UnauthorizedException('Contraseña actual incorrecta');
+      }
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);

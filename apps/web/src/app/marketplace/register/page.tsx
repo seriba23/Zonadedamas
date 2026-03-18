@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import Link from 'next/link';
 
 export default function MarketplaceRegisterPage() {
-  const { register } = useMarketplaceAuth();
+  const { register, socialLogin } = useMarketplaceAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
@@ -72,7 +73,21 @@ export default function MarketplaceRegisterPage() {
           <p className="text-sm text-gray-500 mt-1">Crea tu cuenta gratuita</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <SocialLoginButtons
+            onSocialLogin={async (provider, token) => {
+              setError('');
+              try {
+                await socialLogin(provider, token);
+                router.push(redirect || '/marketplace');
+              } catch (err: any) {
+                setError(err.message || 'Error al registrarse');
+              }
+            }}
+            disabled={loading}
+          />
+
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Nombre</label>
@@ -180,7 +195,8 @@ export default function MarketplaceRegisterPage() {
           >
             {loading ? 'Registrando...' : 'Crear cuenta'}
           </button>
-        </form>
+          </form>
+        </div>
 
         <p className="text-center text-sm text-gray-500 mt-4">
           ¿Ya tienes cuenta?{' '}

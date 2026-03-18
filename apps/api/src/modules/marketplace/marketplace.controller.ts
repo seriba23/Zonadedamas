@@ -21,6 +21,7 @@ import { UpdateMarketplaceProfileDto, UpdateMarketplaceSettingsDto } from './dto
 import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.dto';
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
+import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
 import { MarketplaceJwtGuard } from './guards/marketplace-jwt.guard';
 import { MarketplaceJwtOptionalGuard } from './guards/marketplace-jwt-optional.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -60,6 +61,12 @@ export class MarketplaceController {
   async logout(@Body('refreshToken') refreshToken: string) {
     await this.marketplaceService.logout(refreshToken);
     return { data: { message: 'Sesión cerrada' } };
+  }
+
+  @Post('auth/social')
+  async socialLogin(@Body() dto: MarketplaceSocialLoginDto) {
+    const result = await this.marketplaceService.socialLogin(dto);
+    return { data: result };
   }
 
   @UseGuards(MarketplaceJwtGuard)

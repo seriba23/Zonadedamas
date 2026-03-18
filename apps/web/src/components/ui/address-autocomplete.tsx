@@ -55,7 +55,7 @@ export function AddressAutocomplete({
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [ready, setReady] = useState(false);
-  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const autocompleteService = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,7 +68,7 @@ export function AddressAutocomplete({
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) return;
     loadGoogleMapsScript().then(() => {
-      autocompleteService.current = new google.maps.places.AutocompleteService();
+      autocompleteService.current = new (window as any).google.maps.places.AutocompleteService();
       setReady(true);
     });
   }, []);
@@ -93,13 +93,13 @@ export function AddressAutocomplete({
 
       autocompleteService.current.getPlacePredictions(
         { input, types: ['address'] },
-        (results, status) => {
+        (results: any, status: any) => {
           if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
+            status === (window as any).google.maps.places.PlacesServiceStatus.OK &&
             results
           ) {
             setPredictions(
-              results.map((r) => ({
+              results.map((r: any) => ({
                 placeId: r.place_id,
                 description: r.description,
               })),

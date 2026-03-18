@@ -156,6 +156,14 @@ class MarketplaceApiClient {
     return data.user;
   }
 
+  async socialLoginAndStore(provider: 'google' | 'facebook', token: string) {
+    const res: any = await this.post('/auth/social', { provider, token });
+    const data = res.data;
+    this.accessToken = data.accessToken;
+    this.setRefreshToken(data.refreshToken);
+    return { ...data.user, isNewUser: !!data.isNewUser };
+  }
+
   logout() {
     const refreshToken = this.getRefreshToken();
     if (refreshToken) {

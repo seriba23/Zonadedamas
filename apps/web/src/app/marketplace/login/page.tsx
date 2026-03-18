@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMarketplaceAuth, genderSuffix } from '@/lib/hooks/use-marketplace-auth';
 import { SuccessPopup } from '@/components/ui/success-popup';
+import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import Link from 'next/link';
 
 export default function MarketplaceLoginPage() {
-  const { login } = useMarketplaceAuth();
+  const { login, socialLogin } = useMarketplaceAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
@@ -49,7 +50,21 @@ export default function MarketplaceLoginPage() {
           <p className="text-sm text-gray-500 mt-1">Inicia sesión en tu cuenta</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <SocialLoginButtons
+            onSocialLogin={async (provider, token) => {
+              setError('');
+              try {
+                const result = await socialLogin(provider, token);
+                router.push(redirect || '/marketplace');
+              } catch (err: any) {
+                setError(err.message || 'Error al iniciar sesión');
+              }
+            }}
+            disabled={loading}
+          />
+
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
             <input
@@ -91,7 +106,8 @@ export default function MarketplaceLoginPage() {
           >
             {loading ? 'Entrando...' : 'Iniciar sesión'}
           </button>
-        </form>
+          </form>
+        </div>
 
         <p className="text-center text-sm text-gray-500 mt-4">
           ¿No tienes cuenta?{' '}

@@ -731,6 +731,13 @@ async function main() {
       }
 
       console.log(`  Employee user: ${empUser.email}`);
+    } else {
+      // User exists but employee not linked — fix the link
+      await prisma.employee.update({
+        where: { id: employee.id },
+        data: { userId: existingUser.id },
+      });
+      console.log(`  Linked existing user to employee: ${empData.email}`);
     }
   }
 

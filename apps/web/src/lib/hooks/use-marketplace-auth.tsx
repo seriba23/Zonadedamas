@@ -33,6 +33,7 @@ interface MarketplaceAuthContextType {
     lastName: string;
     phone?: string;
   }) => Promise<MarketplaceUser>;
+  socialLogin: (provider: 'google' | 'facebook', token: string) => Promise<MarketplaceUser & { isNewUser?: boolean }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   enterBusiness: (tenantSlug: string) => Promise<{
@@ -82,6 +83,16 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const socialLogin = useCallback(
+    async (provider: 'google' | 'facebook', token: string) => {
+      const result = await marketplaceApi.socialLoginAndStore(provider, token);
+      const { isNewUser, ...userData } = result;
+      setUser(userData);
+      return result;
+    },
+    [],
+  );
+
   const logout = useCallback(() => {
     marketplaceApi.logout();
     setUser(null);
@@ -124,6 +135,7 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         register,
+        socialLogin,
         logout,
         refreshUser,
         enterBusiness,

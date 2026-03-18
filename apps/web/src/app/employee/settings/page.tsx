@@ -60,9 +60,7 @@ export default function EmployeeSettingsPage() {
   // Avatar
   const avatarMutation = useMutation({
     mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      return api.upload(`/api/employees/${user!.employeeId}/avatar`, formData);
+      return api.upload(`/api/employees/${user!.employeeId}/avatar`, file);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-settings'] });
@@ -492,6 +490,7 @@ export default function EmployeeSettingsPage() {
       {/* Success Popup */}
       {successPopup && (
         <SuccessPopup
+          show={successPopup}
           title={successMsg}
           onClose={() => setSuccessPopup(false)}
         />

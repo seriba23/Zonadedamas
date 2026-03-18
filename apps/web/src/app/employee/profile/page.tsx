@@ -69,11 +69,9 @@ export default function EmployeeProfilePage() {
 
   const avatarMutation = useMutation({
     mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
       return api.upload<{ data: { avatarUrl: string } }>(
         `/api/employees/${user!.employeeId}/avatar`,
-        formData,
+        file,
       );
     },
     onSuccess: () => {
