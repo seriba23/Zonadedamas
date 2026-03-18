@@ -107,6 +107,10 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
       setError('Facebook Login no está configurado todavía');
       return;
     }
+    if (window.location.protocol !== 'https:') {
+      setError('Facebook requiere HTTPS. Disponible próximamente.');
+      return;
+    }
     setLoading('facebook');
     setError('');
 
