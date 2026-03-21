@@ -30,6 +30,7 @@ enum PaymentMethod {
   CASH
   CARD
   TRANSFER
+  STRIPE
   OTHER
 }
 
@@ -198,8 +199,10 @@ model Tenant {
   businessPhone        String?   @map("business_phone")
   description          String?   @db.Text
   coverImageUrl        String?   @map("cover_image_url")
-  isMarketplaceListed  Boolean   @default(false) @map("is_marketplace_listed")
-  contractAcceptedAt   DateTime? @map("contract_accepted_at")
+  isMarketplaceListed      Boolean   @default(false) @map("is_marketplace_listed")
+  contractAcceptedAt       DateTime? @map("contract_accepted_at")
+  stripeAccountId          String?   @map("stripe_account_id")
+  stripeOnboardingComplete Boolean   @default(false) @map("stripe_onboarding_complete")
   subscriptionPlan     String    @default("free") @map("subscription_plan")
   subscriptionStatus   String    @default("active") @map("subscription_status")
   createdAt            DateTime  @default(now()) @map("created_at")
@@ -789,8 +792,10 @@ model Payment {
   currency       String        @default("USD")
   paymentMethod  PaymentMethod @map("payment_method")
   status         PaymentStatus @default(PENDING)
-  reference      String?
-  notes          String?
+  reference             String?
+  stripeSessionId       String?  @map("stripe_session_id")
+  stripePaymentIntentId String?  @map("stripe_payment_intent_id")
+  notes                 String?
   createdBy      String?       @map("created_by")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")

@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { label: 'POS', href: '/pos', icon: '💰', permission: 'payments.create' },
   { label: 'Reportes', href: '/reports', icon: '📊', permission: 'reports.revenue' },
   { label: 'Mi Negocio', href: '/settings/business', icon: '🏪', permission: 'tenant.update' },
+  { label: 'Pagos Online', href: '/settings/payments', icon: '💳', permission: 'tenant.update' },
   {
     label: 'Horarios',
     href: '/settings/hours',

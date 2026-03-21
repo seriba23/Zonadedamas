@@ -22,6 +22,8 @@ import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
 import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
+import { CreateCheckoutDto } from '../stripe/dto/create-checkout.dto';
+import { StripeService } from '../stripe/stripe.service';
 import { MarketplaceJwtGuard } from './guards/marketplace-jwt.guard';
 import { MarketplaceJwtOptionalGuard } from './guards/marketplace-jwt-optional.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -35,6 +37,7 @@ export class MarketplaceController {
   constructor(
     private readonly marketplaceService: MarketplaceService,
     private readonly uploadsService: UploadsService,
+    private readonly stripeService: StripeService,
   ) {}
 
   // ─── AUTH (public) ───────────────────────────────────
@@ -224,6 +227,22 @@ export class MarketplaceController {
       req.user.marketplaceUserId,
       tenantSlug,
       dto,
+    );
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('checkout/:tenantSlug')
+  async checkout(
+    @Req() req: any,
+    @Param('tenantSlug') tenantSlug: string,
+    @Body() dto: CreateCheckoutDto,
+  ) {
+    const result = await this.marketplaceService.createCheckoutSession(
+      req.user.marketplaceUserId,
+      tenantSlug,
+      dto.appointmentId,
+      this.stripeService,
     );
     return { data: result };
   }

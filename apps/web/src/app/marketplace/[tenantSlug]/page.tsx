@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -59,10 +59,16 @@ export default function BusinessDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useParams();
+  const searchParams = useSearchParams();
   const tenantSlug = params.tenantSlug as string;
 
+  // Payment return handling
+  const paymentStatus = searchParams.get('payment');
+
   // Booking flow state
-  const [bookingStep, setBookingStep] = useState<BookingStep>(null);
+  const [bookingStep, setBookingStep] = useState<BookingStep>(
+    paymentStatus === 'success' ? 'success' : null,
+  );
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
   const [anyEmployee, setAnyEmployee] = useState(false);
@@ -146,7 +152,24 @@ export default function BusinessDetailPage() {
         startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
       }),
-    onSuccess: () => setBookingStep('success'),
+    onSuccess: async (res: any) => {
+      const appointment = res.data || res;
+      // If business accepts online payment, redirect to Stripe Checkout
+      if (biz?.acceptsOnlinePayment && appointment?.id) {
+        try {
+          const checkoutRes: any = await marketplaceApi.post(`/checkout/${tenantSlug}`, {
+            appointmentId: appointment.id,
+          });
+          if (checkoutRes?.data?.checkoutUrl) {
+            window.location.href = checkoutRes.data.checkoutUrl;
+            return;
+          }
+        } catch {
+          // If checkout fails, still show success (appointment was created)
+        }
+      }
+      setBookingStep('success');
+    },
   });
 
   // Favorite state
@@ -273,6 +296,15 @@ export default function BusinessDetailPage() {
 
   return (
     <div className="min-h-screen pb-24">
+      {/* Payment cancelled banner */}
+      {paymentStatus === 'cancelled' && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">
+          <p className="text-sm text-amber-800">
+            El pago fue cancelado. Tu cita sigue reservada — puedes pagar en el establecimiento.
+          </p>
+        </div>
+      )}
+
       {/* Header / Cover */}
       <div className="relative">
         <div
@@ -1345,8 +1377,15 @@ export default function BusinessDetailPage() {
                     )}
                     {bookMutation.isPending
                       ? 'Confirmando...'
-                      : 'Confirmar Reserva'}
+                      : biz?.acceptsOnlinePayment
+                        ? 'Confirmar y Pagar'
+                        : 'Confirmar Reserva'}
                   </button>
+                  {biz?.acceptsOnlinePayment && (
+                    <p className="text-center text-xs text-gray-400 mt-2">
+                      Serás redirigido a Stripe para completar el pago de forma segura
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -1378,10 +1417,12 @@ export default function BusinessDetailPage() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Reserva confirmada
+              {paymentStatus === 'success' ? 'Pago confirmado' : 'Reserva confirmada'}
             </h2>
             <p className="text-gray-500 mb-6">
-              Tu cita ha sido reservada exitosamente.
+              {paymentStatus === 'success'
+                ? 'Tu pago se ha procesado y tu cita ha sido reservada exitosamente.'
+                : 'Tu cita ha sido reservada exitosamente.'}
             </p>
 
             <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 mb-6">

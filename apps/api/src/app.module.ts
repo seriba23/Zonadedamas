@@ -27,6 +27,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
+import { StripeModule } from './modules/stripe/stripe.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -66,6 +67,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     ClientPortalModule,
     MarketplaceModule,
     RewardsModule,
+    StripeModule,
   ],
   providers: [
     {

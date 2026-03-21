@@ -682,6 +682,7 @@ export class MarketplaceService {
         timezone: true,
         currency: true,
         isMarketplaceListed: true,
+        stripeOnboardingComplete: true,
       },
     });
 
@@ -785,9 +786,12 @@ export class MarketplaceService {
       isFavorited = !!fav;
     }
 
+    const { stripeOnboardingComplete, ...tenantData } = tenant;
+
     return {
       data: {
-        ...tenant,
+        ...tenantData,
+        acceptsOnlinePayment: !!stripeOnboardingComplete,
         averageRating: ratingAgg._avg.rating
           ? Math.round(ratingAgg._avg.rating * 10) / 10
           : null,
@@ -1794,5 +1798,51 @@ export class MarketplaceService {
       },
       tenant.id,
     );
+  }
+
+  // ─── CHECKOUT (Stripe) ─────────────────────────────────
+
+  async createCheckoutSession(
+    marketplaceUserId: string,
+    tenantSlug: string,
+    appointmentId: string,
+    stripeService: any,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+    if (!tenant) throw new NotFoundException('Negocio no encontrado');
+
+    // Verify appointment belongs to this tenant and user
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id: appointmentId, tenantId: tenant.id },
+      include: {
+        client: { select: { marketplaceUserId: true, id: true } },
+        items: true,
+      },
+    });
+
+    if (!appointment || appointment.client?.marketplaceUserId !== marketplaceUserId) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    // Build line items from appointment items
+    const lineItems = appointment.items.map((item) => ({
+      name: item.serviceNameSnapshot,
+      amount: Math.round(Number(item.priceSnapshot) * 100), // cents
+      quantity: 1,
+    }));
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    return stripeService.createCheckoutSession({
+      tenantId: tenant.id,
+      appointmentId,
+      clientId: appointment.client.id,
+      lineItems,
+      currency: tenant.currency || 'MXN',
+      successUrl: `${frontendUrl}/marketplace/${tenantSlug}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${frontendUrl}/marketplace/${tenantSlug}?payment=cancelled`,
+    });
   }
 }
