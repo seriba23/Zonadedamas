@@ -1,9 +1,13 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import Stripe from 'stripe';
 
+const UNPAID_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // check every 5 minutes
+
 @Injectable()
-export class StripeService {
+export class StripeService implements OnModuleInit {
+  private readonly logger = new Logger(StripeService.name);
   private stripe: Stripe;
   private feePercent: number;
 
@@ -12,6 +16,49 @@ export class StripeService {
       apiVersion: '2026-02-25.clover',
     });
     this.feePercent = parseInt(process.env.STRIPE_PLATFORM_FEE_PERCENT || '5', 10);
+  }
+
+  onModuleInit() {
+    // Start cleanup job for unpaid appointments
+    setInterval(() => this.cancelUnpaidAppointments(), CLEANUP_INTERVAL_MS);
+    this.logger.log('Unpaid appointment cleanup job started (every 5 min)');
+  }
+
+  // ─── CLEANUP UNPAID APPOINTMENTS ────────────────────
+
+  private async cancelUnpaidAppointments() {
+    try {
+      const cutoff = new Date(Date.now() - UNPAID_TIMEOUT_MS);
+
+      // Find PENDING payments older than 30 min with STRIPE method
+      const expiredPayments = await this.prisma.payment.findMany({
+        where: {
+          status: 'PENDING',
+          paymentMethod: 'STRIPE',
+          createdAt: { lt: cutoff },
+        },
+        select: { id: true, appointmentId: true },
+      });
+
+      if (expiredPayments.length === 0) return;
+
+      for (const payment of expiredPayments) {
+        // Cancel the appointment
+        if (payment.appointmentId) {
+          await this.prisma.appointment.update({
+            where: { id: payment.appointmentId },
+            data: { status: 'CANCELLED' },
+          });
+        }
+
+        // Delete the pending payment
+        await this.prisma.payment.delete({ where: { id: payment.id } });
+      }
+
+      this.logger.log(`Cancelled ${expiredPayments.length} unpaid appointment(s)`);
+    } catch (err) {
+      this.logger.error('Error in unpaid cleanup job:', err);
+    }
   }
 
   // ─── CONNECT ONBOARDING ─────────────────────────────
