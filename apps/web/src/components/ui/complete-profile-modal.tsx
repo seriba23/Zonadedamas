@@ -34,16 +34,11 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
     setError('');
     try {
       await marketplaceApi.put('/auth/profile', {
+        phone: form.phone || undefined,
         birthDate: form.birthDate || undefined,
         gender: form.gender || undefined,
         allergies: form.allergies || undefined,
       });
-      // Phone requires separate endpoint
-      if (form.phone && form.phone !== user.phone) {
-        await marketplaceApi.put('/auth/profile/contact', {
-          phone: form.phone,
-        });
-      }
       onComplete();
     } catch (err: any) {
       setError(err.message || 'Error al guardar');

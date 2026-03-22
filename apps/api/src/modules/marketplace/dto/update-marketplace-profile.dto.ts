@@ -22,6 +22,10 @@ export class UpdateMarketplaceProfileDto {
   @IsOptional()
   @IsString()
   allergies?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }
 
 export class UpdateMarketplaceSettingsDto {

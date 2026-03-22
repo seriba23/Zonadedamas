@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Param,
   Req,
   Res,
   UseGuards,
@@ -34,6 +35,14 @@ export class StripeController {
   async connectStatus(@Req() req: any) {
     const result = await this.stripeService.getConnectStatus(req.user.tenantId);
     return { data: result };
+  }
+
+  // ─── VERIFY SESSION ──────────────────────────────────
+
+  @Get('verify-session/:sessionId')
+  async verifySession(@Param('sessionId') sessionId: string) {
+    const payment = await this.stripeService.verifyAndCompleteSession(sessionId);
+    return { data: { status: payment?.status || 'NOT_FOUND' } };
   }
 
   // ─── WEBHOOK ────────────────────────────────────────

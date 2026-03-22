@@ -1072,6 +1072,7 @@ export class MarketplaceService {
     if (dto.birthDate !== undefined) updateData.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
     if (dto.gender !== undefined) updateData.gender = dto.gender || null;
     if (dto.allergies !== undefined) updateData.allergies = dto.allergies || null;
+    if (dto.phone !== undefined) updateData.phone = dto.phone || null;
 
     const user = await this.prisma.marketplaceUser.update({
       where: { id: marketplaceUserId },
@@ -1383,6 +1384,11 @@ export class MarketplaceService {
               priceSnapshot: true,
               durationSnapshot: true,
             },
+          },
+          payments: {
+            select: { id: true, status: true, paymentMethod: true, totalAmount: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
           },
         },
         orderBy: { startTime: filter === 'upcoming' ? 'asc' : 'desc' },

@@ -52,6 +52,12 @@ interface Appointment {
     priceSnapshot: string | number;
     durationSnapshot: number;
   }[];
+  payments?: {
+    id: string;
+    status: string;
+    paymentMethod: string;
+    totalAmount: string | number;
+  }[];
 }
 
 interface GalleryCategory {
@@ -120,11 +126,26 @@ function AppointmentCard({ apt }: { apt: Appointment }) {
             {apt.tenant.name}
           </span>
         </Link>
-        <span
-          className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
-        >
-          {status.label}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {apt.payments?.[0] && (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              apt.payments[0].status === 'COMPLETED'
+                ? 'bg-green-100 text-green-700'
+                : apt.payments[0].status === 'PENDING'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-600'
+            }`}>
+              {apt.payments[0].status === 'COMPLETED' ? 'Pagado' :
+               apt.payments[0].status === 'PENDING' ? 'Pago pendiente' :
+               apt.payments[0].status === 'REFUNDED' ? 'Reembolsado' : apt.payments[0].status}
+            </span>
+          )}
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
+          >
+            {status.label}
+          </span>
+        </div>
       </div>
 
       <div className="mb-2">
@@ -242,7 +263,7 @@ export default function MarketplaceProfilePage() {
     queryKey: ['marketplace-my-appointments', 'upcoming'],
     queryFn: () =>
       marketplaceApi.get<{ data: Appointment[]; meta: any }>(
-        '/my-appointments?filter=upcoming&perPage=5',
+        '/my-appointments?filter=upcoming&perPage=20',
       ),
     enabled: isAuthenticated,
   });
@@ -253,7 +274,7 @@ export default function MarketplaceProfilePage() {
     queryKey: ['marketplace-my-appointments', 'past'],
     queryFn: () =>
       marketplaceApi.get<{ data: Appointment[]; meta: any }>(
-        '/my-appointments?filter=past&perPage=5',
+        '/my-appointments?filter=past&perPage=20',
       ),
     enabled: isAuthenticated,
   });

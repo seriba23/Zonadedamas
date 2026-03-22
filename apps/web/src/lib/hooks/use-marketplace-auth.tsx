@@ -64,12 +64,23 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Fetch full user data after login (login responses don't include all fields)
+  const fetchFullUser = useCallback(async () => {
+    try {
+      const res = await marketplaceApi.get<{ data: MarketplaceUser }>('/auth/me');
+      setUser(res.data);
+    } catch {
+      // keep partial data
+    }
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const result = await marketplaceApi.loginAndStore(email, password);
     const { reactivated, ...userData } = result;
     setUser(userData);
+    fetchFullUser();
     return result;
-  }, []);
+  }, [fetchFullUser]);
 
   const register = useCallback(
     async (params: {
@@ -81,9 +92,10 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     }) => {
       const u = await marketplaceApi.registerAndStore(params);
       setUser(u);
+      fetchFullUser();
       return u;
     },
-    [],
+    [fetchFullUser],
   );
 
   const socialLogin = useCallback(
@@ -91,9 +103,10 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       const result = await marketplaceApi.socialLoginAndStore(provider, token);
       const { isNewUser, ...userData } = result;
       setUser(userData);
+      fetchFullUser();
       return result;
     },
-    [],
+    [fetchFullUser],
   );
 
   const logout = useCallback(() => {

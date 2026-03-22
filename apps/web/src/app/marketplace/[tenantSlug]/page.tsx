@@ -64,6 +64,16 @@ export default function BusinessDetailPage() {
 
   // Payment return handling
   const paymentStatus = searchParams.get('payment');
+  const sessionId = searchParams.get('session_id');
+
+  // Verify payment session on return from Stripe
+  useEffect(() => {
+    if (paymentStatus === 'success' && sessionId) {
+      fetch(`${API_URL}/api/stripe/verify-session/${sessionId}`)
+        .then((r) => r.json())
+        .catch(() => {});
+    }
+  }, [paymentStatus, sessionId]);
 
   // Booking flow state
   const [bookingStep, setBookingStep] = useState<BookingStep>(
@@ -131,9 +141,13 @@ export default function BusinessDetailPage() {
     }
   }
   // Deduplicate slots by startTime (when anyEmployee, multiple employees can have same slot)
-  const uniqueSlots = anyEmployee
+  const deduped = anyEmployee
     ? Array.from(new Map(slots.map((s) => [s.startTime, s])).values())
     : slots;
+
+  // Filter out past slots when selected date is today
+  const now = new Date();
+  const uniqueSlots = deduped.filter((s) => new Date(s.startTime) > now);
 
   // Business rewards
   const { data: bizRewardsData } = useQuery({
@@ -153,7 +167,7 @@ export default function BusinessDetailPage() {
         notes: bookingNotes || undefined,
       }),
     onSuccess: async (res: any) => {
-      const appointment = res.data || res;
+      const appointment = res?.data?.data || res?.data || res;
       // If business accepts online payment, redirect to Stripe Checkout
       if (biz?.acceptsOnlinePayment && appointment?.id) {
         try {
@@ -164,8 +178,11 @@ export default function BusinessDetailPage() {
             window.location.href = checkoutRes.data.checkoutUrl;
             return;
           }
-        } catch {
-          // If checkout fails, still show success (appointment was created)
+        } catch (err: any) {
+          console.error('Checkout error:', err);
+          // Show success but note that payment is pending
+          setBookingStep('success');
+          return;
         }
       }
       setBookingStep('success');
@@ -1425,37 +1442,53 @@ export default function BusinessDetailPage() {
                 : 'Tu cita ha sido reservada exitosamente.'}
             </p>
 
-            <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 mb-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Servicios:</span>
-                <span className="font-medium text-right">
-                  {selectedServices.map((s) => s.name).join(', ')}
-                </span>
-              </div>
-              {selectedSlot && (
+            {/* Show booking details only when state is available (direct booking, not Stripe return) */}
+            {!paymentStatus && selectedServices.length > 0 && (
+              <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Fecha y hora:</span>
-                  <span className="font-medium">
-                    {formatDate(selectedSlot.startTime)},{' '}
-                    {formatTime(selectedSlot.startTime.substring(11, 16))}
+                  <span className="text-gray-500">Servicios:</span>
+                  <span className="font-medium text-right">
+                    {selectedServices.map((s) => s.name).join(', ')}
                   </span>
                 </div>
-              )}
-              {!anyEmployee && selectedEmployee && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Profesional:</span>
-                  <span className="font-medium">
-                    {selectedEmployee.firstName} {selectedEmployee.lastName}
+                {selectedSlot && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Fecha y hora:</span>
+                    <span className="font-medium">
+                      {formatDate(selectedSlot.startTime)},{' '}
+                      {formatTime(selectedSlot.startTime.substring(11, 16))}
+                    </span>
+                  </div>
+                )}
+                {!anyEmployee && selectedEmployee && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Profesional:</span>
+                    <span className="font-medium">
+                      {selectedEmployee.firstName} {selectedEmployee.lastName}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
+                  <span className="font-semibold text-gray-900">Total:</span>
+                  <span className="font-bold" style={{ color: TEAL }}>
+                    {formatCurrency(totalPrice)}
                   </span>
                 </div>
-              )}
-              <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
-                <span className="font-semibold text-gray-900">Total:</span>
-                <span className="font-bold" style={{ color: TEAL }}>
-                  {formatCurrency(totalPrice)}
-                </span>
               </div>
-            </div>
+            )}
+
+            {/* Stripe return — simplified confirmation */}
+            {paymentStatus === 'success' && (
+              <div className="bg-green-50 rounded-xl p-4 text-center mb-6">
+                <div className="flex items-center justify-center gap-2 text-green-700">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  <span className="text-sm font-semibold">Pago procesado correctamente</span>
+                </div>
+                <p className="text-xs text-green-600 mt-1">Recibirás un recibo por correo electrónico</p>
+              </div>
+            )}
 
             <div className="space-y-3">
               <button

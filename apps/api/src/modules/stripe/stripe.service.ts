@@ -154,6 +154,32 @@ export class StripeService {
     return { checkoutUrl: session.url };
   }
 
+  // ─── VERIFY SESSION (fallback when webhooks don't arrive) ──
+
+  async verifyAndCompleteSession(sessionId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { stripeSessionId: sessionId },
+    });
+    if (!payment) return null;
+    if (payment.status === 'COMPLETED') return payment;
+
+    // Check with Stripe directly
+    const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+    if (session.payment_status === 'paid') {
+      return this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'COMPLETED',
+          stripePaymentIntentId: typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : session.payment_intent?.id || null,
+        },
+      });
+    }
+
+    return payment;
+  }
+
   // ─── WEBHOOKS ───────────────────────────────────────
 
   constructWebhookEvent(payload: Buffer, signature: string): Stripe.Event {
