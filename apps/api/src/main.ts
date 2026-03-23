@@ -13,7 +13,12 @@ async function bootstrap() {
   app.use(compression());
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://192.168.3.33:3000',
+      'capacitor://localhost',
+      'http://localhost',
+    ],
     credentials: true,
   });
 

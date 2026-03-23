@@ -1813,6 +1813,7 @@ export class MarketplaceService {
     tenantSlug: string,
     appointmentId: string,
     stripeService: any,
+    returnUrl?: string,
   ) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: tenantSlug },
@@ -1839,7 +1840,8 @@ export class MarketplaceService {
       quantity: 1,
     }));
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = returnUrl || process.env.FRONTEND_URL || 'http://localhost:3000';
+    const bizUrl = `${baseUrl}/marketplace/${tenantSlug}`;
 
     return stripeService.createCheckoutSession({
       tenantId: tenant.id,
@@ -1847,8 +1849,8 @@ export class MarketplaceService {
       clientId: appointment.client.id,
       lineItems,
       currency: tenant.currency || 'MXN',
-      successUrl: `${frontendUrl}/marketplace/${tenantSlug}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${frontendUrl}/marketplace/${tenantSlug}?payment=cancelled`,
+      successUrl: `${bizUrl}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${bizUrl}?payment=cancelled`,
     });
   }
 }

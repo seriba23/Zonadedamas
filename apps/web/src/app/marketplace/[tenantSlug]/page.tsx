@@ -173,6 +173,7 @@ export default function BusinessDetailPage() {
         try {
           const checkoutRes: any = await marketplaceApi.post(`/checkout/${tenantSlug}`, {
             appointmentId: appointment.id,
+            returnUrl: window.location.origin,
           });
           if (checkoutRes?.data?.checkoutUrl) {
             window.location.href = checkoutRes.data.checkoutUrl;

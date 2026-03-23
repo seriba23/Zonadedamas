@@ -243,6 +243,7 @@ export class MarketplaceController {
       tenantSlug,
       dto.appointmentId,
       this.stripeService,
+      dto.returnUrl,
     );
     return { data: result };
   }
