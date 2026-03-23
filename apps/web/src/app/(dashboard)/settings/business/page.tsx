@@ -253,7 +253,7 @@ export default function BusinessSettingsPage() {
             </div>
           )}
           {tenant.slug && (
-            <p className="text-xs text-gray-400 mt-1">zonadedamas.com/marketplace/{tenant.slug}</p>
+            <p className="text-xs text-gray-400 mt-1">siliba.com/marketplace/{tenant.slug}</p>
           )}
         </div>
       </div>

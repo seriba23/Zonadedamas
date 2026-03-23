@@ -32,7 +32,7 @@ export default function PlatformLoginPage() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Zona de Damas</h1>
+          <h1 className="text-3xl font-bold text-white">Siliba</h1>
           <p className="mt-2 text-gray-400 text-sm">Panel de administración de plataforma</p>
         </div>
 
@@ -57,7 +57,7 @@ export default function PlatformLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="super@zonadedamas.com"
+                placeholder="super@siliba.com"
                 required
               />
             </div>

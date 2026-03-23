@@ -23,7 +23,7 @@ function getJwtSecret(): string {
       'JWT_SECRET not set — using insecure default. Set JWT_SECRET for production.',
       'ClientJwtStrategy',
     );
-    return 'zonadedamas-dev-secret-NOT-FOR-PRODUCTION';
+    return 'siliba-dev-secret-NOT-FOR-PRODUCTION';
   }
   return secret;
 }

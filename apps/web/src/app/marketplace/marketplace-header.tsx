@@ -11,8 +11,8 @@ export default function MarketplaceHeader() {
     <div className="bg-white border-b border-gray-200 px-4 py-4">
       <div className="max-w-2xl mx-auto flex items-center justify-between">
         <Link href="/marketplace">
-          <h1 className="text-xl font-bold tracking-tight" style={{ color: '#008080' }}>ZONADEDAMAS</h1>
-          <p className="text-xs text-gray-500">Tu plataforma de belleza</p>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: '#008080' }}>SILIBA</h1>
+          <p className="text-xs text-gray-500">Tu confianza, en manos de profesionales</p>
         </Link>
 
         {isLoading ? null : isAuthenticated ? (

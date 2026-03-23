@@ -76,7 +76,7 @@ export class StripeService implements OnModuleInit {
         email: tenant.email,
         business_profile: {
           name: tenant.name,
-          url: `https://zonadedamas.com/marketplace/${tenant.slug}`,
+          url: `https://siliba.com/marketplace/${tenant.slug}`,
         },
       });
       accountId = account.id;

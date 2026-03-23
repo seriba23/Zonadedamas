@@ -86,7 +86,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-gray-200">
         <span className="text-xl font-bold text-primary-600">
-          Zona de Damas
+          Siliba
         </span>
       </div>
 

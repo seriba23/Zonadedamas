@@ -161,7 +161,7 @@ export default function PaymentsSettingsPage() {
             <div>
               <p className="text-sm font-medium text-amber-800">Comisión de plataforma</p>
               <p className="text-sm text-amber-700 mt-0.5">
-                Zona de Damas cobra una comisión del {process.env.NEXT_PUBLIC_STRIPE_FEE_PERCENT || '5'}% por cada pago online procesado. Adicionalmente, Stripe cobra sus tarifas estándar por procesamiento.
+                Siliba cobra una comisión del {process.env.NEXT_PUBLIC_STRIPE_FEE_PERCENT || '5'}% por cada pago online procesado. Adicionalmente, Stripe cobra sus tarifas estándar por procesamiento.
               </p>
             </div>
           </div>

@@ -3,7 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Zona de Damas',
+  title: 'Siliba',
   description: 'Plataforma de gestión para negocios de belleza y bienestar',
 };
 

@@ -1132,7 +1132,7 @@ export default function MarketplaceSettingsPage() {
           )}
 
           <p className="text-center text-xs text-gray-300 pb-4">
-            Zona de Damas v1.0
+            Siliba v1.0
           </p>
         </div>
       </div>

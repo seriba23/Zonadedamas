@@ -24,7 +24,7 @@ export default function SuspendedPage() {
 
           <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">Contacto de soporte</h3>
-            <p className="text-sm text-gray-600">soporte@zonadedamas.com</p>
+            <p className="text-sm text-gray-600">soporte@siliba.com</p>
           </div>
 
           <button

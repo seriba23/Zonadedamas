@@ -22,7 +22,7 @@ function getJwtSecret(): string {
       'JWT_SECRET not set — using insecure default.',
       'PlatformJwtStrategy',
     );
-    return 'zonadedamas-dev-secret-NOT-FOR-PRODUCTION';
+    return 'siliba-dev-secret-NOT-FOR-PRODUCTION';
   }
   return secret;
 }
@@ -34,7 +34,7 @@ export class PlatformJwtStrategy extends PassportStrategy(Strategy, 'platform-jw
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: getJwtSecret(),
-      issuer: 'zonadedamas-platform',
+      issuer: 'siliba-platform',
     });
   }
 

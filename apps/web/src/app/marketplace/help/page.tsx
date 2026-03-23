@@ -79,7 +79,7 @@ export default function MarketplaceHelpPage() {
                 Nuestro equipo de soporte está disponible para ayudarte con cualquier consulta o problema.
               </p>
               <a
-                href="mailto:soporte@zonadedamas.com"
+                href="mailto:soporte@siliba.com"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
                 style={{ backgroundColor: TEAL }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
@@ -187,7 +187,7 @@ export default function MarketplaceHelpPage() {
           </div>
 
           <p className="text-center text-xs text-gray-300 pb-4">
-            Zona de Damas v1.0
+            Siliba v1.0
           </p>
         </div>
       </div>

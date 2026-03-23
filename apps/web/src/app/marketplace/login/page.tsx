@@ -46,7 +46,7 @@ export default function MarketplaceLoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#008080' }}>ZONADEDAMAS</h1>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#008080' }}>SILIBA</h1>
           <p className="text-sm text-gray-500 mt-1">Inicia sesión en tu cuenta</p>
         </div>
 

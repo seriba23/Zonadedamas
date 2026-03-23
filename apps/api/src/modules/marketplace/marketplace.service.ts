@@ -983,7 +983,7 @@ export class MarketplaceService {
       },
       {
         expiresIn: process.env.JWT_CLIENT_ACCESS_EXPIRY || '15m',
-        issuer: 'zonadedamas-client',
+        issuer: 'siliba-client',
       },
     );
 
@@ -1525,7 +1525,7 @@ export class MarketplaceService {
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: process.env.JWT_CLIENT_ACCESS_EXPIRY || '15m',
-      issuer: 'zonadedamas-marketplace',
+      issuer: 'siliba-marketplace',
     });
 
     const refreshToken = uuidv4();

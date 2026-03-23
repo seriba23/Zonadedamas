@@ -29,13 +29,13 @@ export default function TermsAndConditionsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="prose prose-sm max-w-none text-gray-700 space-y-5">
             <div className="text-center mb-6">
-              <h2 className="text-base font-bold text-gray-900 mb-1">Zona de Damas</h2>
+              <h2 className="text-base font-bold text-gray-900 mb-1">Siliba</h2>
               <p className="text-sm font-semibold text-gray-700">Términos y Condiciones de Uso</p>
               <p className="text-xs text-gray-400 mt-1">Última actualización: 10 de marzo de 2026</p>
             </div>
 
             <p className="text-sm leading-relaxed p-3 bg-gray-50 rounded-lg italic">
-              Lea detenidamente los presentes Términos y Condiciones antes de utilizar la plataforma Zona de Damas.
+              Lea detenidamente los presentes Términos y Condiciones antes de utilizar la plataforma Siliba.
               Al crear una cuenta o utilizar la aplicación, usted acepta quedar vinculado por estos términos.
               Si no está de acuerdo, por favor no utilice la plataforma.
             </p>
@@ -45,7 +45,7 @@ export default function TermsAndConditionsPage() {
               <h3 className="text-sm font-bold text-gray-900 mb-2">1. Aceptación de los Términos</h3>
               <p className="text-sm leading-relaxed">
                 Los presentes Términos y Condiciones de Uso (en adelante &quot;los Términos&quot;) regulan el acceso y uso de la plataforma
-                digital Zona de Damas (en adelante &quot;la Plataforma&quot;), incluyendo la aplicación móvil disponible para Android e iOS,
+                digital Siliba (en adelante &quot;la Plataforma&quot;), incluyendo la aplicación móvil disponible para Android e iOS,
                 el sitio web y cualquier servicio asociado, proporcionados por el Responsable, persona física con actividad empresarial
                 con domicilio en Guadalajara, Jalisco, México.
               </p>
@@ -62,7 +62,7 @@ export default function TermsAndConditionsPage() {
                 Para los efectos de los presentes Términos, se entenderá por:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li><strong>Plataforma:</strong> la aplicación móvil Zona de Damas, disponible en Google Play Store y Apple App Store, así como el panel web de administración.</li>
+                <li><strong>Plataforma:</strong> la aplicación móvil Siliba, disponible en Google Play Store y Apple App Store, así como el panel web de administración.</li>
                 <li><strong>Cliente:</strong> persona física que utiliza la Plataforma para buscar, agendar y recibir servicios de belleza y cuidado personal.</li>
                 <li><strong>Profesional:</strong> persona física que ofrece servicios de belleza y cuidado personal a través de la Plataforma.</li>
                 <li><strong>Gerente / Administrador:</strong> persona física responsable de la gestión de uno o más negocios registrados en la Plataforma.</li>
@@ -158,7 +158,7 @@ export default function TermsAndConditionsPage() {
 
               <h4 className="text-sm font-semibold text-gray-800 mt-2 mb-1">6.1 Responsabilidad del servicio</h4>
               <p className="text-sm leading-relaxed">
-                Zona de Damas actúa como plataforma intermediaria que facilita la conexión entre Clientes y Profesionales.
+                Siliba actúa como plataforma intermediaria que facilita la conexión entre Clientes y Profesionales.
                 El Responsable no es parte de la relación de servicio entre ellos y no garantiza la calidad, seguridad o legalidad
                 de los servicios ofrecidos por los Negocios y Profesionales registrados.
               </p>
@@ -181,7 +181,7 @@ export default function TermsAndConditionsPage() {
             <div>
               <h3 className="text-sm font-bold text-gray-900 mb-2">7. Propiedad Intelectual</h3>
               <p className="text-sm leading-relaxed">
-                Todo el contenido de la Plataforma, incluyendo pero no limitado a: nombre comercial &quot;Zona de Damas&quot;, logotipos,
+                Todo el contenido de la Plataforma, incluyendo pero no limitado a: nombre comercial &quot;Siliba&quot;, logotipos,
                 diseño visual, código fuente, base de datos, textos, imágenes y funcionalidades, es propiedad exclusiva del Responsable
                 o cuenta con licencia de uso a su favor, y se encuentra protegido por la Ley Federal del Derecho de Autor, la Ley
                 de la Propiedad Industrial y los tratados internacionales aplicables.
@@ -223,7 +223,7 @@ export default function TermsAndConditionsPage() {
                 <Link href="/marketplace/legal/privacy" className="font-medium" style={{ color: TEAL }}>
                   Aviso de Privacidad
                 </Link>{' '}
-                de Zona de Damas, el cual forma parte integral de estos Términos y está disponible dentro de la Plataforma.
+                de Siliba, el cual forma parte integral de estos Términos y está disponible dentro de la Plataforma.
                 Al aceptar estos Términos, el usuario también acepta los términos del Aviso de Privacidad.
               </p>
             </div>
@@ -277,14 +277,14 @@ export default function TermsAndConditionsPage() {
               <ul className="list-disc pl-5 space-y-1 text-sm">
                 <li>
                   Asuntos legales:{' '}
-                  <a href="mailto:legal@zonadedamas.com" className="font-medium" style={{ color: TEAL }}>
-                    legal@zonadedamas.com
+                  <a href="mailto:legal@siliba.com" className="font-medium" style={{ color: TEAL }}>
+                    legal@siliba.com
                   </a>
                 </li>
                 <li>
                   Soporte técnico:{' '}
-                  <a href="mailto:soporte@zonadedamas.com" className="font-medium" style={{ color: TEAL }}>
-                    soporte@zonadedamas.com
+                  <a href="mailto:soporte@siliba.com" className="font-medium" style={{ color: TEAL }}>
+                    soporte@siliba.com
                   </a>
                 </li>
                 <li>Dentro de la aplicación: Configuración &gt; Centro de Ayuda &gt; Contactar soporte</li>
@@ -292,7 +292,7 @@ export default function TermsAndConditionsPage() {
             </div>
 
             <p className="text-xs text-gray-400 text-center pt-4 border-t border-gray-100 italic">
-              Zona de Damas — 10 de marzo de 2026
+              Siliba — 10 de marzo de 2026
             </p>
           </div>
         </div>

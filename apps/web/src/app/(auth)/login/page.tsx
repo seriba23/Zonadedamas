@@ -67,7 +67,7 @@ export default function LoginPage() {
         {/* Logo area */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary-600">
-            Zona de Damas
+            Siliba
           </h1>
           <p className="mt-2 text-gray-500 text-sm">
             Plataforma de gestión para tu negocio
@@ -190,7 +190,7 @@ export default function LoginPage() {
         </p>
 
         <p className="text-center mt-4 text-xs text-gray-400">
-          &copy; {new Date().getFullYear()} Zona de Damas. Todos los derechos
+          &copy; {new Date().getFullYear()} Siliba. Todos los derechos
           reservados.
         </p>
       </div>

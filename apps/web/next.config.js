@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@zonadedamas/shared'],
+  transpilePackages: ['@siliba/shared'],
   output: 'standalone',
   poweredByHeader: false,
   compress: true,

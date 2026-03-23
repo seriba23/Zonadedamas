@@ -16,8 +16,8 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
     <div className="w-[210mm] min-h-[297mm] bg-white flex flex-col items-center justify-center p-12 mx-auto print:p-8">
       {/* App branding */}
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold text-indigo-600 tracking-tight">ZONADEDAMAS</h1>
-        <p className="text-lg text-gray-500 mt-1">Tu plataforma de belleza</p>
+        <h1 className="text-4xl font-bold text-indigo-600 tracking-tight">SILIBA</h1>
+        <p className="text-lg text-gray-500 mt-1">Tu confianza, en manos de profesionales</p>
       </div>
 
       {/* QR Code */}
@@ -84,7 +84,7 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
 
       {/* Footer */}
       <div className="mt-auto pt-10 text-center">
-        <p className="text-sm text-gray-400">www.zonadedamas.com</p>
+        <p className="text-sm text-gray-400">www.siliba.com</p>
       </div>
     </div>
   );

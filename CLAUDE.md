@@ -1,10 +1,10 @@
-# Zona de Damas - SaaS Booking Platform
+# Siliba - SaaS Booking Platform
 
 ## Stack
 - Monorepo: Turborepo + npm workspaces
 - Backend: NestJS + TypeScript + Prisma + MySQL (XAMPP MariaDB)
 - Frontend: Next.js 14 + TypeScript + Tailwind CSS
-- Shared: @zonadedamas/shared (types + Zod schemas)
+- Shared: @siliba/shared (types + Zod schemas)
 - Cache: In-memory (Map-based, replaces Redis)
 - Events: @nestjs/event-emitter (replaces BullMQ)
 
@@ -29,7 +29,7 @@ docs/            → Architecture and design documentation
 
 ## Development Setup (XAMPP)
 1. Start XAMPP (Apache + MySQL)
-2. Create database "zonadedamas" via phpMyAdmin
+2. Create database "siliba" via phpMyAdmin
 3. `npm install` (from root)
 4. `cd apps/api && npx prisma migrate dev`
 5. `npm run db:seed`

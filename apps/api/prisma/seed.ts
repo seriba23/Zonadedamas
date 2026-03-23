@@ -414,11 +414,11 @@ async function main() {
   const passwordHash = await bcrypt.hash('Admin123!', 12);
 
   const ownerUser = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@zonadedamas.com' } },
+    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@siliba.com' } },
     update: {},
     create: {
       tenantId: tenant.id,
-      email: 'admin@zonadedamas.com',
+      email: 'admin@siliba.com',
       passwordHash,
       firstName: 'Admin',
       lastName: 'Owner',
@@ -1117,17 +1117,17 @@ async function main() {
   console.log('Seeding platform super admin...');
   const superPasswordHash = await bcrypt.hash('Super123!', 12);
   await prisma.platformUser.upsert({
-    where: { email: 'super@zonadedamas.com' },
+    where: { email: 'super@siliba.com' },
     update: {},
     create: {
-      email: 'super@zonadedamas.com',
+      email: 'super@siliba.com',
       passwordHash: superPasswordHash,
       firstName: 'Super',
       lastName: 'Admin',
       isActive: true,
     },
   });
-  console.log('  Platform admin: super@zonadedamas.com / Super123!');
+  console.log('  Platform admin: super@siliba.com / Super123!');
 
   // 13. Create Subscription for demo tenant
   console.log('Seeding demo subscription...');
@@ -1334,12 +1334,12 @@ async function main() {
   // Create demo marketplace user
   const mktPasswordHash = await bcrypt.hash('Cliente123!', 12);
   const existingMktUser = await prisma.marketplaceUser.findUnique({
-    where: { email: 'cliente@zonadedamas.com' },
+    where: { email: 'cliente@siliba.com' },
   });
   if (!existingMktUser) {
     await prisma.marketplaceUser.create({
       data: {
-        email: 'cliente@zonadedamas.com',
+        email: 'cliente@siliba.com',
         passwordHash: mktPasswordHash,
         firstName: 'Maria',
         lastName: 'Garcia',
@@ -1354,13 +1354,13 @@ async function main() {
   // Create Alfredo marketplace user
   const alfredoMktHash = await bcrypt.hash('Cliente123!', 12);
   const existingAlfredo = await prisma.marketplaceUser.findUnique({
-    where: { email: 'alfredo@zonadedamas.com' },
+    where: { email: 'alfredo@siliba.com' },
   });
   let alfredoMktUser = existingAlfredo;
   if (!existingAlfredo) {
     alfredoMktUser = await prisma.marketplaceUser.create({
       data: {
-        email: 'alfredo@zonadedamas.com',
+        email: 'alfredo@siliba.com',
         passwordHash: alfredoMktHash,
         firstName: 'Alfredo',
         lastName: 'Rodriguez',
@@ -1375,7 +1375,7 @@ async function main() {
   // Link Alfredo's existing client record (or create one) and give him loyalty points + appointments
   if (alfredoMktUser) {
     let alfredoClient = await prisma.client.findFirst({
-      where: { tenantId: tenant.id, email: 'alfredo@zonadedamas.com' },
+      where: { tenantId: tenant.id, email: 'alfredo@siliba.com' },
     });
 
     if (alfredoClient) {
@@ -1391,7 +1391,7 @@ async function main() {
           marketplaceUserId: alfredoMktUser.id,
           firstName: 'Alfredo',
           lastName: 'Rodriguez',
-          email: 'alfredo@zonadedamas.com',
+          email: 'alfredo@siliba.com',
           phone: '+1-555-0201',
           source: 'MARKETPLACE',
           portalRegisteredAt: new Date(),
@@ -1510,14 +1510,14 @@ async function main() {
   console.log('\nSeed completed successfully!');
   console.log('─────────────────────────────────────────────');
   console.log(`Tenant:        Demo Salon (slug: demo-salon)`);
-  console.log(`Admin login:   admin@zonadedamas.com / Admin123!`);
+  console.log(`Admin login:   admin@siliba.com / Admin123!`);
   console.log(`Staff logins:  maria@demo-salon.com / Staff123!`);
   console.log(`               james@demo-salon.com / Staff123!`);
   console.log(`               sofia@demo-salon.com / Staff123!`);
   console.log(`Invite code:   DEMOSALON`);
-  console.log(`Super Admin:   super@zonadedamas.com / Super123!`);
-  console.log(`Marketplace:   cliente@zonadedamas.com / Cliente123!`);
-  console.log(`               alfredo@zonadedamas.com / Cliente123!`);
+  console.log(`Super Admin:   super@siliba.com / Super123!`);
+  console.log(`Marketplace:   cliente@siliba.com / Cliente123!`);
+  console.log(`               alfredo@siliba.com / Cliente123!`);
   console.log('─────────────────────────────────────────────');
 }
 

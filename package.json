@@ -1,5 +1,5 @@
 {
-  "name": "zonadedamas",
+  "name": "siliba",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -10,9 +10,9 @@
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
-    "db:migrate": "npm run -w @zonadedamas/api db:migrate",
-    "db:seed": "npm run -w @zonadedamas/api db:seed",
-    "db:studio": "npm run -w @zonadedamas/api db:studio",
+    "db:migrate": "npm run -w @siliba/api db:migrate",
+    "db:seed": "npm run -w @siliba/api db:seed",
+    "db:studio": "npm run -w @siliba/api db:studio",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down"
   },

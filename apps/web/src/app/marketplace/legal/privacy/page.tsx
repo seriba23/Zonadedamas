@@ -28,7 +28,7 @@ export default function PrivacyPolicyPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="prose prose-sm max-w-none text-gray-700 space-y-5">
             <div className="text-center mb-6">
-              <h2 className="text-base font-bold text-gray-900 mb-1">Zona de Damas</h2>
+              <h2 className="text-base font-bold text-gray-900 mb-1">Siliba</h2>
               <p className="text-sm font-semibold text-gray-700">Aviso de Privacidad Integral</p>
               <p className="text-xs text-gray-400 mt-1">Última actualización: 10 de marzo de 2026</p>
               <p className="text-xs text-gray-400 italic">
@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
             <div>
               <h3 className="text-sm font-bold text-gray-900 mb-2">I. Identidad y Domicilio del Responsable</h3>
               <p className="text-sm leading-relaxed">
-                Zona de Damas (en adelante &quot;el Responsable&quot;), persona física con actividad empresarial, con domicilio en la
+                Siliba (en adelante &quot;el Responsable&quot;), persona física con actividad empresarial, con domicilio en la
                 Ciudad de Guadalajara, Jalisco, México, es el responsable del tratamiento de sus datos personales de conformidad
                 con la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (en adelante &quot;la Ley&quot;) y su Reglamento.
               </p>
@@ -50,8 +50,8 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-1 text-sm">
                 <li>
                   Correo electrónico:{' '}
-                  <a href="mailto:privacidad@zonadedamas.com" className="font-medium" style={{ color: TEAL }}>
-                    privacidad@zonadedamas.com
+                  <a href="mailto:privacidad@siliba.com" className="font-medium" style={{ color: TEAL }}>
+                    privacidad@siliba.com
                   </a>
                 </li>
                 <li>Plataforma: a través de la sección de Ayuda y Privacidad dentro de la aplicación.</li>
@@ -161,8 +161,8 @@ export default function PrivacyPolicyPage() {
               </ul>
               <p className="text-sm leading-relaxed mt-2">
                 Para ejercer cualquiera de estos derechos, envíe una solicitud al correo{' '}
-                <a href="mailto:privacidad@zonadedamas.com" className="font-medium" style={{ color: TEAL }}>
-                  privacidad@zonadedamas.com
+                <a href="mailto:privacidad@siliba.com" className="font-medium" style={{ color: TEAL }}>
+                  privacidad@siliba.com
                 </a>{' '}
                 con: (i) nombre completo y datos de contacto; (ii) descripción clara del derecho que desea ejercer;
                 (iii) copia de identificación oficial. El Responsable responderá en un plazo máximo de 20 días hábiles.
@@ -173,7 +173,7 @@ export default function PrivacyPolicyPage() {
             <div>
               <h3 className="text-sm font-bold text-gray-900 mb-2">VI. Uso de Cookies y Tecnologías de Rastreo</h3>
               <p className="text-sm leading-relaxed mb-2">
-                La plataforma Zona de Damas utiliza cookies y tecnologías similares para mejorar la experiencia del usuario,
+                La plataforma Siliba utiliza cookies y tecnologías similares para mejorar la experiencia del usuario,
                 recordar preferencias, analizar el tráfico y el rendimiento de la aplicación. Estas tecnologías pueden recolectar:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-sm">
@@ -227,7 +227,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <p className="text-xs text-gray-400 text-center pt-4 border-t border-gray-100 italic">
-              Zona de Damas — 10 de marzo de 2026
+              Siliba — 10 de marzo de 2026
             </p>
           </div>
         </div>

@@ -494,7 +494,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
-      issuer: 'zonadedamas-tenant',
+      issuer: 'siliba-tenant',
     });
 
     const refreshToken = uuidv4();
