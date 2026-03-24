@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Siliba</string>
+    <string name="title_activity_main">Siliba</string>
+    <string name="package_name">com.siliba.app</string>
+    <string name="custom_url_scheme">com.siliba.app</string>
+</resources>
