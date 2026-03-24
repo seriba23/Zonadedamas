@@ -16,7 +16,7 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
     <div className="w-[210mm] min-h-[297mm] bg-white flex flex-col items-center justify-center p-12 mx-auto print:p-8">
       {/* App branding */}
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold text-indigo-600 tracking-tight">SILIBA</h1>
+        <h1 className="text-4xl font-bold text-indigo-600 tracking-tight">Siliba</h1>
         <p className="text-lg text-gray-500 mt-1">Tu confianza, en manos de profesionales</p>
       </div>
 

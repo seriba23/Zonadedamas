@@ -51,7 +51,7 @@ export default function QrSettingsPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>QR - ${qr?.tenantName || 'SILIBA'}</title>
+        <title>QR - ${qr?.tenantName || 'Siliba'}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @page { margin: 0; size: A4; }
