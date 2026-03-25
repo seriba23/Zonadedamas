@@ -15,7 +15,7 @@ export default function HomePage() {
     if (isMobile) {
       router.replace('/marketplace');
     } else {
-      router.replace('/calendar');
+      router.replace('/dashboard');
     }
   }, [router]);
 
