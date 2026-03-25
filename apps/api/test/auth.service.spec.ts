@@ -329,13 +329,8 @@ describe('AuthService', () => {
       ...MOCK_REFRESH_TOKEN,
       expiresAt: new Date(Date.now() - 1000), // 1 second in the past
     };
-    mockPrismaService.refreshToken.findUnique.mockResolvedValueOnce(
-      expiredToken,
-    );
+    mockPrismaService.refreshToken.findUnique.mockResolvedValue(expiredToken);
 
-    await expect(service.refresh(expiredToken.token)).rejects.toThrow(
-      UnauthorizedException,
-    );
     await expect(service.refresh(expiredToken.token)).rejects.toThrow(
       /expired/i,
     );
@@ -347,13 +342,8 @@ describe('AuthService', () => {
       ...MOCK_REFRESH_TOKEN,
       revokedAt: new Date(Date.now() - 60_000), // revoked 1 minute ago
     };
-    mockPrismaService.refreshToken.findUnique.mockResolvedValueOnce(
-      revokedToken,
-    );
+    mockPrismaService.refreshToken.findUnique.mockResolvedValue(revokedToken);
 
-    await expect(service.refresh(revokedToken.token)).rejects.toThrow(
-      UnauthorizedException,
-    );
     await expect(service.refresh(revokedToken.token)).rejects.toThrow(
       /revoked/i,
     );

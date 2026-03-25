@@ -93,8 +93,8 @@ class AvailabilityService {
       return JSON.parse(cached as string) as TimeSlot[];
     }
 
-    const queryDate = new Date(query.date);
-    const dayOfWeek = queryDate.getDay(); // 0=Sun
+    const queryDate = new Date(query.date + 'T12:00:00.000Z');
+    const dayOfWeek = queryDate.getUTCDay(); // 0=Sun
 
     // Fetch employees
     const employeeFilter: Record<string, unknown> = {};
@@ -154,14 +154,14 @@ class AvailabilityService {
         ...existingAppointments
           .filter((a) => a.employeeId === employee.id)
           .map((a) => ({
-            start: a.startTime.getHours() * 60 + a.startTime.getMinutes(),
-            end: a.endTime.getHours() * 60 + a.endTime.getMinutes(),
+            start: a.startTime.getUTCHours() * 60 + a.startTime.getUTCMinutes(),
+            end: a.endTime.getUTCHours() * 60 + a.endTime.getUTCMinutes(),
           })),
         ...timeOffs
           .filter((to) => to.employeeId === employee.id && !to.isAllDay)
           .map((to) => ({
-            start: to.startTime.getHours() * 60 + to.startTime.getMinutes(),
-            end: to.endTime.getHours() * 60 + to.endTime.getMinutes(),
+            start: to.startTime.getUTCHours() * 60 + to.startTime.getUTCMinutes(),
+            end: to.endTime.getUTCHours() * 60 + to.endTime.getUTCMinutes(),
           })),
       ].sort((a, b) => a.start - b.start);
 

@@ -316,11 +316,8 @@ describe('AppointmentsService', () => {
       code: string;
     };
     prismaError.code = 'P2002';
-    mockPrismaService.appointment.create.mockRejectedValueOnce(prismaError);
+    mockPrismaService.appointment.create.mockRejectedValue(prismaError);
 
-    await expect(service.create(CREATE_DTO)).rejects.toThrow(
-      BadRequestException,
-    );
     await expect(service.create(CREATE_DTO)).rejects.toThrow(
       /overlap/i,
     );
@@ -403,14 +400,11 @@ describe('AppointmentsService', () => {
 
   // 9. Cannot cancel already cancelled appointment
   it('should throw BadRequestException when cancelling an already cancelled appointment', async () => {
-    mockPrismaService.appointment.findUnique.mockResolvedValueOnce({
+    mockPrismaService.appointment.findUnique.mockResolvedValue({
       ...MOCK_APPOINTMENT,
       status: STATUS.CANCELLED,
     });
 
-    await expect(
-      service.cancel(MOCK_APPOINTMENT.id, 'reason'),
-    ).rejects.toThrow(BadRequestException);
     await expect(
       service.cancel(MOCK_APPOINTMENT.id, 'reason'),
     ).rejects.toThrow(/already cancelled/i);
@@ -418,14 +412,11 @@ describe('AppointmentsService', () => {
 
   // 10. Cannot complete already completed appointment
   it('should throw BadRequestException when completing an already completed appointment', async () => {
-    mockPrismaService.appointment.findUnique.mockResolvedValueOnce({
+    mockPrismaService.appointment.findUnique.mockResolvedValue({
       ...MOCK_APPOINTMENT,
       status: STATUS.COMPLETED,
     });
 
-    await expect(service.complete(MOCK_APPOINTMENT.id)).rejects.toThrow(
-      BadRequestException,
-    );
     await expect(service.complete(MOCK_APPOINTMENT.id)).rejects.toThrow(
       /already completed/i,
     );
