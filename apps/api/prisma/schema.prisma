@@ -94,6 +94,7 @@ enum BusinessType {
   BARBERIA
   SPA
   CLINICA
+  TATUAJES
 }
 
 // ─── PLATFORM USERS (Super Admin) ──────────────────
@@ -235,6 +236,10 @@ model Tenant {
   rewards               Reward[]
   rewardRedemptions     RewardRedemption[]
   marketplaceFavorites  MarketplaceFavorite[]
+  products              Product[]
+  suppliers             Supplier[]
+  promotions            Promotion[]
+  serviceBundles        ServiceBundle[]
 
   @@map("tenants")
 }
@@ -524,6 +529,8 @@ model Service {
   pointsReward        Int?     @map("points_reward")
   redeemableWithPoints Boolean @default(false) @map("redeemable_with_points")
   pointsRequired      Int?     @map("points_required")
+  depositRequired     Boolean  @default(false) @map("deposit_required")
+  depositPercent      Int?     @map("deposit_percent")
   isActive            Boolean  @default(true) @map("is_active")
   sortOrder           Int      @default(0) @map("sort_order")
   createdAt           DateTime @default(now()) @map("created_at")
@@ -637,9 +644,13 @@ model EmployeeTimeOff {
   employeeId    String   @map("employee_id")
   startDatetime DateTime @map("start_datetime")
   endDatetime   DateTime @map("end_datetime")
-  reason        String?
-  isAllDay      Boolean  @default(false) @map("is_all_day")
-  createdAt     DateTime @default(now()) @map("created_at")
+  reason          String?
+  isAllDay        Boolean   @default(false) @map("is_all_day")
+  status          String    @default("APPROVED") // PENDING, APPROVED, REJECTED
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -1151,4 +1162,103 @@ model MarketplaceFavorite {
   @@unique([marketplaceUserId, tenantId])
   @@index([marketplaceUserId])
   @@map("marketplace_favorites")
+}
+
+// ─── SUPPLIERS ──────────────────────────────────────
+
+model Supplier {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String
+  contactName String?  @map("contact_name")
+  email       String?
+  phone       String?
+  address     String?  @db.Text
+  notes       String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([tenantId])
+  @@map("suppliers")
+}
+
+// ─── PRODUCTS (INVENTORY) ──────────────────────────
+
+model Product {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  name       String
+  sku        String?  @db.VarChar(100)
+  description String? @db.Text
+  category   String?
+  price      Decimal  @db.Decimal(10, 2)
+  costPrice  Decimal? @map("cost_price") @db.Decimal(10, 2)
+  stock      Int      @default(0)
+  minStock   Int      @default(0) @map("min_stock")
+  unit       String   @default("unidad") @db.VarChar(50)
+  supplierId String?  @map("supplier_id")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([supplierId])
+  @@map("products")
+}
+
+// ─── PROMOTIONS ─────────────────────────────────────
+
+model Promotion {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  name       String
+  description String? @db.Text
+  type       String   // PERCENTAGE, FIXED_AMOUNT, TWO_FOR_ONE
+  value      Decimal  @db.Decimal(10, 2)
+  code       String?  @db.VarChar(50)
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
+  maxUses    Int?     @map("max_uses")
+  usedCount  Int      @default(0) @map("used_count")
+  serviceIds Json?    @map("service_ids") // array of service IDs this applies to
+  minAmount  Decimal? @map("min_amount") @db.Decimal(10, 2)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
+  @@index([code])
+  @@map("promotions")
+}
+
+// ─── SERVICE BUNDLES ────────────────────────────────
+
+model ServiceBundle {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  name           String
+  description    String?  @db.Text
+  bundlePrice    Decimal  @map("bundle_price") @db.Decimal(10, 2)
+  serviceIds     Json     @map("service_ids") // array of service IDs
+  totalDuration  Int      @map("total_duration") // sum of durations
+  savingsPercent Decimal? @map("savings_percent") @db.Decimal(5, 2)
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
+  @@map("service_bundles")
 }

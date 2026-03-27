@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RbacService } from '../rbac/rbac.service';
 import { RegisterDto } from './dto/register.dto';
+import { SocialLoginDto } from './dto/social-login.dto';
 
 @Injectable()
 export class AuthService {
@@ -348,6 +349,210 @@ export class AuthService {
         tenantId: user.tenantId,
         permissions: tokens.permissions,
       },
+    };
+  }
+
+  async socialLogin(dto: SocialLoginDto) {
+    // Verify token with provider
+    const profile = dto.provider === 'google'
+      ? await this.verifyGoogleToken(dto.token)
+      : await this.verifyFacebookToken(dto.token);
+
+    // Check if user already exists by email (across any tenant)
+    const existingUsers = await this.prisma.user.findMany({
+      where: { email: profile.email, isActive: true },
+      include: { tenant: true },
+    });
+
+    if (existingUsers.length > 0) {
+      // Login to the first matching user account
+      const user = existingUsers[0];
+      // Update avatar if not set
+      if (!user.avatarUrl && profile.avatarUrl) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { avatarUrl: profile.avatarUrl },
+        });
+      }
+      const tokens = await this.generateTokens(user);
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        isNewUser: false,
+        needsProfile: false,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          tenantId: user.tenantId,
+          permissions: tokens.permissions,
+        },
+      };
+    }
+
+    // New user — requires invite code to join a business
+    if (!dto.inviteCode) {
+      return {
+        isNewUser: true,
+        needsProfile: true,
+        socialProfile: {
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl,
+          provider: dto.provider,
+        },
+      };
+    }
+
+    // Register with invite code
+    const invite = await this.prisma.tenantInviteCode.findUnique({
+      where: { code: dto.inviteCode },
+      include: { tenant: true },
+    });
+    if (!invite || !invite.isActive) {
+      throw new BadRequestException('Codigo de invitacion invalido o inactivo');
+    }
+    if (invite.expiresAt && new Date() > invite.expiresAt) {
+      throw new BadRequestException('El codigo de invitacion ha expirado');
+    }
+    if (invite.maxUses > 0 && invite.usedCount >= invite.maxUses) {
+      throw new BadRequestException('El codigo de invitacion ha alcanzado el limite de usos');
+    }
+
+    // Check duplicate
+    const existingInTenant = await this.prisma.user.findUnique({
+      where: { tenantId_email: { tenantId: invite.tenantId, email: profile.email } },
+    });
+    if (existingInTenant) {
+      throw new ConflictException('Ya existe una cuenta con este correo en este negocio');
+    }
+
+    const location = await this.prisma.location.findFirst({
+      where: { tenantId: invite.tenantId, isActive: true },
+    });
+    if (!location) throw new BadRequestException('El negocio no tiene ubicaciones activas');
+
+    const staffRole = await this.prisma.role.findUnique({
+      where: { tenantId_slug: { tenantId: invite.tenantId, slug: 'staff' } },
+    });
+    if (!staffRole) throw new BadRequestException('Configuracion de roles incompleta');
+
+    // Create user + employee with a random password (social login, won't use it)
+    const randomPassword = uuidv4();
+    const passwordHash = await bcrypt.hash(randomPassword, 12);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          tenantId: invite.tenantId,
+          email: profile.email,
+          passwordHash,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl || null,
+          isActive: true,
+        },
+      });
+
+      await tx.employee.create({
+        data: {
+          tenantId: invite.tenantId,
+          userId: newUser.id,
+          locationId: location.id,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          email: profile.email,
+          avatarUrl: profile.avatarUrl || null,
+          isActive: true,
+        },
+      });
+
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: staffRole.id,
+          tenantId: invite.tenantId,
+        },
+      });
+
+      await tx.tenantInviteCode.update({
+        where: { id: invite.id },
+        data: { usedCount: { increment: 1 } },
+      });
+
+      return newUser;
+    });
+
+    const tokens = await this.generateTokens(user);
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      isNewUser: true,
+      needsProfile: false,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        tenantId: user.tenantId,
+        permissions: tokens.permissions,
+      },
+    };
+  }
+
+  private async verifyGoogleToken(token: string): Promise<{
+    email: string; firstName: string; lastName: string; avatarUrl?: string; socialId: string;
+  }> {
+    const idTokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (idTokenRes.ok) {
+      const payload = await idTokenRes.json();
+      if (!payload.email || payload.email_verified === 'false') {
+        throw new UnauthorizedException('El email de Google no esta verificado');
+      }
+      return {
+        email: payload.email,
+        firstName: payload.given_name || payload.email.split('@')[0],
+        lastName: payload.family_name || '',
+        avatarUrl: payload.picture || undefined,
+        socialId: payload.sub,
+      };
+    }
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!userInfoRes.ok) throw new UnauthorizedException('Token de Google invalido');
+    const payload = await userInfoRes.json();
+    if (!payload.email || !payload.email_verified) {
+      throw new UnauthorizedException('El email de Google no esta verificado');
+    }
+    return {
+      email: payload.email,
+      firstName: payload.given_name || payload.email.split('@')[0],
+      lastName: payload.family_name || '',
+      avatarUrl: payload.picture || undefined,
+      socialId: payload.sub,
+    };
+  }
+
+  private async verifyFacebookToken(token: string): Promise<{
+    email: string; firstName: string; lastName: string; avatarUrl?: string; socialId: string;
+  }> {
+    const res = await fetch(
+      `https://graph.facebook.com/me?fields=id,email,first_name,last_name,picture.type(large)&access_token=${token}`,
+    );
+    if (!res.ok) throw new UnauthorizedException('Token de Facebook invalido');
+    const payload = await res.json();
+    if (!payload.email) {
+      throw new UnauthorizedException('No se pudo obtener el email de Facebook');
+    }
+    return {
+      email: payload.email,
+      firstName: payload.first_name || payload.email.split('@')[0],
+      lastName: payload.last_name || '',
+      avatarUrl: payload.picture?.data?.url || undefined,
+      socialId: payload.id,
     };
   }
 

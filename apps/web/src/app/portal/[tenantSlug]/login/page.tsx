@@ -35,11 +35,12 @@ export default function PortalLoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
-            Mi Portal
+          <h1 className="text-2xl font-bold text-center mb-1" style={{ color: '#008080' }}>
+            Siliba
           </h1>
+          <p className="text-xs text-gray-400 text-center mb-1">Tu confianza, en manos de profesionales</p>
           <p className="text-sm text-gray-500 text-center mb-8">
-            Inicia sesión para ver tus citas
+            Inicia sesion para ver tus citas
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">

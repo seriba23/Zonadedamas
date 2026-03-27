@@ -31,9 +31,12 @@ interface Stats {
   noShowCount: number;
   cancellationRate: number;
   totalRevenue: number;
+  totalCommissions: number;
+  commissionsThisMonth: number;
   averageRating: number | null;
   totalReviews: number;
   topServices: { serviceName: string; count: number }[];
+  topClients: { clientName: string; count: number }[];
   upcomingAppointments: any[];
 }
 
@@ -146,13 +149,27 @@ export default function EmployeeDashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <Link
           href="/employee/appointments"
           className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
         >
           <span className="text-2xl mb-1 block">📅</span>
           <p className="text-xs font-medium text-gray-700">Mis Citas</p>
+        </Link>
+        <Link
+          href="/employee/commissions"
+          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
+        >
+          <span className="text-2xl mb-1 block">💰</span>
+          <p className="text-xs font-medium text-gray-700">Comisiones</p>
+        </Link>
+        <Link
+          href="/employee/gallery"
+          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
+        >
+          <span className="text-2xl mb-1 block">📸</span>
+          <p className="text-xs font-medium text-gray-700">Galería</p>
         </Link>
         <Link
           href="/employee/schedule"
@@ -176,6 +193,28 @@ export default function EmployeeDashboard() {
           <p className="text-xs font-medium text-gray-700">Mi Perfil</p>
         </Link>
       </div>
+
+      {/* Commission highlight */}
+      {stats && stats.totalCommissions > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">Comisiones</h2>
+            <Link href="/employee/commissions" className="text-xs text-primary-600 font-medium hover:underline">
+              Ver detalle
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Total acumulado</p>
+              <p className="text-xl font-bold text-green-600">{formatCurrency(stats.totalCommissions)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Este mes</p>
+              <p className="text-xl font-bold text-primary-700">{formatCurrency(stats.commissionsThisMonth)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Next appointment highlight */}
       {nextAppointment && (
@@ -201,41 +240,10 @@ export default function EmployeeDashboard() {
         </div>
       )}
 
-      {/* Top services */}
-      {stats && stats.topServices.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 mb-6">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">Servicios más realizados</h2>
-          </div>
-          <div className="p-5">
-            <div className="space-y-3">
-              {stats.topServices.map((s, i) => {
-                const maxCount = stats.topServices[0].count;
-                const pct = Math.round((s.count / maxCount) * 100);
-                return (
-                  <div key={i}>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-700">{s.serviceName}</span>
-                      <span className="font-medium text-gray-900">{s.count}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div
-                        className="bg-primary-500 h-2 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Today's appointments */}
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-white rounded-xl border border-gray-200 mb-6">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Citas del día</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Citas del dia</h2>
           <Link href="/employee/appointments" className="text-xs text-primary-600 font-medium hover:underline">
             Ver todas
           </Link>
@@ -294,6 +302,69 @@ export default function EmployeeDashboard() {
           </ul>
         )}
       </div>
+
+      {/* Top services */}
+      {stats && stats.topServices.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 mb-6">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">Servicios más realizados</h2>
+          </div>
+          <div className="p-5">
+            <div className="space-y-3">
+              {stats.topServices.map((s, i) => {
+                const maxCount = stats.topServices[0].count;
+                const pct = Math.round((s.count / maxCount) * 100);
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-700">{s.serviceName}</span>
+                      <span className="font-medium text-gray-900">{s.count}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div
+                        className="bg-primary-500 h-2 rounded-full transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top clients */}
+      {stats && stats.topClients && stats.topClients.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 mb-6">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">Clientes más frecuentes</h2>
+          </div>
+          <div className="p-5">
+            <div className="space-y-3">
+              {stats.topClients.map((c, i) => {
+                const maxCount = stats.topClients[0].count;
+                const pct = Math.round((c.count / maxCount) * 100);
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-700">{c.clientName}</span>
+                      <span className="font-medium text-gray-900">{c.count} visitas</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div
+                        className="bg-amber-400 h-2 rounded-full transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

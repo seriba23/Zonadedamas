@@ -60,18 +60,22 @@ export class ReportsService {
     const noShowCount = appointments.filter((a) => a.status === 'NO_SHOW').length;
     const noShowRate = totalAppointments > 0 ? Math.round((noShowCount / totalAppointments) * 1000) / 10 : 0;
 
-    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.totalAmount), 0);
+    // Revenue from completed appointment items (source of truth)
+    const completedApts = appointments.filter((a) => a.status === 'COMPLETED');
+    const totalRevenue = completedApts.reduce(
+      (sum, a) => sum + a.items.reduce((s, i) => s + Number(i.priceSnapshot), 0), 0,
+    );
     const averageTicket = completedAppointments > 0 ? Math.round((totalRevenue / completedAppointments) * 100) / 100 : 0;
 
-    // ─── Revenue by day ─────────────────────────────
+    // ─── Revenue by day (from completed appointments) ──
     const revenueByDay: Record<string, { revenue: number; count: number }> = {};
-    for (const p of payments) {
-      const day = p.createdAt.toISOString().split('T')[0];
+    for (const apt of completedApts) {
+      const day = apt.startTime.toISOString().split('T')[0];
       if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, count: 0 };
-      revenueByDay[day].revenue += Number(p.totalAmount);
+      revenueByDay[day].revenue += apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
       revenueByDay[day].count += 1;
     }
-    // Also count appointments per day (even without payment)
+    // Also include days with non-completed appointments (so the chart shows all active days)
     for (const a of appointments) {
       const day = a.startTime.toISOString().split('T')[0];
       if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, count: 0 };

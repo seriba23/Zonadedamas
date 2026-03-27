@@ -203,10 +203,12 @@ export class EmployeesService {
     });
   }
 
-  async getTimeOff(employeeId: string, tenantId: string) {
+  async getTimeOff(employeeId: string, tenantId: string, status?: string) {
     await this.findOne(employeeId, tenantId);
+    const where: any = { employeeId };
+    if (status) where.status = status;
     return this.prisma.employeeTimeOff.findMany({
-      where: { employeeId },
+      where,
       orderBy: { startDatetime: 'asc' },
     });
   }
@@ -223,6 +225,7 @@ export class EmployeesService {
         startDatetime: new Date(dto.startDatetime),
         endDatetime: new Date(dto.endDatetime),
         reason: dto.reason,
+        status: dto.status || 'APPROVED',
       },
     });
   }
@@ -242,13 +245,54 @@ export class EmployeesService {
     return { message: 'Tiempo libre eliminado' };
   }
 
-  async getAllTimeOffs(tenantId: string, startDate: string, endDate: string) {
-    return this.prisma.employeeTimeOff.findMany({
-      where: {
-        employee: { tenantId },
-        startDatetime: { lte: new Date(endDate + 'T23:59:59Z') },
-        endDatetime: { gte: new Date(startDate + 'T00:00:00Z') },
+  async approveTimeOff(tenantId: string, employeeId: string, timeOffId: string, userId: string) {
+    await this.findOne(employeeId, tenantId);
+    const timeOff = await this.prisma.employeeTimeOff.findFirst({
+      where: { id: timeOffId, employeeId },
+    });
+    if (!timeOff) throw new NotFoundException('Registro de tiempo libre no encontrado');
+    if (timeOff.status !== 'PENDING') {
+      throw new BadRequestException('Solo se pueden aprobar solicitudes pendientes');
+    }
+    return this.prisma.employeeTimeOff.update({
+      where: { id: timeOffId },
+      data: {
+        status: 'APPROVED',
+        approvedBy: userId,
+        approvedAt: new Date(),
       },
+    });
+  }
+
+  async rejectTimeOff(tenantId: string, employeeId: string, timeOffId: string, userId: string, rejectionReason: string) {
+    await this.findOne(employeeId, tenantId);
+    const timeOff = await this.prisma.employeeTimeOff.findFirst({
+      where: { id: timeOffId, employeeId },
+    });
+    if (!timeOff) throw new NotFoundException('Registro de tiempo libre no encontrado');
+    if (timeOff.status !== 'PENDING') {
+      throw new BadRequestException('Solo se pueden rechazar solicitudes pendientes');
+    }
+    return this.prisma.employeeTimeOff.update({
+      where: { id: timeOffId },
+      data: {
+        status: 'REJECTED',
+        approvedBy: userId,
+        approvedAt: new Date(),
+        rejectionReason,
+      },
+    });
+  }
+
+  async getAllTimeOffs(tenantId: string, startDate: string, endDate: string, status?: string) {
+    const where: any = {
+      employee: { tenantId },
+      startDatetime: { lte: new Date(endDate + 'T23:59:59Z') },
+      endDatetime: { gte: new Date(startDate + 'T00:00:00Z') },
+    };
+    if (status) where.status = status;
+    return this.prisma.employeeTimeOff.findMany({
+      where,
       include: {
         employee: {
           select: { id: true, firstName: true, lastName: true, color: true },
@@ -271,9 +315,12 @@ export class EmployeesService {
       noShowCount,
       totalAppointments,
       revenueResult,
+      commissionsResult,
+      commissionsThisMonth,
       topServices,
       upcomingAppointments,
       ratingResult,
+      topClients,
     ] = await Promise.all([
       this.prisma.appointment.count({
         where: { employeeId, tenantId, status: 'COMPLETED' },
@@ -301,6 +348,20 @@ export class EmployeesService {
           appointment: { tenantId, status: 'COMPLETED' },
         },
         _sum: { priceSnapshot: true },
+      }),
+      this.prisma.appointmentItem.aggregate({
+        where: {
+          employeeId,
+          appointment: { tenantId, status: 'COMPLETED' },
+        },
+        _sum: { commissionSnapshot: true },
+      }),
+      this.prisma.appointmentItem.aggregate({
+        where: {
+          employeeId,
+          appointment: { tenantId, status: 'COMPLETED', startTime: { gte: startOfMonth } },
+        },
+        _sum: { commissionSnapshot: true },
       }),
       this.prisma.appointmentItem.groupBy({
         by: ['serviceNameSnapshot'],
@@ -337,9 +398,28 @@ export class EmployeesService {
         _avg: { rating: true },
         _count: { rating: true },
       }),
+      this.prisma.appointment.groupBy({
+        by: ['clientId'],
+        where: { employeeId, tenantId, status: 'COMPLETED' },
+        _count: { clientId: true },
+        orderBy: { _count: { clientId: 'desc' } },
+        take: 5,
+      }),
     ]);
 
+    // Fetch top client names
+    const topClientIds = topClients.map((c) => c.clientId);
+    const clientNames = topClientIds.length > 0
+      ? await this.prisma.client.findMany({
+          where: { id: { in: topClientIds } },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : [];
+    const clientMap = new Map(clientNames.map((c) => [c.id, `${c.firstName} ${c.lastName}`]));
+
     const revenue = Number(revenueResult._sum.priceSnapshot ?? 0);
+    const totalCommissions = Number(commissionsResult._sum.commissionSnapshot ?? 0);
+    const monthCommissions = Number(commissionsThisMonth._sum.commissionSnapshot ?? 0);
     const cancellationRate =
       totalAppointments > 0
         ? Math.round(((cancelledCount + noShowCount) / totalAppointments) * 100)
@@ -356,9 +436,15 @@ export class EmployeesService {
         ? Math.round(ratingResult._avg.rating * 10) / 10
         : null,
       totalReviews: ratingResult._count.rating,
+      totalCommissions,
+      commissionsThisMonth: monthCommissions,
       topServices: topServices.map((s) => ({
         serviceName: s.serviceNameSnapshot,
         count: s._count.serviceNameSnapshot,
+      })),
+      topClients: topClients.map((c) => ({
+        clientName: clientMap.get(c.clientId) || 'Unknown',
+        count: c._count.clientId,
       })),
       upcomingAppointments,
     };

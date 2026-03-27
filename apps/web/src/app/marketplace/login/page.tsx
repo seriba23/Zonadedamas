@@ -47,7 +47,7 @@ export default function MarketplaceLoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#008080' }}>Siliba</h1>
-          <p className="text-sm text-gray-500 mt-1">Inicia sesión en tu cuenta</p>
+          <p className="text-sm text-gray-500 mt-1">Tu confianza, en manos de profesionales</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
@@ -95,6 +95,16 @@ export default function MarketplaceLoginPage() {
           {error && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
+
+          <div className="text-center">
+            <Link
+              href="/marketplace/forgot-password"
+              className="text-sm font-medium"
+              style={{ color: '#008080' }}
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
           <button
             type="submit"

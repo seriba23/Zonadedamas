@@ -33,7 +33,7 @@ export default function PlatformLoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">Siliba</h1>
-          <p className="mt-2 text-gray-400 text-sm">Panel de administración de plataforma</p>
+          <p className="mt-1 text-gray-400 text-sm">Tu confianza, en manos de profesionales</p>
         </div>
 
         <div className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 p-8">

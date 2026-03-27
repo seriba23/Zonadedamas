@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, IsArray, ValidateNested, IsNumber, Min } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString, IsArray, ValidateNested, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateTimeOffDto {
@@ -11,6 +11,15 @@ export class CreateTimeOffDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsOptional()
+  @IsIn(['PENDING', 'APPROVED'])
+  status?: 'PENDING' | 'APPROVED';
+}
+
+export class RejectTimeOffDto {
+  @IsString()
+  rejectionReason: string;
 }
 
 export class ServiceConfigDto {

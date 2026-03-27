@@ -29,6 +29,10 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
 import { StripeModule } from './modules/stripe/stripe.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { ProductsModule } from './modules/products/products.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ServiceBundlesModule } from './modules/service-bundles/service-bundles.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -70,6 +74,10 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     RewardsModule,
     StripeModule,
     ReportsModule,
+    ProductsModule,
+    SuppliersModule,
+    PromotionsModule,
+    ServiceBundlesModule,
   ],
   providers: [
     {

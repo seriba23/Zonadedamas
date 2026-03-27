@@ -1,16 +1,19 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import isoWeek from 'dayjs/plugin/isoWeek';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatCurrency } from '@/lib/utils';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
-type ViewMode = 'day' | 'week';
+dayjs.extend(isoWeek);
+
+type ViewMode = 'day' | 'week' | 'month';
 
 interface Appointment {
   id: string;
@@ -74,18 +77,22 @@ export default function CalendarPage() {
     }
   }, [serviceDropdownOpen]);
 
-  const startDate = viewMode === 'day'
-    ? currentDate.format('YYYY-MM-DD')
-    : currentDate.startOf('week').format('YYYY-MM-DD');
-  const endDate = viewMode === 'day'
-    ? currentDate.format('YYYY-MM-DD')
-    : currentDate.endOf('week').format('YYYY-MM-DD');
+  const startDate = viewMode === 'month'
+    ? currentDate.startOf('month').startOf('isoWeek').format('YYYY-MM-DD')
+    : viewMode === 'week'
+      ? currentDate.startOf('week').format('YYYY-MM-DD')
+      : currentDate.format('YYYY-MM-DD');
+  const endDate = viewMode === 'month'
+    ? currentDate.endOf('month').endOf('isoWeek').format('YYYY-MM-DD')
+    : viewMode === 'week'
+      ? currentDate.endOf('week').format('YYYY-MM-DD')
+      : currentDate.format('YYYY-MM-DD');
 
-  // Build query params
+  // Build query params - month view needs more results
   const queryParams = new URLSearchParams({
     startDate,
     endDate,
-    perPage: '100',
+    perPage: viewMode === 'month' ? '500' : '100',
   });
   if (filterEmployeeId) queryParams.set('employeeId', filterEmployeeId);
   if (filterClientId) queryParams.set('clientId', filterClientId);
@@ -167,6 +174,69 @@ export default function CalendarPage() {
       )
     : allAppointments;
 
+  // Monthly view data
+  const monthGridData = useMemo(() => {
+    if (viewMode !== 'month') return { weeks: [], stats: { total: 0, completed: 0, cancelled: 0, revenue: 0 }, maxCount: 0 };
+
+    const monthStart = currentDate.startOf('month');
+    const monthEnd = currentDate.endOf('month');
+    const gridStart = monthStart.startOf('isoWeek');
+    const gridEnd = monthEnd.endOf('isoWeek');
+
+    // Group appointments by date
+    const countsByDate: Record<string, Appointment[]> = {};
+    for (const apt of appointments) {
+      const dateKey = dayjs(apt.startTime).format('YYYY-MM-DD');
+      if (!countsByDate[dateKey]) countsByDate[dateKey] = [];
+      countsByDate[dateKey].push(apt);
+    }
+
+    // Compute stats for the actual month (not overflow days)
+    let total = 0;
+    let completed = 0;
+    let cancelled = 0;
+    let revenue = 0;
+    for (const apt of appointments) {
+      const aptDate = dayjs(apt.startTime);
+      if (aptDate.isBefore(monthStart) || aptDate.isAfter(monthEnd)) continue;
+      total++;
+      if (apt.status === 'COMPLETED') {
+        completed++;
+        revenue += (apt.items || []).reduce((sum, item) => sum + (item.priceSnapshot || 0), 0);
+      }
+      if (apt.status === 'CANCELLED') cancelled++;
+    }
+
+    // Build weeks grid
+    const weeks: Array<Array<{ date: dayjs.Dayjs; isCurrentMonth: boolean; isToday: boolean; appointments: Appointment[] }>> = [];
+    let day = gridStart;
+    let maxCount = 0;
+
+    while (day.isBefore(gridEnd) || day.isSame(gridEnd, 'day')) {
+      const week: typeof weeks[0] = [];
+      for (let i = 0; i < 7; i++) {
+        const dateKey = day.format('YYYY-MM-DD');
+        const dayAppts = countsByDate[dateKey] || [];
+        if (dayAppts.length > maxCount) maxCount = dayAppts.length;
+        week.push({
+          date: day,
+          isCurrentMonth: day.month() === currentDate.month(),
+          isToday: day.isSame(dayjs(), 'day'),
+          appointments: dayAppts,
+        });
+        day = day.add(1, 'day');
+      }
+      weeks.push(week);
+    }
+
+    return { weeks, stats: { total, completed, cancelled, revenue }, maxCount };
+  }, [viewMode, currentDate, appointments]);
+
+  function handleMonthDayClick(date: dayjs.Dayjs) {
+    setCurrentDate(date);
+    setViewMode('day');
+  }
+
   const hasFilters = filterEmployeeId || filterClientId || filterServiceNames.length > 0;
 
   function clearFilters() {
@@ -187,13 +257,13 @@ export default function CalendarPage() {
 
   function goBack() {
     setCurrentDate((d) =>
-      viewMode === 'day' ? d.subtract(1, 'day') : d.subtract(1, 'week'),
+      viewMode === 'month' ? d.subtract(1, 'month') : viewMode === 'week' ? d.subtract(1, 'week') : d.subtract(1, 'day'),
     );
   }
 
   function goForward() {
     setCurrentDate((d) =>
-      viewMode === 'day' ? d.add(1, 'day') : d.add(1, 'week'),
+      viewMode === 'month' ? d.add(1, 'month') : viewMode === 'week' ? d.add(1, 'week') : d.add(1, 'day'),
     );
   }
 
@@ -298,10 +368,12 @@ export default function CalendarPage() {
             </svg>
           </button>
 
-          <span className="text-base font-medium text-gray-900">
-            {viewMode === 'day'
-              ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
-              : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
+          <span className="text-base font-medium text-gray-900 capitalize">
+            {viewMode === 'month'
+              ? formatDate(currentDate.toDate(), 'MMMM YYYY')
+              : viewMode === 'day'
+                ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
+                : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
           </span>
         </div>
 
@@ -327,6 +399,16 @@ export default function CalendarPage() {
               }`}
             >
               Semana
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-300 ${
+                viewMode === 'month'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Mes
             </button>
           </div>
 
@@ -435,16 +517,112 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <CalendarView
-          date={currentDate}
-          appointments={appointments}
-          viewMode={viewMode}
-          onSlotClick={handleSlotClick}
-          onAppointmentClick={handleAppointmentClick}
-          onAppointmentDragEnd={handleAppointmentDragEnd}
-          closures={closures}
-          employeeTimeOffs={employeeTimeOffs}
-        />
+        {viewMode === 'month' ? (
+          <div className="h-full flex flex-col overflow-auto bg-white">
+            {/* Quick stats row */}
+            <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total citas</p>
+                <p className="text-2xl font-bold text-gray-900">{monthGridData.stats.total}</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Completadas</p>
+                <p className="text-2xl font-bold text-green-600">{monthGridData.stats.completed}</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Canceladas</p>
+                <p className="text-2xl font-bold text-red-500">{monthGridData.stats.cancelled}</p>
+              </div>
+              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Ingresos</p>
+                <p className="text-2xl font-bold text-primary-600">{formatCurrency(monthGridData.stats.revenue)}</p>
+              </div>
+            </div>
+
+            {/* Day-of-week header */}
+            <div className="grid grid-cols-7 border-b border-gray-200">
+              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+                <div key={day} className="py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar grid */}
+            <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${monthGridData.weeks.length}, 1fr)` }}>
+              {monthGridData.weeks.map((week, wi) => (
+                <div key={wi} className="grid grid-cols-7 border-b border-gray-100 last:border-b-0">
+                  {week.map((cell) => {
+                    const count = cell.appointments.length;
+                    const intensity = monthGridData.maxCount > 0 ? count / monthGridData.maxCount : 0;
+                    // Teal bg with increasing opacity based on density
+                    const bgColor = count > 0
+                      ? `rgba(0, 128, 128, ${0.08 + intensity * 0.32})`
+                      : undefined;
+
+                    return (
+                      <button
+                        key={cell.date.format('YYYY-MM-DD')}
+                        onClick={() => handleMonthDayClick(cell.date)}
+                        className={`relative flex flex-col items-start p-2 border-r border-gray-100 last:border-r-0 text-left transition-colors hover:bg-gray-50 min-h-[80px] ${
+                          !cell.isCurrentMonth ? 'opacity-40' : ''
+                        }`}
+                        style={cell.isCurrentMonth ? { backgroundColor: bgColor } : undefined}
+                      >
+                        <span
+                          className={`text-sm font-medium leading-none ${
+                            cell.isToday
+                              ? 'bg-primary-600 text-white w-7 h-7 rounded-full flex items-center justify-center'
+                              : cell.isCurrentMonth
+                                ? 'text-gray-900'
+                                : 'text-gray-400'
+                          }`}
+                        >
+                          {cell.date.date()}
+                        </span>
+
+                        {count > 0 && cell.isCurrentMonth && (
+                          <div className="mt-1.5 flex flex-col gap-0.5 w-full">
+                            <span className="text-xs font-semibold text-primary-700">
+                              {count} cita{count !== 1 ? 's' : ''}
+                            </span>
+                            {/* Show up to 2 appointment previews */}
+                            {cell.appointments.slice(0, 2).map((apt) => (
+                              <div
+                                key={apt.id}
+                                className="text-[10px] leading-tight truncate rounded px-1 py-0.5"
+                                style={{
+                                  backgroundColor: apt.employee?.color ? `${apt.employee.color}20` : '#00808020',
+                                  borderLeft: `2px solid ${apt.employee?.color || '#008080'}`,
+                                }}
+                              >
+                                {dayjs(apt.startTime).format('H:mm')} {apt.client?.firstName || 'Cliente'}
+                              </div>
+                            ))}
+                            {count > 2 && (
+                              <span className="text-[10px] text-gray-500">+{count - 2} más</span>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <CalendarView
+            date={currentDate}
+            appointments={appointments}
+            viewMode={viewMode as 'day' | 'week'}
+            onSlotClick={handleSlotClick}
+            onAppointmentClick={handleAppointmentClick}
+            onAppointmentDragEnd={handleAppointmentDragEnd}
+            closures={closures}
+            employeeTimeOffs={employeeTimeOffs}
+          />
+        )}
       </div>
 
       {isModalOpen && (

@@ -217,7 +217,7 @@ export class AppointmentsService {
         include: {
           client: { select: { id: true, firstName: true, lastName: true } },
           employee: { select: { id: true, firstName: true, lastName: true, color: true } },
-          items: { select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true } },
+          items: { select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true, commissionSnapshot: true } },
         },
       }),
       this.prisma.appointment.count({ where }),

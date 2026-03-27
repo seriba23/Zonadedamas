@@ -15,6 +15,7 @@ const CATEGORIES = [
   { value: 'BARBERIA', label: 'Barbería' },
   { value: 'SPA', label: 'SPA' },
   { value: 'CLINICA', label: 'Clínica' },
+  { value: 'TATUAJES', label: 'Tatuajes' },
 ];
 
 interface Business {
@@ -127,7 +128,7 @@ export default function MarketplacePage() {
   const businesses = showFavoritesOnly ? favoriteBusinesses : allBusinesses;
 
   // Group favorites by businessType for sectioned view
-  const CATEGORY_LABELS: Record<string, string> = { SALON: 'Salón', BARBERIA: 'Barbería', SPA: 'SPA', CLINICA: 'Clínica' };
+  const CATEGORY_LABELS: Record<string, string> = { SALON: 'Salón', BARBERIA: 'Barbería', SPA: 'SPA', CLINICA: 'Clínica', TATUAJES: 'Tatuajes' };
   const favoritesByCategory = showFavoritesOnly && !category
     ? Object.entries(
         favoriteBusinesses.reduce<Record<string, Business[]>>((acc, biz) => {
@@ -136,7 +137,7 @@ export default function MarketplacePage() {
           return acc;
         }, {}),
       ).sort(([a], [b]) => {
-        const order = ['SALON', 'BARBERIA', 'SPA', 'CLINICA'];
+        const order = ['SALON', 'BARBERIA', 'SPA', 'CLINICA', 'TATUAJES'];
         return (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b));
       })
     : null;
@@ -220,6 +221,7 @@ export default function MarketplacePage() {
                   {type === 'SALON' ? 'Salón' :
                    type === 'BARBERIA' ? 'Barbería' :
                    type === 'CLINICA' ? 'Clínica' :
+                   type === 'TATUAJES' ? 'Tatuajes' :
                    type}
                 </span>
               ))}

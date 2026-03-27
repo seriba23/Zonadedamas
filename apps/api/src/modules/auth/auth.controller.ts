@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SocialLoginDto } from './dto/social-login.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
@@ -44,6 +45,13 @@ export class AuthController {
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const result = await this.authService.register(dto);
+    return { data: result };
+  }
+
+  @Public()
+  @Post('social')
+  async socialLogin(@Body() dto: SocialLoginDto) {
+    const result = await this.authService.socialLogin(dto);
     return { data: result };
   }
 

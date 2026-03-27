@@ -127,6 +127,16 @@ const PERMISSIONS = [
   { module: 'rewards', action: 'read', description: 'Read/view rewards' },
   { module: 'rewards', action: 'update', description: 'Update rewards' },
   { module: 'rewards', action: 'delete', description: 'Delete/deactivate rewards' },
+  // inventory
+  { module: 'inventory', action: 'create', description: 'Create products/suppliers' },
+  { module: 'inventory', action: 'read', description: 'Read/view inventory' },
+  { module: 'inventory', action: 'update', description: 'Update products/suppliers' },
+  { module: 'inventory', action: 'delete', description: 'Delete products/suppliers' },
+  // promotions
+  { module: 'promotions', action: 'create', description: 'Create promotions' },
+  { module: 'promotions', action: 'read', description: 'Read/view promotions' },
+  { module: 'promotions', action: 'update', description: 'Update promotions' },
+  { module: 'promotions', action: 'delete', description: 'Delete promotions' },
 ];
 
 // ─── ROLE PERMISSION MAPPING ─────────────────────────────────────────────────
@@ -140,141 +150,236 @@ const ALL_PERMISSIONS: PermissionKey[] = PERMISSIONS.map((p) =>
   permKey(p.module, p.action)
 );
 
-// Permissions that the admin role does NOT get
+// ─── OWNER: Todo sin excepción ─────────────────────
+// (uses ALL_PERMISSIONS directly)
+
+// ─── ADMIN: Todo excepto facturación/billing ───────
 const ADMIN_EXCLUDED: PermissionKey[] = [permKey('settings', 'billing')];
 
+// ─── MANAGER: Gestiona operaciones diarias ─────────
+// Puede hacer casi todo operativo pero NO puede:
+// - Modificar settings de billing/integraciones
+// - Crear/eliminar roles o usuarios
+// - Eliminar empleados/servicios/clientes (solo desactivar)
 const MANAGER_PERMISSIONS: PermissionKey[] = [
+  // Citas: control total
   permKey('appointments', 'create'),
   permKey('appointments', 'read'),
   permKey('appointments', 'update'),
   permKey('appointments', 'cancel'),
   permKey('appointments', 'reschedule'),
   permKey('appointments', 'complete'),
+  // Disponibilidad
   permKey('availability', 'read'),
   permKey('availability', 'manage'),
+  // Clientes: gestión completa
   permKey('clients', 'create'),
   permKey('clients', 'read'),
   permKey('clients', 'update'),
   permKey('clients', 'export'),
+  // Servicios: ver y editar (no eliminar)
+  permKey('services', 'create'),
   permKey('services', 'read'),
+  permKey('services', 'update'),
+  // Empleados: gestión completa
+  permKey('employees', 'create'),
   permKey('employees', 'read'),
+  permKey('employees', 'update'),
   permKey('employees', 'manage_schedule'),
   permKey('employees', 'manage_time_off'),
+  permKey('employees', 'manage_services'),
+  // Recursos
+  permKey('resources', 'create'),
   permKey('resources', 'read'),
+  permKey('resources', 'update'),
+  // Pagos y POS
   permKey('payments', 'create'),
   permKey('payments', 'read'),
   permKey('payments', 'refund'),
   permKey('payments', 'export'),
+  // Reportes: todos
   permKey('reports', 'revenue'),
   permKey('reports', 'appointments'),
   permKey('reports', 'staff'),
   permKey('reports', 'clients'),
-  permKey('automations', 'read'),
+  // Inventario: gestión completa
+  permKey('inventory', 'create'),
+  permKey('inventory', 'read'),
+  permKey('inventory', 'update'),
+  // Promociones: gestión completa
+  permKey('promotions', 'create'),
+  permKey('promotions', 'read'),
+  permKey('promotions', 'update'),
+  // Recompensas: ver y gestionar
+  permKey('rewards', 'create'),
+  permKey('rewards', 'read'),
+  permKey('rewards', 'update'),
+  // Notificaciones
   permKey('notifications', 'manage'),
+  // Automatizaciones: ver
+  permKey('automations', 'read'),
+  permKey('automations', 'create'),
+  permKey('automations', 'update'),
+  // Ubicaciones, usuarios, roles: solo lectura
   permKey('locations', 'read'),
   permKey('users', 'read'),
   permKey('roles', 'read'),
-  permKey('rewards', 'read'),
+  // Negocio: ver info
+  permKey('tenant', 'read'),
 ];
 
+// ─── FRONTDESK (Recepcionista): Atiende clientes ───
+// Agenda citas, cobra, gestiona clientes
+// NO puede: ver reportes financieros, gestionar empleados, inventario
 const FRONTDESK_PERMISSIONS: PermissionKey[] = [
+  // Citas: gestión completa del día a día
   permKey('appointments', 'create'),
   permKey('appointments', 'read'),
   permKey('appointments', 'update'),
   permKey('appointments', 'cancel'),
   permKey('appointments', 'reschedule'),
   permKey('appointments', 'complete'),
+  // Disponibilidad: consultar
   permKey('availability', 'read'),
+  // Clientes: crear y editar (llegan clientes nuevos)
   permKey('clients', 'create'),
   permKey('clients', 'read'),
   permKey('clients', 'update'),
+  // Servicios y empleados: consultar para agendar
   permKey('services', 'read'),
   permKey('employees', 'read'),
   permKey('resources', 'read'),
+  // Pagos: cobrar en POS
   permKey('payments', 'create'),
   permKey('payments', 'read'),
+  // Recompensas: validar cupones
+  permKey('rewards', 'read'),
+  // Promociones: consultar para aplicar
+  permKey('promotions', 'read'),
+  // Ubicaciones
   permKey('locations', 'read'),
+  // Reportes básicos: ver citas del día
+  permKey('reports', 'appointments'),
+];
+
+// ─── STAFF (Empleado/Estilista): Su propia agenda ──
+// Ve sus citas, completa servicios, ve clientes asignados
+// NO puede: crear citas, cobrar, ver reportes, gestionar nada
+const STAFF_PERMISSIONS: PermissionKey[] = [
+  // Citas: ver las suyas y marcar completadas
+  permKey('appointments', 'read'),
+  permKey('appointments', 'complete'),
+  // Disponibilidad: ver su horario
+  permKey('availability', 'read'),
+  // Clientes: ver info del cliente para atenderlo
+  permKey('clients', 'read'),
+  // Servicios: ver catálogo
+  permKey('services', 'read'),
+  // Empleados: ver compañeros (horarios)
+  permKey('employees', 'read'),
+  // Recursos: ver disponibilidad de salas
+  permKey('resources', 'read'),
+  // Recompensas: ver (informar al cliente)
+  permKey('rewards', 'read'),
+  // Ubicaciones
+  permKey('locations', 'read'),
+];
+
+// ─── ACCOUNTANT (Contador): Números y finanzas ─────
+// Ve todo lo financiero pero NO puede modificar operaciones
+const ACCOUNTANT_PERMISSIONS: PermissionKey[] = [
+  // Pagos: ver y exportar
+  permKey('payments', 'read'),
+  permKey('payments', 'export'),
+  // Reportes: todos los financieros
+  permKey('reports', 'revenue'),
+  permKey('reports', 'appointments'),
+  permKey('reports', 'staff'),
+  permKey('reports', 'clients'),
+  // Consultar datos para contexto
+  permKey('appointments', 'read'),
+  permKey('clients', 'read'),
+  permKey('clients', 'export'),
+  permKey('services', 'read'),
+  permKey('employees', 'read'),
+  permKey('locations', 'read'),
+  // Inventario: ver costos y stock
+  permKey('inventory', 'read'),
+  // Promociones: ver descuentos aplicados
+  permKey('promotions', 'read'),
+  // Recompensas: ver canjes
   permKey('rewards', 'read'),
 ];
 
-const STAFF_PERMISSIONS: PermissionKey[] = [
+// ─── READONLY (Solo lectura): Observador ───────────
+// Ve todo pero no puede modificar nada
+const READONLY_PERMISSIONS: PermissionKey[] = [
   permKey('appointments', 'read'),
-  permKey('appointments', 'complete'),
   permKey('availability', 'read'),
   permKey('clients', 'read'),
   permKey('services', 'read'),
   permKey('employees', 'read'),
-];
-
-const ACCOUNTANT_PERMISSIONS: PermissionKey[] = [
+  permKey('resources', 'read'),
   permKey('payments', 'read'),
-  permKey('payments', 'export'),
   permKey('reports', 'revenue'),
   permKey('reports', 'appointments'),
+  permKey('reports', 'staff'),
   permKey('reports', 'clients'),
-  permKey('appointments', 'read'),
-  permKey('clients', 'read'),
   permKey('locations', 'read'),
-];
-
-const READONLY_PERMISSIONS: PermissionKey[] = [
-  permKey('appointments', 'read'),
-  permKey('clients', 'read'),
-  permKey('services', 'read'),
-  permKey('employees', 'read'),
-  permKey('payments', 'read'),
-  permKey('reports', 'revenue'),
-  permKey('reports', 'appointments'),
-  permKey('locations', 'read'),
+  permKey('inventory', 'read'),
+  permKey('promotions', 'read'),
+  permKey('rewards', 'read'),
+  permKey('roles', 'read'),
+  permKey('tenant', 'read'),
 ];
 
 const ROLE_DEFINITIONS = [
   {
     name: 'Owner',
     slug: 'owner',
-    description: 'Full access to all features including billing',
+    description: 'Dueno del negocio — acceso total a todas las funciones incluyendo facturacion y configuracion',
     isSystem: true,
     permissions: ALL_PERMISSIONS,
   },
   {
     name: 'Admin',
     slug: 'admin',
-    description: 'Full access except billing management',
+    description: 'Administrador — acceso total excepto facturacion. Puede gestionar roles, usuarios y configuracion',
     isSystem: true,
     permissions: ALL_PERMISSIONS.filter((p) => !ADMIN_EXCLUDED.includes(p)),
   },
   {
     name: 'Manager',
     slug: 'manager',
-    description: 'Manages daily operations, staff, and reports',
+    description: 'Gerente — gestiona operaciones diarias, personal, inventario, reportes y promociones',
     isSystem: true,
     permissions: MANAGER_PERMISSIONS,
   },
   {
-    name: 'Front Desk',
+    name: 'Recepcion',
     slug: 'frontdesk',
-    description: 'Handles appointments, clients, and basic payments',
+    description: 'Recepcionista — agenda citas, atiende clientes, cobra en POS y valida cupones',
     isSystem: true,
     permissions: FRONTDESK_PERMISSIONS,
   },
   {
-    name: 'Staff',
+    name: 'Empleado',
     slug: 'staff',
-    description: 'View-only access to own appointments and clients',
+    description: 'Estilista/Profesional — ve sus citas, completa servicios y consulta clientes',
     isSystem: true,
     permissions: STAFF_PERMISSIONS,
   },
   {
-    name: 'Accountant',
+    name: 'Contador',
     slug: 'accountant',
-    description: 'Access to financial reports and payment data',
+    description: 'Contador — acceso a reportes financieros, pagos, inventario y exportacion de datos',
     isSystem: true,
     permissions: ACCOUNTANT_PERMISSIONS,
   },
   {
-    name: 'Read Only',
+    name: 'Solo Lectura',
     slug: 'readonly',
-    description: 'View-only access to core data',
+    description: 'Observador — puede ver toda la informacion pero no modificar nada',
     isSystem: true,
     permissions: READONLY_PERMISSIONS,
   },
@@ -317,9 +422,27 @@ async function main() {
       currency: 'USD',
       subscriptionPlan: 'professional',
       subscriptionStatus: 'active',
+      coverImageUrl: '/api/uploads/avatars/cover-1772686771095-c33kej.jpg',
+      isMarketplaceListed: true,
+      businessType: 'SALON',
+      description: 'Salon de belleza integral con los mejores profesionales. Cortes, tintes, faciales, manicure y mas.',
+      address: 'Av. Juarez 975, Centro, Guadalajara',
       settings: {},
     },
   });
+
+  // Update tenant with cover image and marketplace listing
+  await prisma.tenant.update({
+    where: { id: tenant.id },
+    data: {
+      coverImageUrl: '/api/uploads/avatars/cover-1772686771095-c33kej.jpg',
+      isMarketplaceListed: true,
+      businessType: 'SALON',
+      description: 'Salon de belleza integral con los mejores profesionales. Cortes, tintes, faciales, manicure y mas.',
+      address: 'Av. Juarez 975, Centro, Guadalajara',
+    },
+  });
+
   console.log(`  Tenant: ${tenant.name} (${tenant.id})`);
 
   // 3. Create roles for the tenant
@@ -560,6 +683,7 @@ async function main() {
       email: 'maria@demo-salon.com',
       phone: '+1-555-0201',
       color: '#6366f1',
+      avatarUrl: '/api/uploads/avatars/employee-1772686782829-95dnt0.jpg',
       bio: 'Tengo 10 anos transformando vidas desde mi silla. Mi mama me ensenó que la belleza no es vanidad, es amor propio. Cada persona que se sienta frente a mi espejo llega con una historia, y mi trabajo es ayudarla a sentirse como la protagonista que es. No solo corto cabello — devuelvo sonrisas.',
       locationId: downtownLocation.id,
       services: [
@@ -574,6 +698,7 @@ async function main() {
       email: 'james@demo-salon.com',
       phone: '+1-555-0202',
       color: '#10b981',
+      avatarUrl: '/api/uploads/avatars/employee-1772686783325-m0beni.jpg',
       bio: 'Creci en un barrio donde los hombres no hablaban de estilo. Yo fui el primero en desafiar eso. Hoy, despues de 8 anos perfeccionando mi arte, cada tinte que mezclo lleva algo de mi alma. Me inspiran los atardeceres, la musica y esos clientes que llegan nerviosos y se van sintiendose invencibles.',
       locationId: downtownLocation.id,
       services: [
@@ -587,6 +712,7 @@ async function main() {
       email: 'sofia@demo-salon.com',
       phone: '+1-555-0203',
       color: '#f59e0b',
+      avatarUrl: '/api/uploads/avatars/employee-1772686783699-hoe75s.jpg',
       bio: 'Mi abuela siempre decia: "las manos hablan de quien eres". Esas palabras me marcaron para siempre. Llevo 6 anos dedicada al cuidado personal y cada clienta que atiendo se convierte en familia. Un facial no es solo un tratamiento — es una hora donde el mundo se detiene y tu eres lo unico que importa.',
       locationId: mallLocation.id,
       services: [
@@ -619,7 +745,7 @@ async function main() {
       // Always update bio and color in case seed data changed
       await prisma.employee.update({
         where: { id: employeeId },
-        data: { bio: empData.bio, color: empData.color },
+        data: { bio: empData.bio, color: empData.color, avatarUrl: empData.avatarUrl || null },
       });
     } else {
       const employee = await prisma.employee.create({
@@ -768,6 +894,7 @@ async function main() {
       email: 'emily.johnson@example.com',
       phone: '+1-555-0301',
       gender: 'female',
+      avatarUrl: '/api/uploads/avatars/client-1773293590857-v6r3xv.jpg',
       notes: 'Prefers eco-friendly products',
     },
     {
@@ -776,6 +903,7 @@ async function main() {
       email: 'michael.brown@example.com',
       phone: '+1-555-0302',
       gender: 'male',
+      avatarUrl: '/api/uploads/avatars/client-1773293591359-fzfcza.jpg',
       notes: 'Regular monthly haircut',
     },
     {
@@ -784,6 +912,7 @@ async function main() {
       email: 'sarah.davis@example.com',
       phone: '+1-555-0303',
       gender: 'female',
+      avatarUrl: '/api/uploads/avatars/client-1773293591733-fgjogy.jpg',
       notes: 'Allergic to certain hair dyes - check before coloring',
     },
     {
@@ -792,6 +921,7 @@ async function main() {
       email: 'david.miller@example.com',
       phone: '+1-555-0304',
       gender: 'male',
+      avatarUrl: '/api/uploads/avatars/client-1773293592105-1q6bhv.jpg',
       notes: null,
     },
     {
@@ -800,6 +930,7 @@ async function main() {
       email: 'jessica.wilson@example.com',
       phone: '+1-555-0305',
       gender: 'female',
+      avatarUrl: '/api/uploads/avatars/client-1773293592479-6z1300.jpg',
       notes: 'VIP client - priority booking',
     },
     {
@@ -808,6 +939,7 @@ async function main() {
       email: 'andrea.lopez@example.com',
       phone: '+1-555-0306',
       gender: 'female',
+      avatarUrl: '/api/uploads/avatars/client-1773293592839-2dewab.jpg',
       notes: 'Prefiere citas por la manana',
     },
     {
@@ -816,6 +948,7 @@ async function main() {
       email: 'carlos.ramirez@example.com',
       phone: '+1-555-0307',
       gender: 'male',
+      avatarUrl: '/api/uploads/avatars/client-1773293593212-ipzmbg.jpg',
       notes: null,
     },
     {
@@ -824,6 +957,7 @@ async function main() {
       email: 'laura.hernandez@example.com',
       phone: '+1-555-0308',
       gender: 'female',
+      avatarUrl: '/api/uploads/avatars/client-1773293593570-ykebg2.jpg',
       notes: 'Cliente frecuente, le gusta probar cosas nuevas',
     },
     {
@@ -832,6 +966,7 @@ async function main() {
       email: 'roberto.torres@example.com',
       phone: '+1-555-0309',
       gender: 'male',
+      avatarUrl: '/api/uploads/avatars/client-1773293593945-n0ocgq.jpg',
       notes: 'Corte clasico siempre',
     },
     {
@@ -840,6 +975,7 @@ async function main() {
       email: 'valentina.diaz@example.com',
       phone: '+1-555-0310',
       gender: 'female',
+      avatarUrl: '/api/uploads/avatars/client-1773293594318-am9s78.jpg',
       notes: 'Piel sensible - verificar productos',
     },
   ];
@@ -849,7 +985,15 @@ async function main() {
       where: { tenantId: tenant.id, email: clientData.email },
     });
 
-    if (!existing) {
+    if (existing) {
+      // Update avatar if it changed
+      if (clientData.avatarUrl && existing.avatarUrl !== clientData.avatarUrl) {
+        await prisma.client.update({
+          where: { id: existing.id },
+          data: { avatarUrl: clientData.avatarUrl },
+        });
+      }
+    } else {
       await prisma.client.create({
         data: {
           tenantId: tenant.id,

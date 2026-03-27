@@ -18,6 +18,8 @@ const navItems: NavItem[] = [
   { label: 'Inicio', href: '/employee', icon: '🏠' },
   { label: 'Mis Citas', href: '/employee/appointments', icon: '📅' },
   { label: 'Reseñas', href: '/employee/reviews', icon: '⭐' },
+  { label: 'Comisiones', href: '/employee/commissions', icon: '💰' },
+  { label: 'Galería', href: '/employee/gallery', icon: '📸' },
   { label: 'Mi Horario', href: '/employee/schedule', icon: '🕐' },
   { label: 'Mi Perfil', href: '/employee/profile', icon: '👤' },
   { label: 'Formación', href: '/employee/training', icon: '📚' },
@@ -38,13 +40,6 @@ export function EmployeeSidebar() {
         </span>
       </div>
 
-      {/* Portal badge */}
-      <div className="px-4 py-3 border-b border-gray-100">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
-          Portal Empleado
-        </span>
-      </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">

@@ -458,7 +458,7 @@ export default function RegisterPage() {
                 <input id="inviteCode" type="text" value={form.inviteCode}
                   onChange={(e) => updateField('inviteCode', e.target.value.toUpperCase())}
                   className={`input-field uppercase tracking-widest text-center font-mono ${errors.inviteCode ? 'border-red-400' : ''}`}
-                  placeholder="XXXXXXXX" maxLength={8} />
+                  placeholder="Ej: DEMOSALON" maxLength={20} />
                 {errors.inviteCode && <p className="mt-1 text-xs text-red-600">{errors.inviteCode}</p>}
               </div>
 

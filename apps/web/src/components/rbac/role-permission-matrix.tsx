@@ -101,17 +101,24 @@ export function RolePermissionMatrix({
     },
   });
 
-  const permissions = permissionsData?.data || [];
+  // API returns permissions already grouped by module: { data: { module: Permission[] } }
+  // Or as a flat array — handle both formats
+  const rawPerms = permissionsData?.data;
+  let grouped: Record<string, Permission[]> = {};
+  if (Array.isArray(rawPerms)) {
+    grouped = rawPerms.reduce<Record<string, Permission[]>>(
+      (acc, perm) => {
+        if (!acc[perm.module]) acc[perm.module] = [];
+        acc[perm.module].push(perm);
+        return acc;
+      },
+      {},
+    );
+  } else if (rawPerms && typeof rawPerms === 'object') {
+    grouped = rawPerms as Record<string, Permission[]>;
+  }
 
-  // Group permissions by module
-  const grouped = permissions.reduce<Record<string, Permission[]>>(
-    (acc, perm) => {
-      if (!acc[perm.module]) acc[perm.module] = [];
-      acc[perm.module].push(perm);
-      return acc;
-    },
-    {},
-  );
+  const permissions = Object.values(grouped).flat();
 
   function togglePermission(permId: string) {
     if (isSystemRole) return;

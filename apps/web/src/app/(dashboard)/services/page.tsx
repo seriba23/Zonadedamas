@@ -21,6 +21,8 @@ interface Service {
   pointsReward?: number | null;
   redeemableWithPoints?: boolean;
   pointsRequired?: number | null;
+  depositRequired?: boolean;
+  depositPercent?: number | null;
 }
 
 interface ServiceForm {
@@ -34,6 +36,8 @@ interface ServiceForm {
   pointsReward: number | string;
   redeemableWithPoints: boolean;
   pointsRequired: number | string;
+  depositRequired: boolean;
+  depositPercent: number | string;
 }
 
 const SERVICE_CATEGORIES: Record<string, { label: string; subcategories: string[] }> = {
@@ -101,6 +105,8 @@ const defaultForm: ServiceForm = {
   pointsReward: '',
   redeemableWithPoints: false,
   pointsRequired: '',
+  depositRequired: false,
+  depositPercent: '',
 };
 
 const SERVICE_COLORS = [
@@ -166,6 +172,8 @@ export default function ServicesPage() {
       pointsReward: service.pointsReward ?? '',
       redeemableWithPoints: service.redeemableWithPoints || false,
       pointsRequired: service.pointsRequired ?? '',
+      depositRequired: service.depositRequired || false,
+      depositPercent: service.depositPercent ?? '',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -194,6 +202,8 @@ export default function ServicesPage() {
       subcategory: form.subcategory || null,
       redeemableWithPoints: form.redeemableWithPoints,
       pointsReward: form.pointsReward !== '' ? Number(form.pointsReward) : null,
+      depositRequired: form.depositRequired,
+      depositPercent: form.depositRequired && form.depositPercent !== '' ? Number(form.depositPercent) : null,
     };
     if (form.redeemableWithPoints && form.pointsRequired !== '') {
       payload.pointsRequired = Number(form.pointsRequired);
@@ -320,6 +330,11 @@ export default function ServicesPage() {
                     <span className="text-xs">{service.durationMinutes} min</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    {service.depositRequired && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-50 text-blue-700">
+                        Dep. {service.depositPercent}%
+                      </span>
+                    )}
                     {service.redeemableWithPoints && (
                       <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-50 text-amber-700">
                         {service.pointsRequired} pts
@@ -530,6 +545,50 @@ export default function ServicesPage() {
                   />
                   <p className="text-xs text-gray-400 mt-1">
                     Cantidad de puntos que un cliente necesita para canjear este servicio
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Deposit section */}
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between cursor-pointer mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Requiere deposito al reservar</p>
+                  <p className="text-xs text-gray-400">El cliente debe pagar un porcentaje del precio por adelantado</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={form.depositRequired}
+                    onChange={(e) => setForm((f) => ({ ...f, depositRequired: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+
+              {form.depositRequired && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Porcentaje de deposito (%) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="1"
+                    value={form.depositPercent}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, depositPercent: e.target.value }))
+                    }
+                    className="input-field"
+                    placeholder="Ej: 30"
+                    required={form.depositRequired}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Porcentaje del precio total que el cliente debe pagar como deposito
                   </p>
                 </div>
               )}

@@ -15,7 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/create-employee.dto';
 import { SetSchedulesDto } from './dto/schedule.dto';
-import { CreateTimeOffDto, SetServicesDto } from './dto/time-off.dto';
+import { CreateTimeOffDto, RejectTimeOffDto, SetServicesDto } from './dto/time-off.dto';
 import { CreatePortfolioImageDto } from './dto/portfolio.dto';
 import { CreateReviewDto } from './dto/review.dto';
 import { UpdatePersonalInfoDto } from './dto/personal-info.dto';
@@ -60,6 +60,16 @@ class TimeOffQueryDto {
 
   @IsDateString()
   endDate: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
+class EmployeeTimeOffQueryDto {
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 @Controller('employees')
@@ -89,6 +99,7 @@ export class EmployeesController {
       tenantId,
       query.startDate,
       query.endDate,
+      query.status,
     );
     return { data: timeOffs };
   }
@@ -203,8 +214,9 @@ export class EmployeesController {
   async getTimeOff(
     @Param('id') id: string,
     @CurrentTenant() tenantId: string,
+    @Query() query: EmployeeTimeOffQueryDto,
   ) {
-    const timeOff = await this.employeesService.getTimeOff(id, tenantId);
+    const timeOff = await this.employeesService.getTimeOff(id, tenantId, query.status);
     return { data: timeOff };
   }
 
@@ -228,6 +240,31 @@ export class EmployeesController {
   ) {
     const result = await this.employeesService.removeTimeOff(id, tenantId, timeOffId);
     return { data: result };
+  }
+
+  @Put(':id/time-off/:timeOffId/approve')
+  @RequirePermissions('employees.update')
+  async approveTimeOff(
+    @Param('id') id: string,
+    @Param('timeOffId') timeOffId: string,
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const timeOff = await this.employeesService.approveTimeOff(tenantId, id, timeOffId, user.userId);
+    return { data: timeOff };
+  }
+
+  @Put(':id/time-off/:timeOffId/reject')
+  @RequirePermissions('employees.update')
+  async rejectTimeOff(
+    @Param('id') id: string,
+    @Param('timeOffId') timeOffId: string,
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: RejectTimeOffDto,
+  ) {
+    const timeOff = await this.employeesService.rejectTimeOff(tenantId, id, timeOffId, user.userId, dto.rejectionReason);
+    return { data: timeOff };
   }
 
   @Get(':id/services')

@@ -1514,6 +1514,71 @@ export class MarketplaceService {
     };
   }
 
+  // ─── PAYMENTS ──────────────────────────────────────────
+
+  async getMyPayments(
+    marketplaceUserId: string,
+    page: number,
+    perPage: number,
+    status?: 'COMPLETED' | 'PENDING' | 'REFUNDED',
+  ) {
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    if (clientIds.length === 0) {
+      return { data: [], meta: { total: 0, page, perPage, totalPages: 0 } };
+    }
+
+    const where: any = {
+      clientId: { in: clientIds },
+    };
+
+    if (status) {
+      where.status = status;
+    }
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        select: {
+          id: true,
+          amount: true,
+          totalAmount: true,
+          currency: true,
+          paymentMethod: true,
+          status: true,
+          createdAt: true,
+          tenant: { select: { name: true, slug: true, logoUrl: true } },
+          appointment: {
+            select: {
+              startTime: true,
+              items: {
+                select: { serviceNameSnapshot: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      data: payments,
+      meta: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
   // ─── PRIVATE HELPERS ─────────────────────────────────
 
   private async generateTokens(user: { id: string; email: string }) {

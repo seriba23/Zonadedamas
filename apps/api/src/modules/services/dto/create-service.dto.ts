@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   MinLength,
 } from 'class-validator';
@@ -55,6 +56,16 @@ export class CreateServiceDto {
   @IsInt()
   @Min(0)
   pointsRequired?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  depositRequired?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  depositPercent?: number;
 
   @IsOptional()
   @IsUUID('4')
@@ -110,4 +121,14 @@ export class UpdateServiceDto {
   @IsInt()
   @Min(0)
   pointsRequired?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  depositRequired?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  depositPercent?: number;
 }

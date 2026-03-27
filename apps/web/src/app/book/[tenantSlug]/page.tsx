@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
@@ -43,7 +43,16 @@ const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function BookingPage() {
   const params = useParams();
+  const router = useRouter();
   const tenantSlug = params.tenantSlug as string;
+
+  // Redirect to marketplace login if not authenticated
+  useEffect(() => {
+    const token = typeof window !== 'undefined' && localStorage.getItem('marketplace_access_token');
+    if (!token) {
+      router.replace(`/marketplace/login?redirect=${encodeURIComponent(`/book/${tenantSlug}`)}`);
+    }
+  }, [router, tenantSlug]);
 
   const [step, setStep] = useState<Step>(1);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);

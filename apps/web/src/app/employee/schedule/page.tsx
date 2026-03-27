@@ -23,7 +23,7 @@ export default function EmployeeSchedulePage() {
 
       <div className="space-y-8">
         <EmployeeScheduleEditor employeeId={user.employeeId} />
-        <EmployeeTimeOffEditor employeeId={user.employeeId} />
+        <EmployeeTimeOffEditor employeeId={user.employeeId} isEmployeePortal={true} />
       </div>
     </div>
   );

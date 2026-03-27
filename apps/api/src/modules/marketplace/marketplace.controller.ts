@@ -168,6 +168,24 @@ export class MarketplaceController {
     return this.marketplaceService.getMyGallery(req.user.marketplaceUserId);
   }
 
+  // ─── PAYMENTS (auth required) ────────────────────────
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Get('my-payments')
+  async getMyPayments(
+    @Req() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '20',
+    @Query('status') status?: string,
+  ) {
+    return this.marketplaceService.getMyPayments(
+      req.user.marketplaceUserId,
+      parseInt(page, 10) || 1,
+      Math.min(parseInt(perPage, 10) || 20, 100),
+      status as 'COMPLETED' | 'PENDING' | 'REFUNDED' | undefined,
+    );
+  }
+
   // ─── FAVORITES (auth required) ────────────────────────
 
   @UseGuards(MarketplaceJwtGuard)
