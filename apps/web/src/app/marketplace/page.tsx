@@ -3,10 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
-import { resolveImageUrl } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -41,7 +39,7 @@ type SortBy = '' | 'distance' | 'rating' | 'services';
 export default function MarketplacePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user } = useMarketplaceAuth();
+  const { isAuthenticated } = useMarketplaceAuth();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -285,38 +283,7 @@ export default function MarketplacePage() {
 
   return (
     <div className="min-h-screen">
-      {/* Compact top header */}
-      <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-        <div className="max-w-2xl mx-auto flex items-center justify-between pt-2">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: '#008080' }}>Siliba</h1>
-            <p className="text-xs text-gray-400">Tu confianza, en manos de profesionales</p>
-          </div>
-          {isAuthenticated ? (
-            <Link
-              href="/marketplace/profile"
-              className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0"
-              style={{ backgroundColor: '#e0f2f1', color: '#008080' }}
-            >
-              {user?.avatarUrl ? (
-                <img src={resolveImageUrl(user.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <>{user?.firstName?.[0]}{user?.lastName?.[0]}</>
-              )}
-            </Link>
-          ) : (
-            <Link
-              href="/marketplace/login"
-              className="px-4 py-1.5 text-white rounded-full text-xs font-medium"
-              style={{ backgroundColor: '#008080' }}
-            >
-              Iniciar sesión
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="max-w-2xl mx-auto px-4 pt-4 safe-top">
         {/* Search */}
         <div className="relative mb-4">
           <svg

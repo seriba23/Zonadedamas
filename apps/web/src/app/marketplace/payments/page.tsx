@@ -9,7 +9,6 @@ import 'dayjs/locale/es';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, resolveImageUrl } from '@/lib/utils';
-import MarketplaceHeader from '../marketplace-header';
 
 dayjs.locale('es');
 
@@ -280,7 +279,7 @@ export default function MarketplacePaymentsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <MarketplaceHeader />
+
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* ─── Header ──────────────────────────────── */}

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import MarketplaceHeader from '../marketplace-header';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -46,7 +45,7 @@ export default function MarketplaceHelpPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <MarketplaceHeader />
+
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Header */}

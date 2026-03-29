@@ -9,7 +9,6 @@ import { resolveImageUrl } from '@/lib/utils';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { DatePicker } from '@/components/ui/date-picker';
-import MarketplaceHeader from '../marketplace-header';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -896,7 +895,7 @@ export default function MarketplaceSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <MarketplaceHeader />
+
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Header */}
