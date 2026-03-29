@@ -27,6 +27,12 @@ export function AvatarCropModal({
 
   const PREVIEW_SIZE = 300;
 
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   // Load the image
   useEffect(() => {
     const img = new Image();
