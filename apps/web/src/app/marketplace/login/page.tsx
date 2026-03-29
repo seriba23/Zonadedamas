@@ -132,11 +132,6 @@ export default function MarketplaceLoginPage() {
           </Link>
         </p>
 
-        <p className="text-center mt-4">
-          <Link href="/marketplace" className="text-sm text-gray-400 hover:text-gray-600">
-            Volver al marketplace
-          </Link>
-        </p>
       </div>
 
       <SuccessPopup
