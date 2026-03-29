@@ -50,8 +50,9 @@ export default function MarketplacePage() {
 
   // Filters
   const [sortBy, setSortBy] = useState<SortBy>('');
-  const [availableToday, setAvailableToday] = useState(false);
   const [availableNow, setAvailableNow] = useState(false);
+  const [showCategorySheet, setShowCategorySheet] = useState(false);
+  const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
   // Request GPS
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function MarketplacePage() {
   }, [gpsAsked]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-discover', search, category, coords, sortBy, availableToday, availableNow],
+    queryKey: ['marketplace-discover', search, category, coords, sortBy, availableNow],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
@@ -78,7 +79,6 @@ export default function MarketplacePage() {
         params.set('radiusKm', '50');
       }
       if (sortBy) params.set('sortBy', sortBy);
-      if (availableToday) params.set('availableToday', 'true');
       if (availableNow) params.set('availableNow', 'true');
       params.set('perPage', '50');
       return marketplaceApi.get<{ data: Business[]; meta: any }>(`/discover?${params}`);
@@ -310,81 +310,18 @@ export default function MarketplacePage() {
           />
         </div>
 
-        {/* Category pills */}
-        <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => { setCategory(cat.value); setShowFavoritesOnly(false); }}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                category === cat.value && !showFavoritesOnly
-                  ? 'text-white'
-                  : 'bg-white border border-gray-200 text-gray-600'
-              }`}
-              style={
-                category === cat.value && !showFavoritesOnly
-                  ? { backgroundColor: '#008080' }
-                  : undefined
-              }
-              onMouseEnter={(e) => {
-                if (category !== cat.value || showFavoritesOnly) e.currentTarget.style.borderColor = '#008080';
-              }}
-              onMouseLeave={(e) => {
-                if (category !== cat.value || showFavoritesOnly) e.currentTarget.style.borderColor = '#e5e7eb';
-              }}
-            >
-              {cat.label}
-            </button>
-          ))}
-          {isAuthenticated && (
-            <button
-              onClick={() => setShowFavoritesOnly((prev) => !prev)}
-              className={`ml-auto px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                showFavoritesOnly
-                  ? 'text-white'
-                  : 'bg-white border border-gray-200 text-gray-600'
-              }`}
-              style={showFavoritesOnly ? { backgroundColor: '#008080' } : undefined}
-              onMouseEnter={(e) => {
-                if (!showFavoritesOnly) e.currentTarget.style.borderColor = '#008080';
-              }}
-              onMouseLeave={(e) => {
-                if (!showFavoritesOnly) e.currentTarget.style.borderColor = '#e5e7eb';
-              }}
-            >
-              <svg className="w-4 h-4" fill={showFavoritesOnly ? 'white' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-              </svg>
-              Favoritos
-            </button>
-          )}
-        </div>
-
-        {/* Filter pills row */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-          {/* Disponible ahora — the star filter */}
+        {/* Filter bar — 4 buttons */}
+        <div className="flex gap-2 mb-6">
+          {/* 1. Disponible ahora */}
           <button
             onClick={() => setAvailableNow(!availableNow)}
-            className="relative overflow-hidden px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5"
+            className="relative overflow-hidden px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0"
             style={availableNow
-              ? {
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  color: 'white',
-                  border: '1.5px solid transparent',
-                  boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)',
-                }
-              : {
-                  background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
-                  color: '#059669',
-                  border: '1.5px solid #a7f3d0',
-                }
+              ? { background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: '1.5px solid transparent', boxShadow: '0 0 12px rgba(16,185,129,0.4)' }
+              : { background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', color: '#059669', border: '1.5px solid #a7f3d0' }
             }
           >
-            {availableNow && (
-              <span className="absolute inset-0 overflow-hidden rounded-full">
-                <span className="absolute inset-0 animate-pulse opacity-20 bg-white" />
-              </span>
-            )}
+            {availableNow && <span className="absolute inset-0 overflow-hidden rounded-full"><span className="absolute inset-0 animate-pulse opacity-20 bg-white" /></span>}
             <span className="relative flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
@@ -393,73 +330,137 @@ export default function MarketplacePage() {
             </span>
           </button>
 
-          {/* Disponible hoy */}
+          {/* 2. Categoría */}
           <button
-            onClick={() => setAvailableToday(!availableToday)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              availableToday
-                ? 'text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-            style={availableToday ? { backgroundColor: '#008080' } : undefined}
+            onClick={() => setShowCategorySheet(true)}
+            className="px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
+            style={category
+              ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+              : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+            }
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
             </svg>
-            Abierto hoy
+            {category ? CATEGORIES.find(c => c.value === category)?.label : 'Categoría'}
           </button>
 
-          {/* Cerca de mí */}
-          {coords && (
+          {/* 3. Filtros (icon) */}
+          <button
+            onClick={() => setShowFiltersSheet(true)}
+            className="px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
+            style={sortBy
+              ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+              : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+            }
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            {sortBy ? '1' : ''}
+          </button>
+
+          {/* 4. Favoritos */}
+          {isAuthenticated && (
             <button
-              onClick={() => toggleSort('distance')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                sortBy === 'distance'
-                  ? 'text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
-              style={sortBy === 'distance' ? { backgroundColor: '#008080' } : undefined}
+              onClick={() => { setShowFavoritesOnly((prev) => !prev); setCategory(''); }}
+              className="px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0 ml-auto"
+              style={showFavoritesOnly
+                ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+              }
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              <svg className="w-3.5 h-3.5" fill={showFavoritesOnly ? 'white' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
-              Cerca de mí
+              Favoritos
             </button>
           )}
-
-          {/* Más puntuados */}
-          <button
-            onClick={() => toggleSort('rating')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              sortBy === 'rating'
-                ? 'text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-            style={sortBy === 'rating' ? { backgroundColor: '#008080' } : undefined}
-          >
-            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            Más puntuados
-          </button>
-
-          {/* Más servicios */}
-          <button
-            onClick={() => toggleSort('services')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              sortBy === 'services'
-                ? 'text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-            style={sortBy === 'services' ? { backgroundColor: '#008080' } : undefined}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-            Más servicios
-          </button>
         </div>
+
+        {/* ── Bottom sheet: Categoría ── */}
+        {showCategorySheet && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowCategorySheet(false)} />
+            <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900">Categoría</h3>
+                <button onClick={() => setShowCategorySheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="px-4 py-3 space-y-1 max-h-72 overflow-y-auto">
+                {[{ value: '', label: 'Todas las categorías' }, ...CATEGORIES.slice(1)].map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => { setCategory(cat.value); setShowFavoritesOnly(false); setShowCategorySheet(false); }}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-colors"
+                    style={category === cat.value
+                      ? { backgroundColor: '#e0f2f1', color: '#008080', fontWeight: 600 }
+                      : { color: '#374151' }
+                    }
+                  >
+                    <span>{cat.label}</span>
+                    {category === cat.value && (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="px-4 py-4" />
+            </div>
+          </div>
+        )}
+
+        {/* ── Bottom sheet: Filtros / Ordenar ── */}
+        {showFiltersSheet && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowFiltersSheet(false)} />
+            <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900">Filtros</h3>
+                <button onClick={() => setShowFiltersSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ordenar por</p>
+                <div className="space-y-1">
+                  {[
+                    { value: 'distance', label: 'Más cercana', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /> },
+                    { value: 'rating', label: 'Más puntuados', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /> },
+                    { value: 'services', label: 'Más servicios', icon: <><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></> },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setSortBy(sortBy === opt.value as SortBy ? '' : opt.value as SortBy); setShowFiltersSheet(false); }}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-colors"
+                      style={sortBy === opt.value
+                        ? { backgroundColor: '#e0f2f1', color: '#008080', fontWeight: 600 }
+                        : { color: '#374151' }
+                      }
+                    >
+                      <span className="flex items-center gap-3">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">{opt.icon}</svg>
+                        {opt.label}
+                      </span>
+                      {sortBy === opt.value && (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="px-4 py-4" />
+            </div>
+          </div>
+        )}
 
         {/* Results count */}
         {!isLoading && businesses.length > 0 && (
