@@ -142,8 +142,10 @@ export class MarketplaceService {
 
   async login(dto: MarketplaceLoginDto) {
     // Also find suspended users so we can reactivate on voluntary login
+    // identifier can be email or phone number
+    const isPhone = /^\+?[\d\s\-()]{7,15}$/.test(dto.identifier) && !dto.identifier.includes('@');
     const user = await this.prisma.marketplaceUser.findFirst({
-      where: { email: dto.email },
+      where: isPhone ? { phone: dto.identifier } : { email: dto.identifier },
     });
 
     if (!user) {

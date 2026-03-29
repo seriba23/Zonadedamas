@@ -74,8 +74,8 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const result = await marketplaceApi.loginAndStore(email, password);
+  const login = useCallback(async (identifier: string, password: string) => {
+    const result = await marketplaceApi.loginAndStore(identifier, password);
     const { reactivated, ...userData } = result;
     setUser(userData);
     fetchFullUser();

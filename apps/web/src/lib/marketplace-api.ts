@@ -134,8 +134,8 @@ class MarketplaceApiClient {
     return res.json();
   }
 
-  async loginAndStore(email: string, password: string) {
-    const res: any = await this.post('/auth/login', { email, password });
+  async loginAndStore(identifier: string, password: string) {
+    const res: any = await this.post('/auth/login', { identifier, password });
     const data = res.data;
     this.accessToken = data.accessToken;
     this.setRefreshToken(data.refreshToken);

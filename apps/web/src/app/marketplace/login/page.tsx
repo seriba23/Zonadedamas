@@ -13,7 +13,7 @@ export default function MarketplaceLoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ export default function MarketplaceLoginPage() {
     setLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(identifier, password);
       if (result.reactivated) {
         setWelcomeName(result.firstName);
         setWelcomeGender(result.gender || null);
@@ -66,16 +66,16 @@ export default function MarketplaceLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Correo o teléfono</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
               onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
-              placeholder="tu@email.com"
+              placeholder="tu@email.com o número de teléfono"
             />
           </div>
 
