@@ -69,8 +69,8 @@ export default function AppointmentDetailPage() {
   const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
   const { date, time } = formatDateTime(appt.startTime);
   const endTime = new Date(appt.endTime || appt.startTime).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-  const total = appt.items?.reduce((sum: number, i: any) => sum + (i.priceSnapshot || 0), 0) ?? 0;
-  const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + (i.durationSnapshot || 0), 0) ?? 0;
+  const total = appt.items?.reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0) ?? 0;
+  const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + Number(i.durationSnapshot || 0), 0) ?? 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
