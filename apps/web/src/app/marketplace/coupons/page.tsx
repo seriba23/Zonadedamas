@@ -118,6 +118,8 @@ function CouponCard({ redemption, disabled = false }: { redemption: any; disable
     : 'GRATIS';
 
   const statusLabel = redemption.status === 'USED' ? 'USADO' : 'VENCIDO';
+  const displayLabel = disabled ? statusLabel : valueLabel;
+  const stubFontSize = displayLabel.length <= 4 ? '1.125rem' : displayLabel.length <= 6 ? '0.875rem' : '0.75rem';
 
   return (
     <div
@@ -132,8 +134,11 @@ function CouponCard({ redemption, disabled = false }: { redemption: any; disable
           className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
           style={{ backgroundColor: disabled ? '#9ca3af' : '#008080' }}
         >
-          <span className="text-white font-black text-lg leading-none tracking-tight">
-            {disabled ? statusLabel : valueLabel}
+          <span
+            className="text-white font-black leading-none tracking-tight text-center px-1 w-full"
+            style={{ fontSize: stubFontSize }}
+          >
+            {displayLabel}
           </span>
           {!disabled && (
             <span className="text-white/70 text-[9px] uppercase tracking-wider">
