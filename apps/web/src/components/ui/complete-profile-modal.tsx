@@ -2,26 +2,63 @@
 
 import { useState } from 'react';
 import { marketplaceApi } from '@/lib/marketplace-api';
+import { resolveImageUrl } from '@/lib/utils';
 import { DatePicker } from './date-picker';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+const COUNTRY_CODES = [
+  { code: '+52', flag: '🇲🇽', name: 'México' },
+  { code: '+1', flag: '🇺🇸', name: 'EE.UU. / Canadá' },
+  { code: '+34', flag: '🇪🇸', name: 'España' },
+  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
+  { code: '+56', flag: '🇨🇱', name: 'Chile' },
+  { code: '+51', flag: '🇵🇪', name: 'Perú' },
+  { code: '+58', flag: '🇻🇪', name: 'Venezuela' },
+  { code: '+593', flag: '🇪🇨', name: 'Ecuador' },
+  { code: '+502', flag: '🇬🇹', name: 'Guatemala' },
+  { code: '+503', flag: '🇸🇻', name: 'El Salvador' },
+  { code: '+504', flag: '🇭🇳', name: 'Honduras' },
+  { code: '+505', flag: '🇳🇮', name: 'Nicaragua' },
+  { code: '+506', flag: '🇨🇷', name: 'Costa Rica' },
+  { code: '+507', flag: '🇵🇦', name: 'Panamá' },
+  { code: '+53', flag: '🇨🇺', name: 'Cuba' },
+  { code: '+1-809', flag: '🇩🇴', name: 'Rep. Dominicana' },
+  { code: '+591', flag: '🇧🇴', name: 'Bolivia' },
+  { code: '+595', flag: '🇵🇾', name: 'Paraguay' },
+  { code: '+598', flag: '🇺🇾', name: 'Uruguay' },
+  { code: '+55', flag: '🇧🇷', name: 'Brasil' },
+];
+
+const GENDER_OPTIONS = [
+  { value: '', label: 'Selecciona una opción' },
+  { value: 'FEMALE', label: 'Femenino' },
+  { value: 'MALE', label: 'Masculino' },
+  { value: 'NON_BINARY', label: 'No binario' },
+  { value: 'PREFER_NOT_SAY', label: 'Prefiero no decir' },
+];
+
 interface CompleteProfileModalProps {
   user: {
+    firstName?: string | null;
     phone: string | null;
     birthDate?: string | null;
     gender?: string | null;
     allergies?: string | null;
+    avatarUrl?: string | null;
   };
   onComplete: () => void;
   onSkip: () => void;
 }
 
 export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfileModalProps) {
+  const [step, setStep] = useState<'welcome' | 'form'>('welcome');
+  const [countryCode, setCountryCode] = useState('+52');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [form, setForm] = useState({
-    phone: user.phone || '',
     birthDate: user.birthDate ? user.birthDate.split('T')[0] : '',
     gender: user.gender || '',
     allergies: user.allergies || '',
@@ -29,12 +66,16 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const initials = `${(user.firstName || '')[0] || ''}`.toUpperCase();
+  const avatarUrl = user.avatarUrl ? resolveImageUrl(user.avatarUrl) : null;
+
   const handleSubmit = async () => {
     setSaving(true);
     setError('');
     try {
+      const fullPhone = phoneNumber ? `${countryCode}${phoneNumber}` : undefined;
       await marketplaceApi.put('/auth/profile', {
-        phone: form.phone || undefined,
+        phone: fullPhone,
         birthDate: form.birthDate || undefined,
         gender: form.gender || undefined,
         allergies: form.allergies || undefined,
@@ -47,47 +88,97 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
     }
   };
 
+  // ── Step 1: Welcome ──────────────────────────────────
+  if (step === 'welcome') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-7 text-center" onClick={(e) => e.stopPropagation()}>
+          {/* Logo */}
+          <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-5" style={{ backgroundColor: TEAL }}>
+            <span className="text-white text-2xl font-bold">S</span>
+          </div>
+
+          <h1 className="text-xl font-bold text-gray-900 mb-3">
+            Bienvenid{user.firstName ? 'o' : 'o'} a Siliba
+            {user.firstName ? `, ${user.firstName}` : ''}
+          </h1>
+
+          <p className="text-sm text-gray-500 leading-relaxed mb-8">
+            Aquí encontrarás servicios de todo tipo con profesionales de verdad que te brindarán la mejor experiencia.
+          </p>
+
+          <button
+            onClick={() => setStep('form')}
+            className="w-full text-white py-3 rounded-xl font-semibold text-sm transition-colors"
+            style={{ backgroundColor: TEAL }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
+          >
+            Continuar
+          </button>
+          <button
+            onClick={onSkip}
+            className="w-full mt-2 py-2.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Ahora no
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: Form ─────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="text-center mb-5">
-          <div
-            className="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3"
-            style={{ backgroundColor: TEAL_LIGHT }}
-          >
-            <svg className="w-7 h-7" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-            </svg>
+
+        {/* Avatar */}
+        <div className="flex flex-col items-center mb-5">
+          <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center mb-2"
+            style={{ backgroundColor: TEAL_LIGHT }}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold" style={{ color: TEAL }}>{initials || '?'}</span>
+            )}
           </div>
           <h2 className="text-lg font-bold text-gray-900">Completa tu perfil</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Estos datos nos ayudan a darte una mejor experiencia
-          </p>
+          <p className="text-xs text-gray-400 mt-0.5">Estos datos nos ayudan a darte una mejor experiencia</p>
         </div>
 
-        {/* Form */}
         <div className="space-y-4">
+
           {/* Phone */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Teléfono
-            </label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-              style={{ '--tw-ring-color': TEAL } as any}
-              placeholder="+1-555-0000"
-            />
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Teléfono</label>
+            <div className="flex gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className="px-2 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none bg-white"
+                style={{ '--tw-ring-color': TEAL } as any}
+              >
+                {COUNTRY_CODES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.code}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                placeholder="Número de teléfono"
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                style={{ '--tw-ring-color': TEAL } as any}
+              />
+            </div>
           </div>
 
           {/* Birth date */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Fecha de nacimiento
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Fecha de nacimiento</label>
             <DatePicker
               value={form.birthDate}
               onChange={(v) => setForm((f) => ({ ...f, birthDate: v }))}
@@ -96,45 +187,34 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
 
           {/* Gender */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Género
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: 'FEMALE', label: 'Femenino' },
-                { value: 'MALE', label: 'Masculino' },
-                { value: 'NON_BINARY', label: 'No binario' },
-                { value: 'PREFER_NOT_SAY', label: 'Prefiero no decir' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, gender: f.gender === opt.value ? '' : opt.value }))}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                  style={
-                    form.gender === opt.value
-                      ? { backgroundColor: TEAL, color: 'white' }
-                      : { backgroundColor: '#f3f4f6', color: '#6b7280' }
-                  }
-                >
-                  {opt.label}
-                </button>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Género</label>
+            <select
+              value={form.gender}
+              onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none bg-white"
+              style={{ '--tw-ring-color': TEAL } as any}
+            >
+              {GENDER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Allergies */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
-              Alergias o notas médicas <span className="text-gray-400">(opcional)</span>
+              Alergias <span className="text-gray-400">(opcional)</span>
             </label>
+            <p className="text-xs text-gray-400 mb-1.5 leading-relaxed">
+              Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica, garantizando tu seguridad y la mejor experiencia posible.
+            </p>
             <textarea
               value={form.allergies}
               onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none resize-none"
               style={{ '--tw-ring-color': TEAL } as any}
               rows={2}
-              placeholder="Ej: alergia al latex, piel sensible..."
+              placeholder="Ej: alergia al látex, piel sensible..."
             />
           </div>
         </div>
@@ -143,7 +223,6 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
           <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mt-3">{error}</p>
         )}
 
-        {/* Actions */}
         <div className="mt-5 space-y-2">
           <button
             onClick={handleSubmit}

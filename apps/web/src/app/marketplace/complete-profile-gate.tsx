@@ -33,7 +33,7 @@ export function CompleteProfileGate() {
 
   return (
     <CompleteProfileModal
-      user={user}
+      user={user as any}
       onComplete={() => {
         setShow(false);
         refreshUser();
