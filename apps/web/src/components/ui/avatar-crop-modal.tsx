@@ -85,13 +85,23 @@ export function AvatarCropModal({
     containerRef.current?.setPointerCapture(e.pointerId);
   }
 
+  function clampOffset(x: number, y: number) {
+    const img = imageRef.current;
+    if (!img) return { x, y };
+    const scale = Math.max(PREVIEW_SIZE / img.width, PREVIEW_SIZE / img.height) * zoom;
+    const maxX = (img.width * scale - PREVIEW_SIZE) / 2;
+    const maxY = (img.height * scale - PREVIEW_SIZE) / 2;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
+  }
+
   function handlePointerMove(e: React.PointerEvent) {
     e.preventDefault();
     if (!dragging) return;
-    setOffset({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
+    const raw = { x: e.clientX - dragStart.x, y: e.clientY - dragStart.y };
+    setOffset(clampOffset(raw.x, raw.y));
   }
 
   function handlePointerUp(e: React.PointerEvent) {
@@ -172,7 +182,7 @@ export function AvatarCropModal({
               ref={canvasRef}
               width={PREVIEW_SIZE}
               height={PREVIEW_SIZE}
-              style={{ display: 'block', width: '100%', height: '100%' }}
+              style={{ display: 'block' }}
             />
           </div>
         </div>
@@ -188,7 +198,19 @@ export function AvatarCropModal({
             max={3}
             step={0.05}
             value={zoom}
-            onChange={(e) => setZoom(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const newZoom = parseFloat(e.target.value);
+              setZoom(newZoom);
+              const img = imageRef.current;
+              if (!img) return;
+              const scale = Math.max(PREVIEW_SIZE / img.width, PREVIEW_SIZE / img.height) * newZoom;
+              const maxX = (img.width * scale - PREVIEW_SIZE) / 2;
+              const maxY = (img.height * scale - PREVIEW_SIZE) / 2;
+              setOffset((prev) => ({
+                x: Math.min(maxX, Math.max(-maxX, prev.x)),
+                y: Math.min(maxY, Math.max(-maxY, prev.y)),
+              }));
+            }}
             className="flex-1"
             style={{ accentColor: '#008080' }}
           />
