@@ -894,7 +894,7 @@ export default function MarketplaceSettingsPage() {
   if (!isAuthenticated || !user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 safe-top">
 
 
       <div className="max-w-2xl mx-auto px-4 py-6">

@@ -337,7 +337,7 @@ export default function MarketplaceProfilePage() {
   const initials = `${(user.firstName || '')[0] || ''}${(user.lastName || '')[0] || ''}`.toUpperCase();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 safe-top">
 
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">

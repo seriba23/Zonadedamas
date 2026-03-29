@@ -313,7 +313,7 @@ export default function BusinessDetailPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 safe-top">
       {/* Payment cancelled banner */}
       {paymentStatus === 'cancelled' && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">
