@@ -99,7 +99,7 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
     setLoading('google');
     setError('');
     try {
-      const { GoogleAuth } = await import('@capacitor-community/google-auth');
+      const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
       await GoogleAuth.initialize({ clientId: GOOGLE_CLIENT_ID, scopes: ['profile', 'email'], grantOfflineAccess: true });
       const result = await GoogleAuth.signIn();
       const idToken = result.authentication?.idToken;
