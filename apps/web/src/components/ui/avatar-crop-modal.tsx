@@ -66,18 +66,11 @@ export function AvatarCropModal({
     const scaledW = img.width * scale;
     const scaledH = img.height * scale;
 
-    // Center + offset
+    // Center + offset — no arc clip here, container's overflow-hidden handles the circle
     const x = (PREVIEW_SIZE - scaledW) / 2 + offset.x;
     const y = (PREVIEW_SIZE - scaledH) / 2 + offset.y;
 
-    // Clip to circle
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(PREVIEW_SIZE / 2, PREVIEW_SIZE / 2, PREVIEW_SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
-
     ctx.drawImage(img, x, y, scaledW, scaledH);
-    ctx.restore();
   }, [zoom, offset]);
 
   useEffect(() => {
@@ -179,7 +172,7 @@ export function AvatarCropModal({
               ref={canvasRef}
               width={PREVIEW_SIZE}
               height={PREVIEW_SIZE}
-              className="block"
+              style={{ display: 'block', width: '100%', height: '100%' }}
             />
           </div>
         </div>

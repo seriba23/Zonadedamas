@@ -262,11 +262,13 @@ export default function EditProfilePage() {
       <div className="flex-1 max-w-2xl w-full mx-auto px-4 py-5 space-y-4">
 
         {/* Avatar */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col items-center gap-3">
+        <div
+          className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col items-center gap-3 cursor-pointer"
+          onClick={() => fileInputRef.current?.click()}
+        >
           <div
-            className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden cursor-pointer relative group"
+            className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden relative group"
             style={{ backgroundColor: TEAL_LIGHT }}
-            onClick={() => fileInputRef.current?.click()}
           >
             {(user as any).avatarUrl ? (
               <img src={resolveImageUrl((user as any).avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
