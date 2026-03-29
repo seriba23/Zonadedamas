@@ -22,12 +22,78 @@ import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class MarketplaceService {
+  // SMS OTP store (password recovery + email change verification)
+  private readonly otpStore = new Map<string, { code: string; expiresAt: Date }>();
+  // Email OTP store (phone change verification)
+  private readonly emailOtpStore = new Map<string, { code: string; expiresAt: Date }>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly tenantsService: TenantsService,
     private readonly appointmentsService: AppointmentsService,
   ) {}
+
+  // ─── OTP ─────────────────────────────────────────────
+
+  async sendOtp(marketplaceUserId: string) {
+    const user = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+      select: { phone: true },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user.phone) throw new BadRequestException('No tienes un número de teléfono registrado. Agrega uno en tu perfil primero.');
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+    this.otpStore.set(marketplaceUserId, { code, expiresAt });
+
+    // TODO: integrate with Twilio/SMS provider
+    console.log(`[OTP] Código para ${user.phone}: ${code} (expira ${expiresAt.toISOString()})`);
+
+    const masked = user.phone.replace(/(\d{2})\d+(\d{2})/, '$1****$2');
+    return { message: `Código enviado al ${masked}` };
+  }
+
+  verifyOtp(marketplaceUserId: string, code: string) {
+    const entry = this.otpStore.get(marketplaceUserId);
+    if (!entry) throw new BadRequestException('No hay código activo. Solicita uno nuevo.');
+    if (new Date() > entry.expiresAt) {
+      this.otpStore.delete(marketplaceUserId);
+      throw new BadRequestException('El código ha expirado. Solicita uno nuevo.');
+    }
+    if (entry.code !== code) throw new UnauthorizedException('Código incorrecto.');
+    return { verified: true };
+  }
+
+  async sendOtpEmail(marketplaceUserId: string) {
+    const user = await this.prisma.marketplaceUser.findUnique({
+      where: { id: marketplaceUserId },
+      select: { email: true },
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    this.emailOtpStore.set(marketplaceUserId, { code, expiresAt });
+
+    // TODO: integrate with Resend/email provider
+    console.log(`[OTP-EMAIL] Código para ${user.email}: ${code} (expira ${expiresAt.toISOString()})`);
+
+    const masked = user.email.replace(/^(.{2})(.*)(@.+)$/, '$1****$3');
+    return { message: `Código enviado a ${masked}` };
+  }
+
+  verifyOtpEmail(marketplaceUserId: string, code: string) {
+    const entry = this.emailOtpStore.get(marketplaceUserId);
+    if (!entry) throw new BadRequestException('No hay código activo. Solicita uno nuevo.');
+    if (new Date() > entry.expiresAt) {
+      this.emailOtpStore.delete(marketplaceUserId);
+      throw new BadRequestException('El código ha expirado. Solicita uno nuevo.');
+    }
+    if (entry.code !== code) throw new UnauthorizedException('Código incorrecto.');
+    return { verified: true };
+  }
 
   // ─── AUTH ────────────────────────────────────────────
 
@@ -1223,15 +1289,18 @@ export class MarketplaceService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Verify password (social-only accounts skip this)
-    if (current.passwordHash) {
-      if (!dto.currentPassword) {
-        throw new BadRequestException('Debes confirmar tu contraseña');
-      }
-      const valid = await bcrypt.compare(dto.currentPassword, current.passwordHash);
-      if (!valid) {
-        throw new UnauthorizedException('Contraseña incorrecta');
-      }
+    // Email change requires SMS OTP verification
+    if (dto.email && dto.email !== current.email) {
+      if (!dto.otpCode) throw new BadRequestException('Se requiere código de verificación por SMS para cambiar el email');
+      this.verifyOtp(marketplaceUserId, dto.otpCode);
+      this.otpStore.delete(marketplaceUserId);
+    }
+
+    // Phone change requires email OTP verification
+    if (dto.phone !== undefined && dto.phone !== current.phone) {
+      if (!dto.otpCode) throw new BadRequestException('Se requiere código de verificación por correo para cambiar el teléfono');
+      this.verifyOtpEmail(marketplaceUserId, dto.otpCode);
+      this.emailOtpStore.delete(marketplaceUserId);
     }
 
     if (!dto.email && !dto.phone) {
@@ -1318,14 +1387,20 @@ export class MarketplaceService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Social-only users can set a password for the first time (currentPassword can be empty)
+    // Social-only users can set a password for the first time (no verification needed)
     if (user.passwordHash) {
-      if (!dto.currentPassword) {
-        throw new BadRequestException('Debes ingresar tu contraseña actual');
-      }
-      const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-      if (!isMatch) {
-        throw new UnauthorizedException('Contraseña actual incorrecta');
+      if (dto.otpCode) {
+        // OTP bypass: verify code and consume it
+        this.verifyOtp(marketplaceUserId, dto.otpCode);
+        this.otpStore.delete(marketplaceUserId);
+      } else {
+        if (!dto.currentPassword) {
+          throw new BadRequestException('Debes ingresar tu contraseña actual o usar un código de recuperación');
+        }
+        const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+        if (!isMatch) {
+          throw new UnauthorizedException('Contraseña actual incorrecta');
+        }
       }
     }
 

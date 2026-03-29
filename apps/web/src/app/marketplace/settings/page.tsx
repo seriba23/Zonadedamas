@@ -266,7 +266,7 @@ function ContactChangeForm({
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
         style={{ '--tw-ring-color': TEAL } as any}
       />
-      {!socialProvider && (
+      {!socialProvider && field === 'email' && (
         <input
           type="password"
           value={password}
@@ -280,7 +280,7 @@ function ContactChangeForm({
       <div className="flex gap-2">
         <button
           onClick={() => mutation.mutate()}
-          disabled={!value || (!socialProvider && !password) || mutation.isPending}
+          disabled={!value || (!socialProvider && field === 'email' && !password) || mutation.isPending}
           className="flex-1 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
           style={{ backgroundColor: TEAL }}
         >
@@ -326,6 +326,10 @@ function EditProfilePanel({
   });
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [changingField, setChangingField] = useState<'email' | 'phone' | null>(null);
+  // OTP recovery state
+  const [otpStep, setOtpStep] = useState<'idle' | 'sent' | 'verified'>('idle');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [error, setError] = useState('');
   const [successPopup, setSuccessPopup] = useState<{ title: string; message?: string } | null>(null);
   const [passwordError, setPasswordError] = useState('');
@@ -362,16 +366,30 @@ function EditProfilePanel({
     },
   });
 
+  const otpSendMutation = useMutation({
+    mutationFn: () => marketplaceApi.post('/auth/otp/send', {}),
+    onSuccess: () => { setOtpStep('sent'); setOtpError(''); },
+    onError: (err: any) => { setOtpError(err.message || 'Error al enviar código'); },
+  });
+
+  const otpVerifyMutation = useMutation({
+    mutationFn: () => marketplaceApi.post('/auth/otp/verify', { code: otpCode }),
+    onSuccess: () => { setOtpStep('verified'); setOtpError(''); },
+    onError: (err: any) => { setOtpError(err.message || 'Código incorrecto'); },
+  });
+
   const passwordMutation = useMutation({
     mutationFn: () =>
       marketplaceApi.put('/auth/profile/password', {
-        currentPassword: passwordForm.currentPassword,
+        ...(otpStep === 'verified' ? { otpCode } : { currentPassword: passwordForm.currentPassword }),
         newPassword: passwordForm.newPassword,
       }),
     onSuccess: () => {
       setSuccessPopup({ title: 'Contraseña actualizada', message: 'Tu contraseña se ha cambiado correctamente' });
       setPasswordError('');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setOtpStep('idle');
+      setOtpCode('');
     },
     onError: (err: any) => {
       setPasswordError(err.message || 'Error al cambiar contraseña');
@@ -650,14 +668,74 @@ function EditProfilePanel({
             )}
             {!user.socialProvider && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Contraseña actual</label>
-                <input
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-                  style={{ '--tw-ring-color': TEAL } as any}
-                />
+                {otpStep === 'verified' ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: '#e0f2f1', color: TEAL }}>
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium">Identidad verificada por SMS</span>
+                  </div>
+                ) : (
+                  <>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Contraseña actual</label>
+                    <input
+                      type="password"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                      style={{ '--tw-ring-color': TEAL } as any}
+                      disabled={otpStep !== 'idle'}
+                    />
+
+                    {/* OTP Recovery */}
+                    {otpStep === 'idle' && (
+                      <button
+                        type="button"
+                        onClick={() => { setOtpError(''); otpSendMutation.mutate(); }}
+                        disabled={otpSendMutation.isPending}
+                        className="mt-1.5 text-xs font-medium disabled:opacity-50"
+                        style={{ color: TEAL }}
+                      >
+                        {otpSendMutation.isPending ? 'Enviando...' : '¿Olvidaste tu contraseña? Recuperar por SMS'}
+                      </button>
+                    )}
+
+                    {otpStep === 'sent' && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-xs text-gray-500">Ingresa el código de 6 dígitos enviado a tu teléfono</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center tracking-widest font-mono focus:ring-2 focus:outline-none"
+                            style={{ '--tw-ring-color': TEAL } as any}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => otpVerifyMutation.mutate()}
+                            disabled={otpCode.length !== 6 || otpVerifyMutation.isPending}
+                            className="px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                            style={{ backgroundColor: TEAL }}
+                          >
+                            {otpVerifyMutation.isPending ? '...' : 'Verificar'}
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setOtpStep('idle'); setOtpCode(''); setOtpError(''); }}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {otpError && <p className="mt-1 text-xs text-red-600">{otpError}</p>}
               </div>
             )}
             <div>
@@ -1016,24 +1094,17 @@ export default function MarketplaceSettingsPage() {
 
             <div className="divide-y divide-gray-100">
               <button
-                onClick={() => setShowEditProfile(!showEditProfile)}
+                onClick={() => router.push('/marketplace/settings/edit-profile')}
                 className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
               >
-                <p className="text-sm text-gray-700">{showEditProfile ? 'Cerrar editor' : 'Editar perfil'}</p>
-                <svg className={`w-4 h-4 text-gray-400 transition-transform ${showEditProfile ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <div>
+                  <p className="text-sm text-gray-700">Editar perfil</p>
+                  <p className="text-xs text-gray-400">Nombre, foto, correo, teléfono, contraseña</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                 </svg>
               </button>
-
-              {showEditProfile && (
-                <div className="px-4 py-3">
-                  <EditProfilePanel
-                    user={user as any}
-                    onClose={() => setShowEditProfile(false)}
-                    onSaved={() => refreshUser()}
-                  />
-                </div>
-              )}
 
               <button
                 onClick={() => setShowBreakModal(true)}

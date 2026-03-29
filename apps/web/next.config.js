@@ -5,6 +5,7 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
+  allowedDevOrigins: ['192.168.3.33'],
 };
 
 module.exports = nextConfig;

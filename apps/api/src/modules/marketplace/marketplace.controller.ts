@@ -87,6 +87,34 @@ export class MarketplaceController {
   }
 
   @UseGuards(MarketplaceJwtGuard)
+  @Post('auth/otp/send')
+  async sendOtp(@Req() req: any) {
+    const result = await this.marketplaceService.sendOtp(req.user.marketplaceUserId);
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('auth/otp/verify')
+  async verifyOtp(@Req() req: any, @Body('code') code: string) {
+    const result = this.marketplaceService.verifyOtp(req.user.marketplaceUserId, code);
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('auth/otp/send-email')
+  async sendOtpEmail(@Req() req: any) {
+    const result = await this.marketplaceService.sendOtpEmail(req.user.marketplaceUserId);
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('auth/otp/verify-email')
+  async verifyOtpEmail(@Req() req: any, @Body('code') code: string) {
+    const result = this.marketplaceService.verifyOtpEmail(req.user.marketplaceUserId, code);
+    return { data: result };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
   @Put('auth/profile/password')
   async changePassword(@Req() req: any, @Body() dto: ChangeMarketplacePasswordDto) {
     const result = await this.marketplaceService.changePassword(req.user.marketplaceUserId, dto);

@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     // En desarrollo: apuntar al servidor Next.js local
     // 10.0.2.2 es la IP especial del emulador Android para acceder a localhost del host
-    url: 'http://192.168.3.33:3000',
+    url: 'http://192.168.3.33:3000/marketplace',
     cleartext: true,
   },
   android: {

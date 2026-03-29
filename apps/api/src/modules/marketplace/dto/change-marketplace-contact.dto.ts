@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class ChangeMarketplaceContactDto {
   @IsOptional()
@@ -11,5 +11,5 @@ export class ChangeMarketplaceContactDto {
 
   @IsOptional()
   @IsString()
-  currentPassword?: string;
+  otpCode?: string;
 }
