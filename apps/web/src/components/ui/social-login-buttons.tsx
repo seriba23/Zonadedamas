@@ -10,14 +10,29 @@ interface SocialLoginButtonsProps {
   disabled?: boolean;
 }
 
+// Detect Capacitor native platform safely (SSR-safe)
+function isNativePlatform(): boolean {
+  try {
+    const { Capacitor } = require('@capacitor/core');
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
 export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButtonsProps) {
   const [loading, setLoading] = useState<'google' | 'facebook' | null>(null);
   const [sdkReady, setSdkReady] = useState({ google: false, facebook: false });
   const [error, setError] = useState('');
+  const [isNative, setIsNative] = useState(false);
 
-  // Load Google Identity Services SDK
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || document.getElementById('google-gsi-script')) return;
+    setIsNative(isNativePlatform());
+  }, []);
+
+  // Load Google Identity Services SDK (web only)
+  useEffect(() => {
+    if (isNative || !GOOGLE_CLIENT_ID || document.getElementById('google-gsi-script')) return;
 
     const script = document.createElement('script');
     script.id = 'google-gsi-script';
@@ -26,33 +41,11 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
     script.defer = true;
     script.onload = () => setSdkReady((prev) => ({ ...prev, google: true }));
     document.head.appendChild(script);
-  }, []);
+  }, [isNative]);
 
-  // Load Facebook SDK
+  // Initialize Google credential callback (web only)
   useEffect(() => {
-    if (!FACEBOOK_APP_ID || document.getElementById('facebook-jssdk')) return;
-
-    (window as any).fbAsyncInit = function () {
-      (window as any).FB.init({
-        appId: FACEBOOK_APP_ID,
-        cookie: true,
-        xfbml: false,
-        version: 'v19.0',
-      });
-      setSdkReady((prev) => ({ ...prev, facebook: true }));
-    };
-
-    const script = document.createElement('script');
-    script.id = 'facebook-jssdk';
-    script.src = 'https://connect.facebook.net/es_LA/sdk.js';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-  }, []);
-
-  // Initialize Google credential callback
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !sdkReady.google) return;
+    if (isNative || !GOOGLE_CLIENT_ID || !sdkReady.google) return;
     const google = (window as any).google;
     if (!google?.accounts?.id) return;
 
@@ -72,9 +65,57 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
         }
       },
     });
-  }, [sdkReady.google, onSocialLogin]);
+  }, [isNative, sdkReady.google, onSocialLogin]);
 
-  const handleGoogle = useCallback(() => {
+  // Load Facebook SDK (web only)
+  useEffect(() => {
+    if (isNative || !FACEBOOK_APP_ID || document.getElementById('facebook-jssdk')) return;
+
+    (window as any).fbAsyncInit = function () {
+      (window as any).FB.init({
+        appId: FACEBOOK_APP_ID,
+        cookie: true,
+        xfbml: false,
+        version: 'v19.0',
+      });
+      setSdkReady((prev) => ({ ...prev, facebook: true }));
+    };
+
+    const script = document.createElement('script');
+    script.id = 'facebook-jssdk';
+    script.src = 'https://connect.facebook.net/es_LA/sdk.js';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, [isNative]);
+
+  // ── Google Sign-In (native Android via plugin) ──
+  const handleGoogleNative = useCallback(async () => {
+    if (loading || disabled) return;
+    if (!GOOGLE_CLIENT_ID) {
+      setError('Google Sign-In no está configurado');
+      return;
+    }
+    setLoading('google');
+    setError('');
+    try {
+      const { GoogleAuth } = await import('@capacitor-community/google-auth');
+      await GoogleAuth.initialize({ clientId: GOOGLE_CLIENT_ID, scopes: ['profile', 'email'], grantOfflineAccess: true });
+      const result = await GoogleAuth.signIn();
+      const idToken = result.authentication?.idToken;
+      if (!idToken) throw new Error('No se obtuvo token de Google');
+      await onSocialLogin('google', idToken);
+    } catch (err: any) {
+      if (err?.message !== 'The user canceled the sign-in flow.') {
+        setError(err?.message || 'Error al iniciar sesión con Google');
+      }
+    } finally {
+      setLoading(null);
+    }
+  }, [loading, disabled, onSocialLogin]);
+
+  // ── Google Sign-In (web browser via GIS SDK) ──
+  const handleGoogleWeb = useCallback(() => {
     if (loading || disabled) return;
     if (!GOOGLE_CLIENT_ID) {
       setError('Google Sign-In no está configurado todavía');
@@ -88,26 +129,23 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
       if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
         const btn = document.getElementById('google-signin-fallback');
         if (btn) {
-          google.accounts.id.renderButton(btn, {
-            type: 'standard',
-            size: 'large',
-            width: 320,
-          });
-          btn.querySelector('div[role="button"]')?.dispatchEvent(
-            new MouseEvent('click', { bubbles: true }),
-          );
+          google.accounts.id.renderButton(btn, { type: 'standard', size: 'large', width: 320 });
+          btn.querySelector('div[role="button"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         }
       }
     });
   }, [loading, disabled]);
 
+  const handleGoogle = isNative ? handleGoogleNative : handleGoogleWeb;
+
+  // ── Facebook Sign-In ──
   const handleFacebook = useCallback(async () => {
     if (loading || disabled) return;
     if (!FACEBOOK_APP_ID) {
       setError('Facebook Login no está configurado todavía');
       return;
     }
-    if (window.location.protocol !== 'https:') {
+    if (!isNative && window.location.protocol !== 'https:') {
       setError('Facebook requiere HTTPS. Disponible próximamente.');
       return;
     }
@@ -134,7 +172,7 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
     } catch {
       setLoading(null);
     }
-  }, [loading, disabled, onSocialLogin]);
+  }, [loading, disabled, isNative, onSocialLogin]);
 
   return (
     <div className="space-y-3">
@@ -183,8 +221,8 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
         <p className="text-xs text-amber-600 text-center">{error}</p>
       )}
 
-      {/* Hidden fallback container for Google button */}
-      <div id="google-signin-fallback" className="hidden" />
+      {/* Hidden fallback container for Google button (web only) */}
+      {!isNative && <div id="google-signin-fallback" className="hidden" />}
 
       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
