@@ -126,9 +126,9 @@ export default function ProfessionalProfilePage() {
       </div>
 
       {/* ─── Hero: Fixed photo background, content scrolls over it ─── */}
-      <div className="relative" style={{ height: '100vh' }}>
+      <div className="relative" style={{ height: '72vh' }}>
         {/* Photo stays fixed in place */}
-        <div className="fixed inset-0 z-0" style={{ height: '100vh' }}>
+        <div className="fixed inset-0 z-0" style={{ height: '72vh' }}>
           {hasAvatar ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
@@ -171,7 +171,7 @@ export default function ProfessionalProfilePage() {
         )}
 
         {/* Hero content — positioned at bottom, scrolls with page */}
-        <div className="relative z-10 flex flex-col justify-end min-h-screen px-6 pb-8 max-w-3xl mx-auto">
+        <div className="relative z-10 flex flex-col justify-end min-h-[72vh] px-6 pb-8 max-w-3xl mx-auto">
           {/* Business badge */}
           <div className="mb-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white/90 text-xs font-medium">
@@ -223,7 +223,7 @@ export default function ProfessionalProfilePage() {
       </div>
 
       {/* ─── Content below hero (white bg covers the fixed photo) ─── */}
-      <div className="relative z-10 bg-gray-50">
+      <div className="relative z-10 bg-gray-50 min-h-screen pb-20">
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
 
           {/* Portfolio gallery */}
