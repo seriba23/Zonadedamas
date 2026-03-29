@@ -8,7 +8,7 @@ export default function MarketplaceHeader() {
   const { user, isAuthenticated, isLoading } = useMarketplaceAuth();
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 py-4">
+    <div className="bg-white border-b border-gray-200 px-4 pb-4 safe-top">
       <div className="max-w-2xl mx-auto flex items-center justify-between">
         <Link href="/marketplace">
           <h1 className="text-xl font-bold tracking-tight" style={{ color: '#008080' }}>Siliba</h1>

@@ -5,7 +5,17 @@
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
+    /* Prevent horizontal overflow from causing page-level scroll */
+    overflow-x: hidden;
   }
+}
+
+/* Safe area utilities for notch/status bar devices */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @keyframes bounce-in {
