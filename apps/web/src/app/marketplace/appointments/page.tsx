@@ -160,7 +160,14 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
             </span>
           </div>
           {appt.employee && (
-            <p className="text-xs text-gray-400 mt-1">con {appt.employee.firstName} {appt.employee.lastName}</p>
+            <Link
+              href={`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs mt-1 inline-flex items-center gap-1"
+              style={{ color: '#008080' }}
+            >
+              {appt.employee.firstName} {appt.employee.lastName}
+            </Link>
           )}
         </div>
         <span

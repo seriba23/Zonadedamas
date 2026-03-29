@@ -138,7 +138,10 @@ export default function AppointmentDetailPage() {
         {appt.employee && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Especialista</h2>
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push(`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`)}
+              className="flex items-center gap-3 w-full text-left"
+            >
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-sm font-bold"
                 style={{ backgroundColor: appt.employee.color ? `${appt.employee.color}22` : '#e0f2f1', color: appt.employee.color || '#008080' }}
@@ -149,10 +152,13 @@ export default function AppointmentDetailPage() {
                   <>{appt.employee.firstName?.[0]}{appt.employee.lastName?.[0]}</>
                 )}
               </div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-gray-900 flex-1">
                 {appt.employee.firstName} {appt.employee.lastName}
               </p>
-            </div>
+              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
           </div>
         )}
 

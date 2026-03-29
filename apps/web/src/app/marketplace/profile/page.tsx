@@ -92,6 +92,7 @@ interface Stats {
 // ─── Appointment Card ──────────────────────────────────
 
 function AppointmentCard({ apt }: { apt: Appointment }) {
+  const router = useRouter();
   const status = STATUS_CONFIG[apt.status] || {
     label: apt.status,
     color: 'bg-gray-100 text-gray-600',
@@ -157,7 +158,10 @@ function AppointmentCard({ apt }: { apt: Appointment }) {
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <button
+        onClick={() => router.push(`/marketplace/${apt.tenant.slug}/professional/${apt.employee.id}`)}
+        className="flex items-center gap-3 w-full text-left"
+      >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
           style={{ backgroundColor: apt.employee.color || TEAL }}
@@ -179,7 +183,7 @@ function AppointmentCard({ apt }: { apt: Appointment }) {
         <span className="text-sm font-semibold text-gray-900 flex-shrink-0">
           {formatCurrency(totalPrice)}
         </span>
-      </div>
+      </button>
     </div>
   );
 }
