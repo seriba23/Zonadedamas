@@ -333,7 +333,7 @@ export default function EditProfilePage() {
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Alergias <span className="text-gray-400">(opcional)</span></label>
               <p className="text-xs text-gray-400 mb-1.5 leading-relaxed">
-                Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica, garantizando tu seguridad y la mejor experiencia posible.
+                Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica. Los especialistas podrán verla cuando seas atendid@ para garantizar tu seguridad y la mejor experiencia posible.
               </p>
               <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
             </div>
