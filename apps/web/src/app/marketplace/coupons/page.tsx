@@ -135,8 +135,8 @@ function CouponCard({ redemption, disabled = false }: { redemption: any; disable
           style={{ backgroundColor: disabled ? '#9ca3af' : '#008080' }}
         >
           <span
-            className="text-white font-black leading-none tracking-tight text-center px-1 w-full"
-            style={{ fontSize: stubFontSize }}
+            className="text-white font-black leading-tight text-center break-all w-full px-2"
+            style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
           >
             {displayLabel}
           </span>
