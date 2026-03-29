@@ -55,7 +55,7 @@ interface CompleteProfileModalProps {
 }
 
 export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfileModalProps) {
-  const [step, setStep] = useState<'welcome' | 'form'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'form' | 'thanks'>('welcome');
   const [countryCode, setCountryCode] = useState('+52');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [form, setForm] = useState({
@@ -80,7 +80,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
         gender: form.gender || undefined,
         allergies: form.allergies || undefined,
       });
-      onComplete();
+      setStep('thanks');
     } catch (err: any) {
       setError(err.message || 'Error al guardar');
     } finally {
@@ -99,8 +99,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
           </div>
 
           <h1 className="text-xl font-bold text-gray-900 mb-3">
-            Bienvenid{user.firstName ? 'o' : 'o'} a Siliba
-            {user.firstName ? `, ${user.firstName}` : ''}
+            ¡Hola{user.firstName ? `, ${user.firstName}` : ''}! Bienvenid@ a Siliba
           </h1>
 
           <p className="text-sm text-gray-500 leading-relaxed mb-8">
@@ -121,6 +120,34 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
             className="w-full mt-2 py-2.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             Ahora no
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 3: Thanks ──────────────────────────────────
+  if (step === 'thanks') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-7 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-5" style={{ backgroundColor: TEAL_LIGHT }}>
+            <svg className="w-8 h-8" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-3">¡Perfil completado!</h2>
+          <p className="text-sm text-gray-500 leading-relaxed mb-8">
+            Gracias por completar tu perfil. Ahora podemos ofrecerte una experiencia personalizada y asegurarnos de que cada servicio sea perfecto para ti.
+          </p>
+          <button
+            onClick={onComplete}
+            className="w-full text-white py-3 rounded-xl font-semibold text-sm transition-colors"
+            style={{ backgroundColor: TEAL }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
+          >
+            ¡Empezar!
           </button>
         </div>
       </div>
