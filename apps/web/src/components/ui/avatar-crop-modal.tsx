@@ -86,12 +86,14 @@ export function AvatarCropModal({
 
   // Mouse/touch drag handlers
   function handlePointerDown(e: React.PointerEvent) {
+    e.preventDefault();
     setDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    containerRef.current?.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: React.PointerEvent) {
+    e.preventDefault();
     if (!dragging) return;
     setOffset({
       x: e.clientX - dragStart.x,
@@ -99,7 +101,8 @@ export function AvatarCropModal({
     });
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(e: React.PointerEvent) {
+    e.preventDefault();
     setDragging(false);
   }
 
@@ -149,7 +152,7 @@ export function AvatarCropModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ touchAction: 'none' }}>
       <div
         className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6"
         onClick={(e) => e.stopPropagation()}
@@ -166,10 +169,11 @@ export function AvatarCropModal({
           <div
             ref={containerRef}
             className="relative rounded-full overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing"
-            style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
+            style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE, touchAction: 'none' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
             <canvas
               ref={canvasRef}
