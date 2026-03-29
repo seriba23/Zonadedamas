@@ -1282,7 +1282,7 @@ export class MarketplaceService {
 
   async updateContact(
     marketplaceUserId: string,
-    dto: { email?: string; phone?: string; currentPassword?: string },
+    dto: { email?: string; phone?: string; currentPassword?: string; otpCode?: string },
   ) {
     const current = await this.prisma.marketplaceUser.findUnique({
       where: { id: marketplaceUserId },
