@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { resolveImageUrl } from '@/lib/utils';
 import { DatePicker } from './date-picker';
+import { AllergiesSelector } from './allergies-selector';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -235,14 +236,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
             <p className="text-xs text-gray-400 mb-1.5 leading-relaxed">
               Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica, garantizando tu seguridad y la mejor experiencia posible.
             </p>
-            <textarea
-              value={form.allergies}
-              onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none resize-none"
-              style={{ '--tw-ring-color': TEAL } as any}
-              rows={2}
-              placeholder="Ej: alergia al látex, piel sensible..."
-            />
+            <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
           </div>
         </div>
 

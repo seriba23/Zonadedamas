@@ -9,6 +9,7 @@ import { resolveImageUrl } from '@/lib/utils';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { DatePicker } from '@/components/ui/date-picker';
+import { AllergiesSelector } from '@/components/ui/allergies-selector';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -315,26 +316,26 @@ export default function EditProfilePage() {
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Género</label>
-              <div className="flex gap-2 flex-wrap">
-                {[{ value: 'MALE', label: 'Masculino' }, { value: 'FEMALE', label: 'Femenino' }, { value: 'NON_BINARY', label: 'No binario' }, { value: 'PREFER_NOT_SAY', label: 'Prefiero no decir' }].map((g) => (
-                  <button key={g.value} type="button"
-                    onClick={() => setForm((f) => ({ ...f, gender: f.gender === g.value ? '' : g.value }))}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
-                    style={form.gender === g.value
-                      ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
-                      : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }}
-                  >{g.label}</button>
-                ))}
-              </div>
+              <select
+                value={form.gender}
+                onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:outline-none bg-white"
+                style={{ '--tw-ring-color': TEAL } as any}
+              >
+                <option value="">Selecciona una opción</option>
+                <option value="FEMALE">Femenino</option>
+                <option value="MALE">Masculino</option>
+                <option value="NON_BINARY">No binario</option>
+                <option value="PREFER_NOT_SAY">Prefiero no decir</option>
+              </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Alergias / notas médicas</label>
-              <textarea value={form.allergies}
-                onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))}
-                rows={2} placeholder="Ej: alérgica al látex, piel sensible..."
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:ring-2 focus:outline-none"
-                style={{ '--tw-ring-color': TEAL } as any} />
+              <label className="block text-xs font-medium text-gray-500 mb-1">Alergias <span className="text-gray-400">(opcional)</span></label>
+              <p className="text-xs text-gray-400 mb-1.5 leading-relaxed">
+                Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica, garantizando tu seguridad y la mejor experiencia posible.
+              </p>
+              <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
             </div>
           </div>
         </div>
@@ -621,7 +622,12 @@ export default function EditProfilePage() {
       )}
 
       {cropFile && (
-        <AvatarCropModal file={cropFile} onAccept={(f) => avatarMutation.mutate(f)} onClose={() => setCropFile(null)} />
+        <AvatarCropModal
+          imageFile={cropFile}
+          onAccept={(f) => { avatarMutation.mutate(f); setCropFile(null); }}
+          onCancel={() => setCropFile(null)}
+          onChooseAnother={() => { setCropFile(null); fileInputRef.current?.click(); }}
+        />
       )}
 
       <SuccessPopup show={!!successPopup} title={successPopup?.title || ''} message={successPopup?.message} onClose={() => setSuccessPopup(null)} />
