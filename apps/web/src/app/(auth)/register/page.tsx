@@ -1,11 +1,103 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
+
+// Country phone codes
+const COUNTRY_CODES = [
+  { code: '+52', flag: '🇲🇽', name: 'México' },
+  { code: '+1', flag: '🇺🇸', name: 'EE.UU.' },
+  { code: '+1', flag: '🇨🇦', name: 'Canadá' },
+  { code: '+34', flag: '🇪🇸', name: 'España' },
+  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
+  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+  { code: '+56', flag: '🇨🇱', name: 'Chile' },
+  { code: '+51', flag: '🇵🇪', name: 'Perú' },
+  { code: '+58', flag: '🇻🇪', name: 'Venezuela' },
+  { code: '+593', flag: '🇪🇨', name: 'Ecuador' },
+  { code: '+502', flag: '🇬🇹', name: 'Guatemala' },
+  { code: '+503', flag: '🇸🇻', name: 'El Salvador' },
+  { code: '+504', flag: '🇭🇳', name: 'Honduras' },
+  { code: '+505', flag: '🇳🇮', name: 'Nicaragua' },
+  { code: '+506', flag: '🇨🇷', name: 'Costa Rica' },
+  { code: '+507', flag: '🇵🇦', name: 'Panamá' },
+  { code: '+591', flag: '🇧🇴', name: 'Bolivia' },
+  { code: '+595', flag: '🇵🇾', name: 'Paraguay' },
+  { code: '+598', flag: '🇺🇾', name: 'Uruguay' },
+  { code: '+55', flag: '🇧🇷', name: 'Brasil' },
+];
+
+function PhoneInput({
+  value,
+  onChange,
+  error,
+  id,
+}: {
+  value: string;
+  onChange: (full: string) => void;
+  error?: string;
+  id?: string;
+}) {
+  const [countryCode, setCountryCode] = useState('+52');
+  const [local, setLocal] = useState('');
+
+  // Parse incoming value if it starts with a known code
+  useEffect(() => {
+    if (!value) return;
+    const matched = COUNTRY_CODES.find((c) => value.startsWith(c.code));
+    if (matched) {
+      setCountryCode(matched.code);
+      setLocal(value.slice(matched.code.length).trim());
+    } else {
+      setLocal(value);
+    }
+  // Only on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleLocalChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/[^\d\s\-()]/g, '');
+    setLocal(digits);
+    onChange(`${countryCode} ${digits}`.trim());
+  }
+
+  function handleCodeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setCountryCode(e.target.value);
+    onChange(`${e.target.value} ${local}`.trim());
+  }
+
+  return (
+    <div>
+      <div className={`flex rounded-lg border bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#008080] focus-within:border-[#008080] ${error ? 'border-red-400' : 'border-gray-300'}`}>
+        <select
+          value={countryCode}
+          onChange={handleCodeChange}
+          className="border-r border-gray-200 bg-gray-50 text-sm text-gray-700 px-2 py-2.5 focus:outline-none cursor-pointer"
+          style={{ minWidth: 72 }}
+        >
+          {COUNTRY_CODES.map((c, i) => (
+            <option key={i} value={c.code}>
+              {c.flag} {c.code}
+            </option>
+          ))}
+        </select>
+        <input
+          id={id}
+          type="tel"
+          value={local}
+          onChange={handleLocalChange}
+          className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-transparent"
+          placeholder="55 1234 5678"
+        />
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 type RegisterMode = 'select' | 'professional' | 'business' | 'individual' | 'client';
 
@@ -57,9 +149,17 @@ const BUSINESS_FEATURES = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register } = useAuth();
 
-  const [mode, setMode] = useState<RegisterMode>('select');
+  // Read ?type=individual|client|business from URL and skip the select screen
+  const typeParam = searchParams.get('type') as RegisterMode | null;
+  const initialMode: RegisterMode =
+    typeParam === 'individual' || typeParam === 'business' || typeParam === 'client'
+      ? typeParam
+      : 'select';
+
+  const [mode, setMode] = useState<RegisterMode>(initialMode);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>({
     firstName: '',
@@ -92,7 +192,12 @@ export default function RegisterPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newErrors.email = 'Ingresa un correo válido';
     }
-    if (!form.phone.trim()) newErrors.phone = 'El teléfono es requerido';
+    if (!form.phone.trim()) {
+      newErrors.phone = 'El teléfono es requerido';
+    } else {
+      const digits = form.phone.replace(/\D/g, '');
+      if (digits.length < 7) newErrors.phone = 'Ingresa un número de teléfono válido';
+    }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
     } else if (form.password.length < 6) {
@@ -679,6 +784,7 @@ export default function RegisterPage() {
               onClick={() => {
                 setApiError(null);
                 if (step > 1) setStep(step - 1);
+                else if (typeParam === 'individual') router.push('/');
                 else setMode('professional');
               }}
               className="text-gray-400 hover:text-gray-600"
@@ -732,11 +838,13 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
-                <input id="phone" type="tel" value={form.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
-                  className={`input-field ${errors.phone ? 'border-red-400' : ''}`} placeholder="+1-555-0000" />
-                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono personal</label>
+                <PhoneInput
+                  id="phone"
+                  value={form.phone}
+                  onChange={(v) => updateField('phone', v)}
+                  error={errors.phone}
+                />
               </div>
 
               <div>
@@ -829,12 +937,13 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label htmlFor="businessPhone" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Teléfono del negocio <span className="text-gray-400">(opcional)</span>
                 </label>
-                <input id="businessPhone" type="tel" value={form.businessPhone}
-                  onChange={(e) => updateField('businessPhone', e.target.value)}
-                  className="input-field" placeholder="+1-555-0000" />
+                <PhoneInput
+                  value={form.businessPhone}
+                  onChange={(v) => updateField('businessPhone', v)}
+                />
               </div>
 
               <button type="button" onClick={handleNextStep}
