@@ -6,7 +6,6 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface Location {
   id: string;
@@ -64,39 +63,33 @@ function parseAddress(addr: string): AddressFields {
   };
 }
 
-// Reverse-geocode using Google Maps Geocoding API
+// Reverse-geocode using Nominatim (OpenStreetMap) — no API key required
 async function reverseGeocode(lat: number, lng: number): Promise<AddressFields> {
-  if (!GOOGLE_MAPS_API_KEY) return EMPTY_ADDRESS;
-
   const res = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&language=es`,
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=es`,
+    { headers: { 'User-Agent': 'Siliba/1.0' } },
   );
+  if (!res.ok) return EMPTY_ADDRESS;
   const json = await res.json();
+  const a = json.address || {};
 
-  if (json.status !== 'OK' || !json.results?.length) return EMPTY_ADDRESS;
+  const street = [a.road || a.pedestrian || a.path || '', a.house_number || '']
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 
-  const components: Record<string, string> = {};
-  for (const comp of json.results[0].address_components) {
-    for (const type of comp.types) {
-      components[type] = comp.long_name;
-      if (type === 'country') components['country_short'] = comp.short_name;
-    }
-  }
+  const city =
+    a.city || a.town || a.village || a.municipality || a.county || '';
 
-  const streetNumber = components['street_number'] || '';
-  const route = components['route'] || '';
-  const street = route ? `${route}${streetNumber ? ' ' + streetNumber : ''}` : streetNumber;
+  const state =
+    a.state || a.region || a.province || '';
 
   return {
     street,
-    city:
-      components['locality'] ||
-      components['sublocality'] ||
-      components['administrative_area_level_2'] ||
-      '',
-    state: components['administrative_area_level_1'] || '',
-    postalCode: components['postal_code'] || '',
-    country: components['country'] || '',
+    city,
+    state,
+    postalCode: a.postcode || '',
+    country: a.country || '',
   };
 }
 
