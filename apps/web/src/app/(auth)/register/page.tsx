@@ -129,11 +129,11 @@ interface FormErrors {
 }
 
 const BUSINESS_TYPES = [
-  { value: 'SALON', label: 'Salón de belleza', icon: '💇' },
-  { value: 'BARBERIA', label: 'Barbería', icon: '✂️' },
-  { value: 'SPA', label: 'Spa', icon: '🧖' },
-  { value: 'CLINICA', label: 'Clínica estética', icon: '🏥' },
-  { value: 'TATUAJES', label: 'Tatuajes & Piercing', icon: '🎨' },
+  { value: 'SALON', label: 'Salón' },
+  { value: 'BARBERIA', label: 'Barbería' },
+  { value: 'SPA', label: 'SPA' },
+  { value: 'CLINICA', label: 'Clínica' },
+  { value: 'TATUAJES', label: 'Tatuajes' },
 ];
 
 const BUSINESS_FEATURES = [
@@ -893,13 +893,12 @@ export default function RegisterPage() {
                         key={bt.value}
                         type="button"
                         onClick={() => toggleBusinessType(bt.value)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium border transition-all ${
-                          selected
-                            ? 'bg-[#008080] text-white border-[#008080]'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-[#008080] hover:text-[#008080]'
-                        }`}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+                        style={selected
+                          ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                          : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                        }
                       >
-                        <span>{bt.icon}</span>
                         {bt.label}
                       </button>
                     );
