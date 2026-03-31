@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -184,67 +184,6 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const autocompleteInputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const [mapsReady, setMapsReady] = useState(false);
-  const [addressConfirmed, setAddressConfirmed] = useState(false);
-
-  // Load Google Maps script once
-  useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
-    if (!key) return;
-    if ((window as any).google?.maps?.places) { setMapsReady(true); return; }
-    if (document.getElementById('gmaps-script')) return;
-    const script = document.createElement('script');
-    script.id = 'gmaps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&language=es`;
-    script.async = true;
-    script.onload = () => setMapsReady(true);
-    document.head.appendChild(script);
-  }, []);
-
-  // Initialize Autocomplete when maps is ready and we're on step 2
-  useEffect(() => {
-    if (!mapsReady || step !== 2 || !autocompleteInputRef.current) return;
-    if (autocompleteRef.current) return; // already initialized
-
-    const ac = new (window as any).google.maps.places.Autocomplete(
-      autocompleteInputRef.current,
-      { types: ['address'], fields: ['address_components', 'formatted_address'] },
-    );
-
-    ac.addListener('place_changed', () => {
-      const place = ac.getPlace();
-      if (!place.address_components) return;
-
-      const get = (type: string) =>
-        place.address_components!.find((c: any) => c.types.includes(type))?.long_name || '';
-
-      const streetNumber = get('street_number');
-      const streetName = get('route');
-      const city =
-        get('locality') ||
-        get('sublocality_level_1') ||
-        get('administrative_area_level_2') ||
-        get('administrative_area_level_3');
-      const state = get('administrative_area_level_1');
-      const postalCode = get('postal_code');
-      const country = get('country');
-
-      setForm((f) => ({
-        ...f,
-        businessStreetName: streetName || f.businessStreetName,
-        businessStreetNumber: streetNumber || f.businessStreetNumber,
-        businessCity: city || f.businessCity,
-        businessState: state || f.businessState,
-        businessPostalCode: postalCode || f.businessPostalCode,
-        businessCountry: country || f.businessCountry,
-      }));
-      setAddressConfirmed(true);
-    });
-
-    autocompleteRef.current = ac;
-  }, [mapsReady, step]);
 
   function validateStep1(): boolean {
     const newErrors: FormErrors = {};
@@ -976,76 +915,36 @@ export default function RegisterPage() {
                   Dirección principal <span className="text-gray-400 font-normal">(opcional)</span>
                 </p>
 
-                {/* Google Places Autocomplete */}
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                  <input
-                    ref={autocompleteInputRef}
-                    type="text"
-                    className="input-field pl-9"
-                    placeholder={
-                      process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
-                        ? 'Buscar dirección con Google Maps...'
-                        : 'Ingresa la dirección manualmente'
-                    }
-                    autoComplete="off"
-                    onChange={() => { if (addressConfirmed) setAddressConfirmed(false); }}
-                  />
-                  {addressConfirmed && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
+                {/* CP + País */}
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={form.businessPostalCode}
+                    onChange={(e) => updateField('businessPostalCode', e.target.value)}
+                    className="input-field" placeholder="Código postal" />
+                  <input type="text" value={form.businessCountry}
+                    onChange={(e) => updateField('businessCountry', e.target.value)}
+                    className="input-field" placeholder="País" />
                 </div>
 
-                {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Google Maps no configurado. Completa los campos manualmente.
-                  </p>
-                )}
+                {/* Ciudad + Estado */}
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={form.businessCity}
+                    onChange={(e) => updateField('businessCity', e.target.value)}
+                    className="input-field" placeholder="Ciudad" />
+                  <input type="text" value={form.businessState}
+                    onChange={(e) => updateField('businessState', e.target.value)}
+                    className="input-field" placeholder="Estado / Provincia" />
+                </div>
 
-                {/* Campos de revisión / edición manual */}
-                <div className="space-y-2.5 pt-1">
-                  {/* CP + País */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" value={form.businessPostalCode}
-                      onChange={(e) => updateField('businessPostalCode', e.target.value)}
-                      className="input-field" placeholder="Código postal" />
-                    <input type="text" value={form.businessCountry}
-                      onChange={(e) => updateField('businessCountry', e.target.value)}
-                      className="input-field" placeholder="País" />
+                {/* Calle + Número */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <input type="text" value={form.businessStreetName}
+                      onChange={(e) => updateField('businessStreetName', e.target.value)}
+                      className="input-field" placeholder="Calle" />
                   </div>
-
-                  {/* Ciudad + Estado */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" value={form.businessCity}
-                      onChange={(e) => updateField('businessCity', e.target.value)}
-                      className="input-field" placeholder="Ciudad" />
-                    <input type="text" value={form.businessState}
-                      onChange={(e) => updateField('businessState', e.target.value)}
-                      className="input-field" placeholder="Estado / Provincia" />
-                  </div>
-
-                  {/* Calle + Número */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
-                      <input type="text" value={form.businessStreetName}
-                        onChange={(e) => updateField('businessStreetName', e.target.value)}
-                        className="input-field" placeholder="Calle" />
-                    </div>
-                    <input type="text" value={form.businessStreetNumber}
-                      onChange={(e) => updateField('businessStreetNumber', e.target.value)}
-                      className="input-field" placeholder="Número" />
-                  </div>
+                  <input type="text" value={form.businessStreetNumber}
+                    onChange={(e) => updateField('businessStreetNumber', e.target.value)}
+                    className="input-field" placeholder="Número" />
                 </div>
               </div>
 
