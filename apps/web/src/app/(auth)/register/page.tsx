@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -184,47 +184,67 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [postalLookupLoading, setPostalLookupLoading] = useState(false);
+  const autocompleteInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [mapsReady, setMapsReady] = useState(false);
+  const [addressConfirmed, setAddressConfirmed] = useState(false);
 
-  // ISO 3166-1 alpha-2 codes para el lookup de CP
-  const COUNTRY_ISO: Record<string, string> = {
-    'México': 'mx', 'EE.UU.': 'us', 'Canadá': 'ca', 'España': 'es',
-    'Colombia': 'co', 'Argentina': 'ar', 'Chile': 'cl', 'Perú': 'pe',
-    'Venezuela': 've', 'Ecuador': 'ec', 'Guatemala': 'gt', 'El Salvador': 'sv',
-    'Honduras': 'hn', 'Nicaragua': 'ni', 'Costa Rica': 'cr', 'Panamá': 'pa',
-    'Bolivia': 'bo', 'Paraguay': 'py', 'Uruguay': 'uy', 'Brasil': 'br',
-  };
+  // Load Google Maps script once
+  useEffect(() => {
+    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+    if (!key) return;
+    if ((window as any).google?.maps?.places) { setMapsReady(true); return; }
+    if (document.getElementById('gmaps-script')) return;
+    const script = document.createElement('script');
+    script.id = 'gmaps-script';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&language=es`;
+    script.async = true;
+    script.onload = () => setMapsReady(true);
+    document.head.appendChild(script);
+  }, []);
 
-  const COUNTRY_OPTIONS = Object.keys(COUNTRY_ISO);
+  // Initialize Autocomplete when maps is ready and we're on step 2
+  useEffect(() => {
+    if (!mapsReady || step !== 2 || !autocompleteInputRef.current) return;
+    if (autocompleteRef.current) return; // already initialized
 
-  async function handlePostalCodeChange(value: string) {
-    updateField('businessPostalCode', value);
-    const code = value.trim();
-    if (code.length < 4) return;
-    const iso = COUNTRY_ISO[form.businessCountry] || 'mx';
-    setPostalLookupLoading(true);
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(code)}&countrycodes=${iso}&format=json&addressdetails=1&limit=1`,
-        { headers: { 'Accept-Language': 'es' } },
-      );
-      const data = await res.json();
-      if (data.length > 0) {
-        const addr = data[0].address;
-        const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
-        const state = addr.state || addr.province || addr.region || '';
-        setForm((f) => ({
-          ...f,
-          businessCity: city || f.businessCity,
-          businessState: state || f.businessState,
-        }));
-      }
-    } catch {
-      // silently ignore
-    } finally {
-      setPostalLookupLoading(false);
-    }
-  }
+    const ac = new (window as any).google.maps.places.Autocomplete(
+      autocompleteInputRef.current,
+      { types: ['address'], fields: ['address_components', 'formatted_address'] },
+    );
+
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (!place.address_components) return;
+
+      const get = (type: string) =>
+        place.address_components!.find((c: any) => c.types.includes(type))?.long_name || '';
+
+      const streetNumber = get('street_number');
+      const streetName = get('route');
+      const city =
+        get('locality') ||
+        get('sublocality_level_1') ||
+        get('administrative_area_level_2') ||
+        get('administrative_area_level_3');
+      const state = get('administrative_area_level_1');
+      const postalCode = get('postal_code');
+      const country = get('country');
+
+      setForm((f) => ({
+        ...f,
+        businessStreetName: streetName || f.businessStreetName,
+        businessStreetNumber: streetNumber || f.businessStreetNumber,
+        businessCity: city || f.businessCity,
+        businessState: state || f.businessState,
+        businessPostalCode: postalCode || f.businessPostalCode,
+        businessCountry: country || f.businessCountry,
+      }));
+      setAddressConfirmed(true);
+    });
+
+    autocompleteRef.current = ac;
+  }, [mapsReady, step]);
 
   function validateStep1(): boolean {
     const newErrors: FormErrors = {};
@@ -956,61 +976,76 @@ export default function RegisterPage() {
                   Dirección principal <span className="text-gray-400 font-normal">(opcional)</span>
                 </p>
 
-                {/* País — primero, define el contexto para el lookup de CP */}
-                <select
-                  value={form.businessCountry}
-                  onChange={(e) => {
-                    updateField('businessCountry', e.target.value);
-                    // Si hay CP, relanzar el lookup con el nuevo país
-                    if (form.businessPostalCode.trim().length >= 4) {
-                      setTimeout(() => handlePostalCodeChange(form.businessPostalCode), 0);
-                    }
-                  }}
-                  className="input-field"
-                >
-                  {COUNTRY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-
-                {/* Código postal — dispara auto-fill con el país seleccionado */}
+                {/* Google Places Autocomplete */}
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={form.businessPostalCode}
-                    onChange={(e) => handlePostalCodeChange(e.target.value)}
-                    className="input-field pr-8"
-                    placeholder="Código postal"
-                    maxLength={10}
-                  />
-                  {postalLookupLoading && (
-                    <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-[#008080]" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
+                  </div>
+                  <input
+                    ref={autocompleteInputRef}
+                    type="text"
+                    className="input-field pl-9"
+                    placeholder={
+                      process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
+                        ? 'Buscar dirección con Google Maps...'
+                        : 'Ingresa la dirección manualmente'
+                    }
+                    autoComplete="off"
+                    onChange={() => { if (addressConfirmed) setAddressConfirmed(false); }}
+                  />
+                  {addressConfirmed && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
                   )}
                 </div>
 
-                {/* Ciudad + Estado — se auto-llenan */}
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="text" value={form.businessCity}
-                    onChange={(e) => updateField('businessCity', e.target.value)}
-                    className="input-field" placeholder="Ciudad" />
-                  <input type="text" value={form.businessState}
-                    onChange={(e) => updateField('businessState', e.target.value)}
-                    className="input-field" placeholder="Estado / Provincia" />
-                </div>
+                {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Google Maps no configurado. Completa los campos manualmente.
+                  </p>
+                )}
 
-                {/* Calle + Número */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <input type="text" value={form.businessStreetName}
-                      onChange={(e) => updateField('businessStreetName', e.target.value)}
-                      className="input-field" placeholder="Calle" />
+                {/* Campos de revisión / edición manual */}
+                <div className="space-y-2.5 pt-1">
+                  {/* CP + País */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="text" value={form.businessPostalCode}
+                      onChange={(e) => updateField('businessPostalCode', e.target.value)}
+                      className="input-field" placeholder="Código postal" />
+                    <input type="text" value={form.businessCountry}
+                      onChange={(e) => updateField('businessCountry', e.target.value)}
+                      className="input-field" placeholder="País" />
                   </div>
-                  <input type="text" value={form.businessStreetNumber}
-                    onChange={(e) => updateField('businessStreetNumber', e.target.value)}
-                    className="input-field" placeholder="Número" />
+
+                  {/* Ciudad + Estado */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="text" value={form.businessCity}
+                      onChange={(e) => updateField('businessCity', e.target.value)}
+                      className="input-field" placeholder="Ciudad" />
+                    <input type="text" value={form.businessState}
+                      onChange={(e) => updateField('businessState', e.target.value)}
+                      className="input-field" placeholder="Estado / Provincia" />
+                  </div>
+
+                  {/* Calle + Número */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <input type="text" value={form.businessStreetName}
+                        onChange={(e) => updateField('businessStreetName', e.target.value)}
+                        className="input-field" placeholder="Calle" />
+                    </div>
+                    <input type="text" value={form.businessStreetNumber}
+                      onChange={(e) => updateField('businessStreetNumber', e.target.value)}
+                      className="input-field" placeholder="Número" />
+                  </div>
                 </div>
               </div>
 
