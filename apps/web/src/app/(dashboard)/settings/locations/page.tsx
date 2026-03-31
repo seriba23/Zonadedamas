@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/hooks/use-auth';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
+
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface Location {
   id: string;
@@ -16,30 +19,115 @@ interface Location {
   isActive: boolean;
 }
 
-interface LocationForm {
-  name: string;
-  address: string;
-  phone: string;
-  email: string;
-  latitude?: number | null;
-  longitude?: number | null;
+interface AddressFields {
+  street: string;      // Calle y número (manual)
+  city: string;        // Ciudad (de geocoding)
+  state: string;       // Estado/Provincia (de geocoding)
+  postalCode: string;  // Código postal (de geocoding)
+  country: string;     // País (de geocoding)
 }
 
-const EMPTY_FORM: LocationForm = {
-  name: '',
-  address: '',
-  phone: '',
-  email: '',
-  latitude: null,
-  longitude: null,
+interface LocationForm {
+  name: string;
+  addressFields: AddressFields;
+  phone: string;
+  email: string;
+  // Internal — not shown in UI
+  latitude: number | null;
+  longitude: number | null;
+}
+
+const EMPTY_ADDRESS: AddressFields = {
+  street: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: '',
 };
+
+function buildFullAddress(f: AddressFields): string {
+  return [f.street, f.city, f.state, f.postalCode, f.country]
+    .filter(Boolean)
+    .join(', ');
+}
+
+// Parse a single address string back into fields (best effort)
+function parseAddress(addr: string): AddressFields {
+  const parts = addr.split(',').map((s) => s.trim());
+  // Heuristic: street is first, then city, state, postal, country
+  return {
+    street: parts[0] || '',
+    city: parts[1] || '',
+    state: parts[2] || '',
+    postalCode: parts[3] || '',
+    country: parts[4] || '',
+  };
+}
+
+// Reverse-geocode using Google Maps Geocoding API
+async function reverseGeocode(lat: number, lng: number): Promise<AddressFields> {
+  if (!GOOGLE_MAPS_API_KEY) return EMPTY_ADDRESS;
+
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&language=es`,
+  );
+  const json = await res.json();
+
+  if (json.status !== 'OK' || !json.results?.length) return EMPTY_ADDRESS;
+
+  const components: Record<string, string> = {};
+  for (const comp of json.results[0].address_components) {
+    for (const type of comp.types) {
+      components[type] = comp.long_name;
+      if (type === 'country') components['country_short'] = comp.short_name;
+    }
+  }
+
+  const streetNumber = components['street_number'] || '';
+  const route = components['route'] || '';
+  const street = route ? `${route}${streetNumber ? ' ' + streetNumber : ''}` : streetNumber;
+
+  return {
+    street,
+    city:
+      components['locality'] ||
+      components['sublocality'] ||
+      components['administrative_area_level_2'] ||
+      '',
+    state: components['administrative_area_level_1'] || '',
+    postalCode: components['postal_code'] || '',
+    country: components['country'] || '',
+  };
+}
+
+function emptyForm(adminEmail: string): LocationForm {
+  return {
+    name: '',
+    addressFields: EMPTY_ADDRESS,
+    phone: '',
+    email: adminEmail,
+    latitude: null,
+    longitude: null,
+  };
+}
 
 export default function LocationsPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const adminEmail = user?.email || '';
+
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Location | null>(null);
-  const [form, setForm] = useState<LocationForm>(EMPTY_FORM);
+  const [form, setForm] = useState<LocationForm>(emptyForm(adminEmail));
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+
+  // Update email default when user loads
+  useEffect(() => {
+    if (adminEmail && !showModal) {
+      setForm((prev) => ({ ...prev, email: prev.email || adminEmail }));
+    }
+  }, [adminEmail, showModal]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['locations'],
@@ -49,7 +137,7 @@ export default function LocationsPage() {
   const locations: Location[] = (data as any)?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (body: LocationForm) => api.post('/api/tenants/locations', body),
+    mutationFn: (body: any) => api.post('/api/tenants/locations', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
       closeModal();
@@ -57,7 +145,7 @@ export default function LocationsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: LocationForm }) =>
+    mutationFn: ({ id, body }: { id: string; body: any }) =>
       api.put(`/api/tenants/locations/${id}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
@@ -75,7 +163,7 @@ export default function LocationsPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm(emptyForm(adminEmail));
     setShowModal(true);
   }
 
@@ -83,11 +171,11 @@ export default function LocationsPage() {
     setEditing(loc);
     setForm({
       name: loc.name,
-      address: loc.address || '',
+      addressFields: loc.address ? parseAddress(loc.address) : EMPTY_ADDRESS,
       phone: loc.phone || '',
-      email: loc.email || '',
-      latitude: loc.latitude,
-      longitude: loc.longitude,
+      email: loc.email || adminEmail,
+      latitude: loc.latitude ?? null,
+      longitude: loc.longitude ?? null,
     });
     setShowModal(true);
   }
@@ -95,15 +183,48 @@ export default function LocationsPage() {
   function closeModal() {
     setShowModal(false);
     setEditing(null);
-    setForm(EMPTY_FORM);
+  }
+
+  async function handleUseMyLocation() {
+    if (!navigator.geolocation) return;
+    setGeocoding(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 }),
+      );
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const fields = await reverseGeocode(lat, lng);
+      setForm((prev) => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+        addressFields: {
+          ...fields,
+          // Keep street if user already typed something
+          street: prev.addressFields.street || fields.street,
+        },
+      }));
+    } catch {
+      // User denied or timeout — silently ignore
+    } finally {
+      setGeocoding(false);
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const payload = {
+      name: form.name,
+      address: buildFullAddress(form.addressFields),
+      phone: form.phone || undefined,
+      email: form.email || undefined,
+      latitude: form.latitude ?? undefined,
+      longitude: form.longitude ?? undefined,
+    };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body: form });
+      updateMutation.mutate({ id: editing.id, body: payload });
     } else {
-      createMutation.mutate(form);
+      createMutation.mutate(payload);
     }
   }
 
@@ -158,7 +279,6 @@ export default function LocationsPage() {
         <div className="space-y-3">
           {locations.map((loc) => (
             <div key={loc.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-start gap-4 shadow-sm">
-              {/* Pin icon */}
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
                 <svg className="w-5 h-5" style={{ color: '#008080' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -172,14 +292,12 @@ export default function LocationsPage() {
                   <p className="text-sm text-gray-500 mt-0.5 truncate">{loc.address}</p>
                 )}
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
-                  {loc.phone && (
-                    <span className="text-xs text-gray-400">{loc.phone}</span>
-                  )}
-                  {loc.email && (
-                    <span className="text-xs text-gray-400">{loc.email}</span>
-                  )}
+                  {loc.phone && <span className="text-xs text-gray-400">{loc.phone}</span>}
+                  {loc.email && <span className="text-xs text-gray-400">{loc.email}</span>}
                   {loc.latitude && loc.longitude && (
-                    <span className="text-xs text-teal-600 font-medium">📍 GPS registrado</span>
+                    <span className="text-xs font-medium" style={{ color: '#008080' }}>
+                      📍 GPS registrado
+                    </span>
                   )}
                 </div>
               </div>
@@ -211,17 +329,18 @@ export default function LocationsPage() {
 
       {/* Create / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={closeModal}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto" onClick={closeModal}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl my-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-5">
                 {editing ? 'Editar sucursal' : 'Nueva sucursal'}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Nombre <span className="text-red-500">*</span>
+                    Nombre de la sucursal <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -233,90 +352,140 @@ export default function LocationsPage() {
                   />
                 </div>
 
+                {/* GPS button */}
+                <button
+                  type="button"
+                  onClick={handleUseMyLocation}
+                  disabled={geocoding}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed text-sm font-medium transition-colors"
+                  style={{
+                    borderColor: '#008080',
+                    color: '#008080',
+                    backgroundColor: geocoding ? '#f0fdfa' : 'transparent',
+                  }}
+                >
+                  {geocoding ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#008080', borderTopColor: 'transparent' }} />
+                      Obteniendo ubicación...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                      </svg>
+                      Usar mi ubicación actual
+                    </>
+                  )}
+                </button>
+
+                {/* GPS indicator (no coords shown) */}
+                {form.latitude && form.longitude && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium" style={{ backgroundColor: '#e0f2f1', color: '#008080' }}>
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    Coordenadas GPS registradas — tu sucursal aparecerá en "Más cercana"
+                  </div>
+                )}
+
+                {/* Address fields */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Calle y número
+                    </label>
+                    <input
+                      type="text"
+                      value={form.addressFields.street}
+                      onChange={(e) =>
+                        setForm({ ...form, addressFields: { ...form.addressFields, street: e.target.value } })
+                      }
+                      placeholder="Av. Insurgentes Sur 1234"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Ciudad</label>
+                      <input
+                        type="text"
+                        value={form.addressFields.city}
+                        onChange={(e) =>
+                          setForm({ ...form, addressFields: { ...form.addressFields, city: e.target.value } })
+                        }
+                        placeholder="Ciudad de México"
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Estado / Provincia</label>
+                      <input
+                        type="text"
+                        value={form.addressFields.state}
+                        onChange={(e) =>
+                          setForm({ ...form, addressFields: { ...form.addressFields, state: e.target.value } })
+                        }
+                        placeholder="CDMX"
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Código postal</label>
+                      <input
+                        type="text"
+                        value={form.addressFields.postalCode}
+                        onChange={(e) =>
+                          setForm({ ...form, addressFields: { ...form.addressFields, postalCode: e.target.value } })
+                        }
+                        placeholder="06600"
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">País</label>
+                      <input
+                        type="text"
+                        value={form.addressFields.country}
+                        onChange={(e) =>
+                          setForm({ ...form, addressFields: { ...form.addressFields, country: e.target.value } })
+                        }
+                        placeholder="México"
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Dirección
-                  </label>
-                  <AddressAutocomplete
-                    value={form.address}
-                    onChange={(address) => setForm({ ...form, address })}
-                    placeholder="Buscar dirección..."
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="+52 55 1234 5678"
                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
-                    <input
-                      type="tel"
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      placeholder="+52 55 1234 5678"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="sucursal@negocio.com"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                  </div>
-                </div>
-
-                {/* GPS coordinates */}
+                {/* Email — pre-filled, shared */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Coordenadas GPS
-                    <span className="text-xs text-gray-400 font-normal ml-1">(para "sucursal más cercana")</span>
+                    Email de contacto
+                    <span className="text-xs text-gray-400 font-normal ml-1.5">(compartido entre sucursales)</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <input
-                        type="number"
-                        step="any"
-                        value={form.latitude ?? ''}
-                        onChange={(e) => setForm({ ...form, latitude: e.target.value ? Number(e.target.value) : null })}
-                        placeholder="Latitud"
-                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="number"
-                        step="any"
-                        value={form.longitude ?? ''}
-                        onChange={(e) => setForm({ ...form, longitude: e.target.value ? Number(e.target.value) : null })}
-                        placeholder="Longitud"
-                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!navigator.geolocation) return;
-                      navigator.geolocation.getCurrentPosition((pos) => {
-                        setForm({
-                          ...form,
-                          latitude: pos.coords.latitude,
-                          longitude: pos.coords.longitude,
-                        });
-                      });
-                    }}
-                    className="mt-2 text-xs font-medium flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                    style={{ color: '#008080' }}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    Usar mi ubicación actual
-                  </button>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-2">
