@@ -55,6 +55,100 @@ interface AvailableSlot {
 
 type BookingStep = null | 'service' | 'employee' | 'datetime' | 'confirm' | 'success';
 
+// ─── Day Timeline View ────────────────────────────────────────
+// Shows available slots as blocks of the correct duration in a timeline.
+
+function DayTimelineView({
+  slots,
+  durationMinutes,
+  selectedSlot,
+  onSelect,
+}: {
+  slots: AvailableSlot[];
+  durationMinutes: number;
+  selectedSlot: AvailableSlot | null;
+  onSelect: (slot: AvailableSlot) => void;
+}) {
+  const PX_PER_MIN = 1.6;
+  const START_HOUR = 7;
+  const END_HOUR = 22;
+  const totalMinutes = (END_HOUR - START_HOUR) * 60;
+  const totalHeight = totalMinutes * PX_PER_MIN;
+  const blockHeight = Math.max(durationMinutes * PX_PER_MIN, 28);
+
+  function timeToTop(iso: string): number {
+    const parts = iso.replace('Z', '').split('T');
+    const timePart = parts[1] || iso;
+    const [hStr, mStr] = timePart.split(':');
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    return ((h - START_HOUR) * 60 + m) * PX_PER_MIN;
+  }
+
+  const hourLines = Array.from(
+    { length: END_HOUR - START_HOUR + 1 },
+    (_, i) => i + START_HOUR,
+  );
+
+  return (
+    <div className="overflow-y-auto" style={{ maxHeight: 380 }}>
+      <div className="relative" style={{ height: totalHeight, minWidth: '100%' }}>
+        {/* Hour lines */}
+        {hourLines.map((h) => {
+          const top = (h - START_HOUR) * 60 * PX_PER_MIN;
+          return (
+            <div
+              key={h}
+              className="absolute left-0 right-0 flex items-center gap-2 pointer-events-none"
+              style={{ top }}
+            >
+              <span className="text-[10px] text-gray-400 w-10 text-right flex-shrink-0 pr-2">
+                {h}:00
+              </span>
+              <div className="flex-1 border-t border-gray-100" />
+            </div>
+          );
+        })}
+
+        {/* Available slot blocks */}
+        {slots.map((slot) => {
+          const top = timeToTop(slot.startTime);
+          const isSelected = selectedSlot?.startTime === slot.startTime;
+          const timeLabel = formatTime(slot.startTime.substring(11, 16));
+          return (
+            <button
+              key={slot.startTime + slot.employeeId}
+              onClick={() => onSelect(slot)}
+              className="absolute left-12 right-3 rounded-xl flex items-center px-3 gap-2 transition-all"
+              style={{
+                top,
+                height: blockHeight,
+                backgroundColor: isSelected ? '#006666' : '#008080',
+                opacity: isSelected ? 1 : 0.82,
+                boxShadow: isSelected ? '0 2px 8px rgba(0,128,128,0.35)' : 'none',
+              }}
+            >
+              <span className="text-white text-xs font-semibold whitespace-nowrap">
+                {timeLabel}
+              </span>
+              {durationMinutes >= 30 && (
+                <span className="text-white/70 text-[10px] whitespace-nowrap">
+                  {durationMinutes} min
+                </span>
+              )}
+              {isSelected && (
+                <svg className="w-3.5 h-3.5 text-white ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function BusinessDetailPage() {
   const { isAuthenticated } = useMarketplaceAuth();
   const router = useRouter();
@@ -1178,54 +1272,35 @@ export default function BusinessDetailPage() {
                     </div>
                   </div>
 
-                  {/* Time slots */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                      Horarios disponibles —{' '}
-                      {formatDate(selectedDate.toDate())}
-                    </h3>
+                  {/* Day Timeline */}
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          {formatDate(selectedDate.toDate())}
+                        </h3>
+                        <span className="text-xs text-gray-400">
+                          {totalDuration} min · {uniqueSlots.length} horarios
+                        </span>
+                      </div>
+                    </div>
                     {slotsLoading ? (
-                      <div className="grid grid-cols-4 gap-2">
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="h-10 bg-gray-100 rounded-lg animate-pulse"
-                          />
+                      <div className="p-4 space-y-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
                         ))}
                       </div>
                     ) : uniqueSlots.length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-4">
+                      <p className="text-sm text-gray-400 text-center py-8">
                         No hay horarios disponibles para esta fecha
                       </p>
                     ) : (
-                      <div className="grid grid-cols-4 gap-2">
-                        {uniqueSlots.map((slot) => {
-                          const time = slot.startTime.substring(11, 16);
-                          const isSlotSelected =
-                            selectedSlot?.startTime === slot.startTime;
-                          return (
-                            <button
-                              key={slot.startTime + slot.employeeId}
-                              onClick={() => setSelectedSlot(slot)}
-                              className="py-2 text-sm rounded-lg border transition-colors"
-                              style={
-                                isSlotSelected
-                                  ? {
-                                      backgroundColor: TEAL,
-                                      color: '#fff',
-                                      borderColor: TEAL,
-                                    }
-                                  : {
-                                      borderColor: '#e5e7eb',
-                                      color: '#374151',
-                                    }
-                              }
-                            >
-                              {formatTime(time)}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <DayTimelineView
+                        slots={uniqueSlots}
+                        durationMinutes={totalDuration}
+                        selectedSlot={selectedSlot}
+                        onSelect={setSelectedSlot}
+                      />
                     )}
                   </div>
 
