@@ -330,21 +330,52 @@ export default function MarketplacePage() {
 
       {/* GPS denied — banner fijo en la parte superior */}
       {showGpsDeniedTip && (
-        <div className="fixed top-0 left-0 right-0 z-50 flex items-start gap-3 px-4 py-3 bg-gray-900 text-white text-sm shadow-xl">
-          <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Ubicación bloqueada</p>
-            <p className="text-gray-300 text-xs mt-0.5">
-              Ve a Ajustes de tu navegador → Permisos → Ubicación y permite el acceso para ver los negocios más cercanos.
-            </p>
-          </div>
-          <button onClick={() => setShowGpsDeniedTip(false)} className="text-gray-400 hover:text-white flex-shrink-0 mt-0.5">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white shadow-xl">
+          <div className="flex items-start gap-3 px-4 py-3">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
             </svg>
-          </button>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Ubicación bloqueada</p>
+              <p className="text-gray-300 text-xs mt-0.5 leading-relaxed">
+                Toca <strong className="text-white">"Abrir ajustes"</strong> y activa el permiso de ubicación para este sitio.
+              </p>
+              <div className="flex gap-2 mt-2.5">
+                <button
+                  onClick={() => {
+                    setShowGpsDeniedTip(false);
+                    // Re-trigger getCurrentPosition — on Chrome/Android this surfaces
+                    // the "Location blocked" system prompt with a direct link to site settings
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        setSortBy('distance');
+                        setGpsState('active');
+                      },
+                      () => {
+                        setGpsState('denied');
+                      },
+                      { timeout: 10000, enableHighAccuracy: true },
+                    );
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-gray-900 hover:bg-gray-100 transition-colors"
+                >
+                  Abrir ajustes
+                </button>
+                <button
+                  onClick={() => setShowGpsDeniedTip(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                >
+                  Ahora no
+                </button>
+              </div>
+            </div>
+            <button onClick={() => setShowGpsDeniedTip(false)} className="text-gray-500 hover:text-white flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
