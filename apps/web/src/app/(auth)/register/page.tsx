@@ -175,7 +175,7 @@ export default function RegisterPage() {
     businessPostalCode: '',
     businessCity: '',
     businessState: '',
-    businessCountry: '',
+    businessCountry: 'México',
     businessStreetName: '',
     businessStreetNumber: '',
     businessPhone: '',
@@ -186,14 +186,26 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
 
+  // ISO 3166-1 alpha-2 codes para el lookup de CP
+  const COUNTRY_ISO: Record<string, string> = {
+    'México': 'mx', 'EE.UU.': 'us', 'Canadá': 'ca', 'España': 'es',
+    'Colombia': 'co', 'Argentina': 'ar', 'Chile': 'cl', 'Perú': 'pe',
+    'Venezuela': 've', 'Ecuador': 'ec', 'Guatemala': 'gt', 'El Salvador': 'sv',
+    'Honduras': 'hn', 'Nicaragua': 'ni', 'Costa Rica': 'cr', 'Panamá': 'pa',
+    'Bolivia': 'bo', 'Paraguay': 'py', 'Uruguay': 'uy', 'Brasil': 'br',
+  };
+
+  const COUNTRY_OPTIONS = Object.keys(COUNTRY_ISO);
+
   async function handlePostalCodeChange(value: string) {
     updateField('businessPostalCode', value);
     const code = value.trim();
     if (code.length < 4) return;
+    const iso = COUNTRY_ISO[form.businessCountry] || 'mx';
     setPostalLookupLoading(true);
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(code)}&format=json&addressdetails=1&limit=1`,
+        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(code)}&countrycodes=${iso}&format=json&addressdetails=1&limit=1`,
         { headers: { 'Accept-Language': 'es' } },
       );
       const data = await res.json();
@@ -201,16 +213,14 @@ export default function RegisterPage() {
         const addr = data[0].address;
         const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
         const state = addr.state || addr.province || addr.region || '';
-        const country = addr.country || '';
         setForm((f) => ({
           ...f,
           businessCity: city || f.businessCity,
           businessState: state || f.businessState,
-          businessCountry: country || f.businessCountry,
         }));
       }
     } catch {
-      // silently ignore network errors
+      // silently ignore
     } finally {
       setPostalLookupLoading(false);
     }
@@ -946,7 +956,24 @@ export default function RegisterPage() {
                   Dirección principal <span className="text-gray-400 font-normal">(opcional)</span>
                 </p>
 
-                {/* Código postal — primero, dispara auto-fill */}
+                {/* País — primero, define el contexto para el lookup de CP */}
+                <select
+                  value={form.businessCountry}
+                  onChange={(e) => {
+                    updateField('businessCountry', e.target.value);
+                    // Si hay CP, relanzar el lookup con el nuevo país
+                    if (form.businessPostalCode.trim().length >= 4) {
+                      setTimeout(() => handlePostalCodeChange(form.businessPostalCode), 0);
+                    }
+                  }}
+                  className="input-field"
+                >
+                  {COUNTRY_OPTIONS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+
+                {/* Código postal — dispara auto-fill con el país seleccionado */}
                 <div className="relative">
                   <input
                     type="text"
@@ -964,7 +991,7 @@ export default function RegisterPage() {
                   )}
                 </div>
 
-                {/* Ciudad + Estado — se llenan solos */}
+                {/* Ciudad + Estado — se auto-llenan */}
                 <div className="grid grid-cols-2 gap-3">
                   <input type="text" value={form.businessCity}
                     onChange={(e) => updateField('businessCity', e.target.value)}
@@ -973,11 +1000,6 @@ export default function RegisterPage() {
                     onChange={(e) => updateField('businessState', e.target.value)}
                     className="input-field" placeholder="Estado / Provincia" />
                 </div>
-
-                {/* País — se llena solo */}
-                <input type="text" value={form.businessCountry}
-                  onChange={(e) => updateField('businessCountry', e.target.value)}
-                  className="input-field" placeholder="País" />
 
                 {/* Calle + Número */}
                 <div className="grid grid-cols-3 gap-3">
