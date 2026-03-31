@@ -248,16 +248,20 @@ function GalleryLightbox({
 
 // ─── Main Profile Page ─────────────────────────────────
 
+type ActiveSection = 'default' | 'services' | 'favorites' | 'gallery' | 'points';
+
 export default function MarketplaceProfilePage() {
   const { user, isAuthenticated, isLoading: authLoading, logout, refreshUser } =
     useMarketplaceAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [showGallery, setShowGallery] = useState(false);
-  const [showPastAppointments, setShowPastAppointments] = useState(false);
-  const [showFavorites, setShowFavorites] = useState(false);
+  const [activeSection, setActiveSection] = useState<ActiveSection>('default');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<GalleryCategory['photos'][0] | null>(null);
+
+  // helpers
+  const toggle = (section: ActiveSection) =>
+    setActiveSection((prev) => (prev === section ? 'default' : section));
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -310,6 +314,14 @@ export default function MarketplaceProfilePage() {
     enabled: isAuthenticated,
   });
   const myRewards: any[] = (rewardsData as any)?.data || [];
+
+  // Available rewards (from visited businesses)
+  const { data: availableRewardsData } = useQuery({
+    queryKey: ['marketplace-available-rewards'],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/available-rewards'),
+    enabled: isAuthenticated,
+  });
+  const availableRewards: any[] = (availableRewardsData as any)?.data || [];
 
   // Favorites
   const { data: favoritesData, isLoading: favoritesLoading } = useQuery({
@@ -411,16 +423,27 @@ export default function MarketplaceProfilePage() {
 
         {/* ─── Stats + Gallery Button ────────────────── */}
         <div className="grid grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+          <button
+            onClick={() => toggle('points')}
+            className="rounded-xl border p-4 text-center transition-all"
+            style={activeSection === 'points' ? {
+              backgroundColor: TEAL_LIGHT,
+              borderColor: TEAL,
+              boxShadow: `0 0 0 2px ${TEAL_LIGHT}`,
+            } : {
+              backgroundColor: 'white',
+              borderColor: '#e5e7eb',
+            }}
+          >
             <p className="text-2xl font-bold" style={{ color: TEAL }}>
               {stats.totalPoints.toLocaleString()}
             </p>
             <p className="text-xs text-gray-500 mt-1">Puntos</p>
-          </div>
+          </button>
           <button
-            onClick={() => setShowPastAppointments(!showPastAppointments)}
+            onClick={() => toggle('services')}
             className="rounded-xl border p-4 text-center transition-all"
-            style={showPastAppointments ? {
+            style={activeSection === 'services' ? {
               backgroundColor: TEAL_LIGHT,
               borderColor: TEAL,
               boxShadow: `0 0 0 2px ${TEAL_LIGHT}`,
@@ -435,9 +458,9 @@ export default function MarketplaceProfilePage() {
             <p className="text-xs text-gray-500 mt-1">Servicios</p>
           </button>
           <button
-            onClick={() => setShowFavorites(!showFavorites)}
+            onClick={() => toggle('favorites')}
             className="rounded-xl border p-4 text-center transition-all"
-            style={showFavorites ? {
+            style={activeSection === 'favorites' ? {
               backgroundColor: TEAL_LIGHT,
               borderColor: TEAL,
               boxShadow: `0 0 0 2px ${TEAL_LIGHT}`,
@@ -452,9 +475,9 @@ export default function MarketplaceProfilePage() {
             <p className="text-xs text-gray-500 mt-1">Favoritos</p>
           </button>
           <button
-            onClick={() => { setShowGallery(!showGallery); setSelectedCategory(null); }}
+            onClick={() => { toggle('gallery'); setSelectedCategory(null); }}
             className="rounded-xl p-4 text-center transition-colors text-white"
-            style={{ backgroundColor: showGallery ? TEAL_DARK : TEAL }}
+            style={{ backgroundColor: activeSection === 'gallery' ? TEAL_DARK : TEAL }}
           >
             <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z" />
@@ -463,8 +486,56 @@ export default function MarketplaceProfilePage() {
           </button>
         </div>
 
+        {/* ─── Points section: available rewards ────────── */}
+        {activeSection === 'points' && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">Recompensas disponibles</h3>
+              <span className="text-xs text-gray-400">{stats.totalPoints} pts disponibles</span>
+            </div>
+            {availableRewards.length === 0 ? (
+              <div className="text-center py-6">
+                <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+                </svg>
+                <p className="text-gray-400 text-sm">No hay recompensas disponibles</p>
+                <p className="text-xs text-gray-300 mt-1">Visita negocios para desbloquear recompensas</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {availableRewards.map((r: any) => (
+                  <div key={r.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden bg-gray-100">
+                      {r.tenant.logoUrl ? (
+                        <img src={`${API_URL}${r.tenant.logoUrl}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-gray-400">{r.tenant.name[0]}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{r.tenant.name}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold" style={{ color: r.canRedeem ? TEAL : '#6b7280' }}>
+                        {r.pointsRequired} pts
+                      </p>
+                      {!r.canRedeem && (
+                        <p className="text-[10px] text-gray-400">faltan {r.pointsNeeded}</p>
+                      )}
+                      {r.canRedeem && (
+                        <p className="text-[10px] font-medium" style={{ color: TEAL }}>¡Canjeable!</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ─── Past Appointments (toggles from Servicios) ── */}
-        {showPastAppointments && (
+        {activeSection === 'services' && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Citas pasadas</h3>
             {pastLoading ? (
@@ -484,7 +555,7 @@ export default function MarketplaceProfilePage() {
         )}
 
         {/* ─── Favorites (toggles from Favoritos) ────── */}
-        {showFavorites && (
+        {activeSection === 'favorites' && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Mis favoritos</h3>
             {favoritesLoading ? (
@@ -570,7 +641,7 @@ export default function MarketplaceProfilePage() {
         )}
 
         {/* ─── Gallery (toggles from Galeria) ────────── */}
-        {showGallery && (
+        {activeSection === 'gallery' && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             {galleryCategories.length === 0 ? (
               <div className="text-center py-4">
@@ -628,58 +699,62 @@ export default function MarketplaceProfilePage() {
           </div>
         )}
 
-        {/* ─── Upcoming Appointments ─────────────────── */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-900">Proximas citas</h2>
+        {/* ─── Upcoming Appointments — solo en vista default ── */}
+        {activeSection === 'default' && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">Proximas citas</h2>
+            </div>
+
+            {upcomingLoading ? (
+              <div className="text-center py-6">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: TEAL }} />
+              </div>
+            ) : upcomingAppointments.length === 0 ? (
+              <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
+                <p className="text-gray-400 text-sm">No tienes citas proximas</p>
+                <Link
+                  href="/marketplace"
+                  className="text-sm font-medium mt-2 inline-block"
+                  style={{ color: TEAL }}
+                >
+                  Buscar negocios
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingAppointments.map((apt) => (
+                  <AppointmentCard key={apt.id} apt={apt} />
+                ))}
+              </div>
+            )}
           </div>
+        )}
 
-          {upcomingLoading ? (
-            <div className="text-center py-6">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: TEAL }} />
-            </div>
-          ) : upcomingAppointments.length === 0 ? (
-            <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
-              <p className="text-gray-400 text-sm">No tienes citas proximas</p>
-              <Link
-                href="/marketplace"
-                className="text-sm font-medium mt-2 inline-block"
-                style={{ color: TEAL }}
-              >
-                Buscar negocios
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {upcomingAppointments.map((apt) => (
-                <AppointmentCard key={apt.id} apt={apt} />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* ─── Mis cupones — solo en vista default ────────── */}
+        {activeSection === 'default' && (
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Mis cupones</h2>
+            {myRewards.length === 0 ? (
+              <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
+                <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+                </svg>
+                <p className="text-gray-400 text-sm">No tienes cupones canjeados</p>
+                <p className="text-xs text-gray-300 mt-1">Canjea puntos en los negocios que visitas</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myRewards.map((r: any) => (
+                  <ProfileCouponCard key={r.id} redemption={r} disabled={r.status !== 'ACTIVE'} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* ─── Mis cupones ────────────────────────────── */}
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Mis cupones</h2>
-          {myRewards.length === 0 ? (
-            <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
-              <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
-              </svg>
-              <p className="text-gray-400 text-sm">No tienes cupones canjeados</p>
-              <p className="text-xs text-gray-300 mt-1">Canjea puntos en los negocios que visitas</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {myRewards.map((r: any) => (
-                <ProfileCouponCard key={r.id} redemption={r} disabled={r.status !== 'ACTIVE'} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ─── Quick Links ──────────────────────────── */}
-        <Link
+        {/* ─── Quick Links — solo en vista default ─────── */}
+        {activeSection === 'default' && <Link
           href="/marketplace/payments"
           className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
@@ -698,15 +773,17 @@ export default function MarketplaceProfilePage() {
           <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
-        </Link>
+        </Link>}
 
         {/* ─── Logout ────────────────────────────────── */}
-        <button
-          onClick={handleLogout}
-          className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
-        >
-          Cerrar sesion
-        </button>
+        {activeSection === 'default' && (
+          <button
+            onClick={handleLogout}
+            className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
+          >
+            Cerrar sesion
+          </button>
+        )}
       </div>
 
       {/* Lightbox */}

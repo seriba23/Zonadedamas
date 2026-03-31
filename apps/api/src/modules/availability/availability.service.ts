@@ -475,9 +475,11 @@ export class AvailabilityService {
     const bufferAfter = employee?.bufferAfterMinutes || 0;
     const bufferBefore = employee?.bufferBeforeMinutes || 0;
 
-    // Build occupied blocks from other appointments (excluding the gap we want to fill)
+    // Build occupied blocks — exclude any appointment that ends at or before afterTime
+    // (i.e., the appointment we're extending). Only FUTURE appointments can conflict.
     const occupiedBlocks: TimeBlock[] = [];
     for (const appt of conflictingAppointments) {
+      if (new Date(appt.endTime) <= afterTime) continue; // ends before/at our start → no conflict
       occupiedBlocks.push({
         start: new Date(appt.startTime.getTime() - bufferBefore * 60000),
         end: new Date(appt.endTime.getTime() + bufferAfter * 60000),

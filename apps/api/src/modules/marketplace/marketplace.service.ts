@@ -771,6 +771,7 @@ export class MarketplaceService {
         color: true,
         category: true,
         subcategory: true,
+        pointsReward: true,
       },
       orderBy: { sortOrder: 'asc' },
     });
@@ -2000,5 +2001,54 @@ export class MarketplaceService {
       successUrl: `${bizUrl}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${bizUrl}?payment=cancelled`,
     });
+  }
+
+  // ─── AVAILABLE REWARDS ───────────────────────────────
+  // Returns active rewards from businesses the user has visited,
+  // sorted by pointsRequired asc (cheapest first).
+
+  async getAvailableRewards(marketplaceUserId: string) {
+    // All client records for this marketplace user
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true, tenantId: true, loyaltyPoints: true },
+    });
+    if (clients.length === 0) return { data: [] };
+
+    const clientByTenantId = new Map(clients.map((c) => [c.tenantId, c]));
+    const tenantIds = clients.map((c) => c.tenantId);
+
+    const rewards = await this.prisma.reward.findMany({
+      where: {
+        tenantId: { in: tenantIds },
+        isActive: true,
+        OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
+      },
+      include: {
+        tenant: { select: { name: true, slug: true, logoUrl: true } },
+        service: { select: { name: true } },
+      },
+      orderBy: { pointsRequired: 'asc' },
+    });
+
+    const data = rewards.map((r) => {
+      const client = clientByTenantId.get(r.tenantId);
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        type: r.type,
+        pointsRequired: r.pointsRequired,
+        discountAmount: r.discountAmount,
+        discountMode: r.discountMode,
+        serviceName: r.service?.name ?? null,
+        tenant: r.tenant,
+        myPoints: client?.loyaltyPoints ?? 0,
+        canRedeem: (client?.loyaltyPoints ?? 0) >= r.pointsRequired,
+        pointsNeeded: Math.max(0, r.pointsRequired - (client?.loyaltyPoints ?? 0)),
+      };
+    });
+
+    return { data };
   }
 }

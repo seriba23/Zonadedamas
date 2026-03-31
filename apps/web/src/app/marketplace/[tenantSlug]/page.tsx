@@ -34,6 +34,7 @@ interface BizService {
   color?: string;
   category?: string;
   subcategory?: string;
+  pointsReward?: number | null;
 }
 
 interface BizEmployee {
@@ -273,6 +274,7 @@ export default function BusinessDetailPage() {
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
   const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+  const totalPointsEarned = selectedServices.reduce((sum, s) => sum + (s.pointsReward || 0), 0);
 
   // Filter employees by selected services
   const availableEmployees = employees.filter((emp) =>
@@ -1291,12 +1293,10 @@ export default function BusinessDetailPage() {
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                           Profesional
                         </p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden"
-                            style={{
-                              backgroundColor: selectedEmployee.color,
-                            }}
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0"
+                            style={{ backgroundColor: selectedEmployee.color }}
                           >
                             {selectedEmployee.avatarUrl ? (
                               <img src={`${API_URL}${selectedEmployee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
@@ -1304,15 +1304,17 @@ export default function BusinessDetailPage() {
                               <>{selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}</>
                             )}
                           </div>
-                          <span className="text-sm text-gray-700">
-                            {selectedEmployee.firstName}{' '}
-                            {selectedEmployee.lastName}
-                          </span>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedEmployee.firstName}{' '}{selectedEmployee.lastName}
+                            </p>
+                            <p className="text-xs text-gray-500">{biz?.name}</p>
+                          </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Duration & Total */}
+                    {/* Duration, Total & Points */}
                     <div className="border-t border-gray-100 pt-4">
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-500">Duración</span>
@@ -1320,7 +1322,7 @@ export default function BusinessDetailPage() {
                           {totalDuration} min
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between mb-1">
                         <span className="font-semibold text-gray-900">
                           Total
                         </span>
@@ -1331,6 +1333,17 @@ export default function BusinessDetailPage() {
                           {formatCurrency(totalPrice)}
                         </span>
                       </div>
+                      {totalPointsEarned > 0 && (
+                        <div className="flex items-center justify-between text-sm bg-amber-50 rounded-lg px-3 py-2 mt-2">
+                          <span className="text-amber-700 font-medium flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            Ganarás con esta reserva
+                          </span>
+                          <span className="font-bold text-amber-800">+{totalPointsEarned} pts</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1443,6 +1456,10 @@ export default function BusinessDetailPage() {
             {!paymentStatus && selectedServices.length > 0 && (
               <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 mb-6">
                 <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Negocio:</span>
+                  <span className="font-medium">{biz?.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Servicios:</span>
                   <span className="font-medium text-right">
                     {selectedServices.map((s) => s.name).join(', ')}
@@ -1471,6 +1488,17 @@ export default function BusinessDetailPage() {
                     {formatCurrency(totalPrice)}
                   </span>
                 </div>
+                {totalPointsEarned > 0 && (
+                  <div className="flex items-center justify-between text-sm bg-amber-50 rounded-lg px-3 py-2">
+                    <span className="text-amber-700 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Puntos ganados
+                    </span>
+                    <span className="font-bold text-amber-800">+{totalPointsEarned} pts</span>
+                  </div>
+                )}
               </div>
             )}
 

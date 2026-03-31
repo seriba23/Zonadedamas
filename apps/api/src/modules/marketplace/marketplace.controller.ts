@@ -302,6 +302,12 @@ export class MarketplaceController {
     return this.marketplaceService.getMyRewards(req.user.marketplaceUserId);
   }
 
+  @UseGuards(MarketplaceJwtGuard)
+  @Get('available-rewards')
+  async getAvailableRewards(@Req() req: any) {
+    return this.marketplaceService.getAvailableRewards(req.user.marketplaceUserId);
+  }
+
   @Get(':tenantSlug/rewards')
   async getBusinessRewards(@Param('tenantSlug') tenantSlug: string) {
     return this.marketplaceService.getBusinessRewards(tenantSlug);
