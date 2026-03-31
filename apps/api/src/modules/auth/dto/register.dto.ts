@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsIn,
   IsBoolean,
+  IsArray,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -35,15 +36,44 @@ export class RegisterDto {
   @IsIn(['business', 'individual'])
   type?: 'business' | 'individual';
 
-  // New fields for individual registration wizard
+  // Business info fields
   @IsOptional()
   @IsString()
   businessName?: string;
 
+  // Multi-select business types (new)
   @IsOptional()
-  @IsIn(['SALON', 'BARBERIA', 'SPA', 'CLINICA'])
+  @IsArray()
+  @IsIn(['SALON', 'BARBERIA', 'SPA', 'CLINICA', 'TATUAJES'], { each: true })
+  businessTypes?: string[];
+
+  // Legacy single type (backward compat)
+  @IsOptional()
+  @IsIn(['SALON', 'BARBERIA', 'SPA', 'CLINICA', 'TATUAJES'])
   businessType?: string;
 
+  // Expanded address fields
+  @IsOptional()
+  @IsString()
+  businessStreet?: string;
+
+  @IsOptional()
+  @IsString()
+  businessCity?: string;
+
+  @IsOptional()
+  @IsString()
+  businessState?: string;
+
+  @IsOptional()
+  @IsString()
+  businessPostalCode?: string;
+
+  @IsOptional()
+  @IsString()
+  businessCountry?: string;
+
+  // Legacy single address (backward compat)
   @IsOptional()
   @IsString()
   businessAddress?: string;
@@ -52,6 +82,7 @@ export class RegisterDto {
   @IsString()
   businessPhone?: string;
 
+  // Plan is no longer required at registration (trial period)
   @IsOptional()
   @IsIn(['BASICO', 'PLUS', 'PRO'])
   selectedPlan?: string;

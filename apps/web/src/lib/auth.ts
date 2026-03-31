@@ -13,6 +13,7 @@ export interface AuthUser {
   tenantName?: string;
   subscriptionStatus?: string;
   subscriptionPlan?: string;
+  trialEndsAt?: string | null;
 }
 
 export interface AuthTokens {
@@ -43,8 +44,14 @@ export interface RegisterParams {
   inviteCode?: string;
   type?: 'business' | 'individual';
   businessName?: string;
-  businessType?: string;
-  businessAddress?: string;
+  businessTypes?: string[];
+  businessType?: string; // legacy
+  businessStreet?: string;
+  businessCity?: string;
+  businessState?: string;
+  businessPostalCode?: string;
+  businessCountry?: string;
+  businessAddress?: string; // legacy
   businessPhone?: string;
   selectedPlan?: string;
   acceptContract?: boolean;

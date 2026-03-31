@@ -68,7 +68,7 @@ export default function DashboardLayout({
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col ml-64 min-w-0">
-        <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} />
+        <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

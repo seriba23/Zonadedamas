@@ -44,6 +44,27 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // Check subscription status — auto-expire trial if needed
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { tenantId: matchedUser.tenantId },
+      select: { status: true, trialEndsAt: true },
+    });
+
+    if (subscription) {
+      const now = new Date();
+      if (subscription.status === 'TRIAL' && subscription.trialEndsAt && now > subscription.trialEndsAt) {
+        // Auto-suspend expired trial
+        await this.prisma.subscription.update({
+          where: { tenantId: matchedUser.tenantId },
+          data: { status: 'SUSPENDED' },
+        });
+        await this.prisma.tenant.update({
+          where: { id: matchedUser.tenantId },
+          data: { subscriptionStatus: 'SUSPENDED' },
+        });
+      }
+    }
+
     const tokens = await this.generateTokens(matchedUser);
 
     return {
@@ -202,24 +223,34 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const selectedPlan = (dto.selectedPlan as 'BASICO' | 'PLUS' | 'PRO') || 'BASICO';
 
-    const planPrices: Record<string, number> = {
-      BASICO: 29.99,
-      PLUS: 49.99,
-      PRO: 79.99,
-    };
-    const monthlyPrice = planPrices[selectedPlan] || 29.99;
+    // Compose address from individual fields or legacy single field
+    const addressParts = [
+      dto.businessStreet,
+      dto.businessCity,
+      dto.businessState,
+      dto.businessPostalCode,
+      dto.businessCountry,
+    ].filter(Boolean);
+    const composedAddress =
+      addressParts.length > 0
+        ? addressParts.join(', ')
+        : dto.businessAddress || null;
 
-    // Get owner role from any tenant to know the permissions
+    // Store business types as comma-separated string
+    const businessTypeValue =
+      dto.businessTypes && dto.businessTypes.length > 0
+        ? dto.businessTypes.join(',')
+        : dto.businessType || null;
+
+    // Get all permissions for owner role
     const ownerRolePermissions = await this.prisma.permission.findMany();
 
     const user = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
-      const oneYearLater = new Date(now);
-      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-      const oneMonthLater = new Date(now);
-      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+      // 30-day free trial
+      const trialEndsAt = new Date(now);
+      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
       // Create tenant with business info
       const tenant = await tx.tenant.create({
@@ -228,50 +259,41 @@ export class AuthService {
           slug,
           email: dto.email,
           phone: dto.phone || null,
-          businessType: dto.businessType || null,
-          address: dto.businessAddress || null,
+          businessType: businessTypeValue,
+          address: composedAddress,
           businessPhone: dto.businessPhone || null,
           contractAcceptedAt: dto.acceptContract ? now : null,
           timezone: 'America/New_York',
           currency: 'USD',
-          subscriptionPlan: selectedPlan,
-          subscriptionStatus: 'active',
+          subscriptionPlan: 'BASICO',
+          subscriptionStatus: 'TRIAL',
         },
       });
 
-      // Create subscription
-      const subscription = await tx.subscription.create({
+      // Create trial subscription (no Stripe, no invoice)
+      await tx.subscription.create({
         data: {
           tenantId: tenant.id,
-          plan: selectedPlan as any,
-          status: 'ACTIVE',
-          monthlyAmountUsd: monthlyPrice,
+          plan: 'BASICO',
+          status: 'TRIAL',
+          monthlyAmountUsd: 10,
+          baseMonthlyUsd: 10,
+          perEmployeeUsd: 10,
+          billedEmployeeCount: 1, // owner counts as 1
           contractStartDate: now,
-          contractEndDate: oneYearLater,
-          nextBillingDate: oneMonthLater,
+          contractEndDate: trialEndsAt,
+          nextBillingDate: trialEndsAt,
+          trialEndsAt,
         },
       });
 
-      // Create first invoice (pending)
-      const invoiceNumber = `INV-${now.getFullYear()}-${Date.now().toString().slice(-6)}`;
-      await tx.invoice.create({
-        data: {
-          subscriptionId: subscription.id,
-          tenantId: tenant.id,
-          invoiceNumber,
-          amountUsd: monthlyPrice,
-          status: 'PENDING',
-          periodStart: now,
-          periodEnd: oneMonthLater,
-          dueDate: oneMonthLater,
-        },
-      });
-
-      // Create default location
+      // Create default location with composed address
       const location = await tx.location.create({
         data: {
           tenantId: tenant.id,
           name: 'Principal',
+          address: composedAddress,
+          phone: dto.businessPhone || null,
           isActive: true,
         },
       });
@@ -651,7 +673,7 @@ export class AuthService {
       }),
       this.prisma.subscription.findUnique({
         where: { tenantId },
-        select: { status: true, plan: true },
+        select: { status: true, plan: true, trialEndsAt: true },
       }),
       this.prisma.tenant.findUnique({
         where: { id: tenantId },
@@ -668,6 +690,7 @@ export class AuthService {
       tenantName: tenant?.name || '',
       subscriptionStatus: subscription?.status || 'ACTIVE',
       subscriptionPlan: subscription?.plan || 'BASICO',
+      trialEndsAt: subscription?.trialEndsAt?.toISOString() || null,
     };
   }
 
