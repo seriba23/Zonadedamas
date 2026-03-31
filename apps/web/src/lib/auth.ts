@@ -9,6 +9,8 @@ export interface AuthUser {
   avatarUrl?: string | null;
   permissions: string[];
   employeeId?: string | null;
+  isEmployeeActive?: boolean;
+  tenantName?: string;
   subscriptionStatus?: string;
   subscriptionPlan?: string;
 }

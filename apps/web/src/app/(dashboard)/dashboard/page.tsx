@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -25,6 +26,7 @@ interface UpcomingAppointment {
   status: string;
   client: { firstName: string; lastName: string };
   employee: {
+    id: string;
     firstName: string;
     lastName: string;
     color: string;
@@ -315,15 +317,20 @@ function UpcomingAppointments({
                   <p className="text-xs text-gray-500 truncate mt-0.5">
                     {services}
                   </p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: apt.employee.color }}
-                    />
-                    <span className="text-xs text-gray-500">
+                  <Link href={`/staff/${apt.employee.id}`} className="flex items-center gap-1.5 mt-1 group w-fit">
+                    <div
+                      className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
+                      style={{ backgroundColor: apt.employee.color || '#008080' }}
+                    >
+                      {apt.employee.avatarUrl
+                        ? <img src={apt.employee.avatarUrl.startsWith('http') ? apt.employee.avatarUrl : `${API_URL}${apt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                        : <span>{apt.employee.firstName[0]}{apt.employee.lastName[0]}</span>
+                      }
+                    </div>
+                    <span className="text-xs text-gray-500 group-hover:underline">
                       {apt.employee.firstName} {apt.employee.lastName}
                     </span>
-                  </div>
+                  </Link>
                 </div>
 
                 {/* Price */}

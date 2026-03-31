@@ -643,23 +643,29 @@ export class AuthService {
       tenantId,
     );
 
-    // Find linked employee
-    const employee = await this.prisma.employee.findFirst({
-      where: { userId, tenantId },
-      select: { id: true, avatarUrl: true },
-    });
-
-    // Get subscription status
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { tenantId },
-      select: { status: true, plan: true },
-    });
+    // Find linked employee (include isActive to detect deactivation)
+    const [employee, subscription, tenant] = await Promise.all([
+      this.prisma.employee.findFirst({
+        where: { userId, tenantId },
+        select: { id: true, avatarUrl: true, isActive: true },
+      }),
+      this.prisma.subscription.findUnique({
+        where: { tenantId },
+        select: { status: true, plan: true },
+      }),
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+    ]);
 
     return {
       ...user,
       avatarUrl: employee?.avatarUrl || user.avatarUrl || null,
       permissions,
       employeeId: employee?.id || null,
+      isEmployeeActive: employee ? employee.isActive : true,
+      tenantName: tenant?.name || '',
       subscriptionStatus: subscription?.status || 'ACTIVE',
       subscriptionPlan: subscription?.plan || 'BASICO',
     };

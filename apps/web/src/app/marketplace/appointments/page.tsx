@@ -84,8 +84,18 @@ export default function MarketplaceAppointmentsPage() {
     <div className="min-h-screen">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-        <div className="max-w-2xl mx-auto pt-2">
+        <div className="max-w-2xl mx-auto pt-2 flex items-center justify-between">
           <h1 className="text-lg font-bold text-gray-900">Mis citas</h1>
+          <button
+            onClick={() => router.push('/marketplace')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
+            style={{ backgroundColor: '#008080' }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Nueva cita
+          </button>
         </div>
       </div>
 

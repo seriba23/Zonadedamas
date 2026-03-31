@@ -520,6 +520,9 @@ export class ClientPortalService {
         appointmentId,
         rating: dto.rating,
         comment: dto.comment,
+        businessRating: dto.businessRating,
+        businessComment: dto.businessComment,
+        reviewedAt: new Date(),
       },
     });
 

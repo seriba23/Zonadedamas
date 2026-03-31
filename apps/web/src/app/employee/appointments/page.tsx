@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import dayjs from 'dayjs';
+import { CloseAppointmentWizard } from './close-wizard';
 
 interface AppointmentItem {
   serviceNameSnapshot: string;
@@ -19,6 +20,7 @@ interface Appointment {
   endTime: string;
   status: string;
   notes: string | null;
+  photoConsent: boolean | null;
   client: { id: string; firstName: string; lastName: string; email?: string; phone?: string };
   items: AppointmentItem[];
 }
@@ -58,6 +60,7 @@ export default function EmployeeAppointmentsPage() {
   const queryClient = useQueryClient();
   const [range, setRange] = useState<RangeFilter>('today');
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+  const [wizardApt, setWizardApt] = useState<Appointment | null>(null);
 
   const { startDate, endDate } = getDateRange(range);
 
@@ -81,6 +84,12 @@ export default function EmployeeAppointmentsPage() {
       setSelectedApt(null);
     },
   });
+
+  const handleWizardDone = () => {
+    queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
+    setWizardApt(null);
+    setSelectedApt(null);
+  };
 
   const noShowMutation = useMutation({
     mutationFn: (id: string) =>
@@ -290,11 +299,11 @@ export default function EmployeeAppointmentsPage() {
               {['CONFIRMED', 'IN_PROGRESS'].includes(selectedApt.status) && (
                 <div className="border-t border-gray-100 pt-4 flex gap-2">
                   <button
-                    onClick={() => completeMutation.mutate(selectedApt.id)}
-                    disabled={completeMutation.isPending}
-                    className="flex-1 py-2.5 text-sm font-medium bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    onClick={() => setWizardApt(selectedApt)}
+                    className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors"
+                    style={{ backgroundColor: '#008080' }}
                   >
-                    {completeMutation.isPending ? 'Completando...' : 'Marcar completada'}
+                    Cerrar cita
                   </button>
                   <button
                     onClick={() => noShowMutation.mutate(selectedApt.id)}
@@ -316,6 +325,15 @@ export default function EmployeeAppointmentsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Close Wizard */}
+      {wizardApt && (
+        <CloseAppointmentWizard
+          appointment={wizardApt}
+          onDone={handleWizardDone}
+          onClose={() => setWizardApt(null)}
+        />
       )}
     </div>
   );

@@ -596,7 +596,7 @@ export class MarketplaceService {
     const innerSql = `
       SELECT
         t.id, t.name, t.slug, t.logo_url as logoUrl,
-        t.cover_image_url as coverImageUrl,
+        t.cover_image_url as coverImageUrl, t.card_color as cardColor,
         t.business_type as businessType,
         t.description, t.address,
         ${selectDistance},
@@ -629,6 +629,7 @@ export class MarketplaceService {
         slug: b.slug,
         logoUrl: b.logoUrl,
         coverImageUrl: b.coverImageUrl,
+        cardColor: b.cardColor || null,
         businessType: b.businessType,
         description: b.description,
         address: b.locationAddress || b.address,
@@ -796,10 +797,10 @@ export class MarketplaceService {
       where: { tenantId: tenant.id, status: 'COMPLETED' },
     });
 
-    // Get rating
+    // Get rating (employee + business)
     const ratingAgg = await this.prisma.employeeReview.aggregate({
       where: { tenantId: tenant.id, isVisible: true },
-      _avg: { rating: true },
+      _avg: { rating: true, businessRating: true },
       _count: { id: true },
     });
 
@@ -863,6 +864,9 @@ export class MarketplaceService {
         averageRating: ratingAgg._avg.rating
           ? Math.round(ratingAgg._avg.rating * 10) / 10
           : null,
+        averageBusinessRating: ratingAgg._avg.businessRating
+          ? Math.round(ratingAgg._avg.businessRating * 10) / 10
+          : null,
         totalReviews: ratingAgg._count.id,
         completedAppointments,
         services,
@@ -871,6 +875,8 @@ export class MarketplaceService {
           id: r.id,
           rating: r.rating,
           comment: r.comment,
+          businessRating: r.businessRating,
+          businessComment: r.businessComment,
           createdAt: r.createdAt,
           clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
           employeeName: `${r.employee.firstName} ${r.employee.lastName}`,

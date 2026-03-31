@@ -200,6 +200,7 @@ model Tenant {
   businessPhone        String?   @map("business_phone")
   description          String?   @db.Text
   coverImageUrl        String?   @map("cover_image_url")
+  cardColor            String?   @map("card_color")
   isMarketplaceListed      Boolean   @default(false) @map("is_marketplace_listed")
   contractAcceptedAt       DateTime? @map("contract_accepted_at")
   stripeAccountId          String?   @map("stripe_account_id")
@@ -247,19 +248,31 @@ model Tenant {
 // ─── SUBSCRIPTIONS ─────────────────────────────────
 
 model Subscription {
-  id                String             @id @default(uuid())
-  tenantId          String             @unique @map("tenant_id")
-  plan              SubscriptionPlan   @default(BASICO)
-  status            SubscriptionStatus @default(ACTIVE)
-  monthlyAmountUsd  Decimal            @map("monthly_amount_usd") @db.Decimal(10, 2)
-  contractStartDate DateTime           @map("contract_start_date")
-  contractEndDate   DateTime           @map("contract_end_date")
-  nextBillingDate   DateTime           @map("next_billing_date")
-  lastPaymentDate   DateTime?          @map("last_payment_date")
-  gracePeriodEndsAt DateTime?          @map("grace_period_ends_at")
-  cancelledAt       DateTime?          @map("cancelled_at")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  id                   String             @id @default(uuid())
+  tenantId             String             @unique @map("tenant_id")
+  plan                 SubscriptionPlan   @default(BASICO)
+  status               SubscriptionStatus @default(ACTIVE)
+  monthlyAmountUsd     Decimal            @map("monthly_amount_usd") @db.Decimal(10, 2)
+  baseMonthlyUsd       Decimal            @default(10) @map("base_monthly_usd") @db.Decimal(10, 2)
+  perEmployeeUsd       Decimal            @default(10) @map("per_employee_usd") @db.Decimal(10, 2)
+  billedEmployeeCount  Int                @default(0) @map("billed_employee_count")
+  availableLicenses    Int                @default(0) @map("available_licenses")
+  planInterval         String             @default("MONTHLY") @map("plan_interval")
+  annualAmountUsd      Decimal?           @map("annual_amount_usd") @db.Decimal(10, 2)
+  annualPeriodEnd      DateTime?          @map("annual_period_end")
+  advancePaid          Boolean            @default(false) @map("advance_paid")
+  contractStartDate    DateTime           @map("contract_start_date")
+  contractEndDate      DateTime           @map("contract_end_date")
+  nextBillingDate      DateTime           @map("next_billing_date")
+  lastPaymentDate      DateTime?          @map("last_payment_date")
+  gracePeriodEndsAt    DateTime?          @map("grace_period_ends_at")
+  cancelledAt          DateTime?          @map("cancelled_at")
+  trialEndsAt          DateTime?          @map("trial_ends_at")
+  stripeCustomerId     String?            @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId String?            @map("stripe_subscription_id") @db.VarChar(255)
+  stripePriceId        String?            @map("stripe_price_id") @db.VarChar(255)
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices Invoice[]
@@ -268,19 +281,23 @@ model Subscription {
 }
 
 model Invoice {
-  id             String        @id @default(uuid())
-  subscriptionId String        @map("subscription_id")
-  tenantId       String        @map("tenant_id")
-  invoiceNumber  String        @unique @map("invoice_number")
-  amountUsd      Decimal       @map("amount_usd") @db.Decimal(10, 2)
-  status         InvoiceStatus @default(PENDING)
-  periodStart    DateTime      @map("period_start")
-  periodEnd      DateTime      @map("period_end")
-  dueDate        DateTime      @map("due_date")
-  paidAt         DateTime?     @map("paid_at")
-  notes          String?       @db.Text
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  id              String        @id @default(uuid())
+  subscriptionId  String        @map("subscription_id")
+  tenantId        String        @map("tenant_id")
+  invoiceNumber   String        @unique @map("invoice_number")
+  amountUsd       Decimal       @map("amount_usd") @db.Decimal(10, 2)
+  baseAmount      Decimal?      @map("base_amount") @db.Decimal(10, 2)
+  employeeAmount  Decimal?      @map("employee_amount") @db.Decimal(10, 2)
+  employeeCount   Int?          @map("employee_count")
+  status          InvoiceStatus @default(PENDING)
+  periodStart     DateTime      @map("period_start")
+  periodEnd       DateTime      @map("period_end")
+  dueDate         DateTime      @map("due_date")
+  paidAt          DateTime?     @map("paid_at")
+  notes           String?       @db.Text
+  stripeInvoiceId String?       @map("stripe_invoice_id") @db.VarChar(255)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -709,6 +726,8 @@ model Appointment {
   cancelledBy        String?           @map("cancelled_by")
   source             AppointmentSource @default(MANUAL)
   createdBy          String?           @map("created_by")
+  photoConsent       Boolean?          @map("photo_consent")
+  photoConsentAt     DateTime?         @map("photo_consent_at")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -1029,16 +1048,19 @@ model EmployeePortfolioImage {
 // ─── EMPLOYEE REVIEWS ──────────────────────────────
 
 model EmployeeReview {
-  id            String   @id @default(uuid())
-  tenantId      String   @map("tenant_id")
-  employeeId    String   @map("employee_id")
-  clientId      String   @map("client_id")
-  appointmentId String   @unique @map("appointment_id")
-  rating        Int
-  comment       String?  @db.Text
-  isVisible     Boolean  @default(true) @map("is_visible")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  employeeId      String    @map("employee_id")
+  clientId        String    @map("client_id")
+  appointmentId   String    @unique @map("appointment_id")
+  rating          Int
+  comment         String?   @db.Text
+  businessRating  Int?      @map("business_rating")
+  businessComment String?   @db.Text @map("business_comment")
+  isVisible       Boolean   @default(true) @map("is_visible")
+  reviewedAt      DateTime? @map("reviewed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)

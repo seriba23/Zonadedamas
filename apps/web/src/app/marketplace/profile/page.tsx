@@ -17,6 +17,18 @@ const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+function formatExpiry(dateStr: string | null) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function daysLeft(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: 'bg-yellow-50 text-yellow-700' },
   CONFIRMED: { label: 'Confirmada', color: 'bg-blue-50 text-blue-700' },
@@ -658,45 +670,10 @@ export default function MarketplaceProfilePage() {
               <p className="text-xs text-gray-300 mt-1">Canjea puntos en los negocios que visitas</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {myRewards.map((r: any) => {
-                const statusColors: Record<string, string> = {
-                  ACTIVE: 'bg-green-50 text-green-700',
-                  USED: 'bg-gray-100 text-gray-500',
-                  EXPIRED: 'bg-red-50 text-red-600',
-                };
-                const statusLabels: Record<string, string> = {
-                  ACTIVE: 'Activo',
-                  USED: 'Usado',
-                  EXPIRED: 'Expirado',
-                };
-                return (
-                  <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{r.reward?.name}</p>
-                        <p className="text-xs text-gray-500">{r.tenant?.name}</p>
-                      </div>
-                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${statusColors[r.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {statusLabels[r.status] || r.status}
-                      </span>
-                    </div>
-                    {r.status === 'ACTIVE' && (
-                      <div className="flex items-center gap-2 mt-2 p-2 rounded-lg" style={{ backgroundColor: TEAL_LIGHT }}>
-                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
-                        </svg>
-                        <span className="font-mono text-sm font-bold tracking-widest" style={{ color: TEAL }}>{r.code}</span>
-                      </div>
-                    )}
-                    {r.expiresAt && r.status === 'ACTIVE' && (
-                      <p className="text-[10px] text-gray-400 mt-1.5">
-                        Expira: {dayjs(r.expiresAt).format('D MMM YYYY')}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="space-y-4">
+              {myRewards.map((r: any) => (
+                <ProfileCouponCard key={r.id} redemption={r} disabled={r.status !== 'ACTIVE'} />
+              ))}
             </div>
           )}
         </div>
@@ -739,6 +716,102 @@ export default function MarketplaceProfilePage() {
           onClose={() => setLightboxPhoto(null)}
         />
       )}
+    </div>
+  );
+}
+
+function ProfileCouponCard({ redemption, disabled = false }: { redemption: any; disabled?: boolean }) {
+  const reward = redemption.reward;
+  const isDiscount = reward?.type === 'DESCUENTO';
+  const expiry = formatExpiry(redemption.expiresAt);
+  const days = daysLeft(redemption.expiresAt);
+  const isUrgent = days !== null && days <= 7 && !disabled;
+
+  const valueLabel = isDiscount
+    ? (reward?.discountPercent ? `-${reward.discountPercent}%` : `$${reward?.discountAmount ?? ''}`)
+    : 'GRATIS';
+
+  const statusLabel = redemption.status === 'USED' ? 'USADO' : 'VENCIDO';
+  const displayLabel = disabled ? statusLabel : valueLabel;
+  const stubFontSize = displayLabel.length <= 4 ? '1.125rem' : displayLabel.length <= 6 ? '0.875rem' : '0.75rem';
+
+  return (
+    <div
+      className="relative"
+      style={{ filter: disabled ? 'grayscale(0.5)' : undefined, opacity: disabled ? 0.65 : 1 }}
+    >
+      <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 110 }}>
+
+        {/* Stub izquierdo */}
+        <div
+          className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+          style={{ backgroundColor: disabled ? '#9ca3af' : '#008080' }}
+        >
+          <span
+            className="text-white font-black leading-tight text-center break-all w-full px-2"
+            style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
+          >
+            {displayLabel}
+          </span>
+          {!disabled && (
+            <span className="text-white/70 text-[9px] uppercase tracking-wider">
+              {isDiscount ? 'descuento' : 'servicio'}
+            </span>
+          )}
+          <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+          <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+        </div>
+
+        {/* Separador perforado */}
+        <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+          ))}
+        </div>
+
+        {/* Contenido principal */}
+        <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+          <div>
+            <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward?.name || 'Cupón'}</p>
+            {reward && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {isDiscount
+                  ? (reward.discountPercent ? `${reward.discountPercent}% de descuento` : `$${reward.discountAmount} de descuento`)
+                  : 'Servicio gratis'}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mt-2 gap-2">
+            {expiry && (
+              <div
+                className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
+                style={isUrgent ? { backgroundColor: '#fef2f2', color: '#dc2626' } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
+              >
+                <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-[10px] font-semibold whitespace-nowrap">
+                  {isUrgent ? `¡Vence en ${days}d!` : `Vence ${expiry}`}
+                </span>
+              </div>
+            )}
+            {!disabled ? (
+              <Link
+                href="/marketplace"
+                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white transition-transform active:scale-95"
+                style={{ backgroundColor: '#008080', letterSpacing: '0.05em' }}
+              >
+                CANJEAR
+              </Link>
+            ) : (
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                {statusLabel}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

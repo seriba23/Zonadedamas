@@ -24,4 +24,8 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsBoolean()
   isMarketplaceListed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  cardColor?: string;
 }

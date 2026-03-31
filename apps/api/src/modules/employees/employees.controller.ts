@@ -17,7 +17,6 @@ import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/create-employee.dto'
 import { SetSchedulesDto } from './dto/schedule.dto';
 import { CreateTimeOffDto, RejectTimeOffDto, SetServicesDto } from './dto/time-off.dto';
 import { CreatePortfolioImageDto } from './dto/portfolio.dto';
-import { CreateReviewDto } from './dto/review.dto';
 import { UpdatePersonalInfoDto } from './dto/personal-info.dto';
 import { CreateDocumentDto } from './dto/document.dto';
 import { CreateTrainingDto } from './dto/training.dto';
@@ -365,17 +364,6 @@ export class EmployeesController {
   ) {
     const result = await this.employeesService.getReviews(id, tenantId);
     return { data: result };
-  }
-
-  @Post(':id/reviews')
-  @RequirePermissions('employees.update')
-  async createReview(
-    @Param('id') id: string,
-    @CurrentTenant() tenantId: string,
-    @Body() dto: CreateReviewDto,
-  ) {
-    const review = await this.employeesService.createReview(id, tenantId, dto);
-    return { data: review };
   }
 
   // ─── PERSONAL INFO ────────────────────────────────

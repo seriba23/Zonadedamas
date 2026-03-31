@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  Body,
   Req,
   Res,
   UseGuards,
@@ -35,6 +36,88 @@ export class StripeController {
   async connectStatus(@Req() req: any) {
     const result = await this.stripeService.getConnectStatus(req.user.tenantId);
     return { data: result };
+  }
+
+  // ─── PLATFORM SUBSCRIPTION ──────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/create')
+  async createSubscription(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    const preview = await this.stripeService.getSubscriptionPreview(tenantId);
+    const result = await this.stripeService.createPlatformSubscription(tenantId, preview.activeEmployeeCount);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('subscription/preview')
+  async subscriptionPreview(@Req() req: any) {
+    const result = await this.stripeService.getSubscriptionPreview(req.user.tenantId);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/cancel')
+  async cancelSubscription(@Req() req: any) {
+    const result = await this.stripeService.cancelPlatformSubscription(req.user.tenantId);
+    return { data: { cancelled: true, accessUntil: result?.accessUntil || null } };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/reactivate')
+  async reactivateSubscription(@Req() req: any) {
+    const result = await this.stripeService.reactivatePlatformSubscription(req.user.tenantId);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/setup-intent')
+  async setupIntent(@Req() req: any) {
+    const result = await this.stripeService.createSetupIntent(req.user.tenantId);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/attach-payment-method')
+  async attachPaymentMethod(@Req() req: any, @Body() body: { paymentMethodId: string }) {
+    await this.stripeService.attachDefaultPaymentMethod(req.user.tenantId, body.paymentMethodId);
+    return { data: { success: true } };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/advance-payment')
+  async advancePayment(@Req() req: any) {
+    const result = await this.stripeService.advancePayment(req.user.tenantId);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/advance-payment/confirm')
+  async confirmAdvancePayment(@Req() req: any) {
+    await this.stripeService.confirmAdvancePayment(req.user.tenantId);
+    return { data: { success: true } };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/switch-annual')
+  async switchToAnnual(@Req() req: any) {
+    const preview = await this.stripeService.getSubscriptionPreview(req.user.tenantId);
+    const result = await this.stripeService.switchToAnnual(req.user.tenantId, preview.activeEmployeeCount);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/add-licenses')
+  async addLicenses(@Req() req: any, @Body() body: { count: number }) {
+    const result = await this.stripeService.addLicensesToAnnualPlan(req.user.tenantId, body.count ?? 1);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/add-licenses/confirm')
+  async confirmLicenses(@Req() req: any, @Body() body: { toCharge: number; freeFromPool: number }) {
+    await this.stripeService.confirmLicenseAddition(req.user.tenantId, body.toCharge, body.freeFromPool);
+    return { data: { success: true } };
   }
 
   // ─── VERIFY SESSION ──────────────────────────────────
@@ -71,6 +154,18 @@ export class StripeController {
         break;
       case 'account.updated':
         await this.stripeService.handleAccountUpdated(event.data.object as any);
+        break;
+      case 'customer.subscription.updated':
+        await this.stripeService.handleSubscriptionUpdated(event.data.object as any);
+        break;
+      case 'customer.subscription.deleted':
+        await this.stripeService.handleSubscriptionDeleted(event.data.object as any);
+        break;
+      case 'invoice.paid':
+        await this.stripeService.handleInvoicePaid(event.data.object as any);
+        break;
+      case 'invoice.payment_failed':
+        await this.stripeService.handleInvoicePaymentFailed(event.data.object as any);
         break;
     }
 

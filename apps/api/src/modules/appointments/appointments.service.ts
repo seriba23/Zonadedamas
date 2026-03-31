@@ -485,14 +485,24 @@ export class AppointmentsService {
       throw new BadRequestException('No se puede completar una cita cancelada');
     }
 
-    // Require at least 1 result photo before completing
-    const photoCount = await this.prisma.appointmentPhoto.count({
-      where: { appointmentId: id, tenantId },
-    });
-    if (photoCount === 0) {
+    // Photo requirement depends on client consent
+    // null = wizard not completed yet → block
+    // false = client declined → no photo required
+    // true = client accepted → require at least 1 photo
+    if (appointment.photoConsent === null || appointment.photoConsent === undefined) {
       throw new BadRequestException(
-        'Debes subir al menos una foto del resultado antes de completar la cita',
+        'Debes completar el flujo de cierre de cita (consentimiento de fotos)',
       );
+    }
+    if (appointment.photoConsent === true) {
+      const photoCount = await this.prisma.appointmentPhoto.count({
+        where: { appointmentId: id, tenantId },
+      });
+      if (photoCount === 0) {
+        throw new BadRequestException(
+          'El cliente aceptó fotos del resultado. Debes subir al menos una foto',
+        );
+      }
     }
 
     const updated = await this.prisma.appointment.update({
@@ -542,6 +552,89 @@ export class AppointmentsService {
     });
 
     return { data: updated };
+  }
+
+  async setPhotoConsent(
+    id: string,
+    tenantId: string,
+    consent: boolean,
+    userId?: string,
+  ) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    if (['COMPLETED', 'CANCELLED'].includes(appointment.status)) {
+      throw new BadRequestException('No se puede modificar una cita finalizada');
+    }
+
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { photoConsent: consent, photoConsentAt: new Date() },
+    });
+
+    return { data: updated };
+  }
+
+  async recordPayment(
+    id: string,
+    tenantId: string,
+    dto: { paymentMethod: string; amount?: number; notes?: string },
+    userId?: string,
+  ) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+      include: {
+        items: { select: { priceSnapshot: true } },
+        payments: true,
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    if (appointment.status === 'CANCELLED') {
+      throw new BadRequestException('No se puede registrar pago en una cita cancelada');
+    }
+
+    if (appointment.payments.length > 0) {
+      throw new ConflictException('Esta cita ya tiene un pago registrado');
+    }
+
+    const totalAmount =
+      dto.amount ??
+      appointment.items.reduce((sum, i) => sum + Number(i.priceSnapshot), 0);
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        tenantId,
+        appointmentId: id,
+        clientId: appointment.clientId,
+        locationId: appointment.locationId,
+        amount: totalAmount,
+        totalAmount,
+        currency: 'MXN',
+        paymentMethod: dto.paymentMethod as any,
+        status: 'COMPLETED',
+        notes: dto.notes,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'appointment.payment_recorded',
+      entityType: 'appointment',
+      entityId: id,
+      newValues: { paymentMethod: dto.paymentMethod, totalAmount },
+    });
+
+    return { data: payment };
   }
 
   async confirm(id: string, tenantId: string, userId?: string) {

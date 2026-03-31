@@ -303,6 +303,7 @@ export class TenantsService {
         ...(dto.address !== undefined && { address: dto.address }),
         ...(dto.businessPhone !== undefined && { businessPhone: dto.businessPhone }),
         ...(dto.isMarketplaceListed !== undefined && { isMarketplaceListed: dto.isMarketplaceListed }),
+        ...(dto.cardColor !== undefined && { cardColor: dto.cardColor }),
       },
     });
   }

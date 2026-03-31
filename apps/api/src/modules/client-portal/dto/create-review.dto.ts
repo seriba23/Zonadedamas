@@ -10,4 +10,15 @@ export class CreateReviewDto {
   @IsString()
   @MaxLength(1000)
   comment?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  businessRating?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  businessComment?: string;
 }

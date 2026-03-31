@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { EventsService } from '../events/events.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { PlanLimitsService } from '../subscriptions/plan-limits.service';
+import { StripeService } from '../stripe/stripe.service';
 
 @Injectable()
 export class EmployeesService {
@@ -28,7 +29,30 @@ export class EmployeesService {
     private readonly eventsService: EventsService,
     private readonly availabilityService: AvailabilityService,
     private readonly planLimitsService: PlanLimitsService,
+    private readonly stripeService: StripeService,
   ) {}
+
+  private async syncSubscriptionEmployeeCount(tenantId: string, employeeDeactivated = false) {
+    try {
+      const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
+      if (!sub) return;
+
+      if (sub.planInterval === 'ANNUAL') {
+        // Annual plan: license becomes available, no Stripe quantity change
+        if (employeeDeactivated) {
+          await this.prisma.subscription.update({
+            where: { tenantId },
+            data: { availableLicenses: { increment: 1 } },
+          });
+        }
+      } else if (sub.stripeSubscriptionId) {
+        const count = await this.prisma.employee.count({ where: { tenantId, isActive: true } });
+        await this.stripeService.updateSubscriptionEmployeeCount(tenantId, count);
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
 
   private getDayOfWeek(date: Date): 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY' {
     const days: ('SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY')[] = [
@@ -135,7 +159,7 @@ export class EmployeesService {
     });
     if (!location) throw new NotFoundException('Ubicación no encontrada');
 
-    return this.prisma.employee.create({
+    const employee = await this.prisma.employee.create({
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
@@ -149,14 +173,21 @@ export class EmployeesService {
         userId: dto.userId,
       },
     });
+    this.syncSubscriptionEmployeeCount(tenantId);
+    return employee;
   }
 
   async update(id: string, tenantId: string, dto: UpdateEmployeeDto) {
     await this.findOne(id, tenantId);
-    return this.prisma.employee.update({
+    const employee = await this.prisma.employee.update({
       where: { id },
       data: dto,
     });
+    if (dto.isActive !== undefined) {
+      const deactivating = dto.isActive === false;
+      this.syncSubscriptionEmployeeCount(tenantId, deactivating);
+    }
+    return employee;
   }
 
   async remove(id: string, tenantId: string) {
@@ -165,6 +196,7 @@ export class EmployeesService {
       where: { id },
       data: { isActive: false },
     });
+    this.syncSubscriptionEmployeeCount(tenantId, true);
     return { message: 'Empleado desactivado' };
   }
 

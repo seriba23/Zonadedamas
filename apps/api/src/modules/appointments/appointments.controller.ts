@@ -114,6 +114,28 @@ export class AppointmentsController {
     return this.appointmentsService.complete(id, tenantId, user.userId);
   }
 
+  @Post(':id/photo-consent')
+  @RequirePermissions('appointments.complete')
+  async setPhotoConsent(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { consent: boolean },
+  ) {
+    return this.appointmentsService.setPhotoConsent(id, tenantId, body.consent, user.userId);
+  }
+
+  @Post(':id/record-payment')
+  @RequirePermissions('appointments.complete')
+  async recordPayment(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { paymentMethod: string; amount?: number; notes?: string },
+  ) {
+    return this.appointmentsService.recordPayment(id, tenantId, body, user.userId);
+  }
+
   @Post(':id/no-show')
   @RequirePermissions('appointments.update')
   async noShow(

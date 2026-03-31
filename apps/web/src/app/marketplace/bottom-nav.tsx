@@ -53,8 +53,12 @@ const tabs = [
   },
 ];
 
+const HIDDEN_PATHS = ['/marketplace/login', '/marketplace/register'];
+
 export function BottomNav() {
   const pathname = usePathname();
+
+  if (HIDDEN_PATHS.some((p) => pathname.startsWith(p))) return null;
 
   return (
     <div

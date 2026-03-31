@@ -43,7 +43,7 @@ export default function MarketplaceLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 safe-top">
+    <div className="h-full flex items-center justify-center px-4 safe-top">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#008080' }}>Siliba</h1>

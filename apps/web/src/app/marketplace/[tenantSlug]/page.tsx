@@ -313,7 +313,7 @@ export default function BusinessDetailPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24 safe-top">
+    <div className="min-h-screen pb-36 safe-top">
       {/* Payment cancelled banner */}
       {paymentStatus === 'cancelled' && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">
@@ -763,20 +763,16 @@ export default function BusinessDetailPage() {
         )}
       </div>
 
-      {/* Floating CTA */}
+      {/* Floating CTA — sits above the bottom nav (bottom-20 = 5rem) */}
       {!bookingStep && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3">
-          <div className="max-w-2xl mx-auto">
+        <div className="fixed bottom-20 left-0 right-0 px-4 pointer-events-none">
+          <div className="max-w-2xl mx-auto pointer-events-auto">
             <button
               onClick={handleBook}
-              className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors"
-              style={{ backgroundColor: TEAL }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = TEAL_DARK)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = TEAL)
-              }
+              className="w-full text-white py-3 rounded-2xl font-semibold text-sm transition-colors shadow-lg"
+              style={{ backgroundColor: TEAL, boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
             >
               Reservar cita
             </button>
@@ -1493,7 +1489,7 @@ export default function BusinessDetailPage() {
 
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/marketplace/profile')}
+                onClick={() => router.push('/marketplace/appointments')}
                 className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors"
                 style={{ backgroundColor: TEAL }}
                 onMouseEnter={(e) =>

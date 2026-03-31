@@ -9,7 +9,6 @@ import { Modal } from '@/components/ui/modal';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { StarRating } from '@/components/staff/star-rating';
 import { ReviewCard } from '@/components/staff/review-card';
-import { ReviewForm } from '@/components/staff/review-form';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
 import { EmployeePersonalInfo } from '@/components/staff/employee-personal-info';
 import { EmployeeTraining } from '@/components/staff/employee-training';
@@ -162,7 +161,6 @@ export default function EmployeeProfilePage() {
   const { hasPermission } = usePermissions();
   const employeeId = params.id as string;
   const [activeTab, setActiveTab] = useState<ProfileTab>('estadisticas');
-  const [showReviewForm, setShowReviewForm] = useState(false);
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
 
   const canEdit = hasPermission('employees.update');
@@ -522,7 +520,7 @@ export default function EmployeeProfilePage() {
                         setLoadingPendingCount(false);
                         setShowDeactivateConfirm(true);
                       }}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                     >
                       {loadingPendingCount ? 'Verificando...' : 'Desactivar empleado'}
                     </button>
@@ -531,7 +529,7 @@ export default function EmployeeProfilePage() {
                       type="button"
                       onClick={() => toggleActiveMutation.mutate(true)}
                       disabled={toggleActiveMutation.isPending}
-                      className="text-xs text-green-600 hover:text-green-700 font-medium"
+                      className="px-4 py-2 rounded-xl text-sm font-medium border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-50 transition-colors"
                     >
                       {toggleActiveMutation.isPending ? 'Reactivando...' : 'Reactivar empleado'}
                     </button>
@@ -959,15 +957,6 @@ export default function EmployeeProfilePage() {
                   <p className="text-sm text-gray-400">Sin reseñas aún</p>
                 )}
               </div>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setShowReviewForm(true)}
-                  className="btn-primary"
-                >
-                  + Agregar reseña
-                </button>
-              )}
             </div>
 
             {/* Reviews list */}
@@ -1310,16 +1299,6 @@ export default function EmployeeProfilePage() {
         </Modal>
       )}
 
-      {/* Review Form Modal */}
-      {showReviewForm && (
-        <Modal title="Nueva Reseña" onClose={() => setShowReviewForm(false)}>
-          <ReviewForm
-            employeeId={employeeId}
-            onClose={() => setShowReviewForm(false)}
-            onSuccess={() => setShowReviewForm(false)}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
