@@ -114,11 +114,12 @@ interface FormState {
   // Step 2 - Business info (individual only)
   businessName: string;
   businessTypes: string[];
-  businessStreet: string;
+  businessPostalCode: string;
   businessCity: string;
   businessState: string;
-  businessPostalCode: string;
   businessCountry: string;
+  businessStreetName: string;
+  businessStreetNumber: string;
   businessPhone: string;
   // Step 3 - Trial welcome (individual only)
   acceptContract: boolean;
@@ -171,17 +172,49 @@ export default function RegisterPage() {
     inviteCode: '',
     businessName: '',
     businessTypes: [],
-    businessStreet: '',
+    businessPostalCode: '',
     businessCity: '',
     businessState: '',
-    businessPostalCode: '',
     businessCountry: '',
+    businessStreetName: '',
+    businessStreetNumber: '',
     businessPhone: '',
     acceptContract: false,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [postalLookupLoading, setPostalLookupLoading] = useState(false);
+
+  async function handlePostalCodeChange(value: string) {
+    updateField('businessPostalCode', value);
+    const code = value.trim();
+    if (code.length < 4) return;
+    setPostalLookupLoading(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(code)}&format=json&addressdetails=1&limit=1`,
+        { headers: { 'Accept-Language': 'es' } },
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        const addr = data[0].address;
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+        const state = addr.state || addr.province || addr.region || '';
+        const country = addr.country || '';
+        setForm((f) => ({
+          ...f,
+          businessCity: city || f.businessCity,
+          businessState: state || f.businessState,
+          businessCountry: country || f.businessCountry,
+        }));
+      }
+    } catch {
+      // silently ignore network errors
+    } finally {
+      setPostalLookupLoading(false);
+    }
+  }
 
   function validateStep1(): boolean {
     const newErrors: FormErrors = {};
@@ -287,7 +320,7 @@ export default function RegisterPage() {
         type: 'individual',
         businessName: form.businessName.trim(),
         businessTypes: form.businessTypes,
-        businessStreet: form.businessStreet.trim() || undefined,
+        businessStreet: [form.businessStreetName.trim(), form.businessStreetNumber.trim()].filter(Boolean).join(' ') || undefined,
         businessCity: form.businessCity.trim() || undefined,
         businessState: form.businessState.trim() || undefined,
         businessPostalCode: form.businessPostalCode.trim() || undefined,
@@ -912,11 +945,26 @@ export default function RegisterPage() {
                 <p className="text-sm font-medium text-gray-700">
                   Dirección principal <span className="text-gray-400 font-normal">(opcional)</span>
                 </p>
-                <div>
-                  <input type="text" value={form.businessStreet}
-                    onChange={(e) => updateField('businessStreet', e.target.value)}
-                    className="input-field" placeholder="Calle y número" />
+
+                {/* Código postal — primero, dispara auto-fill */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={form.businessPostalCode}
+                    onChange={(e) => handlePostalCodeChange(e.target.value)}
+                    className="input-field pr-8"
+                    placeholder="Código postal"
+                    maxLength={10}
+                  />
+                  {postalLookupLoading && (
+                    <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-[#008080]" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
                 </div>
+
+                {/* Ciudad + Estado — se llenan solos */}
                 <div className="grid grid-cols-2 gap-3">
                   <input type="text" value={form.businessCity}
                     onChange={(e) => updateField('businessCity', e.target.value)}
@@ -925,13 +973,22 @@ export default function RegisterPage() {
                     onChange={(e) => updateField('businessState', e.target.value)}
                     className="input-field" placeholder="Estado / Provincia" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="text" value={form.businessPostalCode}
-                    onChange={(e) => updateField('businessPostalCode', e.target.value)}
-                    className="input-field" placeholder="Código postal" />
-                  <input type="text" value={form.businessCountry}
-                    onChange={(e) => updateField('businessCountry', e.target.value)}
-                    className="input-field" placeholder="País" />
+
+                {/* País — se llena solo */}
+                <input type="text" value={form.businessCountry}
+                  onChange={(e) => updateField('businessCountry', e.target.value)}
+                  className="input-field" placeholder="País" />
+
+                {/* Calle + Número */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <input type="text" value={form.businessStreetName}
+                      onChange={(e) => updateField('businessStreetName', e.target.value)}
+                      className="input-field" placeholder="Calle" />
+                  </div>
+                  <input type="text" value={form.businessStreetNumber}
+                    onChange={(e) => updateField('businessStreetNumber', e.target.value)}
+                    className="input-field" placeholder="Número" />
                 </div>
               </div>
 
