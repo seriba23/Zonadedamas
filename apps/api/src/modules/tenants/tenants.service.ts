@@ -341,6 +341,8 @@ export class TenantsService {
         phone: dto.phone,
         email: dto.email,
         timezone: dto.timezone,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
         tenantId,
         isActive: true,
       },

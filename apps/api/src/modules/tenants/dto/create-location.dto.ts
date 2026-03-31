@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNumber, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateLocationDto {
   @IsString()
@@ -20,6 +21,16 @@ export class CreateLocationDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
 }
 
 export class UpdateLocationDto {
@@ -43,4 +54,14 @@ export class UpdateLocationDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
 }

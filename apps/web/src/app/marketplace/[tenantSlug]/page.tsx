@@ -180,6 +180,18 @@ export default function BusinessDetailPage() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
+  const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Try to get user location for "nearest branch" hint
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserGps({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { timeout: 5000 },
+      );
+    }
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-business', tenantSlug],
@@ -509,33 +521,90 @@ export default function BusinessDetailPage() {
             )}
 
             {biz.locations?.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-100">
-                {biz.locations.map((loc: any) => (
-                  <div
-                    key={loc.id}
-                    className="flex items-start gap-2 text-sm text-gray-500"
-                  >
-                    <svg
-                      className="w-4 h-4 mt-0.5 flex-shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-                      />
-                    </svg>
-                    <span>{loc.address || loc.name}</span>
-                  </div>
-                ))}
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                  Sucursales · {biz.locations.length}
+                </p>
+                <div className="space-y-2">
+                  {(() => {
+                    // Calculate distance for each location if user GPS available
+                    const locsWithDist = biz.locations.map((loc: any) => {
+                      let distKm: number | null = null;
+                      if (userGps && loc.latitude && loc.longitude) {
+                        const R = 6371;
+                        const dLat = ((loc.latitude - userGps.lat) * Math.PI) / 180;
+                        const dLng = ((loc.longitude - userGps.lng) * Math.PI) / 180;
+                        const a =
+                          Math.sin(dLat / 2) ** 2 +
+                          Math.cos((userGps.lat * Math.PI) / 180) *
+                            Math.cos((loc.latitude * Math.PI) / 180) *
+                            Math.sin(dLng / 2) ** 2;
+                        distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                      }
+                      return { ...loc, distKm };
+                    });
+
+                    const nearestId =
+                      locsWithDist.filter((l: any) => l.distKm !== null).length > 0
+                        ? locsWithDist.reduce((a: any, b: any) =>
+                            (a.distKm ?? Infinity) < (b.distKm ?? Infinity) ? a : b,
+                          ).id
+                        : null;
+
+                    return locsWithDist.map((loc: any) => (
+                      <div
+                        key={loc.id}
+                        className={`flex items-start gap-3 rounded-xl p-3 border transition-colors ${
+                          loc.id === nearestId
+                            ? 'border-teal-200 bg-teal-50/60'
+                            : 'border-gray-100 bg-gray-50/50'
+                        }`}
+                      >
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                          style={{ backgroundColor: loc.id === nearestId ? '#e0f2f1' : '#f3f4f6' }}
+                        >
+                          <svg
+                            className="w-3.5 h-3.5"
+                            style={{ color: loc.id === nearestId ? TEAL : '#9ca3af' }}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-gray-800">{loc.name}</span>
+                            {loc.id === nearestId && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: TEAL }}>
+                                Más cercana
+                              </span>
+                            )}
+                            {loc.distKm !== null && (
+                              <span className="text-[11px] text-gray-400">
+                                {loc.distKm < 1
+                                  ? `${Math.round(loc.distKm * 1000)} m`
+                                  : `${loc.distKm.toFixed(1)} km`}
+                              </span>
+                            )}
+                          </div>
+                          {loc.address && (
+                            <p className="text-xs text-gray-500 mt-0.5 truncate">{loc.address}</p>
+                          )}
+                          {loc.phone && (
+                            <a href={`tel:${loc.phone}`} className="text-xs mt-0.5 block" style={{ color: TEAL }}>
+                              {loc.phone}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             )}
           </div>
