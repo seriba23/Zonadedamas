@@ -189,18 +189,18 @@ export default function MarketplacePage() {
 
         {/* "Nuevo" — ribbon diagonal esquina superior izquierda */}
         {biz.averageRating == null && (
-          <div className="absolute top-0 left-0 z-20 overflow-hidden" style={{ width: 66, height: 66 }}>
+          <div className="absolute top-0 left-0 z-20 overflow-hidden" style={{ width: 90, height: 90 }}>
             <div
               className="absolute flex items-center justify-center text-white font-black"
               style={{
-                top: 16,
-                left: -22,
-                width: 80,
+                top: 20,
+                left: -35,
+                width: 150,
                 backgroundColor: 'rgba(34,197,94,0.85)',
                 transform: 'rotate(-45deg)',
                 fontSize: 8,
                 letterSpacing: '0.08em',
-                padding: '3px 0',
+                padding: '7px 0',
               }}
             >
               NUEVO
