@@ -63,14 +63,26 @@ export default function MarketplacePage() {
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
+  // Detección silenciosa de GPS — sin UI, solo para calcular distancias
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* silencioso — sin UI si se deniega */ },
+      { timeout: 8000, enableHighAccuracy: true },
+    );
+  }, []);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-discover', search, category, sortBy, availableNow],
+    queryKey: ['marketplace-discover', search, category, sortBy, availableNow, coords?.lat, coords?.lng],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (category) params.set('category', category);
       if (sortBy) params.set('sortBy', sortBy);
       if (availableNow) params.set('availableNow', 'true');
+      if (coords) { params.set('lat', String(coords.lat)); params.set('lng', String(coords.lng)); }
       params.set('perPage', '50');
       return marketplaceApi.get<{ data: Business[]; meta: any }>(`/discover?${params}`);
     },
