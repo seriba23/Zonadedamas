@@ -192,12 +192,36 @@ export default function MarketplacePage() {
         {/* Content */}
         <div className="relative h-full flex flex-col justify-between p-3">
 
-          {/* Top: heart circle (right-aligned) */}
-          <div className="flex justify-end">
+          {/* Top row: logo circle (left) + heart (right) */}
+          <div className="flex items-start justify-between">
+            {/* Logo circle — round, large, z-index above gradient */}
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-white shadow-md"
+              style={{
+                backgroundColor: bgColor,
+                zIndex: 10,
+                position: 'relative',
+              }}
+            >
+              {biz.logoUrl ? (
+                <img
+                  src={`${API_URL}${biz.logoUrl}`}
+                  alt={biz.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xl font-black text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                  {biz.name[0]}
+                </span>
+              )}
+            </div>
+
+            {/* Heart */}
             {isAuthenticated && (
               <button
                 onClick={(e) => handleToggleFavorite(e, biz.slug)}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm flex-shrink-0"
+                style={{ zIndex: 10, position: 'relative' }}
               >
                 <svg
                   className={`w-4 h-4${isAnimating ? ' heart-pop' : ''}`}
