@@ -65,24 +65,32 @@ export default function MarketplacePage() {
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsDenied, setGpsDenied] = useState(false);
 
-  useEffect(() => {
-    if (gpsAsked) return;
-    setGpsAsked(true);
+  function requestGps() {
     if (!('geolocation' in navigator)) return;
     setGpsLoading(true);
+    setGpsDenied(false);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setSortBy('distance'); // auto-activate nearest filter
+        setSortBy('distance');
         setGpsLoading(false);
       },
       () => {
         setCoords(null);
         setGpsLoading(false);
+        setGpsDenied(true);
       },
       { timeout: 8000 },
     );
+  }
+
+  useEffect(() => {
+    if (gpsAsked) return;
+    setGpsAsked(true);
+    requestGps();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gpsAsked]);
 
   const { data, isLoading } = useQuery({
@@ -316,6 +324,64 @@ export default function MarketplacePage() {
 
             {/* Filter bar */}
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+
+              {/* GPS / Más cercanas pill — always visible */}
+              <button
+                onClick={() => {
+                  if (coords && sortBy === 'distance') {
+                    // Deactivate
+                    setSortBy('');
+                    setCoords(null);
+                    setGpsDenied(false);
+                  } else {
+                    requestGps();
+                  }
+                }}
+                disabled={gpsLoading}
+                className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0"
+                style={
+                  gpsLoading
+                    ? { backgroundColor: '#f0fdfa', color: '#008080', border: '1.5px solid #008080' }
+                    : coords && sortBy === 'distance'
+                      ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                      : gpsDenied
+                        ? { backgroundColor: 'white', color: '#ef4444', border: '1.5px solid #fca5a5' }
+                        : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                {gpsLoading ? (
+                  <>
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                    Ubicando...
+                  </>
+                ) : coords && sortBy === 'distance' ? (
+                  <>
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.003 3.5-4.697 3.5-8.327a8 8 0 10-16 0c0 3.63 1.556 6.324 3.5 8.327a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                    </svg>
+                    Más cercanas ✕
+                  </>
+                ) : gpsDenied ? (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                    Activar ubicación
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                    Más cercanas
+                  </>
+                )}
+              </button>
+
               {/* Disponible ahora */}
               <button
                 onClick={() => setAvailableNow(!availableNow)}
@@ -384,37 +450,12 @@ export default function MarketplacePage() {
 
         {/* ── Cards ── */}
         <div className="max-w-2xl mx-auto w-full px-4 pt-2 pb-24">
-          {/* GPS status / results count row */}
-          <div className="flex items-center justify-between mb-2">
-            {gpsLoading ? (
-              <span className="flex items-center gap-1.5 text-xs text-gray-400">
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                Obteniendo ubicación...
-              </span>
-            ) : coords && sortBy === 'distance' ? (
-              <button
-                onClick={() => { setSortBy(''); setCoords(null); }}
-                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
-                style={{ backgroundColor: '#e0f2f1', color: '#008080' }}
-                title="Toca para desactivar"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                </svg>
-                Mostrando más cercanas · ✕
-              </button>
-            ) : (
-              <span />
-            )}
-            {!isLoading && businesses.length > 0 && (
-              <p className="text-xs text-gray-400">
-                {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
-              </p>
-            )}
-          </div>
+          {/* Results count */}
+          {!isLoading && businesses.length > 0 && (
+            <p className="text-xs text-gray-400 mb-2">
+              {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
+            </p>
+          )}
 
           {isLoading ? (
             <div className="text-center py-12">
