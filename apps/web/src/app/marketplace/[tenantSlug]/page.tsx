@@ -53,98 +53,99 @@ interface AvailableSlot {
   employeeId: string;
 }
 
-type BookingStep = null | 'service' | 'employee' | 'datetime' | 'confirm' | 'success';
+type BookingStep = null | 'location' | 'service' | 'employee' | 'datetime' | 'confirm' | 'success';
 
-// ─── Day Timeline View ────────────────────────────────────────
-// Shows available slots as blocks of the correct duration in a timeline.
+const DOW_MAP: Record<number, string> = {
+  0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY',
+  4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY',
+};
 
-function DayTimelineView({
-  slots,
-  durationMinutes,
+function parseTimeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minutesToTimeStr(minutes: number): string {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const m = (minutes % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function SlotGrid({
+  dateStr,
+  availableSlots,
   selectedSlot,
   onSelect,
+  businessHours,
+  durationMinutes,
+  preferredTime,
 }: {
-  slots: AvailableSlot[];
-  durationMinutes: number;
+  dateStr: string;
+  availableSlots: AvailableSlot[];
   selectedSlot: AvailableSlot | null;
   onSelect: (slot: AvailableSlot) => void;
+  businessHours: any[];
+  durationMinutes: number;
+  preferredTime?: string;
 }) {
-  const PX_PER_MIN = 1.6;
-  const START_HOUR = 7;
-  const END_HOUR = 22;
-  const totalMinutes = (END_HOUR - START_HOUR) * 60;
-  const totalHeight = totalMinutes * PX_PER_MIN;
-  const blockHeight = Math.max(durationMinutes * PX_PER_MIN, 28);
+  const dayOfWeek = dayjs(dateStr).day();
+  const dayHours = businessHours?.find((h: any) => h.dayOfWeek === DOW_MAP[dayOfWeek]);
 
-  function timeToTop(iso: string): number {
-    const parts = iso.replace('Z', '').split('T');
-    const timePart = parts[1] || iso;
-    const [hStr, mStr] = timePart.split(':');
-    const h = parseInt(hStr, 10);
-    const m = parseInt(mStr, 10);
-    return ((h - START_HOUR) * 60 + m) * PX_PER_MIN;
+  // Build full list of 30-min slots from business hours
+  const allSlots: { time: string; available: boolean; slot: AvailableSlot | null }[] = [];
+
+  if (dayHours?.isOpen && dayHours.openTime && dayHours.closeTime) {
+    const start = parseTimeToMinutes(dayHours.openTime);
+    const end = parseTimeToMinutes(dayHours.closeTime) - durationMinutes;
+    for (let m = start; m <= end; m += 30) {
+      const timeStr = minutesToTimeStr(m);
+      const matchingSlot = availableSlots.find((s) => {
+        const slotTime = s.startTime.split('T')[1]?.substring(0, 5);
+        return slotTime === timeStr;
+      });
+      allSlots.push({ time: timeStr, available: !!matchingSlot, slot: matchingSlot || null });
+    }
+  } else {
+    // Fallback: only show available slots
+    availableSlots.forEach((s) => {
+      const timeStr = s.startTime.split('T')[1]?.substring(0, 5) || '';
+      allSlots.push({ time: timeStr, available: true, slot: s });
+    });
   }
 
-  const hourLines = Array.from(
-    { length: END_HOUR - START_HOUR + 1 },
-    (_, i) => i + START_HOUR,
-  );
+  if (allSlots.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 text-center py-8">
+        No hay horarios disponibles para esta fecha
+      </p>
+    );
+  }
 
   return (
-    <div className="overflow-y-auto" style={{ maxHeight: 380 }}>
-      <div className="relative" style={{ height: totalHeight, minWidth: '100%' }}>
-        {/* Hour lines */}
-        {hourLines.map((h) => {
-          const top = (h - START_HOUR) * 60 * PX_PER_MIN;
-          return (
-            <div
-              key={h}
-              className="absolute left-0 right-0 flex items-center gap-2 pointer-events-none"
-              style={{ top }}
-            >
-              <span className="text-[10px] text-gray-400 w-10 text-right flex-shrink-0 pr-2">
-                {h}:00
-              </span>
-              <div className="flex-1 border-t border-gray-100" />
-            </div>
-          );
-        })}
-
-        {/* Available slot blocks */}
-        {slots.map((slot) => {
-          const top = timeToTop(slot.startTime);
-          const isSelected = selectedSlot?.startTime === slot.startTime;
-          const timeLabel = formatTime(slot.startTime.substring(11, 16));
-          return (
-            <button
-              key={slot.startTime + slot.employeeId}
-              onClick={() => onSelect(slot)}
-              className="absolute left-12 right-3 rounded-xl flex items-center px-3 gap-2 transition-all"
-              style={{
-                top,
-                height: blockHeight,
-                backgroundColor: isSelected ? '#006666' : '#008080',
-                opacity: isSelected ? 1 : 0.82,
-                boxShadow: isSelected ? '0 2px 8px rgba(0,128,128,0.35)' : 'none',
-              }}
-            >
-              <span className="text-white text-xs font-semibold whitespace-nowrap">
-                {timeLabel}
-              </span>
-              {durationMinutes >= 30 && (
-                <span className="text-white/70 text-[10px] whitespace-nowrap">
-                  {durationMinutes} min
-                </span>
-              )}
-              {isSelected && (
-                <svg className="w-3.5 h-3.5 text-white ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              )}
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-3 gap-2 p-4">
+      {allSlots.map(({ time, available, slot }) => {
+        const isSelected = selectedSlot?.startTime?.includes(time);
+        const isPreferred = !isSelected && preferredTime === time && available;
+        return (
+          <button
+            key={time}
+            disabled={!available}
+            onClick={() => slot && onSelect(slot)}
+            className="py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={
+              isSelected
+                ? { backgroundColor: '#006666', color: '#fff', boxShadow: '0 2px 8px rgba(0,128,128,0.35)' }
+                : isPreferred
+                  ? { backgroundColor: '#e0f2f1', color: '#008080', border: '2px solid #008080', boxShadow: '0 0 0 2px rgba(0,128,128,0.15)' }
+                  : available
+                    ? { backgroundColor: '#e0f2f1', color: '#008080', border: '1.5px solid #b2dfdb' }
+                    : { backgroundColor: '#f3f4f6', color: '#d1d5db', cursor: 'not-allowed', textDecoration: 'line-through' }
+            }
+          >
+            {time}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -156,6 +157,7 @@ export default function BusinessDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const tenantSlug = params.tenantSlug as string;
+  const bookEmployeeId = searchParams.get('bookEmployee');
 
   // Payment return handling
   const paymentStatus = searchParams.get('payment');
@@ -180,6 +182,9 @@ export default function BusinessDetailPage() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [preferredTime, setPreferredTime] = useState('');
+  const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
 
   // Try to get user location for "nearest branch" hint
@@ -192,6 +197,17 @@ export default function BusinessDetailPage() {
       );
     }
   }, []);
+
+  // Pre-select employee from URL param (from professional profile)
+  useEffect(() => {
+    if (!bookEmployeeId || !biz) return;
+    const emp = (biz.employees || []).find((e: BizEmployee) => e.id === bookEmployeeId);
+    if (emp) {
+      setSelectedEmployee(emp);
+      setAnyEmployee(false);
+      setBookingStep('service');
+    }
+  }, [bookEmployeeId, biz]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-business', tenantSlug],
@@ -346,14 +362,17 @@ export default function BusinessDetailPage() {
       router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
       return;
     }
-    // Reset booking state
     setSelectedServiceIds([]);
     setSelectedEmployee(null);
     setAnyEmployee(false);
     setSelectedDate(dayjs());
     setSelectedSlot(null);
     setBookingNotes('');
-    setBookingStep('service');
+    setSelectedLocationId(null);
+    setPreferredTime('');
+    // If multiple locations, show location selection first
+    const locations = biz?.locations || [];
+    setBookingStep(locations.length > 1 ? 'location' : 'service');
   };
 
   const closeBooking = () => {
@@ -952,9 +971,16 @@ export default function BusinessDetailPage() {
           <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
             <button
               onClick={() => {
-                if (bookingStep === 'service') closeBooking();
+                if (bookingStep === 'location') closeBooking();
+                else if (bookingStep === 'service') {
+                  if ((biz?.locations || []).length > 1) setBookingStep('location');
+                  else closeBooking();
+                }
                 else if (bookingStep === 'employee') setBookingStep('service');
-                else if (bookingStep === 'datetime') setBookingStep('employee');
+                else if (bookingStep === 'datetime') {
+                  if (bookEmployeeId) setBookingStep('service'); // came from professional profile
+                  else setBookingStep('employee');
+                }
                 else if (bookingStep === 'confirm') setBookingStep('datetime');
               }}
               className="p-1 hover:bg-gray-100 rounded-lg"
@@ -1000,55 +1026,118 @@ export default function BusinessDetailPage() {
           <div className="bg-white border-b border-gray-100 px-4 py-3">
             <div className="max-w-2xl mx-auto flex items-center gap-2">
               {[
+                ...(biz?.locations?.length > 1 ? [{ key: 'location', label: 'Sucursal' }] : []),
                 { key: 'service', label: 'Servicio' },
-                { key: 'employee', label: 'Profesional' },
+                ...(!bookEmployeeId ? [{ key: 'employee', label: 'Profesional' }] : []),
                 { key: 'datetime', label: 'Horario' },
                 { key: 'confirm', label: 'Confirmar' },
-              ].map(({ key, label }, idx, arr) => (
-                <div key={key} className="flex items-center gap-2 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                      style={
-                        stepIndex > idx
-                          ? { backgroundColor: TEAL, color: '#fff' }
-                          : stepIndex === idx
-                            ? {
-                                backgroundColor: TEAL_LIGHT,
-                                color: TEAL,
-                                border: `2px solid ${TEAL}`,
-                              }
-                            : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
-                      }
-                    >
-                      {stepIndex > idx ? '✓' : idx + 1}
+              ].map(({ key, label }, idx, arr) => {
+                const activeSteps = arr.map(s => s.key);
+                const currentIdx = activeSteps.indexOf(bookingStep || '');
+                const thisIdx = idx;
+                return (
+                  <div key={key} className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                        style={
+                          currentIdx > thisIdx
+                            ? { backgroundColor: '#008080', color: '#fff' }
+                            : currentIdx === thisIdx
+                              ? { backgroundColor: '#e0f2f1', color: '#008080', border: '2px solid #008080' }
+                              : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
+                        }
+                      >
+                        {currentIdx > thisIdx ? '✓' : thisIdx + 1}
+                      </div>
+                      <span
+                        className="text-xs hidden sm:block"
+                        style={{
+                          color: currentIdx === thisIdx ? '#008080' : '#9ca3af',
+                          fontWeight: currentIdx === thisIdx ? 500 : 400,
+                        }}
+                      >
+                        {label}
+                      </span>
                     </div>
-                    <span
-                      className="text-xs hidden sm:block"
-                      style={{
-                        color: stepIndex === idx ? TEAL : '#9ca3af',
-                        fontWeight: stepIndex === idx ? 500 : 400,
-                      }}
-                    >
-                      {label}
-                    </span>
+                    {idx < arr.length - 1 && (
+                      <div className="flex-1 h-0.5" style={{ backgroundColor: currentIdx > thisIdx ? '#008080' : '#e5e7eb' }} />
+                    )}
                   </div>
-                  {idx < arr.length - 1 && (
-                    <div
-                      className="flex-1 h-0.5"
-                      style={{
-                        backgroundColor: stepIndex > idx ? TEAL : '#e5e7eb',
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-2xl mx-auto px-4 py-6">
+
+              {/* Step 0: Location */}
+              {bookingStep === 'location' && (() => {
+                const locations = biz?.locations || [];
+                const locsWithDist = locations.map((loc: any) => {
+                  let distKm: number | null = null;
+                  if (userGps && loc.latitude && loc.longitude) {
+                    const R = 6371;
+                    const dLat = ((loc.latitude - userGps.lat) * Math.PI) / 180;
+                    const dLng = ((loc.longitude - userGps.lng) * Math.PI) / 180;
+                    const a = Math.sin(dLat / 2) ** 2 + Math.cos((userGps.lat * Math.PI) / 180) * Math.cos((loc.latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+                    distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                  }
+                  return { ...loc, distKm };
+                }).sort((a: any, b: any) => (a.distKm ?? Infinity) - (b.distKm ?? Infinity));
+
+                return (
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Selecciona la sucursal</h2>
+                    <p className="text-sm text-gray-500 mb-4">¿A cuál sucursal deseas ir?</p>
+                    <div className="grid gap-3">
+                      {locsWithDist.map((loc: any, idx: number) => (
+                        <button
+                          key={loc.id}
+                          onClick={() => { setSelectedLocationId(loc.id); setBookingStep('service'); }}
+                          className="w-full text-left p-4 rounded-xl border-2 transition-all"
+                          style={selectedLocationId === loc.id
+                            ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT }
+                            : { borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: idx === 0 && loc.distKm !== null ? TEAL_LIGHT : '#f3f4f6' }}>
+                              <svg className="w-5 h-5" style={{ color: idx === 0 && loc.distKm !== null ? TEAL : '#9ca3af' }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium text-gray-900">{loc.name}</p>
+                                {idx === 0 && loc.distKm !== null && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: TEAL }}>Más cercana</span>
+                                )}
+                                {loc.distKm !== null && (
+                                  <span className="text-xs text-gray-400">
+                                    {loc.distKm < 1 ? `${Math.round(loc.distKm * 1000)} m` : `${loc.distKm.toFixed(1)} km`}
+                                  </span>
+                                )}
+                              </div>
+                              {loc.address && <p className="text-sm text-gray-500 mt-0.5">{loc.address}</p>}
+                              {loc.phone && <p className="text-xs mt-0.5" style={{ color: TEAL }}>{loc.phone}</p>}
+                            </div>
+                            {selectedLocationId === loc.id && (
+                              <svg className="w-5 h-5 flex-shrink-0" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Step 1: Services */}
               {bookingStep === 'service' && (() => {
                 const grouped: Record<string, BizService[]> = {};
@@ -1244,131 +1333,109 @@ export default function BusinessDetailPage() {
               {/* Step 3: Date & Time */}
               {bookingStep === 'datetime' && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    Selecciona fecha y hora
-                  </h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Selecciona fecha y hora</h2>
 
-                  {/* Mini calendar */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <button
-                        onClick={() =>
-                          setSelectedDate((d) => d.subtract(1, 'month'))
-                        }
-                        className="p-1.5 rounded-lg hover:bg-gray-100"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 19l-7-7 7-7"
-                          />
-                        </svg>
-                      </button>
-                      <span className="text-sm font-semibold">
-                        {selectedDate.format('MMMM YYYY')}
-                      </span>
-                      <button
-                        onClick={() =>
-                          setSelectedDate((d) => d.add(1, 'month'))
-                        }
-                        className="p-1.5 rounded-lg hover:bg-gray-100"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-center">
-                      {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'].map((d) => (
-                        <div
-                          key={d}
-                          className="text-xs font-medium text-gray-400 py-1"
-                        >
-                          {d}
-                        </div>
-                      ))}
-                      {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                        <div key={`empty-${i}`} />
-                      ))}
-                      {calendarDays.map((day) => {
-                        const isToday = day.isSame(dayjs(), 'day');
-                        const isPast = day.isBefore(dayjs(), 'day');
-                        const isSelected = day.isSame(selectedDate, 'day');
-                        return (
-                          <button
-                            key={day.format('YYYY-MM-DD')}
-                            disabled={isPast}
-                            onClick={() => {
-                              setSelectedDate(day);
-                              setSelectedSlot(null);
-                            }}
-                            className="text-sm py-1.5 rounded-lg transition-colors"
-                            style={
-                              isSelected
-                                ? { backgroundColor: TEAL, color: '#fff' }
-                                : isToday
-                                  ? {
-                                      backgroundColor: TEAL_LIGHT,
-                                      color: TEAL,
-                                      fontWeight: 600,
-                                    }
-                                  : isPast
-                                    ? { color: '#d1d5db', cursor: 'not-allowed' }
-                                    : { color: '#374151' }
-                            }
-                          >
-                            {day.date()}
-                          </button>
-                        );
-                      })}
+                  {/* Employee info */}
+                  <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    {anyEmployee ? (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xl flex-shrink-0">✨</div>
+                    ) : selectedEmployee ? (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: selectedEmployee.color }}>
+                        {selectedEmployee.avatarUrl
+                          ? <img src={`${API_URL}${selectedEmployee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                          : <>{selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}</>}
+                      </div>
+                    ) : null}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {anyEmployee ? 'Cualquier profesional disponible' : selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : ''}
+                      </p>
+                      <p className="text-xs text-gray-400">{totalDuration} min · {formatCurrency(totalPrice)}</p>
                     </div>
                   </div>
 
-                  {/* Day Timeline */}
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-gray-700">
-                          {formatDate(selectedDate.toDate())}
-                        </h3>
-                        <span className="text-xs text-gray-400">
-                          {totalDuration} min · {uniqueSlots.length} horarios
-                        </span>
+                  {/* Preferred time */}
+                  <div className="mb-4 p-3 rounded-xl border" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a' }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: '#92400e' }}>¿Tienes algún horario de preferencia?</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={preferredTime}
+                        onChange={(e) => setPreferredTime(e.target.value)}
+                        className="flex-1 text-sm border rounded-lg px-3 py-1.5 bg-white focus:outline-none"
+                        style={{ borderColor: '#fcd34d' }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.boxShadow = `0 0 0 2px rgba(0,128,128,0.2)`; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = '#fcd34d'; e.currentTarget.style.boxShadow = 'none'; }}
+                      />
+                      {preferredTime && (
+                        <button onClick={() => setPreferredTime('')} className="text-xs px-2 py-1 rounded-lg hover:bg-amber-100" style={{ color: '#b45309' }}>✕</button>
+                      )}
+                    </div>
+                    {preferredTime && (() => {
+                      const pref = preferredTime.substring(0, 5);
+                      const found = uniqueSlots.find(s => s.startTime.split('T')[1]?.startsWith(pref));
+                      if (found) return <p className="text-xs mt-1.5 font-medium" style={{ color: '#065f46' }}>✓ Las {pref} está disponible — aparece destacado abajo</p>;
+                      const alts = uniqueSlots.slice(0, 3).map(s => s.startTime.split('T')[1]?.substring(0, 5));
+                      return alts.length > 0
+                        ? <p className="text-xs mt-1.5" style={{ color: '#92400e' }}>Las {pref} no está disponible. Opciones cercanas: {alts.join(', ')}</p>
+                        : null;
+                    })()}
+                  </div>
+
+                  {/* Date selector row */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5">
+                      <button
+                        disabled={selectedDate.isSame(dayjs(), 'day')}
+                        onClick={() => { setSelectedDate((d) => d.subtract(1, 'day')); setSelectedSlot(null); }}
+                        className="p-1 rounded-lg hover:bg-gray-100 disabled:opacity-30"
+                      >
+                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <div className="flex-1 text-center">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {selectedDate.isSame(dayjs(), 'day') ? 'Hoy' : selectedDate.isSame(dayjs().add(1, 'day'), 'day') ? 'Mañana' : selectedDate.format('dddd')}
+                        </p>
+                        <p className="text-xs text-gray-400">{selectedDate.format('D [de] MMMM')}</p>
                       </div>
+                      <button
+                        onClick={() => { setSelectedDate((d) => d.add(1, 'day')); setSelectedSlot(null); }}
+                        className="p-1 rounded-lg hover:bg-gray-100"
+                      >
+                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setShowFullCalendar(true)}
+                      className="w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 flex-shrink-0"
+                    >
+                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Slot grid */}
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-700">
+                        {uniqueSlots.length > 0 ? `${uniqueSlots.length} horarios disponibles` : 'Sin horarios disponibles'}
+                      </span>
+                      <span className="text-xs text-gray-400">{totalDuration} min</span>
                     </div>
                     {slotsLoading ? (
-                      <div className="p-4 space-y-2">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
-                        ))}
+                      <div className="p-4 grid grid-cols-3 gap-2">
+                        {Array.from({ length: 9 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />)}
                       </div>
-                    ) : uniqueSlots.length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-8">
-                        No hay horarios disponibles para esta fecha
-                      </p>
                     ) : (
-                      <DayTimelineView
-                        slots={uniqueSlots}
-                        durationMinutes={totalDuration}
+                      <SlotGrid
+                        dateStr={selectedDate.format('YYYY-MM-DD')}
+                        availableSlots={uniqueSlots}
                         selectedSlot={selectedSlot}
                         onSelect={setSelectedSlot}
+                        businessHours={biz?.businessHours || []}
+                        durationMinutes={totalDuration || 30}
+                        preferredTime={preferredTime}
                       />
                     )}
                   </div>
@@ -1378,15 +1445,60 @@ export default function BusinessDetailPage() {
                       onClick={() => setBookingStep('confirm')}
                       className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors mt-4"
                       style={{ backgroundColor: TEAL }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor = TEAL_DARK)
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor = TEAL)
-                      }
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
                     >
                       Continuar
                     </button>
+                  )}
+
+                  {/* Full calendar modal */}
+                  {showFullCalendar && (
+                    <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ touchAction: 'none' }}>
+                      <div className="absolute inset-0 bg-black/40" onClick={() => setShowFullCalendar(false)} />
+                      <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl p-5">
+                        <div className="flex justify-center mb-4"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+                        <div className="flex items-center justify-between mb-3">
+                          <button onClick={() => setSelectedDate((d) => d.subtract(1, 'month'))} className="p-1.5 rounded-lg hover:bg-gray-100">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                          </button>
+                          <span className="text-sm font-semibold">{selectedDate.format('MMMM YYYY')}</span>
+                          <button onClick={() => setSelectedDate((d) => d.add(1, 'month'))} className="p-1.5 rounded-lg hover:bg-gray-100">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center">
+                          {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'].map((d) => (
+                            <div key={d} className="text-xs font-medium text-gray-400 py-1">{d}</div>
+                          ))}
+                          {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
+                          {calendarDays.map((day) => {
+                            const isToday = day.isSame(dayjs(), 'day');
+                            const isPast = day.isBefore(dayjs(), 'day');
+                            const isSelected = day.isSame(selectedDate, 'day');
+                            return (
+                              <button
+                                key={day.format('YYYY-MM-DD')}
+                                disabled={isPast}
+                                onClick={() => { setSelectedDate(day); setSelectedSlot(null); setShowFullCalendar(false); }}
+                                className="text-sm py-1.5 rounded-lg transition-colors"
+                                style={
+                                  isSelected ? { backgroundColor: TEAL, color: '#fff' }
+                                  : isToday ? { backgroundColor: TEAL_LIGHT, color: TEAL, fontWeight: 600 }
+                                  : isPast ? { color: '#d1d5db', cursor: 'not-allowed' }
+                                  : { color: '#374151' }
+                                }
+                              >
+                                {day.date()}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button onClick={() => setShowFullCalendar(false)} className="mt-4 w-full py-2.5 rounded-xl text-sm font-medium text-white" style={{ backgroundColor: TEAL }}>
+                          Cerrar
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

@@ -334,6 +334,21 @@ export default function ProfessionalProfilePage() {
         </div>
       </div>
 
+      {/* Floating CTA */}
+      <div className="fixed bottom-20 left-0 right-0 px-6 pointer-events-none z-30">
+        <div className="max-w-3xl mx-auto pointer-events-auto">
+          <button
+            onClick={() => router.push(`/marketplace/${pro.tenantSlug}?bookEmployee=${employeeId}`)}
+            className="w-full py-3 rounded-2xl font-semibold text-sm text-white shadow-lg transition-colors"
+            style={{ backgroundColor: '#008080', boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
+          >
+            Agendar cita
+          </button>
+        </div>
+      </div>
+
       {/* Lightbox */}
       {lightboxImg && (
         <div

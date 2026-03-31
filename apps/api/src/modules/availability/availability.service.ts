@@ -224,7 +224,7 @@ export class AvailabilityService {
           dateStr,
           merged,
           totalDuration,
-          15, // granularity in minutes
+          30, // granularity in minutes
         );
 
         // Cache result (5 minutes TTL)
