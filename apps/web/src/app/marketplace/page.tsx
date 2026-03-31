@@ -284,8 +284,8 @@ export default function MarketplacePage() {
           <div
             className="absolute bottom-0 right-0 z-20"
             style={{
-              width: 90,
-              height: 90,
+              width: 70,
+              height: 70,
               clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
               backgroundColor: 'rgba(34,197,94,0.85)',
             }}
@@ -293,8 +293,8 @@ export default function MarketplacePage() {
             <span
               className="absolute font-black text-white"
               style={{
-                fontSize: 8,
-                letterSpacing: '0.08em',
+                fontSize: 11,
+                letterSpacing: '0.06em',
                 top: '64%',
                 left: '64%',
                 transform: 'translate(-50%, -50%) rotate(-45deg)',
