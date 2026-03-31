@@ -289,7 +289,7 @@ export default function MarketplacePage() {
                 left: -35,
                 width: 150,
                 backgroundColor: 'rgba(34,197,94,0.85)',
-                transform: 'rotate(45deg)',
+                transform: 'rotate(-45deg)',
                 fontSize: 8,
                 letterSpacing: '0.08em',
                 padding: '7px 0',
