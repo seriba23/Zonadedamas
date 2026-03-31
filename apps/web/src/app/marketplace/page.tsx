@@ -327,6 +327,27 @@ export default function MarketplacePage() {
   return (
     <>
       <style>{HEARTBEAT_KEYFRAMES}</style>
+
+      {/* GPS denied — banner fijo en la parte superior */}
+      {showGpsDeniedTip && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-start gap-3 px-4 py-3 bg-gray-900 text-white text-sm shadow-xl">
+          <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">Ubicación bloqueada</p>
+            <p className="text-gray-300 text-xs mt-0.5">
+              Ve a Ajustes de tu navegador → Permisos → Ubicación y permite el acceso para ver los negocios más cercanos.
+            </p>
+          </div>
+          <button onClick={() => setShowGpsDeniedTip(false)} className="text-gray-400 hover:text-white flex-shrink-0 mt-0.5">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       <div>
 
         {/* ── Header ── */}
@@ -408,16 +429,6 @@ export default function MarketplacePage() {
                   )}
                 </button>
 
-                {/* Denied tooltip */}
-                {showGpsDeniedTip && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded-xl p-3 z-50 shadow-xl">
-                    <p className="font-semibold mb-1">Ubicación bloqueada</p>
-                    <p className="text-gray-300 leading-relaxed">
-                      Activa el permiso de ubicación en los ajustes de tu navegador o móvil para ver los negocios más cercanos.
-                    </p>
-                    <div className="absolute -top-1.5 left-4 w-3 h-3 bg-gray-900 rotate-45" />
-                  </div>
-                )}
               </div>
 
               {/* Disponible ahora */}
