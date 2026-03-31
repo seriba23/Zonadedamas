@@ -279,24 +279,29 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* "NUEVO" — ribbon diagonal esquina inferior derecha */}
+        {/* "NUEVO" — triángulo relleno esquina inferior derecha */}
         {biz.completedAppointments < 10 && (
-          <div className="absolute bottom-0 right-0 z-20 overflow-hidden" style={{ width: 90, height: 90 }}>
-            <div
-              className="absolute flex items-center justify-center text-white font-black"
+          <div
+            className="absolute bottom-0 right-0 z-20"
+            style={{
+              width: 90,
+              height: 90,
+              clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
+              backgroundColor: 'rgba(34,197,94,0.85)',
+            }}
+          >
+            <span
+              className="absolute font-black text-white"
               style={{
-                top: 56,
-                left: -35,
-                width: 150,
-                backgroundColor: 'rgba(34,197,94,0.85)',
-                transform: 'rotate(-45deg)',
                 fontSize: 8,
                 letterSpacing: '0.08em',
-                padding: '7px 0',
+                top: '64%',
+                left: '64%',
+                transform: 'translate(-50%, -50%) rotate(-45deg)',
               }}
             >
               NUEVO
-            </div>
+            </span>
           </div>
         )}
       </button>
