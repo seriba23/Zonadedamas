@@ -264,11 +264,6 @@ export default function MarketplacePage() {
                     Disponible
                   </span>
                 )}
-                {biz.completedAppointments < 10 && (
-                  <span className="text-[10px] font-black text-white bg-green-500/80 px-1.5 py-0.5 rounded-full tracking-wide">
-                    NUEVO
-                  </span>
-                )}
               </div>
               {/* Derecha: estrellas (solo si tiene 10+ servicios realizados) */}
               {biz.completedAppointments >= 10 && biz.averageRating != null && (
@@ -283,6 +278,27 @@ export default function MarketplacePage() {
             </div>
           </div>
         </div>
+
+        {/* "NUEVO" — ribbon diagonal esquina inferior derecha */}
+        {biz.completedAppointments < 10 && (
+          <div className="absolute bottom-0 right-0 z-20 overflow-hidden" style={{ width: 90, height: 90 }}>
+            <div
+              className="absolute flex items-center justify-center text-white font-black"
+              style={{
+                top: 56,
+                left: -35,
+                width: 150,
+                backgroundColor: 'rgba(34,197,94,0.85)',
+                transform: 'rotate(45deg)',
+                fontSize: 8,
+                letterSpacing: '0.08em',
+                padding: '7px 0',
+              }}
+            >
+              NUEVO
+            </div>
+          </div>
+        )}
       </button>
     );
   };
