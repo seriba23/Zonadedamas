@@ -187,23 +187,24 @@ export default function MarketplacePage() {
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.15) 50%, transparent 55%)' }}
         />
 
-        {/* "Nuevo" — triángulo esquina superior izquierda */}
+        {/* "Nuevo" — ribbon diagonal esquina superior izquierda */}
         {biz.averageRating == null && (
-          <div
-            className="absolute top-0 left-0 z-20"
-            style={{
-              width: 0, height: 0,
-              borderStyle: 'solid',
-              borderWidth: '56px 56px 0 0',
-              borderColor: 'rgba(234,179,8,0.82) transparent transparent transparent',
-            }}
-          >
-            <span
-              className="absolute text-[9px] font-black text-white"
-              style={{ top: -52, left: 3, transform: 'rotate(-45deg)', letterSpacing: '0.03em' }}
+          <div className="absolute top-0 left-0 z-20 overflow-hidden" style={{ width: 66, height: 66 }}>
+            <div
+              className="absolute flex items-center justify-center text-white font-black"
+              style={{
+                top: 16,
+                left: -22,
+                width: 80,
+                backgroundColor: 'rgba(34,197,94,0.85)',
+                transform: 'rotate(-45deg)',
+                fontSize: 8,
+                letterSpacing: '0.08em',
+                padding: '3px 0',
+              }}
             >
               NUEVO
-            </span>
+            </div>
           </div>
         )}
 
