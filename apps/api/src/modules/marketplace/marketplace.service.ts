@@ -1457,7 +1457,21 @@ export class MarketplaceService {
       this.prisma.appointment.findMany({
         where,
         include: {
-          tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logoUrl: true,
+              address: true,
+              locations: {
+                where: { isActive: true },
+                select: { id: true, name: true, address: true, latitude: true, longitude: true },
+                take: 1,
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          },
           employee: {
             select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
           },

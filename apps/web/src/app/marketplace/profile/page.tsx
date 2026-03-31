@@ -49,6 +49,8 @@ interface Appointment {
     name: string;
     slug: string;
     logoUrl: string | null;
+    address?: string | null;
+    locations?: { id: string; name: string; address?: string | null; latitude?: number | null; longitude?: number | null }[];
   };
   employee: {
     id: string;
@@ -101,9 +103,49 @@ interface Stats {
   totalPhotos: number;
 }
 
+// ─── Helpers ───────────────────────────────────────────
+
+function relativeTime(isoString: string): { label: string; urgent: boolean } {
+  const now = dayjs();
+  const dt = dayjs(isoString);
+  const diffMins = dt.diff(now, 'minute');
+  const diffHours = dt.diff(now, 'hour');
+  const diffDays = dt.diff(now, 'day');
+
+  if (diffMins < 0) return { label: 'Ahora', urgent: true };
+  if (diffMins < 60) return { label: `En ${diffMins} min`, urgent: true };
+  if (diffHours < 24) return { label: `Hoy a las ${dt.format('h:mm A')}`, urgent: true };
+  if (diffDays === 1) return { label: `Mañana a las ${dt.format('h:mm A')}`, urgent: false };
+  if (diffDays <= 6) return { label: `En ${diffDays} días`, urgent: false };
+  return { label: dt.format('D [de] MMM'), urgent: false };
+}
+
+function calcDistanceKm(
+  userGps: { lat: number; lng: number } | null,
+  lat?: number | null,
+  lng?: number | null,
+): number | null {
+  if (!userGps || !lat || !lng) return null;
+  const R = 6371;
+  const dLat = ((lat - userGps.lat) * Math.PI) / 180;
+  const dLng = ((lng - userGps.lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((userGps.lat * Math.PI) / 180) *
+      Math.cos((lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ─── Appointment Card ──────────────────────────────────
 
-function AppointmentCard({ apt }: { apt: Appointment }) {
+function AppointmentCard({
+  apt,
+  userGps,
+}: {
+  apt: Appointment;
+  userGps: { lat: number; lng: number } | null;
+}) {
   const router = useRouter();
   const status = STATUS_CONFIG[apt.status] || {
     label: apt.status,
@@ -113,30 +155,38 @@ function AppointmentCard({ apt }: { apt: Appointment }) {
     (sum, item) => sum + Number(item.priceSnapshot || 0),
     0,
   );
+  const totalDuration = apt.items.reduce(
+    (sum, item) => sum + (item.durationSnapshot || 0),
+    0,
+  );
+  const isUpcoming = ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(apt.status);
+  const relative = isUpcoming ? relativeTime(apt.startTime) : null;
+
+  // Distance: try first location, fallback to tenant address coords (none if no GPS data)
+  const loc = apt.tenant.locations?.[0];
+  const distKm = calcDistanceKm(userGps, loc?.latitude, loc?.longitude);
+  const distLabel = distKm !== null
+    ? distKm < 1
+      ? `${Math.round(distKm * 1000)} m`
+      : `${distKm.toFixed(1)} km`
+    : null;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
+      {/* Header: business + status */}
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
         <Link
           href={`/marketplace/${apt.tenant.slug}`}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <div className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
             {apt.tenant.logoUrl ? (
-              <img
-                src={`${API_URL}${apt.tenant.logoUrl}`}
-                alt=""
-                className="w-full h-full object-cover"
-              />
+              <img src={`${API_URL}${apt.tenant.logoUrl}`} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-xs font-bold text-gray-400">
-                {apt.tenant.name[0]}
-              </span>
+              <span className="text-xs font-bold text-gray-400">{apt.tenant.name[0]}</span>
             )}
           </div>
-          <span className="text-xs font-medium text-gray-600">
-            {apt.tenant.name}
-          </span>
+          <span className="text-xs font-semibold text-gray-700">{apt.tenant.name}</span>
         </Link>
         <div className="flex items-center gap-1.5">
           {apt.payments?.[0] && (
@@ -152,24 +202,55 @@ function AppointmentCard({ apt }: { apt: Appointment }) {
                apt.payments[0].status === 'REFUNDED' ? 'Reembolsado' : apt.payments[0].status}
             </span>
           )}
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
-          >
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
             {status.label}
           </span>
         </div>
       </div>
 
-      <div className="mb-2">
-        <p className="text-sm font-semibold text-gray-900">
-          {dayjs(apt.startTime).format('ddd, D [de] MMM YYYY')}
-        </p>
-        <p className="text-xs text-gray-500">
-          {dayjs(apt.startTime).format('h:mm A')} -{' '}
-          {dayjs(apt.endTime).format('h:mm A')}
-        </p>
+      {/* Time info row */}
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">
+            {dayjs(apt.startTime).format('ddd, D [de] MMM YYYY')}
+          </p>
+          <p className="text-xs text-gray-500">
+            {dayjs(apt.startTime).format('h:mm A')} – {dayjs(apt.endTime).format('h:mm A')}
+            {totalDuration > 0 && (
+              <span className="ml-1.5 text-gray-400">
+                · {totalDuration >= 60
+                  ? `${Math.floor(totalDuration / 60)}h${totalDuration % 60 > 0 ? ` ${totalDuration % 60}m` : ''}`
+                  : `${totalDuration}min`}
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          {relative && (
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                relative.urgent
+                  ? 'bg-red-50 text-red-600'
+                  : 'text-white'
+              }`}
+              style={relative.urgent ? {} : { backgroundColor: TEAL }}
+            >
+              {relative.label}
+            </span>
+          )}
+          {distLabel && (
+            <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              </svg>
+              {distLabel}
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Employee + services */}
       <button
         onClick={() => router.push(`/marketplace/${apt.tenant.slug}/professional/${apt.employee.id}`)}
         className="flex items-center gap-3 w-full text-left"
@@ -258,6 +339,7 @@ export default function MarketplaceProfilePage() {
   const [activeSection, setActiveSection] = useState<ActiveSection>('default');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<GalleryCategory['photos'][0] | null>(null);
+  const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
 
   // helpers
   const toggle = (section: ActiveSection) =>
@@ -268,6 +350,17 @@ export default function MarketplaceProfilePage() {
       router.push('/marketplace/login?redirect=/marketplace/profile');
     }
   }, [authLoading, isAuthenticated, router]);
+
+  // Get user GPS for distance calculation
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserGps({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { timeout: 5000 },
+      );
+    }
+  }, []);
 
   // Stats
   const { data: statsData } = useQuery({
@@ -547,7 +640,7 @@ export default function MarketplaceProfilePage() {
             ) : (
               <div className="space-y-3">
                 {pastAppointments.map((apt) => (
-                  <AppointmentCard key={apt.id} apt={apt} />
+                  <AppointmentCard key={apt.id} apt={apt} userGps={userGps} />
                 ))}
               </div>
             )}
@@ -724,7 +817,7 @@ export default function MarketplaceProfilePage() {
             ) : (
               <div className="space-y-3">
                 {upcomingAppointments.map((apt) => (
-                  <AppointmentCard key={apt.id} apt={apt} />
+                  <AppointmentCard key={apt.id} apt={apt} userGps={userGps} />
                 ))}
               </div>
             )}
