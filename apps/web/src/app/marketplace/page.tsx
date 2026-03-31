@@ -64,17 +64,25 @@ export default function MarketplacePage() {
   const [availableNow, setAvailableNow] = useState(false);
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   useEffect(() => {
     if (gpsAsked) return;
     setGpsAsked(true);
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => setCoords(null),
-        { timeout: 5000 },
-      );
-    }
+    if (!('geolocation' in navigator)) return;
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setSortBy('distance'); // auto-activate nearest filter
+        setGpsLoading(false);
+      },
+      () => {
+        setCoords(null);
+        setGpsLoading(false);
+      },
+      { timeout: 8000 },
+    );
   }, [gpsAsked]);
 
   const { data, isLoading } = useQuery({
@@ -376,12 +384,37 @@ export default function MarketplacePage() {
 
         {/* ── Cards ── */}
         <div className="max-w-2xl mx-auto w-full px-4 pt-2 pb-24">
-          {/* Results count */}
-          {!isLoading && businesses.length > 0 && (
-            <p className="text-xs text-gray-400 mb-2">
-              {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
-            </p>
-          )}
+          {/* GPS status / results count row */}
+          <div className="flex items-center justify-between mb-2">
+            {gpsLoading ? (
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Obteniendo ubicación...
+              </span>
+            ) : coords && sortBy === 'distance' ? (
+              <button
+                onClick={() => { setSortBy(''); setCoords(null); }}
+                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
+                style={{ backgroundColor: '#e0f2f1', color: '#008080' }}
+                title="Toca para desactivar"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+                Mostrando más cercanas · ✕
+              </button>
+            ) : (
+              <span />
+            )}
+            {!isLoading && businesses.length > 0 && (
+              <p className="text-xs text-gray-400">
+                {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
 
           {isLoading ? (
             <div className="text-center py-12">

@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
-import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
-
 
 interface Location {
   id: string;
@@ -19,11 +17,11 @@ interface Location {
 }
 
 interface AddressFields {
-  street: string;      // Calle y número (manual)
-  city: string;        // Ciudad (de geocoding)
-  state: string;       // Estado/Provincia (de geocoding)
-  postalCode: string;  // Código postal (de geocoding)
-  country: string;     // País (de geocoding)
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
 }
 
 interface LocationForm {
@@ -31,29 +29,16 @@ interface LocationForm {
   addressFields: AddressFields;
   phone: string;
   email: string;
-  // Internal — not shown in UI
-  latitude: number | null;
-  longitude: number | null;
 }
 
-const EMPTY_ADDRESS: AddressFields = {
-  street: '',
-  city: '',
-  state: '',
-  postalCode: '',
-  country: '',
-};
+const EMPTY_ADDRESS: AddressFields = { street: '', city: '', state: '', postalCode: '', country: '' };
 
 function buildFullAddress(f: AddressFields): string {
-  return [f.street, f.city, f.state, f.postalCode, f.country]
-    .filter(Boolean)
-    .join(', ');
+  return [f.street, f.city, f.state, f.postalCode, f.country].filter(Boolean).join(', ');
 }
 
-// Parse a single address string back into fields (best effort)
 function parseAddress(addr: string): AddressFields {
   const parts = addr.split(',').map((s) => s.trim());
-  // Heuristic: street is first, then city, state, postal, country
   return {
     street: parts[0] || '',
     city: parts[1] || '',
@@ -63,45 +48,25 @@ function parseAddress(addr: string): AddressFields {
   };
 }
 
-// Reverse-geocode using Nominatim (OpenStreetMap) — no API key required
-async function reverseGeocode(lat: number, lng: number): Promise<AddressFields> {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=es`,
-    { headers: { 'User-Agent': 'Siliba/1.0' } },
-  );
-  if (!res.ok) return EMPTY_ADDRESS;
-  const json = await res.json();
-  const a = json.address || {};
-
-  const street = [a.road || a.pedestrian || a.path || '', a.house_number || '']
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-
-  const city =
-    a.city || a.town || a.village || a.municipality || a.county || '';
-
-  const state =
-    a.state || a.region || a.province || '';
-
-  return {
-    street,
-    city,
-    state,
-    postalCode: a.postcode || '',
-    country: a.country || '',
-  };
+// Forward-geocode full address → lat/lng using Nominatim (no API key needed)
+async function forwardGeocode(address: string): Promise<{ lat: number; lng: number } | null> {
+  if (!address.trim()) return null;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&limit=1&accept-language=es`,
+      { headers: { 'User-Agent': 'Siliba/1.0' } },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json?.length) return null;
+    return { lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon) };
+  } catch {
+    return null;
+  }
 }
 
 function emptyForm(adminEmail: string): LocationForm {
-  return {
-    name: '',
-    addressFields: EMPTY_ADDRESS,
-    phone: '',
-    email: adminEmail,
-    latitude: null,
-    longitude: null,
-  };
+  return { name: '', addressFields: EMPTY_ADDRESS, phone: '', email: adminEmail };
 }
 
 export default function LocationsPage() {
@@ -113,9 +78,8 @@ export default function LocationsPage() {
   const [editing, setEditing] = useState<Location | null>(null);
   const [form, setForm] = useState<LocationForm>(emptyForm(adminEmail));
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [geocoding, setGeocoding] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Update email default when user loads
   useEffect(() => {
     if (adminEmail && !showModal) {
       setForm((prev) => ({ ...prev, email: prev.email || adminEmail }));
@@ -126,40 +90,22 @@ export default function LocationsPage() {
     queryKey: ['locations'],
     queryFn: () => api.get<{ data: Location[] }>('/api/tenants/locations'),
   });
-
   const locations: Location[] = (data as any)?.data || [];
 
   const createMutation = useMutation({
     mutationFn: (body: any) => api.post('/api/tenants/locations', body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      closeModal();
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); },
   });
-
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: any }) =>
-      api.put(`/api/tenants/locations/${id}`, body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      closeModal();
-    },
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.put(`/api/tenants/locations/${id}`, body),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); },
   });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/tenants/locations/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      setDeleteConfirm(null);
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); setDeleteConfirm(null); },
   });
 
-  function openCreate() {
-    setEditing(null);
-    setForm(emptyForm(adminEmail));
-    setShowModal(true);
-  }
-
+  function openCreate() { setEditing(null); setForm(emptyForm(adminEmail)); setShowModal(true); }
   function openEdit(loc: Location) {
     setEditing(loc);
     setForm({
@@ -167,61 +113,37 @@ export default function LocationsPage() {
       addressFields: loc.address ? parseAddress(loc.address) : EMPTY_ADDRESS,
       phone: loc.phone || '',
       email: loc.email || adminEmail,
-      latitude: loc.latitude ?? null,
-      longitude: loc.longitude ?? null,
     });
     setShowModal(true);
   }
+  function closeModal() { setShowModal(false); setEditing(null); }
 
-  function closeModal() {
-    setShowModal(false);
-    setEditing(null);
-  }
-
-  async function handleUseMyLocation() {
-    if (!navigator.geolocation) return;
-    setGeocoding(true);
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 }),
-      );
-      const { latitude: lat, longitude: lng } = pos.coords;
-      const fields = await reverseGeocode(lat, lng);
-      setForm((prev) => ({
-        ...prev,
-        latitude: lat,
-        longitude: lng,
-        addressFields: {
-          ...fields,
-          // Keep street if user already typed something
-          street: prev.addressFields.street || fields.street,
-        },
-      }));
-    } catch {
-      // User denied or timeout — silently ignore
-    } finally {
-      setGeocoding(false);
-    }
-  }
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSaving(true);
+    const fullAddress = buildFullAddress(form.addressFields);
+    // Auto-geocode the address silently
+    const coords = await forwardGeocode(fullAddress);
     const payload = {
       name: form.name,
-      address: buildFullAddress(form.addressFields),
+      address: fullAddress,
       phone: form.phone || undefined,
       email: form.email || undefined,
-      latitude: form.latitude ?? undefined,
-      longitude: form.longitude ?? undefined,
+      latitude: coords?.lat ?? undefined,
+      longitude: coords?.lng ?? undefined,
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id, body: payload });
     } else {
       createMutation.mutate(payload);
     }
+    setSaving(false);
   }
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = saving || createMutation.isPending || updateMutation.isPending;
+
+  const setAddr = (field: keyof AddressFields, value: string) =>
+    setForm((prev) => ({ ...prev, addressFields: { ...prev.addressFields, [field]: value } }));
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -235,7 +157,7 @@ export default function LocationsPage() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ backgroundColor: '#008080' }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -260,11 +182,7 @@ export default function LocationsPage() {
           </div>
           <h3 className="text-base font-semibold text-gray-900 mb-1">Sin sucursales</h3>
           <p className="text-sm text-gray-500 mb-5">Agrega la primera ubicación de tu negocio.</p>
-          <button
-            onClick={openCreate}
-            className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ backgroundColor: '#008080' }}
-          >
+          <button onClick={openCreate} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#008080' }}>
             Agregar sucursal
           </button>
         </div>
@@ -278,38 +196,24 @@ export default function LocationsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                 </svg>
               </div>
-
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 truncate">{loc.name}</p>
-                {loc.address && (
-                  <p className="text-sm text-gray-500 mt-0.5 truncate">{loc.address}</p>
-                )}
+                {loc.address && <p className="text-sm text-gray-500 mt-0.5 truncate">{loc.address}</p>}
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
                   {loc.phone && <span className="text-xs text-gray-400">{loc.phone}</span>}
                   {loc.email && <span className="text-xs text-gray-400">{loc.email}</span>}
                   {loc.latitude && loc.longitude && (
-                    <span className="text-xs font-medium" style={{ color: '#008080' }}>
-                      📍 GPS registrado
-                    </span>
+                    <span className="text-xs font-medium" style={{ color: '#008080' }}>📍 Geolocalización activa</span>
                   )}
                 </div>
               </div>
-
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => openEdit(loc)}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  title="Editar"
-                >
+                <button onClick={() => openEdit(loc)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Editar">
                   <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
                   </svg>
                 </button>
-                <button
-                  onClick={() => setDeleteConfirm(loc.id)}
-                  className="p-2 rounded-lg hover:bg-red-50 transition-colors"
-                  title="Eliminar"
-                >
+                <button onClick={() => setDeleteConfirm(loc.id)} className="p-2 rounded-lg hover:bg-red-50 transition-colors" title="Eliminar">
                   <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg>
@@ -320,7 +224,7 @@ export default function LocationsPage() {
         </div>
       )}
 
-      {/* Create / Edit Modal */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto" onClick={closeModal}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl my-auto" onClick={(e) => e.stopPropagation()}>
@@ -328,7 +232,6 @@ export default function LocationsPage() {
               <h2 className="text-lg font-bold text-gray-900 mb-5">
                 {editing ? 'Editar sucursal' : 'Nueva sucursal'}
               </h2>
-
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Name */}
                 <div>
@@ -345,113 +248,49 @@ export default function LocationsPage() {
                   />
                 </div>
 
-                {/* GPS button */}
-                <button
-                  type="button"
-                  onClick={handleUseMyLocation}
-                  disabled={geocoding}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed text-sm font-medium transition-colors"
-                  style={{
-                    borderColor: '#008080',
-                    color: '#008080',
-                    backgroundColor: geocoding ? '#f0fdfa' : 'transparent',
-                  }}
-                >
-                  {geocoding ? (
-                    <>
-                      <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#008080', borderTopColor: 'transparent' }} />
-                      Obteniendo ubicación...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                      </svg>
-                      Usar mi ubicación actual
-                    </>
-                  )}
-                </button>
-
-                {/* GPS indicator (no coords shown) */}
-                {form.latitude && form.longitude && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium" style={{ backgroundColor: '#e0f2f1', color: '#008080' }}>
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    Coordenadas GPS registradas — tu sucursal aparecerá en "Más cercana"
-                  </div>
-                )}
-
                 {/* Address fields */}
                 <div className="space-y-3">
+                  <p className="text-sm font-medium text-gray-700">Dirección</p>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Calle y número
-                    </label>
                     <input
                       type="text"
                       value={form.addressFields.street}
-                      onChange={(e) =>
-                        setForm({ ...form, addressFields: { ...form.addressFields, street: e.target.value } })
-                      }
-                      placeholder="Av. Insurgentes Sur 1234"
+                      onChange={(e) => setAddr('street', e.target.value)}
+                      placeholder="Calle y número"
                       className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Ciudad</label>
-                      <input
-                        type="text"
-                        value={form.addressFields.city}
-                        onChange={(e) =>
-                          setForm({ ...form, addressFields: { ...form.addressFields, city: e.target.value } })
-                        }
-                        placeholder="Ciudad de México"
-                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Estado / Provincia</label>
-                      <input
-                        type="text"
-                        value={form.addressFields.state}
-                        onChange={(e) =>
-                          setForm({ ...form, addressFields: { ...form.addressFields, state: e.target.value } })
-                        }
-                        placeholder="CDMX"
-                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      value={form.addressFields.city}
+                      onChange={(e) => setAddr('city', e.target.value)}
+                      placeholder="Ciudad"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
+                    <input
+                      type="text"
+                      value={form.addressFields.state}
+                      onChange={(e) => setAddr('state', e.target.value)}
+                      placeholder="Estado / Provincia"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Código postal</label>
-                      <input
-                        type="text"
-                        value={form.addressFields.postalCode}
-                        onChange={(e) =>
-                          setForm({ ...form, addressFields: { ...form.addressFields, postalCode: e.target.value } })
-                        }
-                        placeholder="06600"
-                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">País</label>
-                      <input
-                        type="text"
-                        value={form.addressFields.country}
-                        onChange={(e) =>
-                          setForm({ ...form, addressFields: { ...form.addressFields, country: e.target.value } })
-                        }
-                        placeholder="México"
-                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      value={form.addressFields.postalCode}
+                      onChange={(e) => setAddr('postalCode', e.target.value)}
+                      placeholder="Código postal"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
+                    <input
+                      type="text"
+                      value={form.addressFields.country}
+                      onChange={(e) => setAddr('country', e.target.value)}
+                      placeholder="País"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
                   </div>
                 </div>
 
@@ -467,7 +306,7 @@ export default function LocationsPage() {
                   />
                 </div>
 
-                {/* Email — pre-filled, shared */}
+                {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Email de contacto
@@ -482,17 +321,13 @@ export default function LocationsPage() {
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
+                  <button type="button" onClick={closeModal} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isPending || !form.name.trim()}
-                    className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-60"
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
                     style={{ backgroundColor: '#008080' }}
                   >
                     {isPending ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear sucursal'}
@@ -504,7 +339,7 @@ export default function LocationsPage() {
         </div>
       )}
 
-      {/* Delete confirmation */}
+      {/* Delete confirm */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={() => setDeleteConfirm(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -514,21 +349,10 @@ export default function LocationsPage() {
               </svg>
             </div>
             <h3 className="text-base font-bold text-gray-900 text-center mb-1">¿Eliminar sucursal?</h3>
-            <p className="text-sm text-gray-500 text-center mb-5">
-              Las citas y empleados asociados no se eliminarán.
-            </p>
+            <p className="text-sm text-gray-500 text-center mb-5">Las citas y empleados asociados no se eliminarán.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(deleteConfirm)}
-                disabled={deleteMutation.isPending}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-60"
-              >
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600">Cancelar</button>
+              <button onClick={() => deleteMutation.mutate(deleteConfirm)} disabled={deleteMutation.isPending} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-60">
                 {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
               </button>
             </div>
