@@ -187,26 +187,6 @@ export default function MarketplacePage() {
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.15) 50%, transparent 55%)' }}
         />
 
-        {/* "Nuevo" — ribbon diagonal esquina superior izquierda */}
-        {biz.averageRating == null && (
-          <div className="absolute top-0 left-0 z-20 overflow-hidden" style={{ width: 90, height: 90 }}>
-            <div
-              className="absolute flex items-center justify-center text-white font-black"
-              style={{
-                top: 20,
-                left: -35,
-                width: 150,
-                backgroundColor: 'rgba(34,197,94,0.85)',
-                transform: 'rotate(-45deg)',
-                fontSize: 8,
-                letterSpacing: '0.08em',
-                padding: '7px 0',
-              }}
-            >
-              NUEVO
-            </div>
-          </div>
-        )}
 
         {/* Content */}
         <div className="relative h-full flex flex-col justify-between p-3">
@@ -267,7 +247,7 @@ export default function MarketplacePage() {
               </p>
             )}
             <div className="flex items-center justify-between mt-1.5">
-              {/* Izquierda: distancia + disponible */}
+              {/* Izquierda: distancia + disponible + NUEVO */}
               <div className="flex items-center gap-2">
                 {biz.distance != null && (
                   <span className="flex items-center gap-1 text-[10px] font-semibold text-white bg-black/40 px-1.5 py-0.5 rounded-full">
@@ -284,15 +264,20 @@ export default function MarketplacePage() {
                     Disponible
                   </span>
                 )}
+                {biz.completedAppointments < 10 && (
+                  <span className="text-[10px] font-black text-white bg-green-500/80 px-1.5 py-0.5 rounded-full tracking-wide">
+                    NUEVO
+                  </span>
+                )}
               </div>
-              {/* Derecha: estrellas */}
-              {biz.averageRating != null && (
-                <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+              {/* Derecha: estrellas (solo si tiene 10+ servicios realizados) */}
+              {biz.completedAppointments >= 10 && biz.averageRating != null && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
-                  <span className="text-xs font-semibold text-white">{biz.averageRating}</span>
-                  <span className="text-[10px] text-white/70">({biz.totalReviews})</span>
+                  <span className="text-sm font-semibold text-white">{biz.averageRating}</span>
+                  <span className="text-xs text-white/70">({biz.totalReviews})</span>
                 </div>
               )}
             </div>
