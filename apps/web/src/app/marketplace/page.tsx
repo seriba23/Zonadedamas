@@ -65,31 +65,58 @@ export default function MarketplacePage() {
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [gpsDenied, setGpsDenied] = useState(false);
+  // 'idle' | 'active' | 'denied' | 'unavailable'
+  const [gpsState, setGpsState] = useState<'idle' | 'active' | 'denied' | 'unavailable'>('idle');
+  const [showGpsDeniedTip, setShowGpsDeniedTip] = useState(false);
 
-  function requestGps() {
-    if (!('geolocation' in navigator)) return;
+  function doGetPosition() {
     setGpsLoading(true);
-    setGpsDenied(false);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setSortBy('distance');
+        setGpsState('active');
         setGpsLoading(false);
       },
       () => {
         setCoords(null);
+        setGpsState('denied');
         setGpsLoading(false);
-        setGpsDenied(true);
+        setShowGpsDeniedTip(true);
+        setTimeout(() => setShowGpsDeniedTip(false), 5000);
       },
-      { timeout: 8000 },
+      { timeout: 10000, enableHighAccuracy: true },
     );
+  }
+
+  async function requestGps() {
+    if (!('geolocation' in navigator)) {
+      setGpsState('unavailable');
+      return;
+    }
+    // Check permission state first (supported in modern browsers)
+    if ('permissions' in navigator) {
+      try {
+        const perm = await navigator.permissions.query({ name: 'geolocation' });
+        if (perm.state === 'denied') {
+          setGpsState('denied');
+          setShowGpsDeniedTip(true);
+          setTimeout(() => setShowGpsDeniedTip(false), 5000);
+          return;
+        }
+      } catch {
+        // permissions API not available — proceed anyway
+      }
+    }
+    doGetPosition();
   }
 
   useEffect(() => {
     if (gpsAsked) return;
     setGpsAsked(true);
-    requestGps();
+    // Auto-request on mount
+    if ('geolocation' in navigator) doGetPosition();
+    else setGpsState('unavailable');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gpsAsked]);
 
@@ -326,61 +353,72 @@ export default function MarketplacePage() {
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
 
               {/* GPS / Más cercanas pill — always visible */}
-              <button
-                onClick={() => {
-                  if (coords && sortBy === 'distance') {
-                    // Deactivate
-                    setSortBy('');
-                    setCoords(null);
-                    setGpsDenied(false);
-                  } else {
-                    requestGps();
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={() => {
+                    if (gpsState === 'active') {
+                      setSortBy('');
+                      setCoords(null);
+                      setGpsState('idle');
+                    } else {
+                      requestGps();
+                    }
+                  }}
+                  disabled={gpsLoading}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5"
+                  style={
+                    gpsLoading
+                      ? { backgroundColor: '#f0fdfa', color: '#008080', border: '1.5px solid #008080' }
+                      : gpsState === 'active'
+                        ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                        : gpsState === 'denied'
+                          ? { backgroundColor: '#fff1f2', color: '#ef4444', border: '1.5px solid #fca5a5' }
+                          : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
                   }
-                }}
-                disabled={gpsLoading}
-                className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 flex-shrink-0"
-                style={
-                  gpsLoading
-                    ? { backgroundColor: '#f0fdfa', color: '#008080', border: '1.5px solid #008080' }
-                    : coords && sortBy === 'distance'
-                      ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
-                      : gpsDenied
-                        ? { backgroundColor: 'white', color: '#ef4444', border: '1.5px solid #fca5a5' }
-                        : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                }
-              >
-                {gpsLoading ? (
-                  <>
-                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
-                    Ubicando...
-                  </>
-                ) : coords && sortBy === 'distance' ? (
-                  <>
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                      <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.003 3.5-4.697 3.5-8.327a8 8 0 10-16 0c0 3.63 1.556 6.324 3.5 8.327a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                    </svg>
-                    Más cercanas ✕
-                  </>
-                ) : gpsDenied ? (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    Activar ubicación
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    Más cercanas
-                  </>
+                >
+                  {gpsLoading ? (
+                    <>
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      Ubicando...
+                    </>
+                  ) : gpsState === 'active' ? (
+                    <>
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                        <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.003 3.5-4.697 3.5-8.327a8 8 0 10-16 0c0 3.63 1.556 6.324 3.5 8.327a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                      </svg>
+                      Más cercanas ✕
+                    </>
+                  ) : gpsState === 'denied' ? (
+                    <>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                      Ubicación bloqueada
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                      </svg>
+                      Más cercanas
+                    </>
+                  )}
+                </button>
+
+                {/* Denied tooltip */}
+                {showGpsDeniedTip && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded-xl p-3 z-50 shadow-xl">
+                    <p className="font-semibold mb-1">Ubicación bloqueada</p>
+                    <p className="text-gray-300 leading-relaxed">
+                      Activa el permiso de ubicación en los ajustes de tu navegador o móvil para ver los negocios más cercanos.
+                    </p>
+                    <div className="absolute -top-1.5 left-4 w-3 h-3 bg-gray-900 rotate-45" />
+                  </div>
                 )}
-              </button>
+              </div>
 
               {/* Disponible ahora */}
               <button
