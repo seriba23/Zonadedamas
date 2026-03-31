@@ -35,7 +35,7 @@ interface Business {
   hasImmediateAvailability: boolean;
 }
 
-type SortBy = '' | 'distance' | 'rating' | 'services';
+type SortBy = '' | 'rating' | 'services';
 
 const HEARTBEAT_KEYFRAMES = `
 @keyframes heartPop {
@@ -54,8 +54,6 @@ export default function MarketplacePage() {
   const { isAuthenticated } = useMarketplaceAuth();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [gpsAsked, setGpsAsked] = useState(false);
   const [favoriteSlugs, setFavoriteSlugs] = useState<Set<string>>(new Set());
   const [animatingFav, setAnimatingFav] = useState<Set<string>>(new Set());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -64,73 +62,13 @@ export default function MarketplacePage() {
   const [availableNow, setAvailableNow] = useState(false);
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
-  const [gpsLoading, setGpsLoading] = useState(false);
-  // 'idle' | 'active' | 'denied' | 'unavailable'
-  const [gpsState, setGpsState] = useState<'idle' | 'active' | 'denied' | 'unavailable'>('idle');
-  const [showGpsDeniedTip, setShowGpsDeniedTip] = useState(false);
-
-  function doGetPosition() {
-    setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setSortBy('distance');
-        setGpsState('active');
-        setGpsLoading(false);
-      },
-      () => {
-        setCoords(null);
-        setGpsState('denied');
-        setGpsLoading(false);
-        setShowGpsDeniedTip(true);
-        setTimeout(() => setShowGpsDeniedTip(false), 5000);
-      },
-      { timeout: 10000, enableHighAccuracy: true },
-    );
-  }
-
-  async function requestGps() {
-    if (!('geolocation' in navigator)) {
-      setGpsState('unavailable');
-      return;
-    }
-    // Check permission state first (supported in modern browsers)
-    if ('permissions' in navigator) {
-      try {
-        const perm = await navigator.permissions.query({ name: 'geolocation' });
-        if (perm.state === 'denied') {
-          setGpsState('denied');
-          setShowGpsDeniedTip(true);
-          setTimeout(() => setShowGpsDeniedTip(false), 5000);
-          return;
-        }
-      } catch {
-        // permissions API not available — proceed anyway
-      }
-    }
-    doGetPosition();
-  }
-
-  useEffect(() => {
-    if (gpsAsked) return;
-    setGpsAsked(true);
-    // Auto-request on mount
-    if ('geolocation' in navigator) doGetPosition();
-    else setGpsState('unavailable');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gpsAsked]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-discover', search, category, coords, sortBy, availableNow],
+    queryKey: ['marketplace-discover', search, category, sortBy, availableNow],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (category) params.set('category', category);
-      if (coords) {
-        params.set('lat', coords.lat.toString());
-        params.set('lng', coords.lng.toString());
-        params.set('radiusKm', '50');
-      }
       if (sortBy) params.set('sortBy', sortBy);
       if (availableNow) params.set('availableNow', 'true');
       params.set('perPage', '50');
@@ -328,57 +266,6 @@ export default function MarketplacePage() {
     <>
       <style>{HEARTBEAT_KEYFRAMES}</style>
 
-      {/* GPS denied — banner fijo en la parte superior */}
-      {showGpsDeniedTip && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gray-900 text-white shadow-xl">
-          <div className="flex items-start gap-3 px-4 py-3">
-            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Ubicación bloqueada</p>
-              <p className="text-gray-300 text-xs mt-0.5 leading-relaxed">
-                Toca <strong className="text-white">"Abrir ajustes"</strong> y activa el permiso de ubicación para este sitio.
-              </p>
-              <div className="flex gap-2 mt-2.5">
-                <button
-                  onClick={() => {
-                    setShowGpsDeniedTip(false);
-                    // Re-trigger getCurrentPosition — on Chrome/Android this surfaces
-                    // the "Location blocked" system prompt with a direct link to site settings
-                    navigator.geolocation.getCurrentPosition(
-                      (pos) => {
-                        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                        setSortBy('distance');
-                        setGpsState('active');
-                      },
-                      () => {
-                        setGpsState('denied');
-                      },
-                      { timeout: 10000, enableHighAccuracy: true },
-                    );
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-gray-900 hover:bg-gray-100 transition-colors"
-                >
-                  Abrir ajustes
-                </button>
-                <button
-                  onClick={() => setShowGpsDeniedTip(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-colors"
-                >
-                  Ahora no
-                </button>
-              </div>
-            </div>
-            <button onClick={() => setShowGpsDeniedTip(false)} className="text-gray-500 hover:text-white flex-shrink-0">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       <div>
 
         {/* ── Header ── */}
@@ -403,64 +290,6 @@ export default function MarketplacePage() {
 
             {/* Filter bar */}
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
-
-              {/* GPS / Más cercanas pill — always visible */}
-              <div className="relative flex-shrink-0">
-                <button
-                  onClick={() => {
-                    if (gpsState === 'active') {
-                      setSortBy('');
-                      setCoords(null);
-                      setGpsState('idle');
-                    } else {
-                      requestGps();
-                    }
-                  }}
-                  disabled={gpsLoading}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5"
-                  style={
-                    gpsLoading
-                      ? { backgroundColor: '#f0fdfa', color: '#008080', border: '1.5px solid #008080' }
-                      : gpsState === 'active'
-                        ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
-                        : gpsState === 'denied'
-                          ? { backgroundColor: '#fff1f2', color: '#ef4444', border: '1.5px solid #fca5a5' }
-                          : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                  }
-                >
-                  {gpsLoading ? (
-                    <>
-                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                      </svg>
-                      Ubicando...
-                    </>
-                  ) : gpsState === 'active' ? (
-                    <>
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                        <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.003 3.5-4.697 3.5-8.327a8 8 0 10-16 0c0 3.63 1.556 6.324 3.5 8.327a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.144.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                      </svg>
-                      Más cercanas ✕
-                    </>
-                  ) : gpsState === 'denied' ? (
-                    <>
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
-                      </svg>
-                      Ubicación bloqueada
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                      </svg>
-                      Más cercanas
-                    </>
-                  )}
-                </button>
-
-              </div>
 
               {/* Disponible ahora */}
               <button
@@ -636,7 +465,6 @@ export default function MarketplacePage() {
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ordenar por</p>
                 <div className="space-y-1">
                   {[
-                    { value: 'distance', label: 'Más cercana', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /> },
                     { value: 'rating', label: 'Más puntuados', icon: <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /> },
                     { value: 'services', label: 'Más servicios', icon: <><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></> },
                   ].map((opt) => (
