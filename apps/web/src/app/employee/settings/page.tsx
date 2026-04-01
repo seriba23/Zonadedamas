@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { CoverCropModal } from '@/components/ui/cover-crop-modal';
+import { AllergiesSelector } from '@/components/ui/allergies-selector';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
@@ -380,15 +381,12 @@ export default function EmployeeSettingsPage() {
                     {BLOOD_TYPES.map((bt) => <option key={bt} value={bt}>{bt}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Alergias</label>
-                  <input
-                    type="text"
-                    value={personalForm.allergies}
-                    onChange={(e) => setPersonalForm((f) => ({ ...f, allergies: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                    placeholder="Ninguna conocida"
-                  />
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Alergias <span className="text-gray-400">(opcional)</span></label>
+                  <p className="text-xs text-gray-400 mb-1.5 leading-relaxed">
+                    Esta información ayuda a los especialistas a garantizar tu seguridad durante los servicios.
+                  </p>
+                  <AllergiesSelector value={personalForm.allergies} onChange={(v) => setPersonalForm((f) => ({ ...f, allergies: v }))} />
                 </div>
               </div>
             </div>
