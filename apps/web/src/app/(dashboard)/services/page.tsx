@@ -39,10 +39,10 @@ interface ServiceForm {
 }
 
 const DEFAULT_CATEGORIES = [
-  'Corte', 'Coloración', 'Tratamientos Capilares', 'Peinados y Styling',
-  'Barba', 'Afeitado Clásico', 'Masajes', 'Faciales',
-  'Manicure y Pedicure', 'Maquillaje', 'Cejas y Pestañas', 'Depilación',
-  'Medicina Estética', 'Tatuajes', 'Piercing', 'Otros',
+  'Afeitado Clásico', 'Barba', 'Cejas y Pestañas', 'Coloración',
+  'Corte', 'Depilación', 'Faciales', 'Manicure y Pedicure',
+  'Maquillaje', 'Masajes', 'Medicina Estética', 'Otros',
+  'Peinados y Styling', 'Piercing', 'Tatuajes', 'Tratamientos Capilares',
 ];
 
 const defaultForm: ServiceForm = {
@@ -67,7 +67,7 @@ export default function ServicesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState('');
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
+  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories].sort((a, b) => a.localeCompare(b, 'es'));
 
   // Auto-open modal from URL ?new=true
   useEffect(() => {
