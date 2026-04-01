@@ -473,7 +473,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
                 </p>
               </div>
               <Link
-                href="/employee/settings"
+                href="/employee/settings?edit=true"
                 className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-[#008080] text-white hover:bg-[#006666] transition-colors"
               >
                 Completar perfil

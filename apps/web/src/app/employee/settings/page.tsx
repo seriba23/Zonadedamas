@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -33,10 +33,11 @@ interface Employee {
 export default function EmployeeSettingsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
-  // Edit profile state
-  const [showEditProfile, setShowEditProfile] = useState(false);
+  // Edit profile state — auto-open from ?edit=true
+  const [showEditProfile, setShowEditProfile] = useState(searchParams.get('edit') === 'true');
   const [editForm, setEditForm] = useState({
     firstName: '', lastName: '', email: '', phone: '', color: '#008080', bio: '',
   });
