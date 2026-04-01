@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
+import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -19,12 +20,14 @@ interface Employee {
   color: string;
   bio: string;
   avatarUrl: string | null;
+  jobTitle: string | null;
   bloodType: string | null;
   emergencyContactName: string | null;
   emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;
   emergencyContactRelation: string | null;
   allergies: string | null;
+  employeeServices?: { service: { id: string; name: string } }[];
 }
 
 interface Stats {
@@ -44,6 +47,9 @@ export default function EmployeeProfilePage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('info');
   const [avatarSuccess, setAvatarSuccess] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: employee, isLoading } = useQuery({
     queryKey: ['employee-profile', user?.employeeId],
@@ -108,8 +114,11 @@ export default function EmployeeProfilePage() {
       {/* Profile hero */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <div className="flex items-center gap-5">
-          {/* Avatar with upload */}
-          <label className="relative group cursor-pointer flex-shrink-0">
+          {/* Avatar with crop modal */}
+          <div
+            className="relative group cursor-pointer flex-shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+          >
             <div
               className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold overflow-hidden"
               style={avatarBg}
@@ -135,27 +144,38 @@ export default function EmployeeProfilePage() {
               )}
             </div>
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) avatarMutation.mutate(file);
+                if (file) setCropFile(file);
                 e.target.value = '';
               }}
             />
-          </label>
-          <div>
+          </div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-gray-900">
               {employee?.firstName} {employee?.lastName}
             </h1>
+            {employee?.jobTitle && (
+              <p className="text-sm text-[#008080] font-medium">{employee.jobTitle}</p>
+            )}
             {employee?.bio && (
-              <p className="text-sm text-gray-500 mt-1">{employee.bio}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{employee.bio}</p>
             )}
             {avatarSuccess && (
               <p className="text-xs text-green-600 mt-1">{avatarSuccess}</p>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Vista previa pública
+          </button>
         </div>
       </div>
 
@@ -322,6 +342,89 @@ export default function EmployeeProfilePage() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Crop Modal */}
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={(croppedFile) => {
+            avatarMutation.mutate(croppedFile);
+            setCropFile(null);
+          }}
+        />
+      )}
+
+      {/* Public Profile Preview */}
+      {showPreview && employee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            {/* Header with color */}
+            <div className="h-24 relative" style={{ backgroundColor: employee.color || '#008080' }}>
+              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
+                <div className="w-20 h-20 rounded-full border-4 border-white overflow-hidden" style={{ backgroundColor: (employee.color || '#008080') + '22' }}>
+                  {employee.avatarUrl ? (
+                    <img src={`${API_URL}${employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold" style={{ color: employee.color || '#008080' }}>
+                      {employee.firstName[0]}{employee.lastName[0]}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="pt-12 pb-6 px-6 text-center">
+              <h3 className="text-lg font-bold text-gray-900">{employee.firstName} {employee.lastName}</h3>
+              {employee.jobTitle && (
+                <p className="text-sm text-[#008080] font-medium">{employee.jobTitle}</p>
+              )}
+              {employee.bio && (
+                <p className="text-xs text-gray-500 mt-2">{employee.bio}</p>
+              )}
+
+              {/* Servicios / Especialidades */}
+              {employee.employeeServices && employee.employeeServices.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs text-gray-400 mb-2">Servicios</p>
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {employee.employeeServices.map((es) => (
+                      <span key={es.service.id} className="text-xs bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2.5 py-1">
+                        {es.service.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats preview */}
+              <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
+                <div className="text-center">
+                  <p className="text-lg font-bold text-gray-900">{stats?.completedAllTime ?? 0}</p>
+                  <p className="text-[10px] text-gray-400">Citas completadas</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-gray-900">{stats?.averageRating ? stats.averageRating.toFixed(1) : '—'}</p>
+                  <p className="text-[10px] text-gray-400">Calificación</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-gray-900">{stats?.totalReviews ?? 0}</p>
+                  <p className="text-[10px] text-gray-400">Reseñas</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowPreview(false)}
+                className="w-full mt-5 py-2.5 rounded-xl text-sm font-medium text-white"
+                style={{ backgroundColor: '#008080' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
