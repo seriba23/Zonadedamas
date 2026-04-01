@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
@@ -30,97 +31,50 @@ interface ServiceForm {
   description: string;
   durationMinutes: number | string;
   price: number | string;
-  color: string;
   category: string;
-  subcategory: string;
+  generatesPoints: boolean;
   pointsReward: number | string;
   redeemableWithPoints: boolean;
   pointsRequired: number | string;
-  depositRequired: boolean;
-  depositPercent: number | string;
 }
 
-const SERVICE_CATEGORIES: Record<string, { label: string; subcategories: string[] }> = {
-  SALON: {
-    label: 'Salón',
-    subcategories: [
-      'Coloración',
-      'Corte',
-      'Tratamientos Capilares',
-      'Alisados y Texturizados',
-      'Peinados y Styling',
-      'Extensiones',
-      'Mechas y Balayage',
-    ],
-  },
-  BARBERIA: {
-    label: 'Barbería',
-    subcategories: [
-      'Cabello',
-      'Barba',
-      'Tratamientos',
-      'Afeitado Clásico',
-    ],
-  },
-  SPA: {
-    label: 'SPA',
-    subcategories: [
-      'Masajes',
-      'Faciales',
-      'Tratamientos Corporales',
-      'Exfoliación',
-      'Aromaterapia',
-    ],
-  },
-  CLINICA: {
-    label: 'Clínica',
-    subcategories: [
-      'Dermatología',
-      'Medicina Estética',
-      'Depilación Láser',
-      'Tratamientos Faciales',
-      'Nutrición',
-    ],
-  },
-  GENERAL: {
-    label: 'General',
-    subcategories: [
-      'Manicure y Pedicure',
-      'Maquillaje',
-      'Cejas y Pestañas',
-      'Depilación',
-      'Otros',
-    ],
-  },
-};
+const DEFAULT_CATEGORIES = [
+  'Corte', 'Coloración', 'Tratamientos Capilares', 'Peinados y Styling',
+  'Barba', 'Afeitado Clásico', 'Masajes', 'Faciales',
+  'Manicure y Pedicure', 'Maquillaje', 'Cejas y Pestañas', 'Depilación',
+  'Medicina Estética', 'Tatuajes', 'Piercing', 'Otros',
+];
 
 const defaultForm: ServiceForm = {
   name: '',
   description: '',
   durationMinutes: 60,
   price: 0,
-  color: '#008080',
   category: '',
-  subcategory: '',
+  generatesPoints: false,
   pointsReward: '',
   redeemableWithPoints: false,
   pointsRequired: '',
-  depositRequired: false,
-  depositPercent: '',
 };
-
-const SERVICE_COLORS = [
-  '#00cccc', '#00b3b3', '#009999', '#008080',
-  '#004d4d', '#003333', '#001919', '#000000', '#ffffff',
-];
 
 export default function ServicesPage() {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState<ServiceForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState('');
+  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
+
+  // Auto-open modal from URL ?new=true
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      openCreate();
+    }
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['services'],
@@ -161,19 +115,17 @@ export default function ServicesPage() {
 
   function openEdit(service: Service) {
     setEditingService(service);
+    const hasPoints = (service.pointsReward ?? 0) > 0;
     setForm({
       name: service.name,
       description: service.description || '',
       durationMinutes: service.durationMinutes,
       price: service.price,
-      color: service.color || '#008080',
-      category: service.category || '',
-      subcategory: service.subcategory || '',
+      category: service.subcategory || service.category || '',
+      generatesPoints: hasPoints,
       pointsReward: service.pointsReward ?? '',
       redeemableWithPoints: service.redeemableWithPoints || false,
       pointsRequired: service.pointsRequired ?? '',
-      depositRequired: service.depositRequired || false,
-      depositPercent: service.depositPercent ?? '',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -197,19 +149,11 @@ export default function ServicesPage() {
       description: form.description,
       durationMinutes: Number(form.durationMinutes),
       price: Number(form.price),
-      color: form.color,
-      category: form.category || null,
-      subcategory: form.subcategory || null,
+      subcategory: form.category || null,
       redeemableWithPoints: form.redeemableWithPoints,
-      pointsReward: form.pointsReward !== '' ? Number(form.pointsReward) : null,
-      depositRequired: form.depositRequired,
-      depositPercent: form.depositRequired && form.depositPercent !== '' ? Number(form.depositPercent) : null,
+      pointsReward: form.generatesPoints && form.pointsReward !== '' ? Number(form.pointsReward) : null,
+      pointsRequired: form.redeemableWithPoints && form.pointsRequired !== '' ? Number(form.pointsRequired) : null,
     };
-    if (form.redeemableWithPoints && form.pointsRequired !== '') {
-      payload.pointsRequired = Number(form.pointsRequired);
-    } else {
-      payload.pointsRequired = null;
-    }
     saveMutation.mutate(payload);
   }
 
@@ -392,46 +336,60 @@ export default function ServicesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Categoría
-                </label>
-                <select
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, category: e.target.value, subcategory: '' }))
-                  }
-                  className="input-field"
-                >
-                  <option value="">Sin categoría</option>
-                  {Object.entries(SERVICE_CATEGORIES).map(([key, cat]) => (
-                    <option key={key} value={key}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Categoría
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {allCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, category: f.category === cat ? '' : cat }))}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      form.category === cat
+                        ? 'bg-[#008080] text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subcategoría
-                </label>
-                <select
-                  value={form.subcategory}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, subcategory: e.target.value }))
-                  }
-                  className="input-field"
-                  disabled={!form.category}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="Agregar categoría..."
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-[#008080]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = newCategory.trim();
+                      if (val && !allCategories.includes(val)) {
+                        setCustomCategories((prev) => [...prev, val]);
+                        setForm((f) => ({ ...f, category: val }));
+                        setNewCategory('');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = newCategory.trim();
+                    if (val && !allCategories.includes(val)) {
+                      setCustomCategories((prev) => [...prev, val]);
+                      setForm((f) => ({ ...f, category: val }));
+                      setNewCategory('');
+                    }
+                  }}
+                  disabled={!newCategory.trim()}
+                  className="px-3 py-1.5 text-xs font-medium text-[#008080] border border-[#008080] rounded-lg hover:bg-teal-50 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  <option value="">Sin subcategoría</option>
-                  {form.category &&
-                    SERVICE_CATEGORIES[form.category]?.subcategories.map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
-                </select>
+                  + Agregar
+                </button>
               </div>
             </div>
 
@@ -470,44 +428,47 @@ export default function ServicesPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Color
-              </label>
-              <div className="flex gap-2 flex-wrap">
-                {SERVICE_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, color }))}
-                    className={`w-8 h-8 rounded-full transition-transform ${form.color === color ? 'scale-125 ring-2 ring-offset-2 ring-gray-400' : 'hover:scale-110'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-
             {/* Points section */}
             <div className="border-t border-gray-100 pt-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Puntos que otorga
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.pointsReward}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, pointsReward: e.target.value }))
-                  }
-                  className="input-field"
-                  placeholder={`Auto: ${Math.floor(Number(form.price) || 0)} pts (= precio)`}
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  Puntos que el cliente recibe al completar este servicio. Si se deja vacío, se usan los puntos equivalentes al precio.
-                </p>
-              </div>
+              <label className="flex items-center justify-between cursor-pointer mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Este servicio genera puntos</p>
+                  <p className="text-xs text-[#008080]">Los puntos son un incentivo importante para la fidelidad de tus clientes</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={form.generatesPoints}
+                    onChange={(e) => setForm((f) => ({ ...f, generatesPoints: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] peer-focus:ring-2 peer-focus:ring-teal-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+
+              {form.generatesPoints && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Puntos que otorga *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.pointsReward}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, pointsReward: e.target.value }))
+                    }
+                    className="input-field"
+                    placeholder="Ej: 100"
+                    required={form.generatesPoints}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Puntos que el cliente acumula al completar este servicio
+                  </p>
+                </div>
+              )}
 
               <label className="flex items-center justify-between cursor-pointer mb-3">
                 <div>
@@ -521,7 +482,7 @@ export default function ServicesPage() {
                     onChange={(e) => setForm((f) => ({ ...f, redeemableWithPoints: e.target.checked }))}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] peer-focus:ring-2 peer-focus:ring-teal-300 transition-colors" />
                   <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
                 </div>
               </label>
@@ -545,50 +506,6 @@ export default function ServicesPage() {
                   />
                   <p className="text-xs text-gray-400 mt-1">
                     Cantidad de puntos que un cliente necesita para canjear este servicio
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Deposit section */}
-            <div className="border-t border-gray-100 pt-4">
-              <label className="flex items-center justify-between cursor-pointer mb-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Requiere deposito al reservar</p>
-                  <p className="text-xs text-gray-400">El cliente debe pagar un porcentaje del precio por adelantado</p>
-                </div>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={form.depositRequired}
-                    onChange={(e) => setForm((f) => ({ ...f, depositRequired: e.target.checked }))}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-                </div>
-              </label>
-
-              {form.depositRequired && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Porcentaje de deposito (%) *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    step="1"
-                    value={form.depositPercent}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, depositPercent: e.target.value }))
-                    }
-                    className="input-field"
-                    placeholder="Ej: 30"
-                    required={form.depositRequired}
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    Porcentaje del precio total que el cliente debe pagar como deposito
                   </p>
                 </div>
               )}
