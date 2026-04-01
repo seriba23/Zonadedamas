@@ -1,7 +1,6 @@
 package com.siliba.app;
 
 import android.os.Bundle;
-import android.webkit.WebView;
 
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -12,19 +11,23 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        SwipeRefreshLayout swipeRefresh = findViewById(R.id.swipeRefresh);
-        if (swipeRefresh != null) {
-            // Teal color for the refresh spinner
-            swipeRefresh.setColorSchemeColors(0xFF008080);
-
-            swipeRefresh.setOnRefreshListener(() -> {
-                WebView webView = getBridge().getWebView();
-                if (webView != null) {
-                    webView.reload();
-                }
-                // Hide spinner after a short delay
-                swipeRefresh.postDelayed(() -> swipeRefresh.setRefreshing(false), 1000);
-            });
+        try {
+            SwipeRefreshLayout swipeRefresh = findViewById(R.id.swipeRefresh);
+            if (swipeRefresh != null) {
+                swipeRefresh.setColorSchemeColors(0xFF008080);
+                swipeRefresh.setOnRefreshListener(() -> {
+                    try {
+                        if (getBridge() != null && getBridge().getWebView() != null) {
+                            getBridge().getWebView().reload();
+                        }
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                    swipeRefresh.postDelayed(() -> swipeRefresh.setRefreshing(false), 1000);
+                });
+            }
+        } catch (Exception e) {
+            // SwipeRefresh not critical, app continues without it
         }
     }
 }
