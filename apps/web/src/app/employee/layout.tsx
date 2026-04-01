@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { useQuery } from '@tanstack/react-query';
 import { EmployeeSidebar } from '@/components/layout/employee-sidebar';
 import { api } from '@/lib/api';
+import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import type { StripePaymentElementOptions } from '@stripe/stripe-js';
@@ -440,10 +442,45 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     );
   }
 
+  const { data: empData } = useQuery({
+    queryKey: ['employee-profile-check', user?.employeeId],
+    queryFn: async () => {
+      const res = await api.get<{ data: any }>(`/api/employees/${user!.employeeId}`);
+      return res.data;
+    },
+    enabled: !!user?.employeeId,
+  });
+
+  const profileIncomplete = empData && (!empData.avatarUrl || !empData.bio);
+  const missingItems: string[] = [];
+  if (empData && !empData.avatarUrl) missingItems.push('foto de perfil');
+  if (empData && !empData.bio) missingItems.push('descripción profesional');
+
   return (
     <div className="flex h-screen bg-gray-50">
       <EmployeeSidebar />
       <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
+        {profileIncomplete && (
+          <div className="bg-teal-50 border-b border-teal-200 px-4 py-2.5">
+            <div className="flex items-center justify-between max-w-7xl mx-auto gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <svg className="w-4 h-4 flex-shrink-0 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-teal-800">
+                  <span className="font-semibold">Completa tu perfil profesional</span>
+                  {' — '}Agrega tu {missingItems.join(' y ')} para que los clientes puedan conocerte.
+                </p>
+              </div>
+              <Link
+                href="/employee/settings"
+                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Completar perfil
+              </Link>
+            </div>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

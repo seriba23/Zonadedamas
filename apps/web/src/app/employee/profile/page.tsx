@@ -48,7 +48,6 @@ export default function EmployeeProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>('info');
   const [avatarSuccess, setAvatarSuccess] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: employee, isLoading } = useQuery({
@@ -71,6 +70,14 @@ export default function EmployeeProfilePage() {
       return res.data;
     },
     enabled: !!user?.employeeId && activeTab === 'stats',
+  });
+
+  const { data: tenantData } = useQuery({
+    queryKey: ['tenant-slug'],
+    queryFn: async () => {
+      const res = await api.get<{ data: { slug: string } }>('/api/tenants/current');
+      return res.data;
+    },
   });
 
   const avatarMutation = useMutation({
@@ -169,13 +176,20 @@ export default function EmployeeProfilePage() {
               <p className="text-xs text-green-600 mt-1">{avatarSuccess}</p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Vista previa pública
-          </button>
+          {tenantData?.slug && employee?.id && (
+            <a
+              href={`/marketplace/${(tenantData as any).slug}/professional/${employee.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Ver perfil público
+            </a>
+          )}
         </div>
       </div>
 
@@ -361,76 +375,6 @@ export default function EmployeeProfilePage() {
         />
       )}
 
-      {/* Public Profile Preview */}
-      {showPreview && employee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
-            {/* Header with color */}
-            <div className="h-24 relative" style={{ backgroundColor: employee.color || '#008080' }}>
-              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-                <div className="w-20 h-20 rounded-full border-4 border-white overflow-hidden" style={{ backgroundColor: (employee.color || '#008080') + '22' }}>
-                  {employee.avatarUrl ? (
-                    <img src={`${API_URL}${employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold" style={{ color: employee.color || '#008080' }}>
-                      {employee.firstName[0]}{employee.lastName[0]}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="pt-12 pb-6 px-6 text-center">
-              <h3 className="text-lg font-bold text-gray-900">{employee.firstName} {employee.lastName}</h3>
-              {employee.jobTitle && (
-                <p className="text-sm text-[#008080] font-medium">{employee.jobTitle}</p>
-              )}
-              {employee.bio && (
-                <p className="text-xs text-gray-500 mt-2">{employee.bio}</p>
-              )}
-
-              {/* Servicios / Especialidades */}
-              {employee.employeeServices && employee.employeeServices.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs text-gray-400 mb-2">Servicios</p>
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {employee.employeeServices.map((es) => (
-                      <span key={es.service.id} className="text-xs bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2.5 py-1">
-                        {es.service.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Stats preview */}
-              <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">{stats?.completedAllTime ?? 0}</p>
-                  <p className="text-[10px] text-gray-400">Citas completadas</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">{stats?.averageRating ? stats.averageRating.toFixed(1) : '—'}</p>
-                  <p className="text-[10px] text-gray-400">Calificación</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-900">{stats?.totalReviews ?? 0}</p>
-                  <p className="text-[10px] text-gray-400">Reseñas</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowPreview(false)}
-                className="w-full mt-5 py-2.5 rounded-xl text-sm font-medium text-white"
-                style={{ backgroundColor: '#008080' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
