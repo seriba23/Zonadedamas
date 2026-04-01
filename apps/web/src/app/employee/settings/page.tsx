@@ -60,7 +60,7 @@ export default function EmployeeSettingsPage() {
   // Avatar
   const avatarMutation = useMutation({
     mutationFn: async (file: File) => {
-      return api.upload(`/api/employees/${user!.employeeId}/avatar`, file);
+      return api.upload(`/api/employees/me/avatar`, file);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-settings'] });

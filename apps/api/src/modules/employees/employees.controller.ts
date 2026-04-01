@@ -293,6 +293,24 @@ export class EmployeesController {
 
   // ─── AVATAR ────────────────────────────────────────
 
+  // Self-upload: employee uploads their own avatar (no employees.update needed)
+  @Post('me/avatar')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadMyAvatar(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @UploadedFile() file: MulterFile,
+  ) {
+    const employee = await this.employeesService.findByUserId(user.userId, tenantId);
+    const oldAvatarUrl = employee.avatarUrl;
+    const imageUrl = await this.uploadsService.saveFile(file, 'avatars');
+    const updated = await this.employeesService.updateAvatar(employee.id, tenantId, imageUrl);
+    if (oldAvatarUrl) {
+      await this.uploadsService.deleteFile(oldAvatarUrl);
+    }
+    return { data: updated };
+  }
+
   @Post(':id/avatar')
   @RequirePermissions('employees.update')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))

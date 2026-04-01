@@ -135,6 +135,14 @@ export class EmployeesService {
     return buildPaginatedResponse(enriched, total, pagination);
   }
 
+  async findByUserId(userId: string, tenantId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId, tenantId },
+    });
+    if (!employee) throw new NotFoundException('Empleado no encontrado');
+    return employee;
+  }
+
   async findOne(id: string, tenantId: string) {
     const employee = await this.prisma.employee.findFirst({
       where: { id, tenantId },
