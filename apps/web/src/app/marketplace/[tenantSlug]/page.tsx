@@ -767,13 +767,12 @@ export default function BusinessDetailPage() {
         {employees.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Profesionales</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2 scroll-smooth snap-x snap-mandatory" style={{ scrollbarWidth: 'none' }}>
+            <div className="grid grid-cols-3 gap-4">
               {employees.map((emp) => (
                 <Link
                   key={emp.id}
                   href={`/marketplace/${tenantSlug}/professional/${emp.id}`}
-                  className="flex flex-col items-center flex-shrink-0 snap-start group"
-                  style={{ minWidth: 80 }}
+                  className="flex flex-col items-center group"
                 >
                   <div
                     className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-bold overflow-hidden ring-2 ring-transparent group-hover:ring-[#008080] transition-all"
