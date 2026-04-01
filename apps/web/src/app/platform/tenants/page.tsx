@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { platformApi } from '@/lib/platform-auth';
 
 interface Tenant {
@@ -17,6 +18,7 @@ interface Tenant {
     status: string;
     monthlyAmountUsd: string;
     nextBillingDate: string;
+    trialEndsAt: string | null;
   } | null;
   _count: { users: number; employees: number; appointments: number };
 }
@@ -28,24 +30,31 @@ interface Meta {
   totalPages: number;
 }
 
-const PLAN_LABELS: Record<string, string> = { BASICO: 'Básico', PLUS: 'Plus', PRO: 'Pro' };
+const STATUS_LABELS: Record<string, string> = {
+  TRIAL: 'Prueba', ACTIVE: 'Activo', PAST_DUE: 'Pago pendiente',
+  SUSPENDED: 'Suspendido', CANCELLED: 'Cancelado',
+};
 const STATUS_BADGES: Record<string, string> = {
+  TRIAL: 'bg-teal-100 text-teal-700',
   ACTIVE: 'bg-green-100 text-green-700',
   PAST_DUE: 'bg-amber-100 text-amber-700',
   SUSPENDED: 'bg-red-100 text-red-700',
   CANCELLED: 'bg-gray-100 text-gray-700',
 };
 const BUSINESS_LABELS: Record<string, string> = {
-  SALON: 'Salón', BARBERIA: 'Barbería', SPA: 'Spa', CLINICA: 'Clínica',
+  SALON: 'Salón', BARBERIA: 'Barbería', SPA: 'Spa', CLINICA: 'Clínica', TATUAJES: 'Tatuajes',
 };
 
 export default function TenantsPage() {
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get('status') || '';
+
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterPlan, setFilterPlan] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatus, setFilterStatus] = useState(initialStatus);
+  const [sortBy, setSortBy] = useState('');
   const [page, setPage] = useState(1);
 
   const fetchTenants = useCallback(async () => {
@@ -55,8 +64,8 @@ export default function TenantsPage() {
       params.set('page', String(page));
       params.set('perPage', '15');
       if (search) params.set('search', search);
-      if (filterPlan) params.set('plan', filterPlan);
       if (filterStatus) params.set('status', filterStatus);
+      if (sortBy) params.set('sortBy', sortBy);
 
       const res = await platformApi.get<{ data: Tenant[]; meta: Meta }>(
         `/api/platform/tenants?${params.toString()}`,
@@ -68,11 +77,16 @@ export default function TenantsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterPlan, filterStatus]);
+  }, [page, search, filterStatus, sortBy]);
 
   useEffect(() => { fetchTenants(); }, [fetchTenants]);
+  useEffect(() => { setPage(1); }, [search, filterStatus, sortBy]);
 
-  useEffect(() => { setPage(1); }, [search, filterPlan, filterStatus]);
+  function daysUntilExpiry(trialEndsAt: string | null) {
+    if (!trialEndsAt) return null;
+    const days = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86400000);
+    return days;
+  }
 
   return (
     <div>
@@ -87,19 +101,19 @@ export default function TenantsPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
-        <select value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-          <option value="">Todos los planes</option>
-          <option value="BASICO">Básico</option>
-          <option value="PLUS">Plus</option>
-          <option value="PRO">Pro</option>
-        </select>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
           <option value="">Todos los estados</option>
+          <option value="TRIAL">En prueba</option>
           <option value="ACTIVE">Activo</option>
           <option value="PAST_DUE">Pago pendiente</option>
           <option value="SUSPENDED">Suspendido</option>
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <option value="">Más recientes</option>
+          <option value="trial_expiry">Por vencimiento de prueba</option>
+          <option value="name">Nombre A-Z</option>
         </select>
       </div>
 
@@ -110,8 +124,8 @@ export default function TenantsPage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negocio</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Plan</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Empleados</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Citas</th>
@@ -124,36 +138,44 @@ export default function TenantsPage() {
               ) : tenants.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-8 text-gray-400">No se encontraron negocios</td></tr>
               ) : (
-                tenants.map((t) => (
-                  <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <Link href={`/platform/tenants/${t.id}`} className="hover:text-primary-600">
-                        <p className="text-sm font-medium text-gray-900">{t.name}</p>
-                        <p className="text-xs text-gray-500">{t.email}</p>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {t.businessType ? (BUSINESS_LABELS[t.businessType] || t.businessType) : '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-medium">
-                        {t.subscription ? (PLAN_LABELS[t.subscription.plan] || t.subscription.plan) : 'Sin plan'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {t.subscription ? (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[t.subscription.status] || 'bg-gray-100'}`}>
-                          {t.subscription.status}
-                        </span>
-                      ) : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-600">{t._count.employees}</td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-600">{t._count.appointments}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {new Date(t.createdAt).toLocaleDateString('es')}
-                    </td>
-                  </tr>
-                ))
+                tenants.map((t) => {
+                  const days = t.subscription?.trialEndsAt ? daysUntilExpiry(t.subscription.trialEndsAt) : null;
+                  return (
+                    <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <Link href={`/platform/tenants/${t.id}`} className="hover:text-primary-600">
+                          <p className="text-sm font-medium text-gray-900">{t.name}</p>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-gray-600">{t.email}</p>
+                        {t.phone && <p className="text-xs text-gray-400">{t.phone}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {t.businessType ? t.businessType.split(',').map(bt => BUSINESS_LABELS[bt] || bt).join(', ') : '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {t.subscription ? (
+                          <div>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[t.subscription.status] || 'bg-gray-100'}`}>
+                              {STATUS_LABELS[t.subscription.status] || t.subscription.status}
+                            </span>
+                            {t.subscription.status === 'TRIAL' && days !== null && (
+                              <p className={`text-[10px] mt-0.5 ${days <= 5 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                                {days > 0 ? `${days} días restantes` : 'Vencido'}
+                              </p>
+                            )}
+                          </div>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600">{t._count.employees}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600">{t._count.appointments}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {new Date(t.createdAt).toLocaleDateString('es')}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

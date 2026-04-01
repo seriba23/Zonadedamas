@@ -46,6 +46,7 @@ export class PlatformAdminController {
     @Query('plan') plan?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
   ) {
     return this.adminService.getTenants({
       page: page ? parseInt(page, 10) : undefined,
@@ -53,6 +54,7 @@ export class PlatformAdminController {
       plan,
       status,
       search,
+      sortBy,
     });
   }
 

@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { platformApi } from '@/lib/platform-auth';
 
 interface DashboardData {
   kpis: {
     totalTenants: number;
     activeTenants: number;
+    trialTenants: number;
     suspendedTenants: number;
     pastDueTenants: number;
     newTenantsThisMonth: number;
@@ -25,13 +27,16 @@ interface DashboardData {
   }>;
 }
 
-const PLAN_LABELS: Record<string, string> = {
-  BASICO: 'Básico',
-  PLUS: 'Plus',
-  PRO: 'Pro',
+const STATUS_LABELS: Record<string, string> = {
+  TRIAL: 'Prueba',
+  ACTIVE: 'Activo',
+  PAST_DUE: 'Pago pendiente',
+  SUSPENDED: 'Suspendido',
+  CANCELLED: 'Cancelado',
 };
 
 const STATUS_BADGES: Record<string, string> = {
+  TRIAL: 'bg-teal-100 text-teal-700',
   ACTIVE: 'bg-green-100 text-green-700',
   PAST_DUE: 'bg-amber-100 text-amber-700',
   SUSPENDED: 'bg-red-100 text-red-700',
@@ -64,6 +69,7 @@ export default function PlatformDashboardPage() {
   const kpiCards = [
     { label: 'Total negocios', value: data.kpis.totalTenants, color: 'text-gray-900' },
     { label: 'Activos', value: data.kpis.activeTenants, color: 'text-green-600' },
+    { label: 'En período de prueba', value: data.kpis.trialTenants, color: 'text-teal-600', link: '/platform/tenants?status=TRIAL' },
     { label: 'Pago pendiente', value: data.kpis.pastDueTenants, color: 'text-amber-600' },
     { label: 'Suspendidos', value: data.kpis.suspendedTenants, color: 'text-red-600' },
     { label: 'Nuevos este mes', value: data.kpis.newTenantsThisMonth, color: 'text-blue-600' },
@@ -77,45 +83,38 @@ export default function PlatformDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {kpiCards.map((kpi) => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-sm text-gray-500 mb-1">{kpi.label}</p>
-            <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
-          </div>
-        ))}
+        {kpiCards.map((kpi) => {
+          const content = (
+            <div className={`bg-white rounded-xl border border-gray-200 p-4 ${kpi.link ? 'hover:border-teal-300 cursor-pointer transition-colors' : ''}`}>
+              <p className="text-sm text-gray-500 mb-1">{kpi.label}</p>
+              <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
+            </div>
+          );
+          return kpi.link ? (
+            <Link key={kpi.label} href={kpi.link}>{content}</Link>
+          ) : (
+            <div key={kpi.label}>{content}</div>
+          );
+        })}
       </div>
 
-      {/* Plan distribution + Recent registrations */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribución por plan</h2>
-          <div className="space-y-3">
-            {data.subscriptionsByPlan.map((s) => (
-              <div key={s.plan} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{PLAN_LABELS[s.plan] || s.plan}</span>
-                <span className="text-sm font-semibold text-gray-900">{s.count} negocios</span>
+      {/* Recent registrations */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Registros recientes</h2>
+        <div className="space-y-3">
+          {data.recentRegistrations.map((t) => (
+            <Link key={t.id} href={`/platform/tenants/${t.id}`} className="flex items-center justify-between hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{t.name}</p>
+                <p className="text-xs text-gray-500">{t.email}</p>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Registros recientes</h2>
-          <div className="space-y-3">
-            {data.recentRegistrations.map((t) => (
-              <div key={t.id} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{t.name}</p>
-                  <p className="text-xs text-gray-500">{t.email}</p>
-                </div>
-                {t.subscription && (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[t.subscription.status] || 'bg-gray-100 text-gray-700'}`}>
-                    {PLAN_LABELS[t.subscription.plan] || t.subscription.plan}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+              {t.subscription && (
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[t.subscription.status] || 'bg-gray-100 text-gray-700'}`}>
+                  {STATUS_LABELS[t.subscription.status] || t.subscription.status}
+                </span>
+              )}
+            </Link>
+          ))}
         </div>
       </div>
     </div>

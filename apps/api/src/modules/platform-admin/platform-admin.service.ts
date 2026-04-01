@@ -21,6 +21,7 @@ export class PlatformAdminService {
     const [
       totalTenants,
       activeTenants,
+      trialTenants,
       suspendedTenants,
       pastDueTenants,
       newTenantsThisMonth,
@@ -30,6 +31,7 @@ export class PlatformAdminService {
     ] = await Promise.all([
       this.prisma.tenant.count(),
       this.prisma.subscription.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.subscription.count({ where: { status: 'TRIAL' } }),
       this.prisma.subscription.count({ where: { status: 'SUSPENDED' } }),
       this.prisma.subscription.count({ where: { status: 'PAST_DUE' } }),
       this.prisma.tenant.count({ where: { createdAt: { gte: startOfMonth } } }),
@@ -66,6 +68,7 @@ export class PlatformAdminService {
       kpis: {
         totalTenants,
         activeTenants,
+        trialTenants,
         suspendedTenants,
         pastDueTenants,
         newTenantsThisMonth,
@@ -86,6 +89,7 @@ export class PlatformAdminService {
     plan?: string;
     status?: string;
     search?: string;
+    sortBy?: string;
   }) {
     const page = filters.page || 1;
     const perPage = Math.min(filters.perPage || 20, 100);
@@ -109,12 +113,19 @@ export class PlatformAdminService {
       where.subscription = subscriptionWhere;
     }
 
+    let orderBy: any = { createdAt: 'desc' };
+    if (filters.sortBy === 'trial_expiry') {
+      orderBy = { subscription: { trialEndsAt: 'asc' } };
+    } else if (filters.sortBy === 'name') {
+      orderBy = { name: 'asc' };
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.tenant.findMany({
         where,
         skip,
         take: perPage,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         select: {
           id: true,
           name: true,
@@ -124,7 +135,7 @@ export class PlatformAdminService {
           businessType: true,
           createdAt: true,
           subscription: {
-            select: { plan: true, status: true, monthlyAmountUsd: true, nextBillingDate: true },
+            select: { plan: true, status: true, monthlyAmountUsd: true, nextBillingDate: true, trialEndsAt: true },
           },
           _count: { select: { users: true, employees: true, appointments: true } },
         },
