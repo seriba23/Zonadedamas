@@ -156,6 +156,29 @@ export class EmployeesController {
     return { data: employee };
   }
 
+  // Self-edit: employee updates their own profile (no employees.update needed)
+  @Put('me')
+  async updateMe(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @Body() dto: UpdateEmployeeDto,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const employee = await this.employeesService.update(emp.id, tenantId, dto);
+    return { data: employee };
+  }
+
+  @Put('me/personal-info')
+  async updateMyPersonalInfo(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @Body() dto: UpdatePersonalInfoDto,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const employee = await this.employeesService.updatePersonalInfo(emp.id, tenantId, dto);
+    return { data: employee };
+  }
+
   @Put(':id')
   @RequirePermissions('employees.update')
   async update(

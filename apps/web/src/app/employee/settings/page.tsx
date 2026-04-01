@@ -99,8 +99,8 @@ export default function EmployeeSettingsPage() {
   const saveProfileMutation = useMutation({
     mutationFn: async () => {
       await Promise.all([
-        api.put(`/api/employees/${user!.employeeId}`, editForm),
-        api.put(`/api/employees/${user!.employeeId}/personal-info`, personalForm),
+        api.put('/api/employees/me', editForm),
+        api.put('/api/employees/me/personal-info', personalForm),
       ]);
     },
     onSuccess: () => {
