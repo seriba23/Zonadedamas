@@ -28,6 +28,7 @@ import { CurrentTenant } from '../../common/decorators/current-tenant.decorator'
 import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { UploadsService } from '../uploads/uploads.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 interface MulterFile {
@@ -77,6 +78,7 @@ export class EmployeesController {
   constructor(
     private readonly employeesService: EmployeesService,
     private readonly uploadsService: UploadsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -314,7 +316,28 @@ export class EmployeesController {
     return { data: services };
   }
 
-  // ─── AVATAR ────────────────────────────────────────
+  // ─── AVATAR & COVER ────────────────────────────────
+
+  // Self-upload: employee uploads their own cover image
+  @Post('me/cover')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadMyCover(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @UploadedFile() file: MulterFile,
+  ) {
+    const employee = await this.employeesService.findByUserId(user.userId, tenantId);
+    const oldCoverUrl = employee.coverImageUrl;
+    const imageUrl = await this.uploadsService.saveFile(file, 'avatars');
+    const updated = await this.prisma.employee.update({
+      where: { id: employee.id },
+      data: { coverImageUrl: imageUrl },
+    });
+    if (oldCoverUrl) {
+      await this.uploadsService.deleteFile(oldCoverUrl);
+    }
+    return { data: updated };
+  }
 
   // Self-upload: employee uploads their own avatar (no employees.update needed)
   @Post('me/avatar')

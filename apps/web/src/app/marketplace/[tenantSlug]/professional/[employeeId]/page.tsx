@@ -129,7 +129,14 @@ export default function ProfessionalProfilePage() {
       <div className="relative" style={{ height: '72vh' }}>
         {/* Photo stays fixed in place */}
         <div className="fixed inset-0 z-0" style={{ height: '72vh' }}>
-          {hasAvatar ? (
+          {pro.coverImageUrl ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${API_URL}${pro.coverImageUrl})` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/10" />
+            </div>
+          ) : hasAvatar ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{ backgroundImage: `url(${API_URL}${pro.avatarUrl})` }}

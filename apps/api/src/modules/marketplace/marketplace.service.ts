@@ -909,6 +909,7 @@ export class MarketplaceService {
         firstName: true,
         lastName: true,
         avatarUrl: true,
+        coverImageUrl: true,
         color: true,
         bio: true,
       },

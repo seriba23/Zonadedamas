@@ -20,6 +20,7 @@ interface Employee {
   color: string;
   bio: string;
   avatarUrl: string | null;
+  coverImageUrl: string | null;
   jobTitle: string | null;
   bloodType: string | null;
   emergencyContactName: string | null;
@@ -352,7 +353,11 @@ export default function EmployeeProfilePage() {
           <div className="max-w-xs pointer-events-none">
             <div className="rounded-2xl overflow-hidden relative" style={{ height: 200 }}>
               {/* Background */}
-              <div className="absolute inset-0" style={{ backgroundColor: employee.color || '#008080' }} />
+              {employee.coverImageUrl ? (
+                <img src={`${API_URL}${employee.coverImageUrl}`} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0" style={{ backgroundColor: employee.color || '#008080' }} />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
               {/* Content */}
               <div className="relative h-full flex flex-col justify-end p-4">

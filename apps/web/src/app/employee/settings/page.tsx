@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
@@ -23,6 +24,7 @@ interface Employee {
   color: string;
   bio: string;
   avatarUrl: string | null;
+  coverImageUrl: string | null;
   bloodType: string | null;
   emergencyContactName: string | null;
   emergencyContactLastName: string | null;
@@ -59,7 +61,9 @@ export default function EmployeeSettingsPage() {
   const [successPopup, setSuccessPopup] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   // Avatar
   const avatarMutation = useMutation({
@@ -68,7 +72,23 @@ export default function EmployeeSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-settings'] });
-      setSuccessMsg('Foto actualizada');
+      queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-profile-check'] });
+      setSuccessMsg('Foto de perfil actualizada');
+      setSuccessPopup(true);
+    },
+  });
+
+  // Cover image
+  const coverMutation = useMutation({
+    mutationFn: async (file: File) => {
+      return api.upload(`/api/employees/me/cover`, file);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-profile-check'] });
+      setSuccessMsg('Foto de portada actualizada');
       setSuccessPopup(true);
     },
   });
@@ -221,6 +241,46 @@ export default function EmployeeSettingsPage() {
               <p className="text-sm text-gray-500 truncate">{employee?.email}</p>
               {employee?.bio && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{employee.bio}</p>}
             </div>
+          </div>
+
+          {/* Cover image */}
+          <div className="border-t border-gray-100 px-5 py-4">
+            <p className="text-xs font-medium text-gray-500 mb-2">Foto de portada</p>
+            <div
+              className="relative group cursor-pointer rounded-xl overflow-hidden"
+              style={{ height: 120 }}
+              onClick={() => coverInputRef.current?.click()}
+            >
+              {employee?.coverImageUrl ? (
+                <img src={`${API_URL}${employee.coverImageUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: (employee?.color || '#008080') + '22' }}>
+                  <p className="text-xs text-gray-400">Haz clic para agregar foto de portada</p>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {coverMutation.isPending ? (
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                  </svg>
+                )}
+              </div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setCoverCropFile(file);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">Esta imagen aparece de fondo en tu perfil público</p>
           </div>
 
           <div className="border-t border-gray-100">
@@ -504,7 +564,7 @@ export default function EmployeeSettingsPage() {
         />
       )}
 
-      {/* Crop Modal */}
+      {/* Avatar Crop Modal */}
       {cropFile && (
         <AvatarCropModal
           imageFile={cropFile}
@@ -516,6 +576,22 @@ export default function EmployeeSettingsPage() {
           onAccept={(croppedFile) => {
             avatarMutation.mutate(croppedFile);
             setCropFile(null);
+          }}
+        />
+      )}
+
+      {/* Cover Crop Modal */}
+      {coverCropFile && (
+        <CoverCropModal
+          imageFile={coverCropFile}
+          onCancel={() => setCoverCropFile(null)}
+          onChooseAnother={() => {
+            setCoverCropFile(null);
+            coverInputRef.current?.click();
+          }}
+          onAccept={(croppedFile) => {
+            coverMutation.mutate(croppedFile);
+            setCoverCropFile(null);
           }}
         />
       )}

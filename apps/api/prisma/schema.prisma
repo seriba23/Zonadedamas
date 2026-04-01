@@ -594,6 +594,7 @@ model Employee {
   email               String?
   phone               String?
   avatarUrl           String?  @map("avatar_url")
+  coverImageUrl       String?  @map("cover_image_url")
   color               String   @default("#008080")
   bio                 String?  @db.Text
   bloodType                String?  @map("blood_type") @db.VarChar(5)
