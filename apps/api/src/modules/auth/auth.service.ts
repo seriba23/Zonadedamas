@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RbacService } from '../rbac/rbac.service';
 import { RegisterDto } from './dto/register.dto';
@@ -19,6 +20,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly rbacService: RbacService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async login(email: string, password: string) {
@@ -254,20 +256,33 @@ export class AuthService {
         data: { usedCount: { increment: 1 } },
       });
 
-      return newUser;
+      return { newUser, newEmployee };
     });
 
-    const tokens = await this.generateTokens(user);
+    // Emit real-time notification to admin
+    this.eventEmitter.emit('employee.joined', {
+      tenantId: invite.tenantId,
+      employee: {
+        id: user.newEmployee.id,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        jobTitle: invite.jobTitle || null,
+        services: (invite.services || []).map((s) => s.serviceId),
+      },
+    });
+
+    const tokens = await this.generateTokens(user.newUser);
 
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        tenantId: user.tenantId,
+        id: user.newUser.id,
+        email: user.newUser.email,
+        firstName: user.newUser.firstName,
+        lastName: user.newUser.lastName,
+        tenantId: user.newUser.tenantId,
         permissions: tokens.permissions,
       },
     };
