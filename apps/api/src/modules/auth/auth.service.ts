@@ -194,7 +194,7 @@ export class AuthService {
       if (basicPerms.length > 0) {
         await this.prisma.rolePermission.createMany({
           data: basicPerms.map((p) => ({
-            roleId: staffRole.id,
+            roleId: staffRole!.id,
             permissionId: p.id,
           })),
         });
