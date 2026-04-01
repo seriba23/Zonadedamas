@@ -312,7 +312,7 @@ export default function InviteCodesPage() {
                   onChange={(e) => setMaxUses(Math.max(1, Number(e.target.value) || 1))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
                 />
-                <p className="text-xs text-gray-400 mt-1">Cantidad de empleados que pueden usar este código</p>
+                <p className="text-xs text-gray-400 mt-1">Cantidad de empleados que pueden usar este código para afiliarse a <span className="font-medium text-gray-600">{(tenantData as any)?.name || 'tu negocio'}</span></p>
               </div>
 
               <div className="flex gap-3">
