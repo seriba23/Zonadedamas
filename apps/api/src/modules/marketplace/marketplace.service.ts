@@ -469,7 +469,7 @@ export class MarketplaceService {
     // Build WHERE conditions
     const conditions: string[] = [
       't.is_marketplace_listed = true',
-      "t.subscription_status = 'active'",
+      "t.subscription_status IN ('active', 'ACTIVE', 'TRIAL')",
     ];
     const params: any[] = [];
 

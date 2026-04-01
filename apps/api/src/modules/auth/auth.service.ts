@@ -263,6 +263,7 @@ export class AuthService {
           address: composedAddress,
           businessPhone: dto.businessPhone || null,
           contractAcceptedAt: dto.acceptContract ? now : null,
+          isMarketplaceListed: true,
           timezone: 'America/New_York',
           currency: 'USD',
           subscriptionPlan: 'BASICO',
