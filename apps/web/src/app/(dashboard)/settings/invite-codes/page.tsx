@@ -278,6 +278,7 @@ export default function InviteCodesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Servicios que puede realizar
                 </label>
+                <p className="text-xs text-gray-400 mb-2">Puedes modificar esto después desde el perfil del empleado</p>
                 <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-52 overflow-y-auto">
                   {services.map((svc) => (
                     <label key={svc.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50">
