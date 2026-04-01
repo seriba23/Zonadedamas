@@ -38,6 +38,7 @@ export default function InviteCodesPage() {
   const [jobTitle, setJobTitle] = useState('');
   const [customJobTitle, setCustomJobTitle] = useState('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [maxUses, setMaxUses] = useState<number>(1);
 
   const { data: codes, isLoading } = useQuery({
     queryKey: ['invite-codes'],
@@ -77,6 +78,7 @@ export default function InviteCodesPage() {
       setJobTitle('');
       setCustomJobTitle('');
       setSelectedServiceIds([]);
+      setMaxUses(1);
     },
   });
 
@@ -106,6 +108,7 @@ export default function InviteCodesPage() {
     createMutation.mutate({
       jobTitle: finalJobTitle || undefined,
       serviceIds: selectedServiceIds.length > 0 ? selectedServiceIds : undefined,
+      maxUses,
     });
   }
 
@@ -295,6 +298,21 @@ export default function InviteCodesPage() {
                 {selectedServiceIds.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1.5">Selecciona al menos un servicio para el empleado</p>
                 )}
+              </div>
+
+              {/* Usos */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Número de usos
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={maxUses}
+                  onChange={(e) => setMaxUses(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                />
+                <p className="text-xs text-gray-400 mt-1">Cantidad de empleados que pueden usar este código</p>
               </div>
 
               <div className="flex gap-3">
