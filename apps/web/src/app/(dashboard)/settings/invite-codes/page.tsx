@@ -58,7 +58,7 @@ export default function InviteCodesPage() {
   const { data: tenantData } = useQuery({
     queryKey: ['tenant-me'],
     queryFn: async () => {
-      const res = await api.get<any>('/api/tenants/me');
+      const res = await api.get<any>('/api/tenants/current');
       return res.data;
     },
   });
