@@ -248,7 +248,7 @@ export default function EmployeeSettingsPage() {
             <p className="text-xs font-medium text-gray-500 mb-2">Foto de portada</p>
             <div
               className="relative group cursor-pointer rounded-xl overflow-hidden"
-              style={{ height: 120 }}
+              style={{ height: 200, maxWidth: 140 }}
               onClick={() => coverInputRef.current?.click()}
             >
               {employee?.coverImageUrl ? (

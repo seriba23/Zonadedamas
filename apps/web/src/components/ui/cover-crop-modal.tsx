@@ -25,13 +25,13 @@ export function CoverCropModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Preview dimensions (16:5 aspect ratio)
-  const PREVIEW_W = 480;
-  const PREVIEW_H = 150;
+  // Preview dimensions (9:16 aspect ratio — mobile portrait)
+  const PREVIEW_W = 270;
+  const PREVIEW_H = 480;
 
   // Output dimensions
-  const OUTPUT_W = 1280;
-  const OUTPUT_H = 400;
+  const OUTPUT_W = 720;
+  const OUTPUT_H = 1280;
 
   // Load the image
   useEffect(() => {
