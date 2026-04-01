@@ -84,18 +84,30 @@ export function CoverCropModal({
   function handlePointerDown(e: React.PointerEvent) {
     setDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    containerRef.current?.setPointerCapture(e.pointerId);
+  }
+
+  function clampOffset(x: number, y: number) {
+    const img = imageRef.current;
+    if (!img) return { x, y };
+    const scale = Math.max(PREVIEW_W / img.width, PREVIEW_H / img.height) * zoom;
+    const maxX = (img.width * scale - PREVIEW_W) / 2;
+    const maxY = (img.height * scale - PREVIEW_H) / 2;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
   }
 
   function handlePointerMove(e: React.PointerEvent) {
+    e.preventDefault();
     if (!dragging) return;
-    setOffset({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
+    const raw = { x: e.clientX - dragStart.x, y: e.clientY - dragStart.y };
+    setOffset(clampOffset(raw.x, raw.y));
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(e: React.PointerEvent) {
+    e.preventDefault();
     setDragging(false);
   }
 
@@ -149,7 +161,7 @@ export function CoverCropModal({
           Ajustar portada
         </h3>
         <p className="text-xs text-gray-400 text-center mb-4">
-          Tamaño recomendado: 1280 x 400 px (panorámica)
+          Tamaño recomendado: 720 x 1280 px (vertical)
         </p>
 
         {/* Rectangular preview */}
