@@ -198,6 +198,13 @@ export default function BusinessDetailPage() {
     }
   }, []);
 
+  const { data, isLoading } = useQuery({
+    queryKey: ['marketplace-business', tenantSlug],
+    queryFn: () => marketplaceApi.get<{ data: any }>(`/discover/${tenantSlug}`),
+  });
+
+  const biz = (data as any)?.data;
+
   // Pre-select employee from URL param (from professional profile)
   useEffect(() => {
     if (!bookEmployeeId || !biz) return;
@@ -208,13 +215,6 @@ export default function BusinessDetailPage() {
       setBookingStep('service');
     }
   }, [bookEmployeeId, biz]);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-business', tenantSlug],
-    queryFn: () => marketplaceApi.get<{ data: any }>(`/discover/${tenantSlug}`),
-  });
-
-  const biz = (data as any)?.data;
 
   // Availability query
   const { data: slotsData, isLoading: slotsLoading } = useQuery({
