@@ -189,11 +189,16 @@ export class AuthService {
           slug: 'staff',
           description: 'Staff member with basic access',
           isSystem: true,
-          permissions: {
-            create: basicPerms.map((p) => ({ permissionId: p.id })),
-          },
         },
       });
+      if (basicPerms.length > 0) {
+        await this.prisma.rolePermission.createMany({
+          data: basicPerms.map((p) => ({
+            roleId: staffRole.id,
+            permissionId: p.id,
+          })),
+        });
+      }
     }
 
     // Create user + employee + role assignment in transaction
