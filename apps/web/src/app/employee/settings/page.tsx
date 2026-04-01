@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { SuccessPopup } from '@/components/ui/success-popup';
+import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
@@ -57,6 +58,8 @@ export default function EmployeeSettingsPage() {
   // Success
   const [successPopup, setSuccessPopup] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Avatar
   const avatarMutation = useMutation({
@@ -176,8 +179,11 @@ export default function EmployeeSettingsPage() {
         {/* ─── Profile Card ────────────────────── */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-5 flex items-center gap-4">
-            {/* Avatar with upload */}
-            <label className="relative group cursor-pointer flex-shrink-0">
+            {/* Avatar with crop modal */}
+            <div
+              className="relative group cursor-pointer flex-shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold overflow-hidden"
                 style={avatarBg}
@@ -199,16 +205,17 @@ export default function EmployeeSettingsPage() {
                 )}
               </div>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) avatarMutation.mutate(file);
+                  if (file) setCropFile(file);
                   e.target.value = '';
                 }}
               />
-            </label>
+            </div>
             <div className="min-w-0 flex-1">
               <p className="text-base font-semibold text-gray-900">{employee?.firstName} {employee?.lastName}</p>
               <p className="text-sm text-gray-500 truncate">{employee?.email}</p>
@@ -494,6 +501,22 @@ export default function EmployeeSettingsPage() {
           show={successPopup}
           title={successMsg}
           onClose={() => setSuccessPopup(false)}
+        />
+      )}
+
+      {/* Crop Modal */}
+      {cropFile && (
+        <AvatarCropModal
+          imageFile={cropFile}
+          onCancel={() => setCropFile(null)}
+          onChooseAnother={() => {
+            setCropFile(null);
+            fileInputRef.current?.click();
+          }}
+          onAccept={(croppedFile) => {
+            avatarMutation.mutate(croppedFile);
+            setCropFile(null);
+          }}
         />
       )}
     </div>
