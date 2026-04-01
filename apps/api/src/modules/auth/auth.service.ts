@@ -235,7 +235,6 @@ export class AuthService {
           data: invite.services.map((s) => ({
             employeeId: newEmployee.id,
             serviceId: s.serviceId,
-            tenantId: invite.tenantId,
           })),
           skipDuplicates: true,
         });
