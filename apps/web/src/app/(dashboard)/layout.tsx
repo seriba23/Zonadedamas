@@ -15,7 +15,7 @@ function EmployeeJoinedNotification({
   onDismiss: () => void;
 }) {
   return (
-    <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-right w-96 max-w-[calc(100vw-2rem)]">
+    <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right w-96 max-w-[calc(100vw-2rem)]">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
         <div className="bg-[#008080] px-5 py-3 flex items-center gap-2">
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
