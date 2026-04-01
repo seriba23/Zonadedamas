@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 
 const JOB_SUGGESTIONS: Record<string, string[]> = {
   SALON: ['Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Recepcionista'],
-  BARBERIA: ['Barbero', 'Estilista', 'Recepcionista'],
+  BARBERIA: ['Barbero', 'Recepcionista'],
   SPA: ['Masajista', 'Esteticista', 'Terapeuta', 'Recepcionista'],
   CLINICA: ['Médico', 'Enfermera', 'Médico Estético', 'Recepcionista'],
   TATUAJES: ['Tatuador', 'Piercer', 'Artista', 'Recepcionista'],
@@ -66,7 +66,7 @@ export default function InviteCodesPage() {
   const services: Service[] = Array.isArray(servicesData) ? servicesData : [];
   const hasServices = services.length > 0;
   const businessType = (tenantData as any)?.businessType?.split(',')[0] || '';
-  const jobSuggestions = JOB_SUGGESTIONS[businessType] || ['Estilista', 'Recepcionista', 'Especialista'];
+  const jobSuggestions = JOB_SUGGESTIONS[businessType] || ['Estilista', 'Recepcionista'];
 
   const createMutation = useMutation({
     mutationFn: (data: { jobTitle?: string; serviceIds?: string[] }) =>
