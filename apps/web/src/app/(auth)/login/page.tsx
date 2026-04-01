@@ -48,7 +48,7 @@ export default function LoginPage() {
     try {
       const user = await login(form.email, form.password);
       const isEmployee = !user.permissions.includes('employees.create');
-      router.push(isEmployee ? '/employee' : '/calendar');
+      router.push(isEmployee ? '/employee' : '/dashboard');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
@@ -75,7 +75,7 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
         const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/calendar');
+        router.push(isEmployee ? '/employee' : '/dashboard');
       }
     } catch (err: any) {
       setApiError(err?.message || 'Error al iniciar sesión');
@@ -112,7 +112,7 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
         const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/calendar');
+        router.push(isEmployee ? '/employee' : '/dashboard');
       }
     } catch (err: any) {
       setInviteError(err?.message || 'Código de invitación inválido');

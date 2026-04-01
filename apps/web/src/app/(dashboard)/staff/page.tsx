@@ -165,9 +165,9 @@ export default function StaffPage() {
             </label>
           </div>
           {hasPermission('employees.create') && (
-            <button onClick={openCreate} className="btn-primary">
+            <Link href="/settings/invite-codes" className="btn-primary">
               + Nuevo Empleado
-            </button>
+            </Link>
           )}
         </div>
 

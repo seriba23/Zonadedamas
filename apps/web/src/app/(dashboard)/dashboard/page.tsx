@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -57,6 +58,22 @@ function statusLabel(status: string) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
+
+  const { data: businessData } = useQuery({
+    queryKey: ['tenant-setup-check'],
+    queryFn: () => api.get<{ description: string | null; logoUrl: string | null; locations: { address: string | null }[] }>('/api/tenants/me'),
+  });
+
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees-count'],
+    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=2'),
+  });
+
+  const business = businessData?.data as any;
+  const needsBusinessProfile = business && !business.description && !business.logoUrl;
+  const needsEmployees = employeesData?.data && Array.isArray(employeesData.data) && employeesData.data.length <= 1;
+  const showSetupWizard = needsBusinessProfile || needsEmployees;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['reports', 'today'],
@@ -77,6 +94,68 @@ export default function DashboardPage() {
           {dayjs().format('dddd, D [de] MMMM [de] YYYY')}
         </p>
       </div>
+
+      {/* Setup wizard — shown when business is new */}
+      {showSetupWizard && (
+        <div className="bg-gradient-to-br from-teal-50 to-white border border-teal-200 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-[#008080] rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900">Configura tu negocio</h2>
+              <p className="text-sm text-gray-500">Completa estos pasos para empezar a recibir citas</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div
+              onClick={() => router.push('/settings/business')}
+              className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${needsBusinessProfile ? 'bg-white border-gray-200 hover:border-[#008080]' : 'bg-gray-50 border-gray-100'}`}
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${needsBusinessProfile ? 'bg-[#008080] text-white' : 'bg-green-500 text-white'}`}>
+                {needsBusinessProfile ? '1' : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-sm ${needsBusinessProfile ? 'text-gray-900' : 'text-gray-400 line-through'}`}>Completa el perfil de tu negocio</p>
+                <p className="text-xs text-gray-500">Agrega descripción, logo y foto de portada</p>
+              </div>
+              {needsBusinessProfile && (
+                <svg className="w-4 h-4 text-[#008080] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              )}
+            </div>
+
+            <div
+              onClick={() => router.push('/settings/invite-codes')}
+              className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${needsEmployees ? 'bg-white border-gray-200 hover:border-[#008080]' : 'bg-gray-50 border-gray-100'}`}
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${needsEmployees ? 'bg-[#008080] text-white' : 'bg-green-500 text-white'}`}>
+                {needsEmployees ? '2' : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-sm ${needsEmployees ? 'text-gray-900' : 'text-gray-400 line-through'}`}>Invita a tus empleados</p>
+                <p className="text-xs text-gray-500">Genera un código de invitación para que se unan</p>
+              </div>
+              {needsEmployees && (
+                <svg className="w-4 h-4 text-[#008080] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && <LoadingSkeleton />}
       {isError && (

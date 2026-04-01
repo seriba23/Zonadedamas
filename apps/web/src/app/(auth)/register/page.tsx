@@ -123,6 +123,7 @@ interface FormState {
   businessPhone: string;
   // Step 3 - Trial welcome (individual only)
   acceptContract: boolean;
+  acceptPrivacy: boolean;
 }
 
 interface FormErrors {
@@ -180,6 +181,7 @@ export default function RegisterPage() {
     businessStreetNumber: '',
     businessPhone: '',
     acceptContract: false,
+    acceptPrivacy: false,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -224,7 +226,8 @@ export default function RegisterPage() {
 
   function validateStep3(): boolean {
     const newErrors: FormErrors = {};
-    if (!form.acceptContract) newErrors.acceptContract = 'Debes aceptar los términos';
+    if (!form.acceptContract) newErrors.acceptContract = 'Debes aceptar los términos y condiciones';
+    if (!form.acceptPrivacy) newErrors.acceptPrivacy = 'Debes aceptar el aviso de privacidad';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -297,7 +300,7 @@ export default function RegisterPage() {
         businessPhone: form.businessPhone.trim() || undefined,
         acceptContract: form.acceptContract,
       });
-      router.push('/calendar');
+      router.push('/dashboard');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -1011,17 +1014,36 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.acceptContract}
-                  onChange={(e) => updateField('acceptContract', e.target.checked)}
-                  className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                <span className="text-sm text-gray-600">
-                  Acepto los{' '}
-                  <span className="text-primary-600 font-medium">términos y condiciones</span>{' '}
-                  del servicio y la política de privacidad.
-                </span>
-              </label>
-              {errors.acceptContract && <p className="text-xs text-red-600">{errors.acceptContract}</p>}
+              <div className="space-y-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.acceptContract}
+                    onChange={(e) => updateField('acceptContract', e.target.checked)}
+                    className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                  <span className="text-sm text-gray-600">
+                    He leído y acepto los{' '}
+                    <a href="/marketplace/legal/terms" target="_blank" rel="noopener noreferrer"
+                      className="text-primary-600 font-medium hover:underline">
+                      términos y condiciones
+                    </a>{' '}
+                    del servicio.
+                  </span>
+                </label>
+                {errors.acceptContract && <p className="text-xs text-red-600 ml-6">{errors.acceptContract}</p>}
+
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.acceptPrivacy}
+                    onChange={(e) => updateField('acceptPrivacy', e.target.checked)}
+                    className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                  <span className="text-sm text-gray-600">
+                    He leído y acepto el{' '}
+                    <a href="/marketplace/legal/privacy" target="_blank" rel="noopener noreferrer"
+                      className="text-primary-600 font-medium hover:underline">
+                      aviso de privacidad
+                    </a>.
+                  </span>
+                </label>
+                {errors.acceptPrivacy && <p className="text-xs text-red-600 ml-6">{errors.acceptPrivacy}</p>}
+              </div>
 
               <button type="submit" disabled={isLoading}
                 className="w-full btn-primary flex items-center justify-center gap-2 py-2.5">

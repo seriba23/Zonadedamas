@@ -29,7 +29,7 @@ export function SubscriptionBanner({ status, trialEndsAt }: SubscriptionBannerPr
               <span className="font-semibold">Período de prueba de Siliba Business</span>
               {' — '}
               {daysLeft > 0
-                ? <>Te quedan <span className="font-bold">{daysLeft} {daysLeft === 1 ? 'día' : 'días'}</span>. Al vencer, tu cuenta será suspendida y no aparecerás en el marketplace.</>
+                ? <>Te quedan <span className="font-bold">{daysLeft} {daysLeft === 1 ? 'día' : 'días'}</span>.</>
                 : <span className="font-semibold text-red-700">Tu período de prueba ha vencido.</span>
               }
             </p>
