@@ -186,6 +186,7 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [professionalType, setProfessionalType] = useState<'affiliated' | 'freelancer'>('affiliated');
 
   function validateStep1(): boolean {
     const newErrors: FormErrors = {};
@@ -254,7 +255,12 @@ export default function RegisterPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newErrors.email = 'Ingresa un correo válido';
     }
-    if (!form.phone.trim()) newErrors.phone = 'El teléfono es requerido';
+    if (!form.phone.trim()) {
+      newErrors.phone = 'El teléfono es requerido';
+    } else {
+      const digits = form.phone.replace(/\D/g, '');
+      if (digits.length < 7) newErrors.phone = 'Ingresa un número de teléfono válido';
+    }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
     } else if (form.password.length < 6) {
@@ -266,6 +272,37 @@ export default function RegisterPage() {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
     if (!form.inviteCode.trim()) newErrors.inviteCode = 'El código de invitación es requerido';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function validateFreelancer(): boolean {
+    const newErrors: FormErrors = {};
+    if (!form.firstName.trim()) newErrors.firstName = 'El nombre es requerido';
+    if (!form.lastName.trim()) newErrors.lastName = 'El apellido es requerido';
+    if (!form.email) {
+      newErrors.email = 'El correo es requerido';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      newErrors.email = 'Ingresa un correo válido';
+    }
+    if (!form.phone.trim()) {
+      newErrors.phone = 'El teléfono es requerido';
+    } else {
+      const digits = form.phone.replace(/\D/g, '');
+      if (digits.length < 7) newErrors.phone = 'Ingresa un número de teléfono válido';
+    }
+    if (!form.password) {
+      newErrors.password = 'La contraseña es requerida';
+    } else if (form.password.length < 6) {
+      newErrors.password = 'Mínimo 6 caracteres';
+    }
+    if (!form.confirmPassword) {
+      newErrors.confirmPassword = 'Confirma tu contraseña';
+    } else if (form.password !== form.confirmPassword) {
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
+    }
+    if (!form.acceptContract) newErrors.acceptContract = 'Debes aceptar los términos y condiciones';
+    if (!form.acceptPrivacy) newErrors.acceptPrivacy = 'Debes aceptar el aviso de privacidad';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -301,6 +338,31 @@ export default function RegisterPage() {
         acceptContract: form.acceptContract,
       });
       router.push('/dashboard');
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleSubmitFreelancer(e: FormEvent) {
+    e.preventDefault();
+    setApiError(null);
+    if (!validateFreelancer()) return;
+    setIsLoading(true);
+    try {
+      await register({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email,
+        password: form.password,
+        phone: form.phone.trim(),
+        type: 'freelancer',
+        acceptContract: form.acceptContract,
+        acceptPrivacy: form.acceptPrivacy,
+      });
+      router.push('/employee');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -526,24 +588,43 @@ export default function RegisterPage() {
     );
   }
 
-  // ─── BUSINESS (INVITE CODE) ──────────────────────
+  // ─── BUSINESS / FREELANCER ───────────────────────
   if (mode === 'business') {
+    const isFreelancer = professionalType === 'freelancer';
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
-            <p className="mt-2 text-gray-500 text-sm">Únete a tu equipo de trabajo</p>
+            <p className="mt-2 text-gray-500 text-sm">Registro profesional</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-5">
               <button onClick={() => setMode('professional')} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h2 className="text-xl font-semibold text-gray-900">Unirme a un negocio</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Crear cuenta profesional</h2>
+            </div>
+
+            {/* Tipo de profesional */}
+            <div className="flex gap-2 mb-6 p-1 bg-gray-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => { setProfessionalType('affiliated'); setErrors({}); setApiError(null); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${!isFreelancer ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Afiliarme a un negocio
+              </button>
+              <button
+                type="button"
+                onClick={() => { setProfessionalType('freelancer'); setErrors({}); setApiError(null); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${isFreelancer ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Trabajar como independiente
+              </button>
             </div>
 
             {apiError && (
@@ -555,15 +636,24 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmitBusiness} className="space-y-4">
-              <div>
-                <label htmlFor="inviteCode" className="block text-sm font-medium text-gray-700 mb-1.5">Código de invitación</label>
-                <input id="inviteCode" type="text" value={form.inviteCode}
-                  onChange={(e) => updateField('inviteCode', e.target.value.toUpperCase())}
-                  className={`input-field uppercase tracking-widest text-center font-mono ${errors.inviteCode ? 'border-red-400' : ''}`}
-                  placeholder="Ej: DEMOSALON" maxLength={20} />
-                {errors.inviteCode && <p className="mt-1 text-xs text-red-600">{errors.inviteCode}</p>}
-              </div>
+            <form onSubmit={isFreelancer ? handleSubmitFreelancer : handleSubmitBusiness} className="space-y-4">
+              {/* Código de invitación — solo para afiliados */}
+              {!isFreelancer && (
+                <div>
+                  <label htmlFor="inviteCode" className="block text-sm font-medium text-gray-700 mb-1.5">Código de invitación</label>
+                  <input id="inviteCode" type="text" value={form.inviteCode}
+                    onChange={(e) => updateField('inviteCode', e.target.value.toUpperCase())}
+                    className={`input-field uppercase tracking-widest text-center font-mono ${errors.inviteCode ? 'border-red-400' : ''}`}
+                    placeholder="Ej: DEMOSALON" maxLength={20} />
+                  {errors.inviteCode && <p className="mt-1 text-xs text-red-600">{errors.inviteCode}</p>}
+                </div>
+              )}
+
+              {isFreelancer && (
+                <p className="text-xs text-gray-500 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                  Crearás tu propio espacio en Siliba. <span className="font-semibold text-[#008080]">$5 USD/mes</span> tras el período de prueba de 30 días.
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -591,11 +681,12 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
-                <input id="phone" type="tel" value={form.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
-                  className={`input-field ${errors.phone ? 'border-red-400' : ''}`} placeholder="+1-555-0000" />
-                {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono</label>
+                <PhoneInput
+                  value={form.phone}
+                  onChange={(v) => updateField('phone', v)}
+                  error={errors.phone}
+                />
               </div>
 
               <div>
@@ -614,6 +705,36 @@ export default function RegisterPage() {
                 {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
               </div>
 
+              {/* T&C — solo para independientes */}
+              {isFreelancer && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-start gap-2">
+                    <input type="checkbox" checked={form.acceptContract}
+                      onChange={(e) => updateField('acceptContract', e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
+                    <span className="text-xs text-gray-600">
+                      Acepto los{' '}
+                      <a href="/marketplace/legal/terms" target="_blank" className="text-[#008080] underline font-medium">
+                        términos y condiciones
+                      </a>
+                    </span>
+                  </div>
+                  {errors.acceptContract && <p className="text-xs text-red-600 ml-6">{errors.acceptContract}</p>}
+                  <div className="flex items-start gap-2">
+                    <input type="checkbox" checked={form.acceptPrivacy}
+                      onChange={(e) => updateField('acceptPrivacy', e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
+                    <span className="text-xs text-gray-600">
+                      Acepto el{' '}
+                      <a href="/marketplace/legal/privacy" target="_blank" className="text-[#008080] underline font-medium">
+                        aviso de privacidad
+                      </a>
+                    </span>
+                  </div>
+                  {errors.acceptPrivacy && <p className="text-xs text-red-600 ml-6">{errors.acceptPrivacy}</p>}
+                </div>
+              )}
+
               <button type="submit" disabled={isLoading}
                 className="w-full btn-primary flex items-center justify-center gap-2 py-2.5">
                 {isLoading && (
@@ -622,7 +743,7 @@ export default function RegisterPage() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 )}
-                {isLoading ? 'Creando cuenta...' : 'Crear cuenta'}
+                {isLoading ? 'Creando cuenta...' : isFreelancer ? 'Comenzar período de prueba' : 'Crear cuenta'}
               </button>
             </form>
           </div>

@@ -33,8 +33,8 @@ export class RegisterDto {
   inviteCode?: string;
 
   @IsOptional()
-  @IsIn(['business', 'individual'])
-  type?: 'business' | 'individual';
+  @IsIn(['business', 'individual', 'freelancer'])
+  type?: 'business' | 'individual' | 'freelancer';
 
   // Business info fields
   @IsOptional()
@@ -90,4 +90,8 @@ export class RegisterDto {
   @IsOptional()
   @IsBoolean()
   acceptContract?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  acceptPrivacy?: boolean;
 }

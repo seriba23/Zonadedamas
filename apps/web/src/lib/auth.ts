@@ -42,7 +42,7 @@ export interface RegisterParams {
   password: string;
   phone?: string;
   inviteCode?: string;
-  type?: 'business' | 'individual';
+  type?: 'business' | 'individual' | 'freelancer';
   businessName?: string;
   businessTypes?: string[];
   businessType?: string; // legacy
@@ -55,6 +55,7 @@ export interface RegisterParams {
   businessPhone?: string;
   selectedPlan?: string;
   acceptContract?: boolean;
+  acceptPrivacy?: boolean;
 }
 
 export async function register(params: RegisterParams): Promise<AuthTokens> {
