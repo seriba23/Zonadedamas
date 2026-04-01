@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Put,
   UseGuards,
@@ -53,6 +54,12 @@ export class AuthController {
   async socialLogin(@Body() dto: SocialLoginDto) {
     const result = await this.authService.socialLogin(dto);
     return { data: result };
+  }
+
+  @Public()
+  @Get('invite-preview/:code')
+  async getInvitePreview(@Param('code') code: string) {
+    return this.authService.getInvitePreview(code);
   }
 
   @Public()

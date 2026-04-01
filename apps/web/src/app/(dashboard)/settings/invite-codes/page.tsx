@@ -3,21 +3,41 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import Link from 'next/link';
 import dayjs from 'dayjs';
+
+const JOB_SUGGESTIONS: Record<string, string[]> = {
+  SALON: ['Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Recepcionista'],
+  BARBERIA: ['Barbero', 'Estilista', 'Recepcionista'],
+  SPA: ['Masajista', 'Esteticista', 'Terapeuta', 'Recepcionista'],
+  CLINICA: ['Médico', 'Enfermera', 'Médico Estético', 'Recepcionista'],
+  TATUAJES: ['Tatuador', 'Piercer', 'Artista', 'Recepcionista'],
+};
 
 interface InviteCode {
   id: string;
   code: string;
+  jobTitle: string | null;
   maxUses: number;
   usedCount: number;
   expiresAt: string | null;
   isActive: boolean;
   createdAt: string;
+  services: { service: { id: string; name: string } }[];
+}
+
+interface Service {
+  id: string;
+  name: string;
 }
 
 export default function InviteCodesPage() {
   const queryClient = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [jobTitle, setJobTitle] = useState('');
+  const [customJobTitle, setCustomJobTitle] = useState('');
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
   const { data: codes, isLoading } = useQuery({
     queryKey: ['invite-codes'],
@@ -27,10 +47,36 @@ export default function InviteCodesPage() {
     },
   });
 
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-for-invite'],
+    queryFn: async () => {
+      const res = await api.get<{ data: Service[] }>('/api/services?perPage=100');
+      return res.data;
+    },
+  });
+
+  const { data: tenantData } = useQuery({
+    queryKey: ['tenant-me'],
+    queryFn: async () => {
+      const res = await api.get<any>('/api/tenants/me');
+      return res.data;
+    },
+  });
+
+  const services: Service[] = Array.isArray(servicesData) ? servicesData : [];
+  const hasServices = services.length > 0;
+  const businessType = (tenantData as any)?.businessType?.split(',')[0] || '';
+  const jobSuggestions = JOB_SUGGESTIONS[businessType] || ['Estilista', 'Recepcionista', 'Especialista'];
+
   const createMutation = useMutation({
-    mutationFn: () => api.post('/api/invite-codes', {}),
+    mutationFn: (data: { jobTitle?: string; serviceIds?: string[] }) =>
+      api.post('/api/invite-codes', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-codes'] });
+      setShowModal(false);
+      setJobTitle('');
+      setCustomJobTitle('');
+      setSelectedServiceIds([]);
     },
   });
 
@@ -46,39 +92,52 @@ export default function InviteCodesPage() {
       await navigator.clipboard.writeText(code);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      // Fallback
-    }
+    } catch {}
+  }
+
+  function toggleService(id: string) {
+    setSelectedServiceIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  }
+
+  function handleSubmitCreate() {
+    const finalJobTitle = jobTitle === '__custom__' ? customJobTitle.trim() : jobTitle.trim();
+    createMutation.mutate({
+      jobTitle: finalJobTitle || undefined,
+      serviceIds: selectedServiceIds.length > 0 ? selectedServiceIds : undefined,
+    });
   }
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Códigos de Invitación
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Códigos de Invitación</h1>
           <p className="text-sm text-gray-500 mt-1">
             Genera códigos para que tus empleados se registren en la plataforma
           </p>
         </div>
-        <button
-          onClick={() => createMutation.mutate()}
-          disabled={createMutation.isPending}
-          className="btn-primary flex items-center gap-2"
-        >
-          {createMutation.isPending ? (
-            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
+        {hasServices ? (
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-          )}
-          Generar código
-        </button>
+            Generar código
+          </button>
+        ) : (
+          <div className="text-right">
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+              Debes tener al menos 1 servicio para generar códigos
+            </p>
+            <Link href="/services/new" className="btn-primary text-sm">
+              Crear servicio
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
@@ -92,14 +151,17 @@ export default function InviteCodesPage() {
           <ul className="divide-y divide-gray-100">
             {codes.map((code) => (
               <li key={code.id} className="px-5 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-gray-100 px-3 py-1.5 rounded-lg">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-gray-100 px-3 py-1.5 rounded-lg flex-shrink-0">
                       <code className="text-lg font-mono font-bold tracking-widest text-gray-900">
                         {code.code}
                       </code>
                     </div>
                     <div>
+                      {code.jobTitle && (
+                        <p className="text-sm font-semibold text-gray-800 mb-0.5">{code.jobTitle}</p>
+                      )}
                       <p className="text-sm text-gray-500">
                         Usos: {code.usedCount}
                         {code.maxUses > 0 ? ` / ${code.maxUses}` : ' (ilimitado)'}
@@ -109,14 +171,23 @@ export default function InviteCodesPage() {
                         {code.expiresAt &&
                           ` · Expira ${dayjs(code.expiresAt).format('D MMM YYYY')}`}
                       </p>
+                      {code.services && code.services.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {code.services.map((s) => (
+                            <span key={s.service.id} className="text-[11px] bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2 py-0.5">
+                              {s.service.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => copyToClipboard(code.code, code.id)}
                       className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                     >
-                      {copiedId === code.id ? 'Copiado!' : 'Copiar'}
+                      {copiedId === code.id ? '¡Copiado!' : 'Copiar'}
                     </button>
                     <button
                       onClick={() => deleteMutation.mutate(code.id)}
@@ -132,6 +203,109 @@ export default function InviteCodesPage() {
           </ul>
         )}
       </div>
+
+      {/* Modal crear código */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-gray-900">Nuevo código de invitación</h2>
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Puesto */}
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del puesto
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {jobSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => { setJobTitle(s); setCustomJobTitle(''); }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        jobTitle === s
+                          ? 'bg-[#008080] text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setJobTitle('__custom__')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      jobTitle === '__custom__'
+                        ? 'bg-[#008080] text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    + Personalizado
+                  </button>
+                </div>
+                {jobTitle === '__custom__' && (
+                  <input
+                    type="text"
+                    value={customJobTitle}
+                    onChange={(e) => setCustomJobTitle(e.target.value)}
+                    placeholder="Escribe el nombre del puesto"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                  />
+                )}
+              </div>
+
+              {/* Servicios */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Servicios que puede realizar
+                </label>
+                <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-52 overflow-y-auto">
+                  {services.map((svc) => (
+                    <label key={svc.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={selectedServiceIds.includes(svc.id)}
+                        onChange={() => toggleService(svc.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
+                      />
+                      <span className="text-sm text-gray-700">{svc.name}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedServiceIds.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1.5">Selecciona al menos un servicio para el empleado</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSubmitCreate}
+                  disabled={createMutation.isPending || selectedServiceIds.length === 0}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: '#008080' }}
+                  onMouseEnter={(e) => { if (!createMutation.isPending) e.currentTarget.style.backgroundColor = '#006666'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#008080'; }}
+                >
+                  {createMutation.isPending ? 'Generando...' : 'Generar código'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,9 +12,17 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
-import { IsOptional, IsInt, Min, IsDateString } from 'class-validator';
+import { IsOptional, IsInt, Min, IsDateString, IsString, IsArray } from 'class-validator';
 
 class CreateInviteCodeDto {
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
+  @IsOptional()
+  @IsArray()
+  serviceIds?: string[];
+
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -38,6 +46,8 @@ export class InviteCodesController {
   ) {
     const result = await this.inviteCodesService.create(
       user.tenantId,
+      dto.jobTitle,
+      dto.serviceIds,
       dto.maxUses,
       dto.expiresAt ? new Date(dto.expiresAt) : undefined,
     );

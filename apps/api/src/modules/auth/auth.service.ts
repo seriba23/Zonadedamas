@@ -96,10 +96,48 @@ export class AuthService {
     );
   }
 
+  async getInvitePreview(code: string) {
+    const invite = await this.prisma.tenantInviteCode.findUnique({
+      where: { code },
+      include: {
+        tenant: { select: { name: true, logoUrl: true } },
+        services: { include: { service: { select: { id: true, name: true } } } },
+      },
+    });
+
+    if (!invite || !invite.isActive) {
+      throw new NotFoundException('Código de invitación inválido');
+    }
+    if (invite.expiresAt && new Date() > invite.expiresAt) {
+      throw new BadRequestException('El código de invitación ha expirado');
+    }
+
+    const owner = await this.prisma.user.findFirst({
+      where: {
+        tenantId: invite.tenantId,
+        userRoles: { some: { role: { slug: 'owner' } } },
+      },
+      select: { firstName: true, lastName: true },
+    });
+
+    return {
+      data: {
+        businessName: invite.tenant.name,
+        logoUrl: invite.tenant.logoUrl,
+        ownerName: owner ? `${owner.firstName} ${owner.lastName}` : null,
+        jobTitle: invite.jobTitle || null,
+        services: invite.services.map((s) => ({ id: s.service.id, name: s.service.name })),
+      },
+    };
+  }
+
   private async registerWithInviteCode(dto: RegisterDto) {
     const invite = await this.prisma.tenantInviteCode.findUnique({
       where: { code: dto.inviteCode },
-      include: { tenant: true },
+      include: {
+        tenant: true,
+        services: { select: { serviceId: true } },
+      },
     });
 
     if (!invite || !invite.isActive) {
@@ -136,14 +174,26 @@ export class AuthService {
       throw new BadRequestException('El negocio no tiene ubicaciones activas');
     }
 
-    // Get staff role
-    const staffRole = await this.prisma.role.findUnique({
-      where: {
-        tenantId_slug: { tenantId: invite.tenantId, slug: 'staff' },
-      },
+    // Get or create staff role
+    let staffRole = await this.prisma.role.findUnique({
+      where: { tenantId_slug: { tenantId: invite.tenantId, slug: 'staff' } },
     });
     if (!staffRole) {
-      throw new BadRequestException('Configuración de roles incompleta');
+      const basicPerms = await this.prisma.permission.findMany({
+        where: { action: { in: ['read'] } },
+      });
+      staffRole = await this.prisma.role.create({
+        data: {
+          tenantId: invite.tenantId,
+          name: 'Staff',
+          slug: 'staff',
+          description: 'Staff member with basic access',
+          isSystem: true,
+          permissions: {
+            create: basicPerms.map((p) => ({ permissionId: p.id })),
+          },
+        },
+      });
     }
 
     // Create user + employee + role assignment in transaction
@@ -160,7 +210,7 @@ export class AuthService {
         },
       });
 
-      await tx.employee.create({
+      const newEmployee = await tx.employee.create({
         data: {
           tenantId: invite.tenantId,
           userId: newUser.id,
@@ -169,9 +219,22 @@ export class AuthService {
           lastName: dto.lastName,
           email: dto.email,
           phone: dto.phone || null,
+          jobTitle: invite.jobTitle || null,
           isActive: true,
         },
       });
+
+      // Assign services from invite code
+      if (invite.services && invite.services.length > 0) {
+        await tx.employeeService.createMany({
+          data: invite.services.map((s) => ({
+            employeeId: newEmployee.id,
+            serviceId: s.serviceId,
+            tenantId: invite.tenantId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       await tx.userRole.create({
         data: {

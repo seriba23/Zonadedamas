@@ -187,6 +187,15 @@ export default function RegisterPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [professionalType, setProfessionalType] = useState<'affiliated' | 'freelancer'>('affiliated');
+  const [invitePreview, setInvitePreview] = useState<{
+    businessName: string;
+    logoUrl?: string | null;
+    ownerName: string | null;
+    jobTitle: string | null;
+    services: { id: string; name: string }[];
+  } | null>(null);
+  const [showPreviewPopup, setShowPreviewPopup] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   function validateStep1(): boolean {
     const newErrors: FormErrors = {};
@@ -450,6 +459,30 @@ export default function RegisterPage() {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
   }
 
+  const API_URL_REG = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  async function verifyInviteCode() {
+    const code = form.inviteCode.trim();
+    if (code.length < 6) return;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`${API_URL_REG}/api/auth/invite-preview/${code}`);
+      if (!res.ok) {
+        setErrors((e) => ({ ...e, inviteCode: 'Código inválido o expirado' }));
+        setInvitePreview(null);
+        return;
+      }
+      const json = await res.json();
+      setInvitePreview(json.data);
+      setShowPreviewPopup(true);
+      setErrors((e) => ({ ...e, inviteCode: undefined }));
+    } catch {
+      setErrors((e) => ({ ...e, inviteCode: 'Error al verificar el código' }));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   // ─── SELECT MODE ──────────────────────────────────
   if (mode === 'select') {
     return (
@@ -641,11 +674,30 @@ export default function RegisterPage() {
               {!isFreelancer && (
                 <div>
                   <label htmlFor="inviteCode" className="block text-sm font-medium text-gray-700 mb-1.5">Código de invitación</label>
-                  <input id="inviteCode" type="text" value={form.inviteCode}
-                    onChange={(e) => updateField('inviteCode', e.target.value.toUpperCase())}
-                    className={`input-field uppercase tracking-widest text-center font-mono ${errors.inviteCode ? 'border-red-400' : ''}`}
-                    placeholder="Ej: DEMOSALON" maxLength={20} />
+                  <div className="flex gap-2">
+                    <input id="inviteCode" type="text" value={form.inviteCode}
+                      onChange={(e) => { updateField('inviteCode', e.target.value.toUpperCase()); setInvitePreview(null); }}
+                      className={`flex-1 input-field uppercase tracking-widest text-center font-mono ${errors.inviteCode ? 'border-red-400' : ''}`}
+                      placeholder="Ej: DEMOSALON" maxLength={20} />
+                    <button
+                      type="button"
+                      onClick={verifyInviteCode}
+                      disabled={previewLoading || form.inviteCode.length < 6}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40 transition-colors flex-shrink-0"
+                      style={{ backgroundColor: '#008080' }}
+                    >
+                      {previewLoading ? '...' : 'Verificar'}
+                    </button>
+                  </div>
                   {errors.inviteCode && <p className="mt-1 text-xs text-red-600">{errors.inviteCode}</p>}
+                  {invitePreview && !showPreviewPopup && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-[#008080] bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Código verificado: <strong>{invitePreview.businessName}</strong> · {invitePreview.jobTitle || 'Sin puesto especificado'}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -753,6 +805,66 @@ export default function RegisterPage() {
             <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
           </p>
         </div>
+
+        {/* Preview popup */}
+        {showPreviewPopup && invitePreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+              {invitePreview.logoUrl ? (
+                <img
+                  src={`${API_URL_REG}${invitePreview.logoUrl}`}
+                  alt={invitePreview.businessName}
+                  className="w-16 h-16 rounded-full object-cover mx-auto mb-3 border border-gray-200"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-[#e0f2f1] flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl font-bold text-[#008080]">
+                    {invitePreview.businessName[0]}
+                  </span>
+                </div>
+              )}
+              <h2 className="text-xl font-bold text-gray-900 mb-1">{invitePreview.businessName}</h2>
+              {invitePreview.ownerName && (
+                <p className="text-sm text-gray-500 mb-1">Propietario: <span className="font-medium text-gray-700">{invitePreview.ownerName}</span></p>
+              )}
+              {invitePreview.jobTitle && (
+                <p className="text-sm text-gray-500 mb-3">Puesto: <span className="font-semibold text-[#008080]">{invitePreview.jobTitle}</span></p>
+              )}
+              {invitePreview.services && invitePreview.services.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs text-gray-400 mb-1.5">Servicios asignados</p>
+                  <div className="flex flex-wrap justify-center gap-1">
+                    {invitePreview.services.map((s) => (
+                      <span key={s.id} className="text-xs bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2.5 py-1">
+                        {s.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-gray-600 mb-5">
+                ¿Confirmas que quieres unirte a este negocio?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowPreviewPopup(false); setInvitePreview(null); updateField('inviteCode', ''); }}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => setShowPreviewPopup(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+                  style={{ backgroundColor: '#008080' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
