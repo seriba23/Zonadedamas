@@ -140,7 +140,7 @@ export default function MarketplacePage() {
   const toggleSort = (s: SortBy) => setSortBy(sortBy === s ? '' : s);
 
   const allBusinesses: Business[] = (data as any)?.data || [];
-  const favoriteBusinesses = allBusinesses.filter((b) => favoriteSlugs.has(b.slug));
+  const favoriteBusinesses: Business[] = (favData as any)?.data || [];
   const businesses = showFavoritesOnly ? favoriteBusinesses : allBusinesses;
 
   const CATEGORY_LABELS: Record<string, string> = { SALON: 'Salón', BARBERIA: 'Barbería', SPA: 'SPA', CLINICA: 'Clínica', TATUAJES: 'Tatuajes' };
