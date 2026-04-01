@@ -408,6 +408,15 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
 
+  const { data: empData } = useQuery({
+    queryKey: ['employee-profile-check', user?.employeeId],
+    queryFn: async () => {
+      const res = await api.get<{ data: any }>(`/api/employees/${user!.employeeId}`);
+      return res.data;
+    },
+    enabled: !!user?.employeeId && isAuthenticated,
+  });
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
@@ -441,15 +450,6 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       />
     );
   }
-
-  const { data: empData } = useQuery({
-    queryKey: ['employee-profile-check', user?.employeeId],
-    queryFn: async () => {
-      const res = await api.get<{ data: any }>(`/api/employees/${user!.employeeId}`);
-      return res.data;
-    },
-    enabled: !!user?.employeeId,
-  });
 
   const profileIncomplete = empData && (!empData.avatarUrl || !empData.bio);
   const missingItems: string[] = [];
