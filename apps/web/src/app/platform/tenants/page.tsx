@@ -20,6 +20,7 @@ interface Tenant {
     nextBillingDate: string;
     trialEndsAt: string | null;
   } | null;
+  users?: { firstName: string; lastName: string }[];
   _count: { users: number; employees: number; appointments: number };
 }
 
@@ -123,6 +124,7 @@ export default function TenantsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">ID</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Negocio</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
@@ -134,21 +136,25 @@ export default function TenantsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-8 text-gray-400">Cargando...</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-400">Cargando...</td></tr>
               ) : tenants.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-gray-400">No se encontraron negocios</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-400">No se encontraron negocios</td></tr>
               ) : (
                 tenants.map((t) => {
                   const days = t.subscription?.trialEndsAt ? daysUntilExpiry(t.subscription.trialEndsAt) : null;
                   return (
                     <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3">
+                        <span className="text-[10px] font-mono text-gray-400">{t.id.slice(0, 8)}</span>
+                      </td>
+                      <td className="px-4 py-3">
                         <Link href={`/platform/tenants/${t.id}`} className="hover:text-primary-600">
                           <p className="text-sm font-medium text-gray-900">{t.name}</p>
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-xs text-gray-600">{t.email}</p>
+                        {t.users?.[0] && <p className="text-xs font-medium text-gray-700">{t.users[0].firstName} {t.users[0].lastName}</p>}
+                        <p className="text-xs text-gray-500">{t.email}</p>
                         {t.phone && <p className="text-xs text-gray-400">{t.phone}</p>}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">

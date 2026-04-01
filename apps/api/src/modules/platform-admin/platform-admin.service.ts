@@ -137,6 +137,11 @@ export class PlatformAdminService {
           subscription: {
             select: { plan: true, status: true, monthlyAmountUsd: true, nextBillingDate: true, trialEndsAt: true },
           },
+          users: {
+            where: { userRoles: { some: { role: { slug: 'owner' } } } },
+            take: 1,
+            select: { firstName: true, lastName: true },
+          },
           _count: { select: { users: true, employees: true, appointments: true } },
         },
       }),
