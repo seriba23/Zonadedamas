@@ -31,7 +31,7 @@ interface ServiceForm {
   description: string;
   durationMinutes: number | string;
   price: number | string;
-  category: string;
+  categories: string[];
   generatesPoints: boolean;
   pointsReward: number | string;
   redeemableWithPoints: boolean;
@@ -50,7 +50,7 @@ const defaultForm: ServiceForm = {
   description: '',
   durationMinutes: 60,
   price: 0,
-  category: '',
+  categories: [],
   generatesPoints: false,
   pointsReward: '',
   redeemableWithPoints: false,
@@ -121,7 +121,7 @@ export default function ServicesPage() {
       description: service.description || '',
       durationMinutes: service.durationMinutes,
       price: service.price,
-      category: service.subcategory || service.category || '',
+      categories: (service.subcategory || service.category || '').split(',').map(s => s.trim()).filter(Boolean),
       generatesPoints: hasPoints,
       pointsReward: service.pointsReward ?? '',
       redeemableWithPoints: service.redeemableWithPoints || false,
@@ -149,7 +149,7 @@ export default function ServicesPage() {
       description: form.description,
       durationMinutes: Number(form.durationMinutes),
       price: Number(form.price),
-      subcategory: form.category || null,
+      subcategory: form.categories.length > 0 ? form.categories.join(',') : null,
       redeemableWithPoints: form.redeemableWithPoints,
       pointsReward: form.generatesPoints && form.pointsReward !== '' ? Number(form.pointsReward) : null,
       pointsRequired: form.redeemableWithPoints && form.pointsRequired !== '' ? Number(form.pointsRequired) : null,
@@ -353,21 +353,34 @@ export default function ServicesPage() {
                 Categoría
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
-                {allCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, category: f.category === cat ? '' : cat }))}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      form.category === cat
-                        ? 'bg-[#008080] text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {allCategories.map((cat) => {
+                  const selected = form.categories.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setForm((f) => {
+                        if (selected) return { ...f, categories: f.categories.filter(c => c !== cat) };
+                        if (f.categories.length >= 3) return f;
+                        return { ...f, categories: [...f.categories, cat] };
+                      })}
+                      disabled={!selected && form.categories.length >= 3}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        selected
+                          ? 'bg-[#008080] text-white'
+                          : form.categories.length >= 3
+                            ? 'bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed'
+                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
               </div>
+              {form.categories.length >= 3 && (
+                <p className="text-xs text-gray-400 mb-2">Máximo 3 categorías seleccionadas</p>
+              )}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -379,9 +392,9 @@ export default function ServicesPage() {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       const val = newCategory.trim();
-                      if (val && !allCategories.includes(val)) {
+                      if (val && !allCategories.includes(val) && form.categories.length < 3) {
                         setCustomCategories((prev) => [...prev, val]);
-                        setForm((f) => ({ ...f, category: val }));
+                        setForm((f) => ({ ...f, categories: [...f.categories, val] }));
                         setNewCategory('');
                       }
                     }
@@ -391,13 +404,13 @@ export default function ServicesPage() {
                   type="button"
                   onClick={() => {
                     const val = newCategory.trim();
-                    if (val && !allCategories.includes(val)) {
+                    if (val && !allCategories.includes(val) && form.categories.length < 3) {
                       setCustomCategories((prev) => [...prev, val]);
-                      setForm((f) => ({ ...f, category: val }));
+                      setForm((f) => ({ ...f, categories: [...f.categories, val] }));
                       setNewCategory('');
                     }
                   }}
-                  disabled={!newCategory.trim()}
+                  disabled={!newCategory.trim() || form.categories.length >= 3}
                   className="px-3 py-1.5 text-xs font-medium text-[#008080] border border-[#008080] rounded-lg hover:bg-teal-50 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   + Agregar
