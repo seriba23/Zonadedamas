@@ -348,9 +348,13 @@ export default function EmployeeProfilePage() {
       {/* Crop Modal */}
       {cropFile && (
         <AvatarCropModal
-          file={cropFile}
+          imageFile={cropFile}
           onCancel={() => setCropFile(null)}
-          onConfirm={(croppedFile) => {
+          onChooseAnother={() => {
+            setCropFile(null);
+            fileInputRef.current?.click();
+          }}
+          onAccept={(croppedFile) => {
             avatarMutation.mutate(croppedFile);
             setCropFile(null);
           }}
