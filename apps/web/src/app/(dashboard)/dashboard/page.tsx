@@ -261,7 +261,7 @@ function KpiCard({
   return (
     <div
       className={`rounded-xl border p-5 flex items-center gap-4 ${
-        isTeal ? 'bg-white border-gray-200' : 'bg-[#f8fffe] border-gray-100'
+        isTeal ? 'bg-white border-gray-200' : 'bg-white border-gray-200'
       }`}
     >
       <div

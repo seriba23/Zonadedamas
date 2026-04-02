@@ -117,7 +117,7 @@ export function Sidebar() {
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                       isChildActive
-                        ? 'bg-primary-50 text-primary-700'
+                        ? 'bg-gray-100 text-gray-900'
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                     )}
                   >
@@ -151,7 +151,7 @@ export function Sidebar() {
                               className={cn(
                                 'block px-3 py-2 rounded-lg text-sm transition-colors',
                                 isActive
-                                  ? 'bg-primary-50 text-primary-700 font-medium'
+                                  ? 'bg-gray-100 text-gray-900 font-medium'
                                   : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700',
                               )}
                             >
@@ -177,7 +177,7 @@ export function Sidebar() {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-primary-50 text-primary-700'
+                      ? 'bg-gray-100 text-gray-900'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                   )}
                 >
