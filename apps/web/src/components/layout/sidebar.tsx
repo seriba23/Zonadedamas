@@ -193,7 +193,11 @@ export function Sidebar() {
       {/* User section */}
       {user && (
         <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center gap-3 mb-3">
+          <div
+            className={`flex items-center gap-3 mb-3 ${user.employeeId ? 'cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-gray-100 transition-colors' : ''}`}
+            onClick={() => { if (user.employeeId) window.location.href = '/employee'; }}
+            title={user.employeeId ? `Cambiar a ${user.jobTitle || 'Empleado'}` : undefined}
+          >
             <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0 overflow-hidden">
               {user.avatarUrl ? (
                 <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
@@ -201,12 +205,17 @@ export function Sidebar() {
                 getInitials(user.firstName, user.lastName)
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900 truncate">
                 {user.firstName} {user.lastName}
               </p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
             </div>
+            {user.employeeId && (
+              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            )}
           </div>
           <button
             onClick={() => logout()}
