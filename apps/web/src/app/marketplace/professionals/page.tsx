@@ -319,7 +319,7 @@ export default function ProfessionalsPage() {
               >
                 Todas las profesiones
               </button>
-              {['Barbero', 'Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Masajista', 'Esteticista', 'Terapeuta', 'Tatuador', 'Piercer', 'Medico', 'Recepcionista'].map((job) => (
+              {['Barbero', 'Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Masajista', 'Esteticista', 'Terapeuta', 'Tatuador', 'Piercer'].map((job) => (
                 <button
                   key={job}
                   onClick={() => { setFilterJobTitle(job); setShowJobSheet(false); }}
