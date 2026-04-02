@@ -999,7 +999,7 @@ export default function EmployeeProfilePage() {
         {activeTab === 'permisos' && (
           <EmployeePermissions
             employeeId={employeeId}
-            canManage={hasPermission('users.manage')}
+            canManage={hasPermission('roles.update')}
           />
         )}
       </div>
