@@ -16,6 +16,7 @@ import { EmployeePermissions } from '@/components/staff/employee-permissions';
 import { EmployeeServicesEditor } from '@/components/staff/employee-services-editor';
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils';
 import { usePermissions } from '@/lib/hooks/use-permissions';
+import { useAuth } from '@/lib/hooks/use-auth';
 import dayjs from 'dayjs';
 
 interface Employee {
@@ -159,6 +160,8 @@ export default function EmployeeProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
+  const { user: authUser } = useAuth();
+  const isOwnProfile = employee?.userId === authUser?.id;
   const employeeId = params.id as string;
   const [activeTab, setActiveTab] = useState<ProfileTab>('estadisticas');
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
@@ -498,8 +501,8 @@ export default function EmployeeProfilePage() {
                 </p>
               )}
 
-              {/* Deactivate / Reactivate button */}
-              {canDelete && (
+              {/* Deactivate / Reactivate button — owner cannot deactivate themselves */}
+              {canDelete && !isOwnProfile && (
                 <div className="mt-3">
                   {employee.isActive ? (
                     <button

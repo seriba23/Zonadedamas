@@ -887,7 +887,7 @@ export class AuthService {
     const [employee, subscription, tenant] = await Promise.all([
       this.prisma.employee.findFirst({
         where: { userId, tenantId },
-        select: { id: true, avatarUrl: true, isActive: true },
+        select: { id: true, avatarUrl: true, isActive: true, jobTitle: true },
       }),
       this.prisma.subscription.findUnique({
         where: { tenantId },
@@ -905,6 +905,7 @@ export class AuthService {
       permissions,
       employeeId: employee?.id || null,
       isEmployeeActive: employee ? employee.isActive : true,
+      jobTitle: employee?.jobTitle || null,
       tenantName: tenant?.name || '',
       subscriptionStatus: subscription?.status || 'ACTIVE',
       subscriptionPlan: subscription?.plan || 'BASICO',

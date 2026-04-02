@@ -10,6 +10,7 @@ export interface AuthUser {
   permissions: string[];
   employeeId?: string | null;
   isEmployeeActive?: boolean;
+  jobTitle?: string | null;
   tenantName?: string;
   subscriptionStatus?: string;
   subscriptionPlan?: string;

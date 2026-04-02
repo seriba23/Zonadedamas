@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import { api } from '@/lib/api';
+import type { AuthUser } from '@/lib/auth';
 
 interface SocialProfile {
   email: string;
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [roleChoice, setRoleChoice] = useState<AuthUser | null>(null);
 
   // Social login: invite code step
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
@@ -47,8 +49,16 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const user = await login(form.email, form.password);
-      const isEmployee = !user.permissions.includes('employees.create');
-      router.push(isEmployee ? '/employee' : '/dashboard');
+      const isAdmin = user.permissions.includes('employees.create');
+      const hasEmployeeProfile = !!user.employeeId;
+
+      // Admin that is also an employee → show role choice
+      if (isAdmin && hasEmployeeProfile) {
+        setRoleChoice(user);
+        return;
+      }
+
+      router.push(isAdmin ? '/dashboard' : '/employee');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
@@ -119,6 +129,61 @@ export default function LoginPage() {
     } finally {
       setInviteLoading(false);
     }
+  }
+
+  // Role choice screen — admin that is also employee
+  if (roleChoice) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-[#008080]">Siliba</h1>
+            <p className="mt-2 text-gray-500 text-sm">Hola, {roleChoice.firstName}</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">¿Como deseas ingresar?</h2>
+            <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Administrador</p>
+                    <p className="text-xs text-gray-500">Gestionar {roleChoice.tenantName || 'mi negocio'}</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/employee')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{roleChoice.jobTitle || 'Empleado'}</p>
+                    <p className="text-xs text-gray-500">Mi agenda, perfil y citas</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // If social login returned needsProfile — show invite code form
