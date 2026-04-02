@@ -31,6 +31,7 @@ interface ServiceForm {
   description: string;
   durationMinutes: number | string;
   price: number | string;
+  catalogCategory: string;
   categories: string[];
   generatesPoints: boolean;
   pointsReward: number | string;
@@ -50,6 +51,7 @@ const defaultForm: ServiceForm = {
   description: '',
   durationMinutes: 60,
   price: 0,
+  catalogCategory: '',
   categories: [],
   generatesPoints: false,
   pointsReward: '',
@@ -122,11 +124,14 @@ export default function ServicesPage() {
   function openEdit(service: Service) {
     setEditingService(service);
     const hasPoints = (service.pointsReward ?? 0) > 0;
+    // Find catalog category for this service name
+    const matchedCatalog = catalogItems.find((c) => c.name === service.name);
     setForm({
       name: service.name,
       description: service.description || '',
       durationMinutes: service.durationMinutes,
       price: service.price,
+      catalogCategory: matchedCatalog?.category || '',
       categories: (service.subcategory || service.category || '').split(',').map(s => s.trim()).filter(Boolean),
       generatesPoints: hasPoints,
       pointsReward: service.pointsReward ?? '',
@@ -327,6 +332,25 @@ export default function ServicesPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categoria *
+              </label>
+              <select
+                value={form.catalogCategory}
+                onChange={(e) => setForm((f) => ({ ...f, catalogCategory: e.target.value, name: '' }))}
+                className="input-field"
+                required
+              >
+                <option value="">Seleccionar categoria...</option>
+                {[...new Set(catalogItems.map((i) => i.category).filter(Boolean) as string[])]
+                  .sort((a, b) => a.localeCompare(b, 'es'))
+                  .map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Servicio *
               </label>
               <select
@@ -334,22 +358,15 @@ export default function ServicesPage() {
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 className="input-field"
                 required
+                disabled={!form.catalogCategory}
               >
-                <option value="">Seleccionar servicio...</option>
-                {Object.entries(
-                  catalogItems.reduce<Record<string, string[]>>((acc, item) => {
-                    const cat = item.category || 'Otro';
-                    if (!acc[cat]) acc[cat] = [];
-                    acc[cat].push(item.name);
-                    return acc;
-                  }, {})
-                ).sort(([a], [b]) => a.localeCompare(b, 'es')).map(([cat, names]) => (
-                  <optgroup key={cat} label={cat}>
-                    {names.sort((a, b) => a.localeCompare(b, 'es')).map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </optgroup>
-                ))}
+                <option value="">{form.catalogCategory ? 'Seleccionar servicio...' : 'Primero selecciona una categoria'}</option>
+                {catalogItems
+                  .filter((i) => i.category === form.catalogCategory)
+                  .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+                  .map((item) => (
+                    <option key={item.name} value={item.name}>{item.name}</option>
+                  ))}
               </select>
             </div>
 
