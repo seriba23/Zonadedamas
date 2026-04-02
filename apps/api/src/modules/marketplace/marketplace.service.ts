@@ -912,6 +912,7 @@ export class MarketplaceService {
 
     if (search) {
       where.OR = [
+        { id: { startsWith: search.toLowerCase().replace('#', '') } },
         { firstName: { contains: search } },
         { lastName: { contains: search } },
         { jobTitle: { contains: search } },
