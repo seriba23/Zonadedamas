@@ -252,7 +252,7 @@ export class MarketplaceController {
     return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
   }
 
-  @UseGuards(MarketplaceJwtAuthGuard)
+  @UseGuards(MarketplaceJwtGuard)
   @Post('professionals/favorites/:employeeId')
   async toggleProfessionalFavorite(
     @Req() req: any,
@@ -261,7 +261,7 @@ export class MarketplaceController {
     return this.marketplaceService.toggleProfessionalFavorite(req.user.marketplaceUserId, employeeId);
   }
 
-  @UseGuards(MarketplaceJwtAuthGuard)
+  @UseGuards(MarketplaceJwtGuard)
   @Get('professionals/my-favorites')
   async getMyProfessionalFavorites(@Req() req: any) {
     return this.marketplaceService.getMyProfessionalFavorites(req.user.marketplaceUserId);
