@@ -164,7 +164,8 @@ model MarketplaceUser {
 
   refreshTokens MarketplaceRefreshToken[]
   clients       Client[]
-  favorites     MarketplaceFavorite[]
+  favorites              MarketplaceFavorite[]
+  professionalFavorites  MarketplaceProfessionalFavorite[]
 
   @@map("marketplace_users")
 }
@@ -622,7 +623,8 @@ model Employee {
   portfolioImages  EmployeePortfolioImage[]
   reviews          EmployeeReview[]
   documents        EmployeeDocument[]
-  trainings        EmployeeTraining[]
+  trainings              EmployeeTraining[]
+  professionalFavorites  MarketplaceProfessionalFavorite[]
 
   @@index([tenantId])
   @@index([tenantId, locationId])
@@ -1202,6 +1204,20 @@ model MarketplaceFavorite {
   @@unique([marketplaceUserId, tenantId])
   @@index([marketplaceUserId])
   @@map("marketplace_favorites")
+}
+
+model MarketplaceProfessionalFavorite {
+  id                String   @id @default(cuid())
+  marketplaceUserId String   @map("marketplace_user_id")
+  employeeId        String   @map("employee_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  marketplaceUser MarketplaceUser @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([marketplaceUserId, employeeId])
+  @@index([marketplaceUserId])
+  @@map("marketplace_professional_favorites")
 }
 
 // ─── SUPPLIERS ──────────────────────────────────────

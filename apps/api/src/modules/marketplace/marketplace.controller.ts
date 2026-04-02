@@ -252,6 +252,21 @@ export class MarketplaceController {
     return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
   }
 
+  @UseGuards(MarketplaceJwtAuthGuard)
+  @Post('professionals/favorites/:employeeId')
+  async toggleProfessionalFavorite(
+    @Req() req: any,
+    @Param('employeeId') employeeId: string,
+  ) {
+    return this.marketplaceService.toggleProfessionalFavorite(req.user.marketplaceUserId, employeeId);
+  }
+
+  @UseGuards(MarketplaceJwtAuthGuard)
+  @Get('professionals/my-favorites')
+  async getMyProfessionalFavorites(@Req() req: any) {
+    return this.marketplaceService.getMyProfessionalFavorites(req.user.marketplaceUserId);
+  }
+
   @Get('professionals')
   async discoverProfessionals(
     @Query('search') search?: string,

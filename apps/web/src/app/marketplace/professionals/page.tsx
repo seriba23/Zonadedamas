@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import Link from 'next/link';
@@ -28,10 +28,12 @@ interface Professional {
 
 export default function ProfessionalsPage() {
   const { isAuthenticated } = useMarketplaceAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -62,7 +64,36 @@ export default function ProfessionalsPage() {
     },
   });
 
-  const professionals: Professional[] = (data as any)?.data || [];
+  const { data: favData } = useQuery({
+    queryKey: ['pro-favorites'],
+    queryFn: () => marketplaceApi.get<{ data: Professional[] }>('/professionals/my-favorites'),
+    enabled: isAuthenticated,
+  });
+
+  useEffect(() => {
+    const favs = (favData as any)?.data || [];
+    setFavIds(new Set(favs.map((f: any) => f.id)));
+  }, [favData]);
+
+  const toggleFavMutation = useMutation({
+    mutationFn: (employeeId: string) =>
+      marketplaceApi.post<{ data: { favorited: boolean } }>(`/professionals/favorites/${employeeId}`),
+    onMutate: (employeeId) => {
+      setFavIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(employeeId)) next.delete(employeeId);
+        else next.add(employeeId);
+        return next;
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['pro-favorites'] });
+    },
+  });
+
+  const allProfessionals: Professional[] = (data as any)?.data || [];
+  const favProfessionals: Professional[] = (favData as any)?.data || [];
+  const professionals = showFavoritesOnly ? favProfessionals : allProfessionals;
 
   function renderCard(pro: Professional) {
     const bgColor = pro.color || TEAL;
@@ -117,15 +148,16 @@ export default function ProfessionalsPage() {
               {/* Heart */}
               {isAuthenticated && (
                 <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavMutation.mutate(pro.id); }}
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm relative z-10"
                 >
                   <svg
                     className="w-4 h-4"
-                    fill="none"
-                    stroke="#6b7280"
+                    fill={favIds.has(pro.id) ? TEAL : 'none'}
+                    stroke={favIds.has(pro.id) ? TEAL : '#6b7280'}
                     viewBox="0 0 24 24"
                     strokeWidth={2}
+                    style={{ transition: 'fill 0.2s ease, stroke 0.2s ease' }}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
                   </svg>

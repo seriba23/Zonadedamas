@@ -892,6 +892,59 @@ export class MarketplaceService {
 
   // ─── PROFESSIONAL PROFILE (public) ─────────────────────
 
+  async toggleProfessionalFavorite(marketplaceUserId: string, employeeId: string) {
+    const existing = await this.prisma.marketplaceProfessionalFavorite.findUnique({
+      where: { marketplaceUserId_employeeId: { marketplaceUserId, employeeId } },
+    });
+
+    if (existing) {
+      await this.prisma.marketplaceProfessionalFavorite.delete({ where: { id: existing.id } });
+      return { data: { favorited: false } };
+    }
+
+    await this.prisma.marketplaceProfessionalFavorite.create({
+      data: { marketplaceUserId, employeeId },
+    });
+    return { data: { favorited: true } };
+  }
+
+  async getMyProfessionalFavorites(marketplaceUserId: string) {
+    const favorites = await this.prisma.marketplaceProfessionalFavorite.findMany({
+      where: { marketplaceUserId },
+      include: {
+        employee: {
+          select: {
+            id: true, firstName: true, lastName: true, avatarUrl: true,
+            coverImageUrl: true, color: true, bio: true, jobTitle: true,
+            tenant: { select: { name: true, slug: true, address: true } },
+            _count: { select: { appointments: true, reviews: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const enriched = await Promise.all(
+      favorites.map(async (fav) => {
+        const ratingAgg = await this.prisma.employeeReview.aggregate({
+          where: { employeeId: fav.employeeId, isVisible: true },
+          _avg: { rating: true },
+          _count: { id: true },
+        });
+        return {
+          ...fav.employee,
+          businessName: fav.employee.tenant.name,
+          tenantSlug: fav.employee.tenant.slug,
+          address: fav.employee.tenant.address,
+          averageRating: ratingAgg._avg.rating ? Math.round(ratingAgg._avg.rating * 10) / 10 : null,
+          totalReviews: ratingAgg._count.id,
+        };
+      }),
+    );
+
+    return { data: enriched };
+  }
+
   async discoverProfessionals(dto: {
     search?: string;
     lat?: number;
