@@ -947,12 +947,13 @@ export class MarketplaceService {
 
   async discoverProfessionals(dto: {
     search?: string;
+    jobTitle?: string;
     lat?: number;
     lng?: number;
     perPage?: number;
     page?: number;
   }) {
-    const { search, perPage = 30, page = 1 } = dto;
+    const { search, jobTitle, perPage = 30, page = 1 } = dto;
     const skip = (page - 1) * perPage;
 
     const where: any = {
@@ -970,6 +971,10 @@ export class MarketplaceService {
         { lastName: { contains: cleanSearch } },
         { jobTitle: { contains: cleanSearch } },
       ];
+    }
+
+    if (jobTitle) {
+      where.jobTitle = { contains: jobTitle };
     }
 
     const [employees, total] = await Promise.all([

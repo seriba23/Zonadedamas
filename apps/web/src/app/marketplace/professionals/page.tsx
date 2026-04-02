@@ -34,6 +34,8 @@ export default function ProfessionalsPage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  const [filterJobTitle, setFilterJobTitle] = useState('');
+  const [showJobSheet, setShowJobSheet] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -51,10 +53,11 @@ export default function ProfessionalsPage() {
   }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-professionals', debouncedSearch, coords?.lat, coords?.lng],
+    queryKey: ['marketplace-professionals', debouncedSearch, filterJobTitle, coords?.lat, coords?.lng],
     queryFn: () => {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set('search', debouncedSearch);
+      if (filterJobTitle) params.set('jobTitle', filterJobTitle);
       if (coords) {
         params.set('lat', String(coords.lat));
         params.set('lng', String(coords.lng));
@@ -239,26 +242,19 @@ export default function ProfessionalsPage() {
 
           {/* Filter bar */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
-            {/* Disponible ahora */}
+            {/* Puesto / Profesión */}
             <button
+              onClick={() => setShowJobSheet(true)}
               className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
-              style={{ backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }}
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-              </svg>
-              Disponible ahora
-            </button>
-
-            {/* Especialidad */}
-            <button
-              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
-              style={{ backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }}
+              style={filterJobTitle
+                ? { backgroundColor: TEAL, color: 'white', border: `1.5px solid ${TEAL}` }
+                : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+              }
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
               </svg>
-              Especialidad
+              {filterJobTitle || 'Profesion'}
             </button>
 
             {/* Favoritos */}
@@ -306,6 +302,36 @@ export default function ProfessionalsPage() {
           </>
         )}
       </div>
+
+      {/* Job Title filter sheet */}
+      {showJobSheet && (
+        <div className="fixed inset-0 z-50" onClick={() => setShowJobSheet(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[60vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white px-5 pt-5 pb-3 border-b border-gray-100">
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-gray-900">Filtrar por profesion</h3>
+            </div>
+            <div className="p-4 space-y-1">
+              <button
+                onClick={() => { setFilterJobTitle(''); setShowJobSheet(false); }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors ${!filterJobTitle ? 'bg-teal-50 text-[#008080] font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                Todas las profesiones
+              </button>
+              {['Barbero', 'Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Masajista', 'Esteticista', 'Terapeuta', 'Tatuador', 'Piercer', 'Medico', 'Recepcionista'].map((job) => (
+                <button
+                  key={job}
+                  onClick={() => { setFilterJobTitle(job); setShowJobSheet(false); }}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors ${filterJobTitle === job ? 'bg-teal-50 text-[#008080] font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {job}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

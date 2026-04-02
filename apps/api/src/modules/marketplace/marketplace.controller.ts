@@ -270,6 +270,7 @@ export class MarketplaceController {
   @Get('professionals')
   async discoverProfessionals(
     @Query('search') search?: string,
+    @Query('jobTitle') jobTitle?: string,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('perPage') perPage?: string,
@@ -277,6 +278,7 @@ export class MarketplaceController {
   ) {
     return this.marketplaceService.discoverProfessionals({
       search,
+      jobTitle,
       lat: lat ? parseFloat(lat) : undefined,
       lng: lng ? parseFloat(lng) : undefined,
       perPage: perPage ? parseInt(perPage, 10) : 30,
