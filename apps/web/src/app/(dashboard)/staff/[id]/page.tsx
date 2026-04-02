@@ -161,7 +161,6 @@ export default function EmployeeProfilePage() {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
   const { user: authUser } = useAuth();
-  const isOwnProfile = employee?.userId === authUser?.id;
   const employeeId = params.id as string;
   const [activeTab, setActiveTab] = useState<ProfileTab>('estadisticas');
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
@@ -357,6 +356,7 @@ export default function EmployeeProfilePage() {
   });
 
   const employee = employeeData?.data;
+  const isOwnProfile = employee?.userId === authUser?.id;
   const stats = statsData?.data;
   const reviews = reviewsData?.data;
 
