@@ -482,6 +482,28 @@ export class PlatformAdminService {
     return { data: profession };
   }
 
+  async updateProfession(id: string, newName: string) {
+    const profession = await this.prisma.profession.findUnique({ where: { id } });
+    if (!profession) throw new NotFoundException('Profesion no encontrada');
+
+    const oldName = profession.name;
+    const trimmed = newName.trim();
+
+    // Update profession catalog
+    const updated = await this.prisma.profession.update({
+      where: { id },
+      data: { name: trimmed },
+    });
+
+    // Update all employees that have the old jobTitle
+    const result = await this.prisma.employee.updateMany({
+      where: { jobTitle: oldName },
+      data: { jobTitle: trimmed },
+    });
+
+    return { data: updated, employeesUpdated: result.count };
+  }
+
   async deleteProfession(id: string) {
     await this.prisma.profession.delete({ where: { id } });
     return { data: { message: 'Profesion eliminada' } };

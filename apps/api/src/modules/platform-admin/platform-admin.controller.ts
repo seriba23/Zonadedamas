@@ -139,6 +139,11 @@ export class PlatformAdminController {
     return this.adminService.createProfession(body.name);
   }
 
+  @Patch('professions/:id')
+  async updateProfession(@Param('id') id: string, @Body() body: { name: string }) {
+    return this.adminService.updateProfession(id, body.name);
+  }
+
   @Delete('professions/:id')
   async deleteProfession(@Param('id') id: string) {
     return this.adminService.deleteProfession(id);
