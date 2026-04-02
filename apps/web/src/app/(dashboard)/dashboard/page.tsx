@@ -97,62 +97,66 @@ export default function DashboardPage() {
 
       {/* Setup wizard — shown when business is new */}
       {showSetupWizard && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-[#008080] rounded-xl flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="font-bold text-gray-900">Configura tu negocio</h2>
-              <p className="text-sm text-gray-500">Completa estos pasos para empezar a recibir citas</p>
-            </div>
+        <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+          {/* Header */}
+          <div className="px-6 py-5" style={{ backgroundColor: '#008080' }}>
+            <h2 className="text-lg font-bold text-white">Configura tu negocio</h2>
+            <p className="text-sm text-white/70 mt-0.5">Completa estos pasos para empezar a recibir citas</p>
           </div>
-          <div className="space-y-3">
-            <div
-              onClick={() => router.push('/settings/business')}
-              className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${needsBusinessProfile ? 'bg-white border-gray-200 hover:border-[#008080]' : 'bg-gray-50 border-gray-100'}`}
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${needsBusinessProfile ? 'bg-[#008080] text-white' : 'bg-green-500 text-white'}`}>
-                {needsBusinessProfile ? '1' : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium text-sm ${needsBusinessProfile ? 'text-gray-900' : 'text-gray-400 line-through'}`}>Completa el perfil de tu negocio</p>
-                <p className="text-xs text-gray-500">Agrega descripción, logo y foto de portada</p>
-              </div>
-              {needsBusinessProfile && (
-                <svg className="w-4 h-4 text-[#008080] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              )}
-            </div>
 
-            <div
-              onClick={() => router.push('/settings/invite-codes')}
-              className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${needsEmployees ? 'bg-white border-gray-200 hover:border-[#008080]' : 'bg-gray-50 border-gray-100'}`}
-            >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${needsEmployees ? 'bg-[#008080] text-white' : 'bg-green-500 text-white'}`}>
-                {needsEmployees ? '2' : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium text-sm ${needsEmployees ? 'text-gray-900' : 'text-gray-400 line-through'}`}>Invita a tus empleados</p>
-                <p className="text-xs text-gray-500">Genera un código de invitación para que se unan</p>
-              </div>
-              {needsEmployees && (
-                <svg className="w-4 h-4 text-[#008080] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              )}
-            </div>
+          {/* Steps timeline */}
+          <div className="bg-white px-6 py-5">
+            {[
+              { done: !needsBusinessProfile, label: 'Completa el perfil de tu negocio', desc: 'Agrega descripcion, logo y foto de portada', href: '/settings/business' },
+              { done: !needsEmployees, label: 'Invita a tus empleados', desc: 'Genera un codigo de invitacion para que se unan', href: '/settings/invite-codes' },
+              { done: false, label: 'Crea tus servicios', desc: 'Configura los servicios que ofreces a tus clientes', href: '/services?new=true' },
+            ].map((step, i, arr) => {
+              const isLast = i === arr.length - 1;
+              const prevDone = i === 0 || arr[i - 1].done;
+              const isCurrent = !step.done && prevDone;
+
+              return (
+                <div key={i} className="flex gap-4" onClick={() => router.push(step.href)} style={{ cursor: 'pointer' }}>
+                  {/* Timeline column */}
+                  <div className="flex flex-col items-center">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                      step.done
+                        ? 'bg-green-500 border-green-500'
+                        : isCurrent
+                          ? 'bg-[#008080] border-[#008080]'
+                          : 'bg-white border-gray-300'
+                    }`}>
+                      {step.done ? (
+                        <svg className="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <span className={`text-sm font-bold ${isCurrent ? 'text-white' : 'text-gray-400'}`}>{i + 1}</span>
+                      )}
+                    </div>
+                    {!isLast && (
+                      <div className={`w-0.5 flex-1 my-1 ${step.done ? 'bg-green-400' : 'bg-gray-200'}`} style={{ minHeight: 24 }} />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className={`pb-5 flex-1 min-w-0 ${isLast ? '' : ''}`}>
+                    <p className={`text-sm font-semibold ${step.done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                      {step.label}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+                    {isCurrent && (
+                      <button className="mt-2 text-xs font-semibold text-[#008080] hover:text-[#006666] flex items-center gap-1">
+                        Completar ahora
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
