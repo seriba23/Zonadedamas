@@ -140,11 +140,6 @@ export default function ProfessionalsPage() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              {/* ID badge */}
-              <span className="text-[9px] font-mono text-white/60 bg-black/30 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-                #{shortId}
-              </span>
-
               {/* Heart */}
               {isAuthenticated && (
                 <button
