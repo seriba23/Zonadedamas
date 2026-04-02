@@ -473,6 +473,9 @@ export default function EmployeeProfilePage() {
                 )}
               </div>
 
+              {employee.jobTitle && (
+                <p className="text-sm text-[#008080] font-medium mt-0.5">{employee.jobTitle}</p>
+              )}
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
                 {employee.email && <span>{employee.email}</span>}
                 {employee.phone && <span>{employee.phone}</span>}

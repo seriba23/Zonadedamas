@@ -72,4 +72,8 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsString()
   color?: string;
+
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
 }

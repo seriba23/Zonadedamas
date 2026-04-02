@@ -32,6 +32,7 @@ interface Employee {
   emergencyContactPhone: string | null;
   emergencyContactRelation: string | null;
   allergies: string | null;
+  jobTitle: string | null;
 }
 
 export default function EmployeeSettingsPage() {
@@ -43,7 +44,7 @@ export default function EmployeeSettingsPage() {
   // Edit profile state — auto-open from ?edit=true
   const [showEditProfile, setShowEditProfile] = useState(searchParams.get('edit') === 'true');
   const [editForm, setEditForm] = useState({
-    firstName: '', lastName: '', email: '', phone: '', color: '#008080', bio: '',
+    firstName: '', lastName: '', email: '', phone: '', color: '#008080', bio: '', jobTitle: '',
   });
   const [personalForm, setPersonalForm] = useState({
     bloodType: '', allergies: '',
@@ -109,6 +110,7 @@ export default function EmployeeSettingsPage() {
         firstName: employee.firstName, lastName: employee.lastName,
         email: employee.email || '', phone: employee.phone || '',
         color: employee.color || '#008080', bio: employee.bio || '',
+        jobTitle: employee.jobTitle || '',
       });
       setPersonalForm({
         bloodType: employee.bloodType || '', allergies: employee.allergies || '',
@@ -353,6 +355,16 @@ export default function EmployeeSettingsPage() {
                     placeholder="+52 55 1234 5678"
                   />
                 </div>
+              </div>
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Puesto / Especialidad</label>
+                <input
+                  type="text"
+                  value={editForm.jobTitle}
+                  onChange={(e) => setEditForm((f) => ({ ...f, jobTitle: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                  placeholder="Ej: Barbero, Estilista, Recepcionista..."
+                />
               </div>
               <div className="mt-3">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Bio</label>
