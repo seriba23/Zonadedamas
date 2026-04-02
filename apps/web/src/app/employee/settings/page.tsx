@@ -356,16 +356,19 @@ export default function EmployeeSettingsPage() {
                   />
                 </div>
               </div>
-              <div className="mt-3">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Puesto / Especialidad</label>
-                <input
-                  type="text"
-                  value={editForm.jobTitle}
-                  onChange={(e) => setEditForm((f) => ({ ...f, jobTitle: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                  placeholder="Ej: Barbero, Estilista, Recepcionista..."
-                />
-              </div>
+              {/* Puesto: solo editable por admin/owner o independientes */}
+              {user?.permissions?.includes('employees.create') && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Puesto / Especialidad</label>
+                  <input
+                    type="text"
+                    value={editForm.jobTitle}
+                    onChange={(e) => setEditForm((f) => ({ ...f, jobTitle: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                    placeholder="Ej: Barbero, Estilista, Recepcionista..."
+                  />
+                </div>
+              )}
               <div className="mt-3">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Bio</label>
                 <textarea
