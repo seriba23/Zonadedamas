@@ -268,8 +268,7 @@ export function EmployeePermissions({
         </div>
       )}
 
-      {/* Section: Ausencias */}
-      <EmployeeTimeOffEditor employeeId={employeeId} />
+      {/* Ausencias moved to staff page "Asistencias" tab */}
 
       {/* Roles section hidden — V2 in super admin */}
       {false && (
