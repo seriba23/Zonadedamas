@@ -466,6 +466,36 @@ export class PlatformAdminService {
     );
   }
 
+  // ─── SERVICE CATALOG ─────────────────────────────────
+
+  async getServiceCatalog() {
+    const items = await this.prisma.serviceCatalog.findMany({ orderBy: { name: 'asc' } });
+    return { data: items };
+  }
+
+  async createServiceCatalogItem(name: string, category?: string) {
+    const item = await this.prisma.serviceCatalog.create({
+      data: { name: name.trim(), category: category?.trim() || null },
+    });
+    return { data: item };
+  }
+
+  async updateServiceCatalogItem(id: string, body: { name?: string; category?: string }) {
+    const item = await this.prisma.serviceCatalog.update({
+      where: { id },
+      data: {
+        ...(body.name !== undefined && { name: body.name.trim() }),
+        ...(body.category !== undefined && { category: body.category?.trim() || null }),
+      },
+    });
+    return { data: item };
+  }
+
+  async deleteServiceCatalogItem(id: string) {
+    await this.prisma.serviceCatalog.delete({ where: { id } });
+    return { data: { message: 'Servicio eliminado del catalogo' } };
+  }
+
   // ─── PROFESSIONS CATALOG ────────────────────────────
 
   async getProfessions() {

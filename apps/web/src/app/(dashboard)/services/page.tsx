@@ -81,6 +81,12 @@ export default function ServicesPage() {
     queryFn: () => api.get<{ data: Service[] }>('/api/services'),
   });
 
+  const { data: catalogData } = useQuery({
+    queryKey: ['service-catalog'],
+    queryFn: () => api.get<{ data: { name: string; category: string | null }[] }>('/api/marketplace/service-catalog'),
+  });
+  const catalogItems: { name: string; category: string | null }[] = (catalogData as any)?.data || [];
+
   const services = data?.data || [];
 
   const saveMutation = useMutation({
@@ -321,16 +327,30 @@ export default function ServicesPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre *
+                Servicio *
               </label>
-              <input
-                type="text"
+              <select
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 className="input-field"
-                placeholder="Ej: Corte de cabello"
                 required
-              />
+              >
+                <option value="">Seleccionar servicio...</option>
+                {Object.entries(
+                  catalogItems.reduce<Record<string, string[]>>((acc, item) => {
+                    const cat = item.category || 'Otro';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat].push(item.name);
+                    return acc;
+                  }, {})
+                ).sort(([a], [b]) => a.localeCompare(b, 'es')).map(([cat, names]) => (
+                  <optgroup key={cat} label={cat}>
+                    {names.sort((a, b) => a.localeCompare(b, 'es')).map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
 
             <div>

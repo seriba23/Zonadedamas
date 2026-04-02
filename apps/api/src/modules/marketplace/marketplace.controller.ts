@@ -267,6 +267,11 @@ export class MarketplaceController {
     return this.marketplaceService.getMyProfessionalFavorites(req.user.marketplaceUserId);
   }
 
+  @Get('service-catalog')
+  async getServiceCatalog() {
+    return this.marketplaceService.getServiceCatalog();
+  }
+
   @Get('professions')
   async getProfessions() {
     return this.marketplaceService.getProfessions();

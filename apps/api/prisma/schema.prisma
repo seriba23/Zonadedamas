@@ -1232,6 +1232,17 @@ model Profession {
   @@map("professions")
 }
 
+model ServiceCatalog {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  category  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("service_catalog")
+}
+
 // ─── SUPPLIERS ──────────────────────────────────────
 
 model Supplier {

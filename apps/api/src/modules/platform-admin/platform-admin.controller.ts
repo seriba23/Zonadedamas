@@ -127,6 +127,28 @@ export class PlatformAdminController {
     return { data };
   }
 
+  // ─── SERVICE CATALOG ─────────────────────────────────
+
+  @Get('service-catalog')
+  async getServiceCatalog() {
+    return this.adminService.getServiceCatalog();
+  }
+
+  @Post('service-catalog')
+  async createServiceCatalogItem(@Body() body: { name: string; category?: string }) {
+    return this.adminService.createServiceCatalogItem(body.name, body.category);
+  }
+
+  @Patch('service-catalog/:id')
+  async updateServiceCatalogItem(@Param('id') id: string, @Body() body: { name?: string; category?: string }) {
+    return this.adminService.updateServiceCatalogItem(id, body);
+  }
+
+  @Delete('service-catalog/:id')
+  async deleteServiceCatalogItem(@Param('id') id: string) {
+    return this.adminService.deleteServiceCatalogItem(id);
+  }
+
   // ─── PROFESSIONS CATALOG ────────────────────────────
 
   @Get('professions')
