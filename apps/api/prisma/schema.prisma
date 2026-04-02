@@ -1234,12 +1234,13 @@ model Profession {
 
 model ServiceCatalog {
   id        String   @id @default(uuid())
-  name      String   @unique
+  name      String
   category  String?
   isActive  Boolean  @default(true) @map("is_active")
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@unique([name, category])
   @@map("service_catalog")
 }
 
