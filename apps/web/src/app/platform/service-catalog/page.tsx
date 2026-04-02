@@ -112,22 +112,17 @@ export default function ServiceCatalogPage() {
       </div>
 
       {/* Filter by category */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-        <button
-          onClick={() => setFilterCategory('')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${!filterCategory ? 'bg-[#008080] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+      <div className="mb-4">
+        <select
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          Todos
-        </button>
-        {allCategories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFilterCategory(filterCategory === cat ? '' : cat)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterCategory === cat ? 'bg-[#008080] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-          >
-            {cat} ({grouped[cat]?.length || 0})
-          </button>
-        ))}
+          <option value="">Todas las categorías</option>
+          {allCategories.map((cat) => (
+            <option key={cat} value={cat}>{cat} ({grouped[cat]?.length || 0})</option>
+          ))}
+        </select>
       </div>
 
       {/* List grouped by category */}
