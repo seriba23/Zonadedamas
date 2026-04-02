@@ -68,7 +68,8 @@ export default function ProfessionalsPage() {
     const bgColor = pro.color || TEAL;
     const hasCover = !!pro.coverImageUrl;
     const isNew = pro._count.appointments < 10;
-    const shortId = pro.id.slice(0, 6).toUpperCase();
+    const numericId = parseInt(pro.id.replace(/-/g, '').slice(0, 8), 16) % 1000000;
+    const shortId = String(numericId).padStart(6, '0');
 
     return (
       <Link
@@ -107,10 +108,30 @@ export default function ProfessionalsPage() {
               )}
             </div>
 
-            {/* ID badge */}
-            <span className="text-[9px] font-mono text-white/60 bg-black/30 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-              #{shortId}
-            </span>
+            <div className="flex items-center gap-1.5">
+              {/* ID badge */}
+              <span className="text-[9px] font-mono text-white/60 bg-black/30 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                #{shortId}
+              </span>
+
+              {/* Heart */}
+              {isAuthenticated && (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm relative z-10"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="#6b7280"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Bottom: name, job, business, stats */}

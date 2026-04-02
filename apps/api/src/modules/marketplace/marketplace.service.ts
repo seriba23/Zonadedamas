@@ -911,11 +911,11 @@ export class MarketplaceService {
     };
 
     if (search) {
+      const cleanSearch = search.replace('#', '').trim();
       where.OR = [
-        { id: { startsWith: search.toLowerCase().replace('#', '') } },
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { jobTitle: { contains: search } },
+        { firstName: { contains: cleanSearch } },
+        { lastName: { contains: cleanSearch } },
+        { jobTitle: { contains: cleanSearch } },
       ];
     }
 
