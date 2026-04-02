@@ -1034,7 +1034,7 @@ export default function RegisterPage() {
                   </svg>
                 ) : s}
               </div>
-              {s < 3 && <div className={`w-12 h-0.5 ${s < step ? 'bg-primary-600' : 'bg-gray-200'}`} />}
+              {s < 2 && <div className={`w-12 h-0.5 ${s < step ? 'bg-primary-600' : 'bg-gray-200'}`} />}
             </div>
           ))}
         </div>
