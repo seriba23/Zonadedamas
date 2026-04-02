@@ -168,48 +168,72 @@ export default function ProfessionalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 safe-top">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 pt-12 pb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold text-gray-900">Profesionales</h1>
-        </div>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header — identical to negocios */}
+      <div className="bg-gray-50 px-4 pt-4 pb-2 safe-top">
+        <div className="max-w-2xl mx-auto">
+          {/* Search */}
+          <div className="relative mb-3">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Nombre, especialidad o ID..."
+              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ ['--tw-ring-color' as any]: '#008080' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
+            />
+          </div>
 
-        {/* Search */}
-        <div className="relative mb-3">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Nombre, especialidad o ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-200 transition-colors"
-          />
-        </div>
-
-        {/* Filter pills */}
-        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {isAuthenticated && (
+          {/* Filter bar */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+            {/* Disponible ahora */}
             <button
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex-shrink-0"
-              style={showFavoritesOnly
-                ? { backgroundColor: '#e0f2f1', color: TEAL, fontWeight: 600 }
-                : { backgroundColor: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}
+              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
+              style={{ backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }}
             >
-              <svg className="w-3.5 h-3.5" fill={showFavoritesOnly ? TEAL : 'none'} stroke={showFavoritesOnly ? TEAL : 'currentColor'} viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
               </svg>
-              Favoritos
+              Disponible ahora
             </button>
-          )}
+
+            {/* Especialidad */}
+            <button
+              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
+              style={{ backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+              </svg>
+              Especialidad
+            </button>
+
+            {/* Favoritos */}
+            {isAuthenticated && (
+              <button
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                style={showFavoritesOnly
+                  ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                <svg className="w-4 h-4" fill={showFavoritesOnly ? 'white' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Results */}
-      <div className="px-4 py-4">
+      {/* Cards */}
+      <div className="max-w-2xl mx-auto w-full px-4 pt-2 pb-24">
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3">
             {[1, 2, 3, 4].map((i) => (
