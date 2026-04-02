@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { EmployeesService } from './employees.service';
@@ -156,6 +157,78 @@ export class EmployeesController {
   ) {
     const employee = await this.employeesService.findOne(id, tenantId);
     return { data: employee };
+  }
+
+  // Admin access: grant/revoke admin modules to employee
+  @Post(':id/admin-access')
+  @RequirePermissions('roles.update')
+  async grantAdminAccess(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @Body() body: { modules: string[] },
+  ) {
+    const employee = await this.employeesService.findOne(id, tenantId);
+    if (!employee.userId) throw new BadRequestException('Empleado sin cuenta de usuario');
+
+    // Get all permissions for the selected modules
+    const permissions = await this.prisma.permission.findMany({
+      where: { module: { in: body.modules } },
+    });
+
+    // Find or create "Ayudante" role for this tenant
+    let helperRole = await this.prisma.role.findFirst({
+      where: { tenantId, name: 'Ayudante' },
+    });
+
+    if (helperRole) {
+      // Clear existing permissions
+      await this.prisma.rolePermission.deleteMany({ where: { roleId: helperRole.id } });
+    } else {
+      helperRole = await this.prisma.role.create({
+        data: { tenantId, name: 'Ayudante', slug: 'helper', description: 'Acceso parcial a la administracion' },
+      });
+    }
+
+    // Assign new permissions
+    if (permissions.length > 0) {
+      await this.prisma.rolePermission.createMany({
+        data: permissions.map((p) => ({ roleId: helperRole!.id, permissionId: p.id })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Assign role to user if not already
+    const existing = await this.prisma.userRole.findFirst({
+      where: { userId: employee.userId, roleId: helperRole.id, tenantId },
+    });
+    if (!existing) {
+      await this.prisma.userRole.create({
+        data: { userId: employee.userId!, roleId: helperRole.id, tenantId },
+      });
+    }
+
+    return { data: { message: 'Acceso de administrador actualizado' } };
+  }
+
+  @Delete(':id/admin-access')
+  @RequirePermissions('roles.update')
+  async revokeAdminAccess(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const employee = await this.employeesService.findOne(id, tenantId);
+    if (!employee.userId) return { data: { message: 'OK' } };
+
+    const helperRole = await this.prisma.role.findFirst({
+      where: { tenantId, name: 'Ayudante' },
+    });
+    if (helperRole) {
+      await this.prisma.userRole.deleteMany({
+        where: { userId: employee.userId, roleId: helperRole.id, tenantId },
+      });
+    }
+
+    return { data: { message: 'Acceso de administrador revocado' } };
   }
 
   // Self-edit: employee updates their own profile (no employees.update needed)

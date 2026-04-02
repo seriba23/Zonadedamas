@@ -34,6 +34,19 @@ interface Role {
   isSystem: boolean;
 }
 
+const ADMIN_MODULES = [
+  { key: 'appointments', label: 'Calendario', desc: 'Ver y gestionar citas' },
+  { key: 'clients', label: 'Clientes', desc: 'Gestionar directorio de clientes' },
+  { key: 'services', label: 'Servicios', desc: 'Configurar servicios y precios' },
+  { key: 'employees', label: 'Personal', desc: 'Gestionar empleados y horarios' },
+  { key: 'reports', label: 'Reportes', desc: 'Ver estadisticas e ingresos' },
+  { key: 'inventory', label: 'Inventario', desc: 'Productos y proveedores' },
+  { key: 'promotions', label: 'Promociones', desc: 'Cupones y ofertas' },
+  { key: 'rewards', label: 'Recompensas', desc: 'Programa de fidelidad' },
+  { key: 'resources', label: 'Recursos', desc: 'Salas y equipamiento' },
+  { key: 'locations', label: 'Sucursales', desc: 'Gestionar ubicaciones' },
+];
+
 type PermissionsSection = 'roles' | 'ausencias';
 
 export function EmployeePermissions({
@@ -47,6 +60,8 @@ export function EmployeePermissions({
   const [activeSection, setActiveSection] = useState<PermissionsSection>('roles');
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [adminModules, setAdminModules] = useState<Set<string>>(new Set());
+  const [savingAdmin, setSavingAdmin] = useState(false);
 
   const { data: rolesData, isLoading: loadingRoles } = useQuery({
     queryKey: ['employee-roles', employeeId],
@@ -110,8 +125,120 @@ export function EmployeePermissions({
     {} as Record<string, Permission[]>,
   );
 
+  // Detect if employee has admin-like role (not staff/readonly)
+  const hasAdminRole = (employeeRoles?.roles || []).some(
+    (r) => r.roleSlug === 'admin' || r.roleSlug === 'manager' || r.roleSlug === 'owner' || r.roleName === 'Ayudante',
+  );
+  const helperRole = (employeeRoles?.roles || []).find((r) => r.roleName === 'Ayudante');
+
+  // Initialize admin modules from existing helper role
+  useState(() => {
+    if (helperRole) {
+      const mods = new Set(helperRole.permissions.map((p) => p.module));
+      setAdminModules(mods);
+    }
+  });
+
+  function toggleModule(mod: string) {
+    setAdminModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(mod)) next.delete(mod);
+      else next.add(mod);
+      return next;
+    });
+  }
+
+  async function saveAdminAccess(enable: boolean) {
+    if (!employeeRoles?.userId) return;
+    setSavingAdmin(true);
+    try {
+      if (enable && adminModules.size > 0) {
+        await api.post(`/api/employees/${employeeId}/admin-access`, {
+          modules: Array.from(adminModules),
+        });
+      } else {
+        await api.delete(`/api/employees/${employeeId}/admin-access`);
+        setAdminModules(new Set());
+      }
+      queryClient.invalidateQueries({ queryKey: ['employee-roles', employeeId] });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingAdmin(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* ─── Admin Access Section ─── */}
+      {canManage && employeeRoles?.userId && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-semibold text-gray-900">Convertir en administrador</h3>
+              {hasAdminRole && (
+                <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">Activo</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              Permite que este empleado acceda a la consola de administrador con los modulos que selecciones.
+              Podra cambiar entre su vista de empleado y la de administrador sin cerrar sesion.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ADMIN_MODULES.map((mod) => {
+                const isOn = adminModules.has(mod.key);
+                return (
+                  <label
+                    key={mod.key}
+                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${
+                      isOn ? 'bg-teal-50 border-teal-200' : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className={`text-sm font-medium ${isOn ? 'text-teal-800' : 'text-gray-700'}`}>{mod.label}</p>
+                      <p className="text-[11px] text-gray-400">{mod.desc}</p>
+                    </div>
+                    <div className="relative flex-shrink-0 ml-3">
+                      <input
+                        type="checkbox"
+                        checked={isOn}
+                        onChange={() => toggleModule(mod.key)}
+                        className="sr-only peer"
+                      />
+                      <div className={`w-10 h-5.5 rounded-full transition-colors ${isOn ? 'bg-[#008080]' : 'bg-gray-200'}`} style={{ height: 22 }} />
+                      <div className={`absolute top-0.5 w-4.5 h-4.5 bg-white rounded-full shadow transition-transform ${isOn ? 'translate-x-5' : 'translate-x-0.5'}`} style={{ width: 18, height: 18 }} />
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              {adminModules.size > 0 && (
+                <button
+                  onClick={() => saveAdminAccess(true)}
+                  disabled={savingAdmin}
+                  className="px-5 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50 transition-colors"
+                  style={{ backgroundColor: '#008080' }}
+                >
+                  {savingAdmin ? 'Guardando...' : hasAdminRole ? 'Actualizar acceso' : 'Habilitar acceso'}
+                </button>
+              )}
+              {hasAdminRole && (
+                <button
+                  onClick={() => saveAdminAccess(false)}
+                  disabled={savingAdmin}
+                  className="px-5 py-2 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  Quitar acceso de administrador
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sub-navigation */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
         {([
