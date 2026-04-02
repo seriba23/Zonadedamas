@@ -252,6 +252,23 @@ export class MarketplaceController {
     return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
   }
 
+  @Get('professionals')
+  async discoverProfessionals(
+    @Query('search') search?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('perPage') perPage?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.marketplaceService.discoverProfessionals({
+      search,
+      lat: lat ? parseFloat(lat) : undefined,
+      lng: lng ? parseFloat(lng) : undefined,
+      perPage: perPage ? parseInt(perPage, 10) : 30,
+      page: page ? parseInt(page, 10) : 1,
+    });
+  }
+
   @Get('professional/:tenantSlug/:employeeId')
   async getProfessionalProfile(
     @Param('tenantSlug') tenantSlug: string,

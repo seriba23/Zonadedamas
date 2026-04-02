@@ -892,6 +892,85 @@ export class MarketplaceService {
 
   // ─── PROFESSIONAL PROFILE (public) ─────────────────────
 
+  async discoverProfessionals(dto: {
+    search?: string;
+    lat?: number;
+    lng?: number;
+    perPage?: number;
+    page?: number;
+  }) {
+    const { search, perPage = 30, page = 1 } = dto;
+    const skip = (page - 1) * perPage;
+
+    const where: any = {
+      isActive: true,
+      tenant: {
+        isMarketplaceListed: true,
+        subscriptionStatus: { in: ['active', 'ACTIVE', 'TRIAL'] },
+      },
+    };
+
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { jobTitle: { contains: search } },
+      ];
+    }
+
+    const [employees, total] = await Promise.all([
+      this.prisma.employee.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          coverImageUrl: true,
+          color: true,
+          bio: true,
+          jobTitle: true,
+          tenant: {
+            select: { name: true, slug: true, address: true },
+          },
+          _count: {
+            select: { appointments: true, reviews: true },
+          },
+        },
+      }),
+      this.prisma.employee.count({ where }),
+    ]);
+
+    // Enrich with ratings
+    const enriched = await Promise.all(
+      employees.map(async (emp) => {
+        const ratingAgg = await this.prisma.employeeReview.aggregate({
+          where: { employeeId: emp.id, isVisible: true },
+          _avg: { rating: true },
+          _count: { id: true },
+        });
+        return {
+          ...emp,
+          businessName: emp.tenant.name,
+          tenantSlug: emp.tenant.slug,
+          address: emp.tenant.address,
+          averageRating: ratingAgg._avg.rating
+            ? Math.round(ratingAgg._avg.rating * 10) / 10
+            : null,
+          totalReviews: ratingAgg._count.id,
+        };
+      }),
+    );
+
+    return {
+      data: enriched,
+      meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
+    };
+  }
+
   async getProfessionalProfile(tenantSlug: string, employeeId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: tenantSlug },
