@@ -61,7 +61,9 @@ export function EmployeePermissions({
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
   const [adminModules, setAdminModules] = useState<Set<string>>(new Set());
+  const [savedModules, setSavedModules] = useState<Set<string>>(new Set());
   const [savingAdmin, setSavingAdmin] = useState(false);
+  const [adminSuccess, setAdminSuccess] = useState('');
 
   const { data: rolesData, isLoading: loadingRoles } = useQuery({
     queryKey: ['employee-roles', employeeId],
@@ -136,6 +138,7 @@ export function EmployeePermissions({
     if (helperRole) {
       const mods = new Set(helperRole.permissions.map((p) => p.module));
       setAdminModules(mods);
+      setSavedModules(mods);
     }
   });
 
@@ -148,19 +151,33 @@ export function EmployeePermissions({
     });
   }
 
+  // Check if there are unsaved changes
+  const hasChanges = (() => {
+    if (adminModules.size !== savedModules.size) return true;
+    for (const m of adminModules) if (!savedModules.has(m)) return true;
+    return false;
+  })();
+
   async function saveAdminAccess(enable: boolean) {
     if (!employeeRoles?.userId) return;
     setSavingAdmin(true);
+    setAdminSuccess('');
     try {
       if (enable && adminModules.size > 0) {
         await api.post(`/api/employees/${employeeId}/admin-access`, {
           modules: Array.from(adminModules),
         });
+        const names = ADMIN_MODULES.filter((m) => adminModules.has(m.key)).map((m) => m.label);
+        setAdminSuccess(`Acceso a: ${names.join(', ')} agregado con exito`);
+        setSavedModules(new Set(adminModules));
       } else {
         await api.delete(`/api/employees/${employeeId}/admin-access`);
         setAdminModules(new Set());
+        setSavedModules(new Set());
+        setAdminSuccess('Acceso de administrador revocado');
       }
       queryClient.invalidateQueries({ queryKey: ['employee-roles', employeeId] });
+      setTimeout(() => setAdminSuccess(''), 5000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -214,8 +231,17 @@ export function EmployeePermissions({
               })}
             </div>
 
+            {adminSuccess && (
+              <div className="mt-4 flex items-center gap-2 text-sm text-[#008080] bg-teal-50 border border-teal-100 rounded-xl px-4 py-2.5">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {adminSuccess}
+              </div>
+            )}
+
             <div className="flex gap-3 mt-4">
-              {adminModules.size > 0 && (
+              {hasChanges && adminModules.size > 0 && (
                 <button
                   onClick={() => saveAdminAccess(true)}
                   disabled={savingAdmin}
@@ -224,6 +250,9 @@ export function EmployeePermissions({
                 >
                   {savingAdmin ? 'Guardando...' : hasAdminRole ? 'Actualizar acceso' : 'Habilitar acceso'}
                 </button>
+              )}
+              {hasAdminRole && !hasChanges && (
+                <p className="text-xs text-gray-400 mt-1">Sin cambios pendientes</p>
               )}
               {hasAdminRole && (
                 <button
@@ -239,29 +268,11 @@ export function EmployeePermissions({
         </div>
       )}
 
-      {/* Sub-navigation */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-        {([
-          { key: 'roles' as PermissionsSection, label: 'Roles' },
-          { key: 'ausencias' as PermissionsSection, label: 'Ausencias' },
-        ]).map((section) => (
-          <button
-            key={section.key}
-            type="button"
-            onClick={() => setActiveSection(section.key)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              activeSection === section.key
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {section.label}
-          </button>
-        ))}
-      </div>
+      {/* Section: Ausencias */}
+      <EmployeeTimeOffEditor employeeId={employeeId} />
 
-      {/* Section: Roles */}
-      {activeSection === 'roles' && (
+      {/* Roles section hidden — V2 in super admin */}
+      {false && (
         <>
           {loadingRoles ? (
             <div className="space-y-3">
@@ -445,10 +456,6 @@ export function EmployeePermissions({
         </>
       )}
 
-      {/* Section: Ausencias */}
-      {activeSection === 'ausencias' && (
-        <EmployeeTimeOffEditor employeeId={employeeId} />
-      )}
     </div>
   );
 }
