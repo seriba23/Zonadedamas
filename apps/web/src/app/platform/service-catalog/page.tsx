@@ -11,15 +11,17 @@ interface CatalogItem {
   isActive: boolean;
 }
 
-const CATEGORIES = ['Cabello', 'Barbería', 'Rostro', 'Cuerpo', 'Uñas', 'Otro'];
+const DEFAULT_CATEGORIES = ['Cabello', 'Barbería', 'Rostro', 'Cuerpo', 'Uñas'];
 
 export default function ServiceCatalogPage() {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState('');
+  const [newCustomCategory, setNewCustomCategory] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-service-catalog'],
@@ -46,6 +48,13 @@ export default function ServiceCatalogPage() {
 
   const items = data || [];
 
+  // All unique categories (default + from data)
+  const existingCategories = [...new Set(items.map((i) => i.category).filter(Boolean) as string[])];
+  const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...existingCategories])].sort((a, b) => a.localeCompare(b, 'es'));
+
+  // Resolve new category (custom or selected)
+  const resolvedNewCategory = newCategory === '__custom__' ? newCustomCategory.trim() : newCategory;
+
   // Group by category
   const grouped = items.reduce<Record<string, CatalogItem[]>>((acc, item) => {
     const cat = item.category || 'Sin categoría';
@@ -53,7 +62,9 @@ export default function ServiceCatalogPage() {
     acc[cat].push(item);
     return acc;
   }, {});
-  const sortedCategories = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'es'));
+  const sortedCategories = Object.keys(grouped)
+    .filter((cat) => !filterCategory || cat === filterCategory)
+    .sort((a, b) => a.localeCompare(b, 'es'));
 
   return (
     <div>
@@ -61,31 +72,62 @@ export default function ServiceCatalogPage() {
       <p className="text-sm text-gray-500 mb-6">Los negocios solo pueden ofrecer servicios de este catalogo. Esto evita duplicados y mantiene la busqueda organizada.</p>
 
       {/* Add new */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex gap-3 flex-wrap">
-        <input
-          type="text"
-          placeholder="Nombre del servicio..."
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) createMutation.mutate({ name: newName.trim(), category: newCategory || undefined }); }}
-          className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        />
-        <select
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="">Categoría</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
+        <div className="flex gap-3 flex-wrap">
+          <input
+            type="text"
+            placeholder="Nombre del servicio..."
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim() && resolvedNewCategory) createMutation.mutate({ name: newName.trim(), category: resolvedNewCategory }); }}
+            className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <select
+            value={newCategory}
+            onChange={(e) => { setNewCategory(e.target.value); if (e.target.value !== '__custom__') setNewCustomCategory(''); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">Categoría</option>
+            {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value="__custom__">+ Nueva categoría</option>
+          </select>
+          {newCategory === '__custom__' && (
+            <input
+              type="text"
+              placeholder="Nombre de la categoría..."
+              value={newCustomCategory}
+              onChange={(e) => setNewCustomCategory(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[160px]"
+            />
+          )}
+          <button
+            onClick={() => { if (newName.trim() && resolvedNewCategory) createMutation.mutate({ name: newName.trim(), category: resolvedNewCategory }); }}
+            disabled={!newName.trim() || !resolvedNewCategory || createMutation.isPending}
+            className="px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: '#008080' }}
+          >
+            {createMutation.isPending ? 'Agregando...' : 'Agregar'}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter by category */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         <button
-          onClick={() => { if (newName.trim()) createMutation.mutate({ name: newName.trim(), category: newCategory || undefined }); }}
-          disabled={!newName.trim() || createMutation.isPending}
-          className="px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
-          style={{ backgroundColor: '#008080' }}
+          onClick={() => setFilterCategory('')}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${!filterCategory ? 'bg-[#008080] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
         >
-          {createMutation.isPending ? 'Agregando...' : 'Agregar'}
+          Todos
         </button>
+        {allCategories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setFilterCategory(filterCategory === cat ? '' : cat)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterCategory === cat ? 'bg-[#008080] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            {cat} ({grouped[cat]?.length || 0})
+          </button>
+        ))}
       </div>
 
       {/* List grouped by category */}
@@ -115,7 +157,7 @@ export default function ServiceCatalogPage() {
                         />
                         <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
                           <option value="">Sin categoría</option>
-                          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                          {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                         <button onClick={() => updateMutation.mutate({ id: item.id, name: editName.trim(), category: editCategory || undefined })} disabled={updateMutation.isPending} className="px-3 py-1.5 text-xs font-medium text-white rounded-lg" style={{ backgroundColor: '#008080' }}>Guardar</button>
                         <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg">Cancelar</button>
