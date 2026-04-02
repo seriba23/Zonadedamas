@@ -539,7 +539,7 @@ export default function EmployeeSettingsPage() {
           </div>
 
           <button
-            onClick={() => { logout(); router.push('/login'); }}
+            onClick={() => { logout(); router.push('/'); }}
             className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-red-50 transition-colors"
           >
             <div>

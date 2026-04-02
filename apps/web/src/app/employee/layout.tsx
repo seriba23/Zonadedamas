@@ -419,7 +419,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
+      router.replace('/');
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -445,7 +445,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       <DeactivatedScreen
         user={user}
         tenantName={user.tenantName || 'la empresa'}
-        onLogout={async () => { await logout(); router.replace('/login'); }}
+        onLogout={async () => { await logout(); router.replace('/'); }}
         onSuccess={() => { window.location.href = '/employee'; }}
       />
     );

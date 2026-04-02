@@ -59,7 +59,7 @@ class ApiClient {
         return retry.json();
       }
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = '/';
       }
       throw new Error('Sesión expirada');
     }
@@ -171,7 +171,7 @@ class ApiClient {
         return retry.json();
       }
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = '/';
       }
       throw new Error('Sesión expirada');
     }
@@ -218,7 +218,7 @@ class ApiClient {
         return retry.json();
       }
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = '/';
       }
       throw new Error('Sesión expirada');
     }

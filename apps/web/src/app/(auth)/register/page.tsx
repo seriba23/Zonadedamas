@@ -550,7 +550,7 @@ export default function RegisterPage() {
 
           <p className="text-center mt-6 text-sm text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
               Iniciar sesión
             </Link>
           </p>
@@ -614,7 +614,7 @@ export default function RegisterPage() {
 
           <p className="text-center mt-6 text-sm text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
               Iniciar sesión
             </Link>
           </p>
@@ -824,7 +824,7 @@ export default function RegisterPage() {
 
           <p className="text-center mt-6 text-sm text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
+            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
           </p>
         </div>
 
@@ -1004,7 +1004,7 @@ export default function RegisterPage() {
 
           <p className="text-center mt-6 text-sm text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
+            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
           </p>
         </div>
       </div>
@@ -1316,7 +1316,7 @@ export default function RegisterPage() {
 
         <p className="text-center mt-6 text-sm text-gray-500">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
+          <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
         </p>
       </div>
     </div>

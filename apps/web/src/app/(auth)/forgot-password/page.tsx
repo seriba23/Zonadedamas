@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
                   : <>Si existe una cuenta con <span className="font-medium text-gray-700">{sentValue}</span>, recibirás un enlace para restablecer tu contraseña.</>
                 }
               </p>
-              <Link href="/login" className="btn-primary inline-block px-6 py-2.5">
+              <Link href="/" className="btn-primary inline-block px-6 py-2.5">
                 Volver al inicio de sesión
               </Link>
             </div>
@@ -156,7 +156,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <p className="text-center mt-6 text-sm text-gray-500">
-          <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+          <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
             Volver al inicio de sesión
           </Link>
         </p>
