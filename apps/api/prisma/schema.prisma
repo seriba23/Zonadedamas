@@ -1220,6 +1220,18 @@ model MarketplaceProfessionalFavorite {
   @@map("marketplace_professional_favorites")
 }
 
+// ─── PROFESSION CATALOG ────────────────────────────
+
+model Profession {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("professions")
+}
+
 // ─── SUPPLIERS ──────────────────────────────────────
 
 model Supplier {

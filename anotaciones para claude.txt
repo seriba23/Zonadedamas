@@ -1,0 +1,57 @@
+La forma en la que se observa en http://localhost:3000/marketplace las categorias como Todos, Salon, Barberia, SPA, Clinica me gustan, quiero que guardes en tu base de conocimiento que cuando pida botones tipo capsula uses ese diseño. 
+
+
+
+
+El proyecto completo de zona de damas esta pensado para ser competencia directa de la app fresha. 
+La idea es tener un market con todos los negocios afiliados a la aplicacion, tener 4 tipos de portales de acceso:
+
+-Superadmin Este usuario y herramientas me permitirian administrar la aplicacion, los negocios que estan afiliados, ver pagos pendientes de su licenciamiento, gestionar a las empresas y una seccion para brindarles soporte tecnico. 
+
+- portal para gerentes de empresas, donde puedan gestionar absolutamente todo su negocio, inventarios, citas, personal, proveedores, clientes, promociones, servicios. 
+
+- portal de empleados de los negocios donde pueden ver sus citas, cantidad de servicios que han realizado, pedir permisos como vacaciones entre otros, ver sus comiciones y una galeria con los trabajos que han hecho asi como su calificacion como profesionistas, importante tener una seccion de comentarios de los clientes. 
+
+
+- portal para usuario final o consumidor que llamaremos cliente. Este portal le permita ver su foto de perfil, ver sus
+  ultimos servicios, la cantidad de puntos que han generado por hacerse servicios, la cantidad de servicios que se han realizado, una seccion con proximas citas, una seccion con las citas pasadas y lo mas
+   importante para el flujo de esta aplicacion una especie de galeria, donde por categorias se muestren fotografias de los ultimos servicios que les han realizado, por ejemplo si una persona se realizo un
+   servicio de uñas de color, al entrar a su perfil puede entrar a Galeria y ahi tener su seccion de "uñas" donde pueda ver 1 foto de cada servicio de esa categoria que se ha realizado, para ello  es
+  importante que en el flujo de que el profesional que realizo el servicio pueda concluir con el servicio debe añadir una foto obligatoria. Por otro lado, analisa el proyecto ya que en este momento
+  estamos trabajando con los clientes pero ya trabajamos con los negocios y con mi consola de administrador para que en la marketplace ya este todo conectado con nuestro negocio de pruebas.
+
+
+Quiero que analyses mi proyecto actual, que es lo que llevamos, cuanto % llevamos concluido, que nos hace falta, cual es el camino a seguir para convertirnos en una aplicacion movil para Andorid y IOS ademas de funcionar en la WEB y quiero que dentro de la carpeta de archivo crees un documento de contexto para que puedas leerlo y llevemos un seguimiento puntual del proyecto sin volver a comenzar. 
+
+
+
+
+al subir imagenes como portada y como foto de perfil debe permitirme ajustarlas en una previsualizacion. 
+en "Tipo de negocio" hazlo como un selector multiple ya que un negocio puede ser un Salon y una barberia a la vez. entre otras cosas. a la hora de solicitar la direccion quiero que busques direcciones oficiales tipo droplist como lo hace google maps para seleccionar la correcta. 
+Tambien es importante considerar que un negocio puede tener varias sucursales por lo que cada negocio debe poder añadir y gestionar sucursales independientes. En la marketplace debe salir como sucursales independientes, tal cual en uber eats cuando se busca un negocio en el marketplace aparece como 1 solo negocio sin embargo debe mostrar que hay varias sucursales y sugerir la mas cercana. 
+
+
+
+en la "tarjeta" de los salones la foto de perfil hazla redonda, el doble de grande y con un Z index superior para que sea lo mas arriba en la tarjeta
+
+
+
+
+
+Cuando subo una foto del resultado debe permitirme una seleccion multiple de maximo 3 fotos. en cualquier tipo de servicio.
+
+
+Cuando quiero agregar otro servicio dentro de una cita como empleado me dice que Sin espacio despues de la cita. Proxima disponibilidad: cuando en el calendario no hay nada agendado, por ejemplo tengo una cita programada para el 4 de marzo del 2026 de 12 a 12:35 si quiero meter un servicio de Hari Color de duracion 90 minutos me dice que no hay disponibilidad cuando si deberia haberla.
+
+
+Cuando completamos el servicio no hay ninguna confirmacion ni resumen. 
+
+
+
+En el div: <div class="grid grid-cols-3 gap-3"><div class="bg-white rounded-xl border border-gray-200 p-4 text-center"><p class="text-2xl font-bold" style="color: rgb(0, 128, 128);">600</p><p class="text-xs text-gray-500 mt-1">Puntos</p></div><button class="rounded-xl border p-4 text-center transition-all" style="background-color: white; border-color: rgb(229, 231, 235);"><p class="text-2xl font-bold" style="color: rgb(0, 128, 128);">1</p><p class="text-xs text-gray-500 mt-1">Servicios</p></button><button class="rounded-xl p-4 text-center transition-colors text-white" style="background-color: rgb(0, 128, 128);"><svg class="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z"></path></svg><p class="text-xs font-medium">Galeria</p></button></div>
+
+
+como cliente Cuando ingreso por ejemplo a Servios y luego entro a Galeria el apartado de galeria se queda abierto y tengo que cerrarlo manualmente, quiero que cambies ese comportamiento para que cuando selecciono servicios no aparezca "proximas citas" ni "Mis cupones". cuando cambie a la vista de galeria solamente muestrame los filtros y las fotos.  en la seccion de puntos quiero que se muestren cupones de los lugares a donde he ido priorizando aquelles que valen menos puntos para que me incentive a conseguir mas puntos. 
+
+Como cliente al querer reservar una cita, selecciono el o los servicios despues el profesional, al seleccionar el profesional deberia mostrarme en el calendario las horas que tiene ocupadas y las horas disponibles segun el calendario del profesional ademas de que si los servicios que tome por ejemplo juntos suman "90 minutos"  la seccion de horarios disponibles debe mostrarme un bloque de 90 minutos que yo pueda arrastrar manualmente al horario que quiera, por ultimo en la confirmacion, añade la cantidad de puntos que ganare con esos servicios,  una foto del profesional en vez del circulo y Tambien el nombre del salon por encima del profesional ya que eso no aparece. igual en el resumen  final donde se muestra el mensaje de reserva confirmada muestrame el nombre del lugar donde me realizare el servicio y la cantidad de puntos ganados. 
+

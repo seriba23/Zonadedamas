@@ -892,6 +892,15 @@ export class MarketplaceService {
 
   // ─── PROFESSIONAL PROFILE (public) ─────────────────────
 
+  async getProfessions() {
+    const professions = await this.prisma.profession.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { name: true },
+    });
+    return { data: professions.map((p) => p.name) };
+  }
+
   async toggleProfessionalFavorite(marketplaceUserId: string, employeeId: string) {
     const existing = await this.prisma.marketplaceProfessionalFavorite.findUnique({
       where: { marketplaceUserId_employeeId: { marketplaceUserId, employeeId } },

@@ -6,13 +6,7 @@ import { api } from '@/lib/api';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 
-const JOB_SUGGESTIONS: Record<string, string[]> = {
-  SALON: ['Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Recepcionista'],
-  BARBERIA: ['Barbero', 'Recepcionista'],
-  SPA: ['Masajista', 'Esteticista', 'Terapeuta', 'Recepcionista'],
-  CLINICA: ['Médico', 'Enfermera', 'Médico Estético', 'Recepcionista'],
-  TATUAJES: ['Tatuador', 'Piercer', 'Artista', 'Recepcionista'],
-};
+// Profesiones se cargan del catálogo centralizado
 
 interface InviteCode {
   id: string;
@@ -64,10 +58,17 @@ export default function InviteCodesPage() {
     },
   });
 
+  const { data: professionsData } = useQuery({
+    queryKey: ['professions-catalog'],
+    queryFn: async () => {
+      const res = await api.get<{ data: string[] }>('/api/marketplace/professions');
+      return res.data;
+    },
+  });
+
   const services: Service[] = Array.isArray(servicesData) ? servicesData : [];
   const hasServices = services.length > 0;
-  const businessType = (tenantData as any)?.businessType?.split(',')[0] || '';
-  const jobSuggestions = JOB_SUGGESTIONS[businessType] || ['Estilista', 'Recepcionista'];
+  const jobSuggestions: string[] = Array.isArray(professionsData) ? professionsData : ((professionsData as any)?.data || []);
 
   const createMutation = useMutation({
     mutationFn: (data: { jobTitle?: string; serviceIds?: string[] }) =>

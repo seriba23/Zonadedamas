@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Param,
   Query,
   Body,
@@ -124,5 +125,22 @@ export class PlatformAdminController {
   ) {
     const data = await this.adminService.deactivateEmployee(tenantId, employeeId, dto.strategy);
     return { data };
+  }
+
+  // ─── PROFESSIONS CATALOG ────────────────────────────
+
+  @Get('professions')
+  async getProfessions() {
+    return this.adminService.getProfessions();
+  }
+
+  @Post('professions')
+  async createProfession(@Body() body: { name: string }) {
+    return this.adminService.createProfession(body.name);
+  }
+
+  @Delete('professions/:id')
+  async deleteProfession(@Param('id') id: string) {
+    return this.adminService.deleteProfession(id);
   }
 }

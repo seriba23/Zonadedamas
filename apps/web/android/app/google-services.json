@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1066902066484",
+    "project_id": "siliba",
+    "storage_bucket": "siliba.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1066902066484:android:5653da12c48b675a430161",
+        "android_client_info": {
+          "package_name": "com.siliba.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1066902066484-05321juc7659473sc59gg1kdridebqia.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXd4r8hSEG8G53FJu-gYZxrQ66RobiylQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1066902066484-05321juc7659473sc59gg1kdridebqia.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

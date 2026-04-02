@@ -465,4 +465,25 @@ export class PlatformAdminService {
       'platform-admin',
     );
   }
+
+  // ─── PROFESSIONS CATALOG ────────────────────────────
+
+  async getProfessions() {
+    const professions = await this.prisma.profession.findMany({
+      orderBy: { name: 'asc' },
+    });
+    return { data: professions };
+  }
+
+  async createProfession(name: string) {
+    const profession = await this.prisma.profession.create({
+      data: { name: name.trim() },
+    });
+    return { data: profession };
+  }
+
+  async deleteProfession(id: string) {
+    await this.prisma.profession.delete({ where: { id } });
+    return { data: { message: 'Profesion eliminada' } };
+  }
 }

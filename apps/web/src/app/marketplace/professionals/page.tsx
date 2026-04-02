@@ -52,6 +52,12 @@ export default function ProfessionalsPage() {
     }
   }, []);
 
+  const { data: professionsData } = useQuery({
+    queryKey: ['professions-catalog'],
+    queryFn: () => marketplaceApi.get<{ data: string[] }>('/professions'),
+  });
+  const professions: string[] = (professionsData as any)?.data || [];
+
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-professionals', debouncedSearch, filterJobTitle, coords?.lat, coords?.lng],
     queryFn: () => {
@@ -319,7 +325,7 @@ export default function ProfessionalsPage() {
               >
                 Todas las profesiones
               </button>
-              {['Barbero', 'Estilista', 'Colorista', 'Manicurista', 'Pedicurista', 'Masajista', 'Esteticista', 'Terapeuta', 'Tatuador', 'Piercer'].map((job) => (
+              {(professions || []).map((job: string) => (
                 <button
                   key={job}
                   onClick={() => { setFilterJobTitle(job); setShowJobSheet(false); }}
