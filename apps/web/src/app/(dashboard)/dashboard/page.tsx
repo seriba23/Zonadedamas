@@ -89,9 +89,7 @@ export default function DashboardPage() {
   const needsBusinessHours = businessHours.length === 0 || businessHours.every((h: any) => !h.isOpen);
   const needsServices = services.length === 0;
   const needsEmployees = employees.length <= 1;
-  const employeesWithoutSchedule = employees.filter((e: any) => e.id && e.isActive).length > 1
-    ? employees.filter((e: any) => e.isActive && (!e.schedules || e.schedules.length === 0 || e.schedules.every((s: any) => !s.isWorking)))
-    : [];
+  const employeesWithoutSchedule = employees.filter((e: any) => e.isActive && (!e.schedules || e.schedules.length === 0 || e.schedules.every((s: any) => !s.isWorking)));
   const needsEmployeeSchedules = employeesWithoutSchedule.length > 0;
 
   const showSetupWizard = needsBusinessProfile || needsBusinessHours || needsServices || needsEmployees || needsEmployeeSchedules;

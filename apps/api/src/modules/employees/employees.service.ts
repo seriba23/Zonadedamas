@@ -99,6 +99,7 @@ export class EmployeesService {
         include: {
           location: { select: { id: true, name: true } },
           employeeServices: { include: { service: { select: { id: true, name: true } } } },
+          schedules: { select: { isWorking: true } },
           _count: { select: { appointments: true } },
         },
       }),
