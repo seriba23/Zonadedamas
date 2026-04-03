@@ -86,7 +86,7 @@ export default function DashboardPage() {
   const businessHours = businessHoursData?.data || [];
 
   const needsBusinessProfile = business && !business.description && !business.logoUrl;
-  const needsBusinessHours = businessHours.length === 0 || businessHours.every((h: any) => !h.isWorking);
+  const needsBusinessHours = businessHours.length === 0 || businessHours.every((h: any) => !h.isOpen);
   const needsServices = services.length === 0;
   const needsEmployees = employees.length <= 1;
   const employeesWithoutSchedule = employees.filter((e: any) => e.id && e.isActive).length > 1
