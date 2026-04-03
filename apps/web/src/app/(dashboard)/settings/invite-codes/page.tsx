@@ -300,7 +300,7 @@ export default function InviteCodesPage() {
                   <p className="text-xs text-amber-600 mt-1.5">Selecciona al menos un servicio para el empleado</p>
                 )}
                 <a
-                  href="/services?new=true"
+                  href="/services?new=true&returnTo=invite-codes"
                   target="_blank"
                   className="inline-flex items-center gap-1 text-xs text-[#008080] font-medium mt-2 hover:underline"
                 >

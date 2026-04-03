@@ -103,6 +103,11 @@ export default function ServicesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       closeModal();
+      // If opened from invite-codes, close this tab
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo === 'invite-codes') {
+        window.close();
+      }
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al guardar el servicio');
