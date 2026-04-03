@@ -299,6 +299,16 @@ export default function InviteCodesPage() {
                 {selectedServiceIds.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1.5">Selecciona al menos un servicio para el empleado</p>
                 )}
+                <a
+                  href="/services?new=true"
+                  target="_blank"
+                  className="inline-flex items-center gap-1 text-xs text-[#008080] font-medium mt-2 hover:underline"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Crear nuevo servicio
+                </a>
               </div>
 
               {/* Usos */}
