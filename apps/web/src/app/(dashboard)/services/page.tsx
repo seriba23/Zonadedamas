@@ -241,101 +241,89 @@ export default function ServicesPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services.map((service) => (
-              <div
-                key={service.id}
-                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-xl flex-shrink-0"
-                      style={{ backgroundColor: service.color || '#008080' }}
-                    />
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-sm">
-                        {service.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {service.subcategory && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-600">
-                            {service.subcategory}
-                          </span>
-                        )}
-                        {!service.isActive && (
-                          <span className="text-xs text-gray-400">Inactivo</span>
-                        )}
+          <div className="space-y-6">
+            {(() => {
+              // Group services by category/profession
+              const grouped: Record<string, Service[]> = {};
+              const uncategorized: Service[] = [];
+              services.forEach((s) => {
+                const cat = s.subcategory || s.category;
+                if (cat) {
+                  if (!grouped[cat]) grouped[cat] = [];
+                  grouped[cat].push(s);
+                } else {
+                  uncategorized.push(s);
+                }
+              });
+              const sortedCats = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'es'));
+              if (uncategorized.length > 0) sortedCats.push('Otros');
+
+              return sortedCats.map((cat) => {
+                const catServices = cat === 'Otros' ? uncategorized : grouped[cat];
+                return (
+                  <div key={cat}>
+                    {/* Category header */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#008080' }}>
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.193 23.193 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">{cat}</h3>
+                        <p className="text-[11px] text-gray-400">{catServices.length} servicio{catServices.length !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {hasPermission('services.update') && (
-                      <button
-                        onClick={() => openEdit(service)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
-                        title="Editar"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                    )}
-                    {hasPermission('services.delete') && (
-                      <button
-                        onClick={() => { if (confirm(`¿Eliminar "${service.name}"?`)) deleteMutation.mutate(service.id); }}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"
-                        title="Eliminar"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
 
-                {service.description && (
-                  <p className="text-xs text-gray-500 mb-3 line-clamp-2">
-                    {service.description}
-                  </p>
-                )}
+                    {/* Services list */}
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-50">
+                      {catServices.map((service) => (
+                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors">
+                          {/* Name + description */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{service.name}</p>
+                            {service.description && (
+                              <p className="text-xs text-gray-400 truncate">{service.description}</p>
+                            )}
+                          </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span className="text-xs">{service.durationMinutes} min</span>
+                          {/* Duration */}
+                          <div className="flex items-center gap-1 text-gray-400 flex-shrink-0">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-xs">{service.durationMinutes}min</span>
+                          </div>
+
+                          {/* Price */}
+                          <span className={`text-sm font-semibold flex-shrink-0 ${Number(service.price) === 0 ? 'text-amber-500' : 'text-gray-900'}`}>
+                            {Number(service.price) === 0 ? 'Sin precio' : formatCurrency(service.price)}
+                          </span>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            {hasPermission('services.update') && (
+                              <button onClick={() => openEdit(service)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700" title="Editar">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            )}
+                            {hasPermission('services.delete') && (
+                              <button onClick={() => { if (confirm(`¿Eliminar "${service.name}"?`)) deleteMutation.mutate(service.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Eliminar">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {service.depositRequired && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-50 text-blue-700">
-                        Dep. {service.depositPercent}%
-                      </span>
-                    )}
-                    {service.redeemableWithPoints && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-50 text-amber-700">
-                        {service.pointsRequired} pts
-                      </span>
-                    )}
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(service.price)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+                );
+              });
+            })()}
           </div>
         )}
       </div>
