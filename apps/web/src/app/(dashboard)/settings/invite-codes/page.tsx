@@ -66,9 +66,23 @@ export default function InviteCodesPage() {
     },
   });
 
+  const { data: catalogData } = useQuery({
+    queryKey: ['service-catalog-invite'],
+    queryFn: async () => {
+      const res = await api.get<{ data: { name: string; category: string | null }[] }>('/api/marketplace/service-catalog');
+      return res.data;
+    },
+  });
+  const catalogItems: { name: string; category: string | null }[] = (catalogData as any)?.data || [];
+
   const services: Service[] = Array.isArray(servicesData) ? servicesData : [];
   const hasServices = services.length > 0;
   const jobSuggestions: string[] = Array.isArray(professionsData) ? professionsData : ((professionsData as any)?.data || []);
+
+  // Filter catalog services by selected job title (profession)
+  const catalogServicesForJob = jobTitle && jobTitle !== '__custom__'
+    ? catalogItems.filter((s) => s.category === jobTitle)
+    : catalogItems;
 
   const createMutation = useMutation({
     mutationFn: (data: { jobTitle?: string; serviceIds?: string[] }) =>
@@ -283,8 +297,12 @@ export default function InviteCodesPage() {
                   Servicios que puede realizar
                 </label>
                 <p className="text-xs text-gray-400 mb-2">Puedes modificar esto después desde el perfil del empleado</p>
+                {!jobTitle && (
+                  <p className="text-xs text-gray-400 mb-2">Selecciona primero un puesto para ver los servicios disponibles</p>
+                )}
                 <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-52 overflow-y-auto">
-                  {services.map((svc) => (
+                  {/* Business services that match */}
+                  {services.filter((svc) => !jobTitle || catalogServicesForJob.some((c) => c.name === svc.name)).map((svc) => (
                     <label key={svc.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50">
                       <input
                         type="checkbox"
@@ -295,8 +313,13 @@ export default function InviteCodesPage() {
                       <span className="text-sm text-gray-700">{svc.name}</span>
                     </label>
                   ))}
+                  {services.filter((svc) => !jobTitle || catalogServicesForJob.some((c) => c.name === svc.name)).length === 0 && jobTitle && (
+                    <div className="px-4 py-3 text-xs text-gray-400 text-center">
+                      No tienes servicios de {jobTitle} creados aun
+                    </div>
+                  )}
                 </div>
-                {selectedServiceIds.length === 0 && (
+                {selectedServiceIds.length === 0 && services.length > 0 && (
                   <p className="text-xs text-amber-600 mt-1.5">Selecciona al menos un servicio para el empleado</p>
                 )}
                 <a
