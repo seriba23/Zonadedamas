@@ -62,18 +62,39 @@ export default function DashboardPage() {
 
   const { data: businessData } = useQuery({
     queryKey: ['tenant-setup-check'],
-    queryFn: () => api.get<{ description: string | null; logoUrl: string | null; locations: { address: string | null }[] }>('/api/tenants/me'),
+    queryFn: () => api.get<any>('/api/tenants/current'),
   });
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees-count'],
-    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=2'),
+    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100'),
+  });
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-count'],
+    queryFn: () => api.get<{ data: any[] }>('/api/services'),
+  });
+
+  const { data: businessHoursData } = useQuery({
+    queryKey: ['business-hours-check'],
+    queryFn: () => api.get<{ data: any[] }>('/api/tenant/business-hours'),
   });
 
   const business = businessData?.data as any;
+  const employees = employeesData?.data || [];
+  const services = servicesData?.data || [];
+  const businessHours = businessHoursData?.data || [];
+
   const needsBusinessProfile = business && !business.description && !business.logoUrl;
-  const needsEmployees = employeesData?.data && Array.isArray(employeesData.data) && employeesData.data.length <= 1;
-  const showSetupWizard = needsBusinessProfile || needsEmployees;
+  const needsBusinessHours = businessHours.length === 0 || businessHours.every((h: any) => !h.isWorking);
+  const needsServices = services.length === 0;
+  const needsEmployees = employees.length <= 1;
+  const employeesWithoutSchedule = employees.filter((e: any) => e.id && e.isActive).length > 1
+    ? employees.filter((e: any) => e.isActive && (!e.schedules || e.schedules.length === 0 || e.schedules.every((s: any) => !s.isWorking)))
+    : [];
+  const needsEmployeeSchedules = employeesWithoutSchedule.length > 0;
+
+  const showSetupWizard = needsBusinessProfile || needsBusinessHours || needsServices || needsEmployees || needsEmployeeSchedules;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['reports', 'today'],
@@ -107,9 +128,11 @@ export default function DashboardPage() {
           {/* Steps timeline */}
           <div className="bg-white px-6 py-5">
             {[
-              { done: !needsBusinessProfile, label: 'Completa el perfil de tu negocio', desc: 'Agrega descripcion, logo y foto de portada', href: '/settings/business' },
-              { done: !needsEmployees, label: 'Invita a tus empleados', desc: 'Genera un codigo de invitacion para que se unan', href: '/settings/invite-codes' },
-              { done: false, label: 'Crea tus servicios', desc: 'Configura los servicios que ofreces a tus clientes', href: '/services?new=true' },
+              { done: !needsBusinessProfile, label: 'Completa el perfil de tu negocio', desc: 'Agrega descripcion, logo, foto de portada y datos del negocio', href: '/settings/business' },
+              { done: !needsBusinessHours, label: 'Configura tu horario de atencion', desc: 'Define los dias y horas en que tu negocio esta abierto', href: '/settings/business' },
+              { done: !needsServices, label: 'Crea tu primer servicio', desc: 'Configura los servicios que ofreces a tus clientes', href: '/services?new=true' },
+              { done: !needsEmployees, label: 'Invita a tu equipo', desc: 'Genera un codigo de invitacion para que tus empleados se unan', href: '/settings/invite-codes' },
+              { done: !needsEmployeeSchedules, label: 'Configura horarios del equipo', desc: needsEmployeeSchedules ? `${employeesWithoutSchedule.length} empleado(s) sin horario configurado` : 'Todos los empleados tienen horario', href: employees.length > 1 ? `/staff/${employeesWithoutSchedule[0]?.id || ''}` : '/staff' },
             ].map((step, i, arr) => {
               const isLast = i === arr.length - 1;
               const prevDone = i === 0 || arr[i - 1].done;
