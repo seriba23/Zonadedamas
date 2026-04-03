@@ -70,12 +70,12 @@ export default function InviteCodesPage() {
   const { data: catalogData } = useQuery({
     queryKey: ['service-catalog-invite'],
     queryFn: async () => {
-      const res = await api.get<{ data: { name: string; category: string | null }[] }>('/api/marketplace/service-catalog');
-      return res.data;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/marketplace/service-catalog`);
+      const json = await res.json();
+      return json.data as { name: string; category: string | null }[];
     },
   });
-  const rawCatalog = catalogData as any;
-  const catalogItems: { name: string; category: string | null }[] = rawCatalog?.data?.data || rawCatalog?.data || [];
+  const catalogItems: { name: string; category: string | null }[] = catalogData || [];
 
   const services: Service[] = Array.isArray(servicesData) ? servicesData : [];
   const hasServices = services.length > 0;
