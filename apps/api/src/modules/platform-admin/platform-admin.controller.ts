@@ -166,6 +166,16 @@ export class PlatformAdminController {
     return this.adminService.updateServiceCatalogItem(id, body);
   }
 
+  @Patch('service-catalog/rename-category')
+  async renameServiceCategory(@Body() body: { oldName: string; newName: string }) {
+    return this.adminService.renameServiceCategory(body.oldName, body.newName);
+  }
+
+  @Delete('service-catalog/category/:name')
+  async deleteServiceCategory(@Param('name') name: string) {
+    return this.adminService.deleteServiceCategory(decodeURIComponent(name));
+  }
+
   @Delete('service-catalog/:id')
   async deleteServiceCatalogItem(@Param('id') id: string) {
     return this.adminService.deleteServiceCatalogItem(id);

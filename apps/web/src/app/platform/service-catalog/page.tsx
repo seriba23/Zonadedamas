@@ -22,6 +22,8 @@ export default function ServiceCatalogPage() {
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-service-catalog'],
@@ -44,6 +46,26 @@ export default function ServiceCatalogPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => platformApi.delete(`/api/platform/service-catalog/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] }),
+  });
+
+  const renameCategoryMutation = useMutation({
+    mutationFn: ({ oldName, newName }: { oldName: string; newName: string }) =>
+      platformApi.patch('/api/platform/service-catalog/rename-category', { oldName, newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] });
+      setEditingCategory(null);
+      setEditCategoryName('');
+      if (filterCategory === editingCategory) setFilterCategory('');
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (categoryName: string) =>
+      platformApi.delete(`/api/platform/service-catalog/category/${encodeURIComponent(categoryName)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] });
+      setFilterCategory('');
+    },
   });
 
   const items = data || [];
@@ -111,8 +133,8 @@ export default function ServiceCatalogPage() {
         </div>
       </div>
 
-      {/* Filter by category */}
-      <div className="mb-4">
+      {/* Filter by category + edit/delete */}
+      <div className="mb-4 flex items-center gap-3 flex-wrap">
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
@@ -123,6 +145,46 @@ export default function ServiceCatalogPage() {
             <option key={cat} value={cat}>{cat} ({grouped[cat]?.length || 0})</option>
           ))}
         </select>
+
+        {filterCategory && editingCategory === filterCategory ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={editCategoryName}
+              onChange={(e) => setEditCategoryName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && editCategoryName.trim()) renameCategoryMutation.mutate({ oldName: filterCategory, newName: editCategoryName.trim() }); if (e.key === 'Escape') setEditingCategory(null); }}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080]"
+              autoFocus
+            />
+            <button
+              onClick={() => renameCategoryMutation.mutate({ oldName: filterCategory, newName: editCategoryName.trim() })}
+              disabled={!editCategoryName.trim() || renameCategoryMutation.isPending}
+              className="px-3 py-1.5 text-xs font-medium text-white rounded-lg"
+              style={{ backgroundColor: '#008080' }}
+            >
+              Guardar
+            </button>
+            <button onClick={() => setEditingCategory(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg">
+              Cancelar
+            </button>
+          </div>
+        ) : filterCategory ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setEditingCategory(filterCategory); setEditCategoryName(filterCategory); }}
+              className="text-xs text-[#008080] font-medium hover:underline"
+            >
+              Editar categoría
+            </button>
+            <button
+              onClick={() => { if (confirm(`¿Eliminar la categoría "${filterCategory}" y todos sus ${grouped[filterCategory]?.length || 0} servicios?`)) deleteCategoryMutation.mutate(filterCategory); }}
+              disabled={deleteCategoryMutation.isPending}
+              className="text-xs text-red-500 font-medium hover:underline disabled:opacity-50"
+            >
+              Eliminar categoría
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* List grouped by category */}

@@ -530,6 +530,32 @@ export class PlatformAdminService {
     return { data: item };
   }
 
+  async renameServiceCategory(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    const result = await this.prisma.serviceCatalog.updateMany({
+      where: { category: oldName },
+      data: { category: trimmed },
+    });
+    // Also update the profession if it matches
+    await this.prisma.profession.updateMany({
+      where: { name: oldName },
+      data: { name: trimmed },
+    });
+    // Update employees with old jobTitle
+    await this.prisma.employee.updateMany({
+      where: { jobTitle: oldName },
+      data: { jobTitle: trimmed },
+    });
+    return { data: { message: `Categoría renombrada: ${oldName} → ${trimmed}`, servicesUpdated: result.count } };
+  }
+
+  async deleteServiceCategory(name: string) {
+    const result = await this.prisma.serviceCatalog.deleteMany({
+      where: { category: name },
+    });
+    return { data: { message: `Categoría "${name}" eliminada`, servicesDeleted: result.count } };
+  }
+
   async deleteServiceCatalogItem(id: string) {
     await this.prisma.serviceCatalog.delete({ where: { id } });
     return { data: { message: 'Servicio eliminado del catalogo' } };
