@@ -7,6 +7,7 @@ interface CoverCropModalProps {
   onAccept: (croppedFile: File) => void;
   onCancel: () => void;
   onChooseAnother: () => void;
+  aspect?: 'landscape' | 'portrait';
 }
 
 export function CoverCropModal({
@@ -14,6 +15,7 @@ export function CoverCropModal({
   onAccept,
   onCancel,
   onChooseAnother,
+  aspect = 'portrait',
 }: CoverCropModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -25,13 +27,12 @@ export function CoverCropModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Preview dimensions (9:16 aspect ratio — mobile portrait)
-  const PREVIEW_W = 270;
-  const PREVIEW_H = 480;
-
-  // Output dimensions
-  const OUTPUT_W = 720;
-  const OUTPUT_H = 1280;
+  // Preview & output dimensions based on aspect
+  const isLandscape = aspect === 'landscape';
+  const PREVIEW_W = isLandscape ? 420 : 270;
+  const PREVIEW_H = isLandscape ? 150 : 480;
+  const OUTPUT_W = isLandscape ? 1200 : 720;
+  const OUTPUT_H = isLandscape ? 430 : 1280;
 
   // Load the image
   useEffect(() => {
@@ -161,7 +162,7 @@ export function CoverCropModal({
           Ajustar portada
         </h3>
         <p className="text-xs text-gray-400 text-center mb-4">
-          Tamaño recomendado: 720 x 1280 px (vertical)
+          Tamaño recomendado: {isLandscape ? '1200 x 430 px (horizontal)' : '720 x 1280 px (vertical)'}
         </p>
 
         {/* Rectangular preview */}

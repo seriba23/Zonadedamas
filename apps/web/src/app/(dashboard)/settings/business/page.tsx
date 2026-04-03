@@ -561,6 +561,7 @@ export default function BusinessSettingsPage() {
       {pendingCoverFile && (
         <CoverCropModal
           imageFile={pendingCoverFile}
+          aspect="landscape"
           onAccept={(croppedFile) => {
             setPendingCoverFile(null);
             coverMutation.mutate(croppedFile);
