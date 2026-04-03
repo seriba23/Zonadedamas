@@ -40,12 +40,8 @@ interface ServiceForm {
   pointsRequired: number | string;
 }
 
-const DEFAULT_CATEGORIES = [
-  'Afeitado Clásico', 'Barba', 'Cejas y Pestañas', 'Coloración',
-  'Corte', 'Depilación', 'Faciales', 'Manicure y Pedicure',
-  'Maquillaje', 'Masajes', 'Medicina Estética', 'Otros',
-  'Peinados y Styling', 'Piercing', 'Tatuajes', 'Tratamientos Capilares',
-];
+// No defaults — categories come from service catalog (professions)
+const DEFAULT_CATEGORIES: string[] = [];
 
 const defaultForm: ServiceForm = {
   name: '',
@@ -345,7 +341,7 @@ export default function ServicesPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoria *
+                Profesión *
               </label>
               <select
                 value={form.catalogCategory}
@@ -353,7 +349,7 @@ export default function ServicesPage() {
                 className="input-field"
                 required
               >
-                <option value="">Seleccionar categoria...</option>
+                <option value="">Seleccionar profesión...</option>
                 {[...new Set(catalogItems.map((i) => i.category).filter(Boolean) as string[])]
                   .sort((a, b) => a.localeCompare(b, 'es'))
                   .map((cat) => (
@@ -373,7 +369,7 @@ export default function ServicesPage() {
                 required
                 disabled={!form.catalogCategory}
               >
-                <option value="">{form.catalogCategory ? 'Seleccionar servicio...' : 'Primero selecciona una categoria'}</option>
+                <option value="">{form.catalogCategory ? 'Seleccionar servicio...' : 'Primero selecciona una profesión'}</option>
                 {catalogItems
                   .filter((i) => i.category === form.catalogCategory)
                   .sort((a, b) => a.name.localeCompare(b.name, 'es'))

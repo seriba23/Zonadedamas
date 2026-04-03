@@ -11,7 +11,8 @@ interface CatalogItem {
   isActive: boolean;
 }
 
-const DEFAULT_CATEGORIES = ['Cabello', 'Barbería', 'Rostro', 'Cuerpo', 'Uñas'];
+// No defaults — categories come from professions in DB
+const DEFAULT_CATEGORIES: string[] = [];
 
 export default function ServiceCatalogPage() {
   const queryClient = useQueryClient();
