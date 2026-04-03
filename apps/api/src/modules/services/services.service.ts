@@ -99,7 +99,7 @@ export class ServicesService {
         serviceResources: { include: { resource: true } },
         employeeServices: {
           include: {
-            employee: { select: { id: true, firstName: true, lastName: true } },
+            employee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true, jobTitle: true, isActive: true } },
           },
         },
       },

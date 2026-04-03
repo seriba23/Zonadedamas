@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
@@ -59,6 +59,7 @@ const defaultForm: ServiceForm = {
 
 export default function ServicesPage() {
   const { hasPermission } = usePermissions();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -278,7 +279,7 @@ export default function ServicesPage() {
                     {/* Services list */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-50">
                       {catServices.map((service) => (
-                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors">
+                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => router.push(`/services/${service.id}`)}>
                           {/* Name + description */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900">{service.name}</p>
