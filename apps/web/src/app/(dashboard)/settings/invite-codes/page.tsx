@@ -74,7 +74,8 @@ export default function InviteCodesPage() {
       return res.data;
     },
   });
-  const catalogItems: { name: string; category: string | null }[] = (catalogData as any)?.data || [];
+  const rawCatalog = catalogData as any;
+  const catalogItems: { name: string; category: string | null }[] = rawCatalog?.data?.data || rawCatalog?.data || [];
 
   const services: Service[] = Array.isArray(servicesData) ? servicesData : [];
   const hasServices = services.length > 0;
