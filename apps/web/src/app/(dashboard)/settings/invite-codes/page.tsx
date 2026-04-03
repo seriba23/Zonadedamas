@@ -29,8 +29,9 @@ export default function InviteCodesPage() {
   const queryClient = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [jobTitle, setJobTitle] = useState('');
+  const [jobTitles, setJobTitles] = useState<string[]>([]);
   const [customJobTitle, setCustomJobTitle] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [maxUses, setMaxUses] = useState<number>(1);
 
@@ -79,9 +80,9 @@ export default function InviteCodesPage() {
   const hasServices = services.length > 0;
   const jobSuggestions: string[] = Array.isArray(professionsData) ? professionsData : ((professionsData as any)?.data || []);
 
-  // Filter catalog services by selected job title (profession)
-  const catalogServicesForJob = jobTitle && jobTitle !== '__custom__'
-    ? catalogItems.filter((s) => s.category === jobTitle)
+  // Filter catalog services by selected job titles (professions)
+  const catalogServicesForJob = jobTitles.length > 0
+    ? catalogItems.filter((s) => jobTitles.includes(s.category || ''))
     : catalogItems;
 
   const createMutation = useMutation({
@@ -90,8 +91,9 @@ export default function InviteCodesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-codes'] });
       setShowModal(false);
-      setJobTitle('');
+      setJobTitles([]);
       setCustomJobTitle('');
+      setShowCustomInput(false);
       setSelectedServiceIds([]);
       setMaxUses(1);
     },
@@ -118,8 +120,12 @@ export default function InviteCodesPage() {
     );
   }
 
+  function toggleJobTitle(title: string) {
+    setJobTitles((prev) => prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]);
+  }
+
   function handleSubmitCreate() {
-    const finalJobTitle = jobTitle === '__custom__' ? customJobTitle.trim() : jobTitle.trim();
+    const finalJobTitle = jobTitles.length > 0 ? jobTitles.join(', ') : customJobTitle.trim();
     createMutation.mutate({
       jobTitle: finalJobTitle || undefined,
       serviceIds: selectedServiceIds.length > 0 ? selectedServiceIds : undefined,
@@ -248,19 +254,20 @@ export default function InviteCodesPage() {
                 </button>
               </div>
 
-              {/* Puesto */}
+              {/* Puestos (multi-select) */}
               <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del puesto
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Profesión(es)
                 </label>
+                <p className="text-xs text-gray-400 mb-2">Puedes seleccionar más de una</p>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {jobSuggestions.map((s) => (
                     <button
                       key={s}
                       type="button"
-                      onClick={() => { setJobTitle(s); setCustomJobTitle(''); }}
+                      onClick={() => { toggleJobTitle(s); setShowCustomInput(false); setCustomJobTitle(''); }}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                        jobTitle === s
+                        jobTitles.includes(s)
                           ? 'bg-[#008080] text-white'
                           : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
@@ -270,9 +277,9 @@ export default function InviteCodesPage() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setJobTitle('__custom__')}
+                    onClick={() => setShowCustomInput(!showCustomInput)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      jobTitle === '__custom__'
+                      showCustomInput
                         ? 'bg-[#008080] text-white'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
@@ -280,7 +287,7 @@ export default function InviteCodesPage() {
                     + Personalizado
                   </button>
                 </div>
-                {jobTitle === '__custom__' && (
+                {showCustomInput && (
                   <input
                     type="text"
                     value={customJobTitle}
@@ -297,29 +304,46 @@ export default function InviteCodesPage() {
                   Servicios que puede realizar
                 </label>
                 <p className="text-xs text-gray-400 mb-2">Puedes modificar esto después desde el perfil del empleado</p>
-                {!jobTitle && (
-                  <p className="text-xs text-gray-400 mb-2">Selecciona primero un puesto para ver los servicios disponibles</p>
+                {jobTitles.length === 0 && (
+                  <p className="text-xs text-gray-400 mb-2">Selecciona primero una profesión para ver los servicios disponibles</p>
                 )}
-                <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-52 overflow-y-auto">
-                  {/* Business services that match */}
-                  {services.filter((svc) => !jobTitle || catalogServicesForJob.some((c) => c.name === svc.name)).map((svc) => (
-                    <label key={svc.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={selectedServiceIds.includes(svc.id)}
-                        onChange={() => toggleService(svc.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
-                      />
-                      <span className="text-sm text-gray-700">{svc.name}</span>
-                    </label>
-                  ))}
-                  {services.filter((svc) => !jobTitle || catalogServicesForJob.some((c) => c.name === svc.name)).length === 0 && jobTitle && (
-                    <div className="px-4 py-3 text-xs text-gray-400 text-center">
-                      No tienes servicios de {jobTitle} creados aun
-                    </div>
+                <div className="border border-gray-200 rounded-xl max-h-60 overflow-y-auto">
+                  {jobTitles.length > 0 ? (
+                    <>
+                      {jobTitles.sort((a, b) => a.localeCompare(b, 'es')).map((prof) => {
+                        const profServices = catalogServicesForJob.filter((c) => c.category === prof);
+                        return (
+                          <div key={prof}>
+                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 sticky top-0">
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{prof}</span>
+                            </div>
+                            {profServices.length > 0 ? profServices.sort((a, b) => a.name.localeCompare(b.name, 'es')).map((catalogSvc) => {
+                              const bizService = services.find((s) => s.name === catalogSvc.name);
+                              return (
+                                <label key={`${prof}-${catalogSvc.name}`} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 border-b border-gray-50 ${!bizService ? 'opacity-40' : ''}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={bizService ? selectedServiceIds.includes(bizService.id) : false}
+                                    onChange={() => bizService && toggleService(bizService.id)}
+                                    disabled={!bizService}
+                                    className="h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080] disabled:opacity-30"
+                                  />
+                                  <span className="text-sm text-gray-700">{catalogSvc.name}</span>
+                                  {!bizService && <span className="text-[10px] text-gray-400 ml-auto">No creado</span>}
+                                </label>
+                              );
+                            }) : (
+                              <div className="px-4 py-3 text-xs text-gray-400 text-center border-b border-gray-50">Sin servicios en catálogo</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <div className="px-4 py-6 text-xs text-gray-400 text-center">Selecciona una profesión arriba</div>
                   )}
                 </div>
-                {selectedServiceIds.length === 0 && services.length > 0 && (
+                {selectedServiceIds.length === 0 && jobTitles.length > 0 && (
                   <p className="text-xs text-amber-600 mt-1.5">Selecciona al menos un servicio para el empleado</p>
                 )}
                 <a
