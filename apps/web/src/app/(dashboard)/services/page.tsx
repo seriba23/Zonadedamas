@@ -73,7 +73,7 @@ export default function ServicesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['services'],
-    queryFn: () => api.get<{ data: Service[] }>('/api/services'),
+    queryFn: () => api.get<{ data: Service[] }>('/api/services?perPage=200'),
   });
 
   // Auto-populate from catalog if no services exist
