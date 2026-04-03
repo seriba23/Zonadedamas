@@ -40,6 +40,10 @@ export class CreateServiceDto {
   color?: string;
 
   @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -103,6 +107,10 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsString()
   color?: string;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @IsOptional()
   @IsBoolean()
