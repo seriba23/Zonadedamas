@@ -26,6 +26,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Inicio', href: '/dashboard', icon: '🏠' },
+  { label: 'Reportes', href: '/reports', icon: '📊', permission: 'reports.revenue' },
   { label: 'Calendario', href: '/calendar', icon: '📅', permission: 'appointments.read' },
   { label: 'Clientes', href: '/clients', icon: '👥', permission: 'clients.read' },
   { label: 'Servicios', href: '/services', icon: '✂️', permission: 'services.read' },

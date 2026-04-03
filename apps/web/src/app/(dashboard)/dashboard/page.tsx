@@ -161,89 +161,22 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {isLoading && <LoadingSkeleton />}
-      {isError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 text-sm">
-          No se pudieron cargar los datos del dashboard. Intenta de nuevo.
+      {/* When setup is complete, redirect to reports */}
+      {!showSetupWizard && !isLoading && (
+        <div className="text-center py-12">
+          <svg className="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-gray-900 font-semibold mb-1">Tu negocio esta configurado</p>
+          <p className="text-sm text-gray-500 mb-4">Consulta tus estadisticas en Reportes</p>
+          <button
+            onClick={() => router.push('/reports')}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
+            style={{ backgroundColor: '#008080' }}
+          >
+            Ir a Reportes
+          </button>
         </div>
-      )}
-
-      {report && (
-        <>
-          {/* Today KPI cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              }
-              label="Citas hoy"
-              value={report.today.appointments.toString()}
-              color="teal"
-            />
-            <KpiCard
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
-              }
-              label="Ingresos hoy"
-              value={formatCurrency(report.today.revenue)}
-              color="teal"
-            />
-            <KpiCard
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-              }
-              label="Pagos hoy"
-              value={report.today.payments.toString()}
-              color="teal"
-            />
-          </div>
-
-          {/* Month KPI cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              }
-              label="Citas del mes"
-              value={report.month.appointments.toString()}
-              color="light"
-            />
-            <KpiCard
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              }
-              label="Ingresos del mes"
-              value={formatCurrency(report.month.revenue)}
-              color="light"
-            />
-            <KpiCard
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-              }
-              label="Tasa no-show"
-              value={`${report.month.noShowRate.toFixed(1)}%`}
-              color="light"
-            />
-          </div>
-
-          {/* Last 7 days chart + Upcoming appointments */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Last7DaysChart days={report.last7Days} />
-            <UpcomingAppointments appointments={report.upcomingAppointments} />
-          </div>
-        </>
       )}
     </div>
   );
