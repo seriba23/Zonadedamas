@@ -129,7 +129,7 @@ export default function DashboardPage() {
           <div className="bg-white px-6 py-5">
             {[
               { done: !needsBusinessProfile, label: 'Completa el perfil de tu negocio', desc: 'Agrega descripcion, logo, foto de portada y datos del negocio', href: '/settings/business' },
-              { done: !needsBusinessHours, label: 'Configura tu horario de atencion', desc: 'Define los dias y horas en que tu negocio esta abierto', href: '/settings/business' },
+              { done: !needsBusinessHours, label: 'Configura tu horario de atencion', desc: 'Define los dias y horas en que tu negocio esta abierto', href: '/settings/hours' },
               { done: !needsServices, label: 'Crea tu primer servicio', desc: 'Configura los servicios que ofreces a tus clientes', href: '/services?new=true' },
               { done: !needsEmployees, label: 'Invita a tu equipo', desc: 'Genera un codigo de invitacion para que tus empleados se unan', href: '/settings/invite-codes' },
               { done: !needsEmployeeSchedules, label: 'Configura horarios del equipo', desc: needsEmployeeSchedules ? `${employeesWithoutSchedule.length} empleado(s) sin horario configurado` : 'Todos los empleados tienen horario', href: employees.length > 1 ? `/staff/${employeesWithoutSchedule[0]?.id || ''}` : '/staff' },

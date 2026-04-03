@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
@@ -58,6 +59,7 @@ function formatDateEs(dateStr: string): string {
 }
 
 export default function BusinessHoursPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [hours, setHours] = useState<BusinessHour[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -107,7 +109,9 @@ export default function BusinessHoursPage() {
       api.put('/api/tenant/business-hours', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['business-hours'] });
+      queryClient.invalidateQueries({ queryKey: ['business-hours-check'] });
       setHasChanges(false);
+      router.push('/dashboard');
     },
   });
 
