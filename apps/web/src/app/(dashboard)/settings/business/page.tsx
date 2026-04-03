@@ -9,11 +9,12 @@ import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-const BUSINESS_TYPES = [
+const FALLBACK_BIZ_TYPES = [
   { value: 'SALON', label: 'Salón' },
   { value: 'BARBERIA', label: 'Barbería' },
   { value: 'SPA', label: 'SPA' },
   { value: 'CLINICA', label: 'Clínica' },
+  { value: 'TATUAJES', label: 'Tatuajes' },
 ];
 
 function parseTypes(csv: string): string[] {
@@ -24,14 +25,17 @@ function formatTypes(types: string[]): string {
   return types.join(',');
 }
 
-function getTypeLabel(value: string): string {
-  return BUSINESS_TYPES.find((t) => t.value === value)?.label || value;
-}
-
 export default function BusinessSettingsPage() {
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: bizTypesData } = useQuery({
+    queryKey: ['business-types-catalog'],
+    queryFn: () => api.get<{ data: { value: string; label: string }[] }>('/api/marketplace/business-types'),
+  });
+  const BUSINESS_TYPES = (bizTypesData as any)?.data || FALLBACK_BIZ_TYPES;
+  const getTypeLabel = (value: string) => BUSINESS_TYPES.find((t: any) => t.value === value)?.label || value;
 
   const [form, setForm] = useState({
     name: '',
