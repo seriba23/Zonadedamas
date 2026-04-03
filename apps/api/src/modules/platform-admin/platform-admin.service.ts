@@ -469,22 +469,22 @@ export class PlatformAdminService {
   // ─── BUSINESS TYPES ──────────────────────────────────
 
   async getBusinessTypes() {
-    const types = await this.prisma.businessType.findMany({ orderBy: { sortOrder: 'asc' } });
+    const types = await this.prisma.businessTypeCatalog.findMany({ orderBy: { sortOrder: 'asc' } });
     return { data: types };
   }
 
   async createBusinessType(value: string, label: string) {
-    const item = await this.prisma.businessType.create({
+    const item = await this.prisma.businessTypeCatalog.create({
       data: { value: value.toUpperCase().trim(), label: label.trim() },
     });
     return { data: item };
   }
 
   async updateBusinessType(id: string, body: { value?: string; label?: string }) {
-    const old = await this.prisma.businessType.findUnique({ where: { id } });
+    const old = await this.prisma.businessTypeCatalog.findUnique({ where: { id } });
     if (!old) throw new NotFoundException('Tipo de negocio no encontrado');
 
-    const updated = await this.prisma.businessType.update({
+    const updated = await this.prisma.businessTypeCatalog.update({
       where: { id },
       data: {
         ...(body.value !== undefined && { value: body.value.toUpperCase().trim() }),
@@ -501,7 +501,7 @@ export class PlatformAdminService {
   }
 
   async deleteBusinessType(id: string) {
-    await this.prisma.businessType.delete({ where: { id } });
+    await this.prisma.businessTypeCatalog.delete({ where: { id } });
     return { data: { message: 'Tipo de negocio eliminado' } };
   }
 

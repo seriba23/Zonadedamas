@@ -1222,7 +1222,7 @@ model MarketplaceProfessionalFavorite {
 
 // ─── BUSINESS TYPE CATALOG ─────────────────────────
 
-model BusinessType {
+model BusinessTypeCatalog {
   id        String   @id @default(uuid())
   value     String   @unique
   label     String
@@ -1230,7 +1230,7 @@ model BusinessType {
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("business_types")
+  @@map("business_type_catalog")
 }
 
 // ─── PROFESSION CATALOG ────────────────────────────
