@@ -7,6 +7,65 @@ import { PaginationDto, buildPaginatedResponse } from '../../common/dto/paginati
 export class ServicesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Map business types to professions
+  private readonly TYPE_PROFESSIONS: Record<string, string[]> = {
+    BARBERIA: ['Barbero/a'],
+    SALON: ['Estilista', 'Colorista'],
+    SPA: ['Masajista', 'Esteticista', 'Cosmetólogo/a', 'Terapeuta'],
+    CLINICA: ['Cosmetólogo/a', 'Esteticista'],
+    TATUAJES: ['Tatuador/a', 'Piercer'],
+  };
+
+  async autoPopulateFromCatalog(tenantId: string) {
+    // Get tenant business type
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { businessType: true },
+    });
+    if (!tenant?.businessType) return { created: 0 };
+
+    // Get professions for this business type
+    const types = tenant.businessType.split(',').map((t) => t.trim());
+    const professions = new Set<string>();
+    for (const type of types) {
+      const profs = this.TYPE_PROFESSIONS[type] || [];
+      profs.forEach((p) => professions.add(p));
+    }
+    if (professions.size === 0) return { created: 0 };
+
+    // Get catalog services for these professions
+    const catalogServices = await this.prisma.serviceCatalog.findMany({
+      where: { category: { in: Array.from(professions) }, isActive: true },
+      orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+    });
+
+    // Get existing service names for this tenant
+    const existing = await this.prisma.service.findMany({
+      where: { tenantId },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((s) => s.name));
+
+    // Create missing services
+    const toCreate = catalogServices.filter((cs) => !existingNames.has(cs.name));
+    if (toCreate.length === 0) return { created: 0 };
+
+    await this.prisma.service.createMany({
+      data: toCreate.map((cs) => ({
+        tenantId,
+        name: cs.name,
+        durationMinutes: 30,
+        price: 0,
+        category: cs.category,
+        subcategory: cs.category,
+        isActive: true,
+      })),
+      skipDuplicates: true,
+    });
+
+    return { created: toCreate.length };
+  }
+
   async findAll(tenantId: string, pagination: PaginationDto) {
     const page = pagination.page ?? 1;
     const perPage = pagination.perPage ?? 20;

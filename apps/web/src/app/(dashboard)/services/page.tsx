@@ -69,17 +69,30 @@ export default function ServicesPage() {
   const [newCategory, setNewCategory] = useState('');
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories].sort((a, b) => a.localeCompare(b, 'es'));
 
+  const [autoPopulated, setAutoPopulated] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => api.get<{ data: Service[] }>('/api/services'),
+  });
+
+  // Auto-populate from catalog if no services exist
+  useEffect(() => {
+    const services = data?.data || [];
+    if (!isLoading && services.length === 0 && !autoPopulated) {
+      setAutoPopulated(true);
+      api.post('/api/services/auto-populate', {}).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['services'] });
+      }).catch(() => {});
+    }
+  }, [data, isLoading, autoPopulated]);
+
   // Auto-open modal from URL ?new=true
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
       openCreate();
     }
   }, []);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['services'],
-    queryFn: () => api.get<{ data: Service[] }>('/api/services'),
-  });
 
   const { data: catalogData } = useQuery({
     queryKey: ['service-catalog'],

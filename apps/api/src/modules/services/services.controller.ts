@@ -31,6 +31,13 @@ export class ServicesController {
     return this.servicesService.findAll(tenantId, pagination);
   }
 
+  @Post('auto-populate')
+  @RequirePermissions('services.create')
+  async autoPopulate(@CurrentTenant() tenantId: string) {
+    const result = await this.servicesService.autoPopulateFromCatalog(tenantId);
+    return { data: result };
+  }
+
   @Post()
   @RequirePermissions('services.create')
   async create(
