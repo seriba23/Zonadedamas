@@ -892,6 +892,15 @@ export class MarketplaceService {
 
   // ─── PROFESSIONAL PROFILE (public) ─────────────────────
 
+  async getBusinessTypes() {
+    const types = await this.prisma.businessType.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      select: { value: true, label: true },
+    });
+    return { data: types };
+  }
+
   async getServiceCatalog() {
     const services = await this.prisma.serviceCatalog.findMany({
       where: { isActive: true },

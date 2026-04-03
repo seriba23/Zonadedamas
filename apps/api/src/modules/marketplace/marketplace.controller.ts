@@ -267,6 +267,11 @@ export class MarketplaceController {
     return this.marketplaceService.getMyProfessionalFavorites(req.user.marketplaceUserId);
   }
 
+  @Get('business-types')
+  async getBusinessTypes() {
+    return this.marketplaceService.getBusinessTypes();
+  }
+
   @Get('service-catalog')
   async getServiceCatalog() {
     return this.marketplaceService.getServiceCatalog();

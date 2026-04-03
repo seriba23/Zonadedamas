@@ -466,6 +466,45 @@ export class PlatformAdminService {
     );
   }
 
+  // ─── BUSINESS TYPES ──────────────────────────────────
+
+  async getBusinessTypes() {
+    const types = await this.prisma.businessType.findMany({ orderBy: { sortOrder: 'asc' } });
+    return { data: types };
+  }
+
+  async createBusinessType(value: string, label: string) {
+    const item = await this.prisma.businessType.create({
+      data: { value: value.toUpperCase().trim(), label: label.trim() },
+    });
+    return { data: item };
+  }
+
+  async updateBusinessType(id: string, body: { value?: string; label?: string }) {
+    const old = await this.prisma.businessType.findUnique({ where: { id } });
+    if (!old) throw new NotFoundException('Tipo de negocio no encontrado');
+
+    const updated = await this.prisma.businessType.update({
+      where: { id },
+      data: {
+        ...(body.value !== undefined && { value: body.value.toUpperCase().trim() }),
+        ...(body.label !== undefined && { label: body.label.trim() }),
+      },
+    });
+
+    // Update all tenants with old value
+    if (body.value && body.value.toUpperCase().trim() !== old.value) {
+      // Note: businessType can be comma-separated, complex update needed for V2
+    }
+
+    return { data: updated };
+  }
+
+  async deleteBusinessType(id: string) {
+    await this.prisma.businessType.delete({ where: { id } });
+    return { data: { message: 'Tipo de negocio eliminado' } };
+  }
+
   // ─── SERVICE CATALOG ─────────────────────────────────
 
   async getServiceCatalog() {

@@ -130,7 +130,8 @@ interface FormErrors {
   [key: string]: string | undefined;
 }
 
-const BUSINESS_TYPES = [
+// Business types loaded from API, fallback for SSR
+const FALLBACK_BUSINESS_TYPES = [
   { value: 'SALON', label: 'Salón' },
   { value: 'BARBERIA', label: 'Barbería' },
   { value: 'SPA', label: 'SPA' },
@@ -153,6 +154,16 @@ export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register } = useAuth();
+  const [businessTypesFromApi, setBusinessTypesFromApi] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/marketplace/business-types`)
+      .then((r) => r.json())
+      .then((json) => { if (json.data) setBusinessTypesFromApi(json.data); })
+      .catch(() => {});
+  }, []);
+
+  const BUSINESS_TYPES = businessTypesFromApi.length > 0 ? businessTypesFromApi : FALLBACK_BUSINESS_TYPES;
 
   // Read ?type=individual|client|business from URL and skip the select screen
   const typeParam = searchParams.get('type') as RegisterMode | null;

@@ -127,6 +127,28 @@ export class PlatformAdminController {
     return { data };
   }
 
+  // ─── BUSINESS TYPES ──────────────────────────────────
+
+  @Get('business-types')
+  async getBusinessTypes() {
+    return this.adminService.getBusinessTypes();
+  }
+
+  @Post('business-types')
+  async createBusinessType(@Body() body: { value: string; label: string }) {
+    return this.adminService.createBusinessType(body.value, body.label);
+  }
+
+  @Patch('business-types/:id')
+  async updateBusinessType(@Param('id') id: string, @Body() body: { value?: string; label?: string }) {
+    return this.adminService.updateBusinessType(id, body);
+  }
+
+  @Delete('business-types/:id')
+  async deleteBusinessType(@Param('id') id: string) {
+    return this.adminService.deleteBusinessType(id);
+  }
+
   // ─── SERVICE CATALOG ─────────────────────────────────
 
   @Get('service-catalog')
