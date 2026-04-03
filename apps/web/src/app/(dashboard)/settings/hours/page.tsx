@@ -172,6 +172,41 @@ export default function BusinessHoursPage() {
             Configura los horarios de apertura y cierre de tu negocio para cada día de la semana.
           </p>
 
+          {/* Apply to all */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+            <p className="text-sm font-medium text-gray-700 mb-3">Aplicar horario a todos los dias</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <input
+                type="time"
+                id="applyAllOpen"
+                defaultValue="09:00"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+              />
+              <span className="text-gray-400 text-sm">a</span>
+              <input
+                type="time"
+                id="applyAllClose"
+                defaultValue="21:00"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const openEl = document.getElementById('applyAllOpen') as HTMLInputElement;
+                  const closeEl = document.getElementById('applyAllClose') as HTMLInputElement;
+                  if (openEl && closeEl) {
+                    setHours((prev) => prev.map((h) => ({ ...h, isOpen: true, openTime: openEl.value, closeTime: closeEl.value })));
+                    setHasChanges(true);
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                style={{ backgroundColor: '#008080' }}
+              >
+                Aplicar a todos
+              </button>
+            </div>
+          </div>
+
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 7 }).map((_, i) => (
@@ -201,7 +236,7 @@ export default function BusinessHoursPage() {
                     type="button"
                     onClick={() => updateDay(day.dayOfWeek, 'isOpen', !day.isOpen)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                      day.isOpen ? 'bg-primary-600' : 'bg-gray-300'
+                      day.isOpen ? 'bg-[#008080]' : 'bg-gray-300'
                     }`}
                   >
                     <span
@@ -215,28 +250,22 @@ export default function BusinessHoursPage() {
                     {day.isOpen ? 'Abierto' : 'Cerrado'}
                   </span>
 
-                  {/* Time selects */}
+                  {/* Time inputs */}
                   {day.isOpen && (
                     <div className="flex items-center gap-2 flex-1">
-                      <select
+                      <input
+                        type="time"
                         value={day.openTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'openTime', e.target.value)}
-                        className="input-field py-1.5 text-sm"
-                      >
-                        {TIME_OPTIONS.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                      />
                       <span className="text-gray-400 text-sm">a</span>
-                      <select
+                      <input
+                        type="time"
                         value={day.closeTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'closeTime', e.target.value)}
-                        className="input-field py-1.5 text-sm"
-                      >
-                        {TIME_OPTIONS.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                      />
                     </div>
                   )}
                 </div>
