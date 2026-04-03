@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
@@ -26,6 +27,7 @@ function formatTypes(types: string[]): string {
 }
 
 export default function BusinessSettingsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +81,8 @@ export default function BusinessSettingsPage() {
     mutationFn: (data: typeof form) => api.put('/api/tenants/profile', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-current'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant-setup-check'] });
+      router.push('/dashboard');
     },
   });
 
