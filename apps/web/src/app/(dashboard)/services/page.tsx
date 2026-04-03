@@ -32,6 +32,7 @@ interface ServiceForm {
   durationMinutes: number | string;
   price: number | string;
   catalogCategory: string;
+  currency: string;
   categories: string[];
   generatesPoints: boolean;
   pointsReward: number | string;
@@ -52,6 +53,7 @@ const defaultForm: ServiceForm = {
   durationMinutes: 60,
   price: 0,
   catalogCategory: '',
+  currency: 'MXN',
   categories: [],
   generatesPoints: false,
   pointsReward: '',
@@ -132,6 +134,7 @@ export default function ServicesPage() {
       durationMinutes: service.durationMinutes,
       price: service.price,
       catalogCategory: matchedCatalog?.category || '',
+      currency: (service as any).currency || 'MXN',
       categories: (service.subcategory || service.category || '').split(',').map(s => s.trim()).filter(Boolean),
       generatesPoints: hasPoints,
       pointsReward: service.pointsReward ?? '',
@@ -160,6 +163,7 @@ export default function ServicesPage() {
       description: form.description,
       durationMinutes: Number(form.durationMinutes),
       price: Number(form.price),
+      currency: form.currency,
       subcategory: form.categories.length > 0 ? form.categories.join(',') : null,
       redeemableWithPoints: form.redeemableWithPoints,
       pointsReward: form.generatesPoints && form.pointsReward !== '' ? Number(form.pointsReward) : null,
@@ -406,17 +410,33 @@ export default function ServicesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Precio *
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, price: e.target.value }))
-                  }
-                  className="input-field"
-                  required
-                />
+                <div className="flex">
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+                    className="border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 px-2 text-sm text-gray-600 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                  >
+                    <option value="MXN">MXN</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="COP">COP</option>
+                    <option value="ARS">ARS</option>
+                    <option value="CLP">CLP</option>
+                    <option value="PEN">PEN</option>
+                    <option value="BRL">BRL</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, price: e.target.value }))
+                    }
+                    className="input-field rounded-l-none flex-1"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
