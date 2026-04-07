@@ -15,6 +15,33 @@ const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+function buildAddress(f: { addressStreet: string; addressNumber: string; addressColonia: string; addressCity: string; addressState: string; addressPostalCode: string; addressCountry: string }) {
+  return [
+    [f.addressStreet, f.addressNumber].filter(Boolean).join(' '),
+    f.addressColonia,
+    f.addressCity,
+    f.addressState,
+    f.addressPostalCode,
+    f.addressCountry,
+  ].filter(Boolean).join(', ');
+}
+
+function parseAddress(address: string) {
+  const parts = address.split(',').map((s) => s.trim());
+  // Best effort: "Calle Num, Colonia, Ciudad, Estado, CP, Pais"
+  const streetFull = parts[0] || '';
+  const streetMatch = streetFull.match(/^(.+?)\s+(\d+\S*)$/);
+  return {
+    addressStreet: streetMatch ? streetMatch[1] : streetFull,
+    addressNumber: streetMatch ? streetMatch[2] : '',
+    addressColonia: parts[1] || '',
+    addressCity: parts[2] || '',
+    addressState: parts[3] || '',
+    addressPostalCode: parts[4] || '',
+    addressCountry: parts[5] || '',
+  };
+}
+
 // ─── Modal Base ───────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -100,7 +127,10 @@ export default function EditProfilePage() {
   const { user, isLoading: authLoading, isAuthenticated, refreshUser } = useMarketplaceAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ firstName: '', lastName: '', birthDate: '', gender: '', allergies: '' });
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', birthDate: '', gender: '', allergies: '',
+    addressStreet: '', addressNumber: '', addressColonia: '', addressCity: '', addressState: '', addressPostalCode: '', addressCountry: '',
+  });
   const [formReady, setFormReady] = useState(false);
   const [formError, setFormError] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -148,6 +178,7 @@ export default function EditProfilePage() {
       birthDate: (user as any).birthDate ? (user as any).birthDate.split('T')[0] : '',
       gender: (user as any).gender || '',
       allergies: (user as any).allergies || '',
+      ...parseAddress((user as any).address || ''),
     });
     setFormReady(true);
   }
@@ -156,7 +187,7 @@ export default function EditProfilePage() {
   const profileMutation = useMutation({
     mutationFn: () => marketplaceApi.put('/auth/profile', {
       firstName: form.firstName, lastName: form.lastName,
-      birthDate: form.birthDate || undefined, gender: form.gender || undefined, allergies: form.allergies || undefined,
+      birthDate: form.birthDate || undefined, gender: form.gender || undefined, allergies: form.allergies || undefined, address: buildAddress(form) || undefined,
     }),
     onSuccess: () => { refreshUser(); setFormError(''); setSuccessPopup({ title: 'Perfil actualizado' }); },
     onError: (err: any) => setFormError(err.message || 'Error al guardar'),
@@ -338,6 +369,63 @@ export default function EditProfilePage() {
                 Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica. Los especialistas podrán verla cuando seas atendid@ para garantizar tu seguridad y la mejor experiencia posible.
               </p>
               <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
+            </div>
+
+            {/* Address */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Direccion <span className="text-gray-400">(opcional)</span></label>
+              <p className="text-xs text-gray-400 mb-1.5 leading-relaxed">
+                Tu direccion se usara como sugerencia al solicitar envios de productos a domicilio.
+              </p>
+              <div className="space-y-3 mt-2">
+                {/* Calle + Numero */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <input type="text" value={form.addressStreet}
+                      onChange={(e) => setForm((f) => ({ ...f, addressStreet: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                      style={{ '--tw-ring-color': TEAL } as any}
+                      placeholder="Calle" />
+                  </div>
+                  <input type="text" value={form.addressNumber}
+                    onChange={(e) => setForm((f) => ({ ...f, addressNumber: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ '--tw-ring-color': TEAL } as any}
+                    placeholder="Numero" />
+                </div>
+                {/* Colonia */}
+                <input type="text" value={form.addressColonia}
+                  onChange={(e) => setForm((f) => ({ ...f, addressColonia: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': TEAL } as any}
+                  placeholder="Colonia / Fraccionamiento" />
+                {/* Ciudad + Estado */}
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={form.addressCity}
+                    onChange={(e) => setForm((f) => ({ ...f, addressCity: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ '--tw-ring-color': TEAL } as any}
+                    placeholder="Ciudad" />
+                  <input type="text" value={form.addressState}
+                    onChange={(e) => setForm((f) => ({ ...f, addressState: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ '--tw-ring-color': TEAL } as any}
+                    placeholder="Estado / Provincia" />
+                </div>
+                {/* CP + Pais */}
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={form.addressPostalCode}
+                    onChange={(e) => setForm((f) => ({ ...f, addressPostalCode: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ '--tw-ring-color': TEAL } as any}
+                    placeholder="Codigo postal" />
+                  <input type="text" value={form.addressCountry}
+                    onChange={(e) => setForm((f) => ({ ...f, addressCountry: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ '--tw-ring-color': TEAL } as any}
+                    placeholder="Pais" />
+                </div>
+              </div>
             </div>
           </div>
         </div>

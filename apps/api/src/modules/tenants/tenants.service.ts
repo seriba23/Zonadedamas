@@ -491,4 +491,55 @@ export class TenantsService {
     await this.prisma.tenantGalleryImage.delete({ where: { id: imageId } });
     return image;
   }
+
+  // ─── Shop Settings ───────────────────────────────
+
+  async getShopSettings(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        shopEnabled: true,
+        shopPickupEnabled: true,
+        shopShippingEnabled: true,
+        shopPaymentCash: true,
+        shopPaymentSpei: true,
+        shopPaymentCard: true,
+        shopSpeiBankName: true,
+        shopSpeiHolderName: true,
+        shopSpeiClabe: true,
+      },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return tenant;
+  }
+
+  async updateShopSettings(tenantId: string, dto: any) {
+    const data: any = {};
+    if (dto.shopEnabled !== undefined) data.shopEnabled = dto.shopEnabled;
+    if (dto.shopPickupEnabled !== undefined) data.shopPickupEnabled = dto.shopPickupEnabled;
+    if (dto.shopShippingEnabled !== undefined) data.shopShippingEnabled = dto.shopShippingEnabled;
+    if (dto.shopPaymentCash !== undefined) data.shopPaymentCash = dto.shopPaymentCash;
+    if (dto.shopPaymentSpei !== undefined) data.shopPaymentSpei = dto.shopPaymentSpei;
+    if (dto.shopPaymentCard !== undefined) data.shopPaymentCard = dto.shopPaymentCard;
+    if (dto.shopSpeiBankName !== undefined) data.shopSpeiBankName = dto.shopSpeiBankName;
+    if (dto.shopSpeiHolderName !== undefined) data.shopSpeiHolderName = dto.shopSpeiHolderName;
+    if (dto.shopSpeiClabe !== undefined) data.shopSpeiClabe = dto.shopSpeiClabe;
+
+    const tenant = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data,
+      select: {
+        shopEnabled: true,
+        shopPickupEnabled: true,
+        shopShippingEnabled: true,
+        shopPaymentCash: true,
+        shopPaymentSpei: true,
+        shopPaymentCard: true,
+        shopSpeiBankName: true,
+        shopSpeiHolderName: true,
+        shopSpeiClabe: true,
+      },
+    });
+    return tenant;
+  }
 }

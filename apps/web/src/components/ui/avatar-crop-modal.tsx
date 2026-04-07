@@ -7,6 +7,7 @@ interface AvatarCropModalProps {
   onAccept: (croppedFile: File) => void;
   onCancel: () => void;
   onChooseAnother: () => void;
+  shape?: 'circle' | 'square';
 }
 
 export function AvatarCropModal({
@@ -14,6 +15,7 @@ export function AvatarCropModal({
   onAccept,
   onCancel,
   onChooseAnother,
+  shape = 'circle',
 }: AvatarCropModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -130,9 +132,11 @@ export function AvatarCropModal({
 
     // Scale up for output
     const outputScale = OUTPUT_SIZE / PREVIEW_SIZE;
-    ctx.beginPath();
-    ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
+    if (shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
+      ctx.clip();
+    }
     ctx.drawImage(
       img,
       x * outputScale,
@@ -155,7 +159,7 @@ export function AvatarCropModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ touchAction: 'none' }}>
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" style={{ touchAction: 'none' }}>
       <div
         className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6"
         onClick={(e) => e.stopPropagation()}
@@ -171,7 +175,7 @@ export function AvatarCropModal({
         <div className="flex justify-center mb-4">
           <div
             ref={containerRef}
-            className="relative rounded-full overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing"
+            className={`relative overflow-hidden border-2 border-gray-200 cursor-grab active:cursor-grabbing ${shape === 'circle' ? 'rounded-full' : 'rounded-xl'}`}
             style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE, touchAction: 'none' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}

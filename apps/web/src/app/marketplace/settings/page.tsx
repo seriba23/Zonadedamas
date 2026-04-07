@@ -306,7 +306,7 @@ function EditProfilePanel({
   user: {
     firstName: string; lastName: string; email: string; phone: string | null;
     avatarUrl?: string | null; birthDate?: string | null; gender?: string | null;
-    allergies?: string | null; socialProvider?: string | null;
+    allergies?: string | null; address?: string | null; socialProvider?: string | null;
   };
   onClose: () => void;
   onSaved: () => void;
@@ -317,6 +317,7 @@ function EditProfilePanel({
     birthDate: user.birthDate ? user.birthDate.split('T')[0] : '',
     gender: user.gender || '',
     allergies: user.allergies || '',
+    address: user.address || '',
   });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -343,6 +344,7 @@ function EditProfilePanel({
       birthDate: form.birthDate || undefined,
       gender: form.gender || undefined,
       allergies: form.allergies || undefined,
+      address: form.address || undefined,
     }),
     onSuccess: () => {
       setSuccessPopup({ title: 'Perfil actualizado', message: 'Tus datos se han guardado correctamente' });
@@ -558,6 +560,22 @@ function EditProfilePanel({
             style={{ '--tw-ring-color': TEAL } as any}
           />
           <p className="text-[10px] text-gray-400 mt-0.5">Los negocios podrán ver esta información antes de tu cita</p>
+        </div>
+
+        {/* Address */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            Direccion
+          </label>
+          <textarea
+            value={form.address}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            placeholder="Calle, numero, colonia, ciudad, estado, CP"
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none resize-none"
+            style={{ '--tw-ring-color': TEAL } as any}
+          />
+          <p className="text-[10px] text-gray-400 mt-0.5">Se usara como direccion sugerida para envios de productos</p>
         </div>
 
         {/* Email */}

@@ -37,10 +37,12 @@ const navItems: NavItem[] = [
   { label: 'Recursos', href: '/resources', icon: '🏠', permission: 'resources.read' },
   { label: 'Inventario', href: '/inventory', icon: '📦', permission: 'inventory.read' },
   { label: 'Proveedores', href: '/suppliers', icon: '🚚', permission: 'inventory.read' },
+  { label: 'Apartados', href: '/reservations', icon: '🛒', permission: 'inventory.read' },
   { label: 'POS', href: '/pos', icon: '💰', permission: 'payments.create' },
   { label: 'Mi Negocio', href: '/settings/business', icon: '🏪', permission: 'tenant.update' },
   { label: 'Sucursales', href: '/settings/locations', icon: '📍', permission: 'locations.read' },
   { label: 'Pagos Online', href: '/settings/payments', icon: '💳', permission: 'tenant.update' },
+  { label: 'Tienda', href: '/settings/shop', icon: '🛍️', permission: 'tenant.update' },
   { label: 'Suscripción', href: '/settings/subscription', icon: '⭐', permission: 'tenant.update' },
   {
     label: 'Horarios',

@@ -98,6 +98,25 @@ enum BusinessType {
   TATUAJES
 }
 
+enum FulfillmentType {
+  PICKUP
+  SHIPPING
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum ShopPaymentMethod {
+  CASH
+  SPEI
+  CARD
+}
+
 // ─── PLATFORM USERS (Super Admin) ──────────────────
 
 model PlatformUser {
@@ -147,6 +166,7 @@ model MarketplaceUser {
   birthDate    DateTime? @map("birth_date") @db.Date
   gender       String?   @db.VarChar(20) // MALE, FEMALE, NON_BINARY, PREFER_NOT_SAY
   allergies    String?   @db.Text // Free-text medical notes / allergies
+  address      String?   @db.Text
   country      String?   @db.VarChar(2) // ISO 3166-1 alpha-2 (MX, US, CO, etc.)
   language     String    @default("es") @db.VarChar(5) // es, en, pt
   currency     String    @default("LOCAL") @db.VarChar(10) // LOCAL or USD
@@ -209,6 +229,15 @@ model Tenant {
   stripeOnboardingComplete Boolean   @default(false) @map("stripe_onboarding_complete")
   subscriptionPlan     String    @default("free") @map("subscription_plan")
   subscriptionStatus   String    @default("active") @map("subscription_status")
+  shopEnabled          Boolean   @default(false) @map("shop_enabled")
+  shopPickupEnabled    Boolean   @default(true) @map("shop_pickup_enabled")
+  shopShippingEnabled  Boolean   @default(false) @map("shop_shipping_enabled")
+  shopPaymentCash      Boolean   @default(true) @map("shop_payment_cash")
+  shopPaymentSpei      Boolean   @default(false) @map("shop_payment_spei")
+  shopPaymentCard      Boolean   @default(false) @map("shop_payment_card")
+  shopSpeiBankName     String?   @map("shop_spei_bank_name")
+  shopSpeiHolderName   String?   @map("shop_spei_holder_name")
+  shopSpeiClabe        String?   @map("shop_spei_clabe") @db.VarChar(18)
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
@@ -243,6 +272,7 @@ model Tenant {
   suppliers             Supplier[]
   promotions            Promotion[]
   serviceBundles        ServiceBundle[]
+  productReservations   ProductReservation[]
 
   @@map("tenants")
 }
@@ -1282,29 +1312,84 @@ model Supplier {
 // ─── PRODUCTS (INVENTORY) ──────────────────────────
 
 model Product {
-  id         String   @id @default(uuid())
-  tenantId   String   @map("tenant_id")
-  name       String
-  sku        String?  @db.VarChar(100)
-  description String? @db.Text
-  category   String?
-  price      Decimal  @db.Decimal(10, 2)
-  costPrice  Decimal? @map("cost_price") @db.Decimal(10, 2)
-  stock      Int      @default(0)
-  minStock   Int      @default(0) @map("min_stock")
-  unit       String   @default("unidad") @db.VarChar(50)
-  supplierId String?  @map("supplier_id")
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  name         String
+  sku          String?  @db.VarChar(100)
+  description  String?  @db.Text
+  category     String?
+  price        Decimal  @db.Decimal(10, 2)
+  costPrice    Decimal? @map("cost_price") @db.Decimal(10, 2)
+  stock        Int      @default(0)
+  minStock     Int      @default(0) @map("min_stock")
+  unit         String   @default("unidad") @db.VarChar(50)
+  supplierId   String?  @map("supplier_id")
+  currency     String   @default("MXN") @db.VarChar(3)
+  imageUrl     String?  @map("image_url")
+  supplierUrl  String?  @map("supplier_url")
+  notes        String?  @db.Text
+  shippingEnabled Boolean  @default(false) @map("shipping_enabled")
+  shippingCost    Decimal? @map("shipping_cost") @db.Decimal(10, 2)
+  isShopListed    Boolean  @default(false) @map("is_shop_listed")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier     Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  images       ProductImage[]
+  reservations ProductReservation[]
 
   @@index([tenantId])
   @@index([tenantId, isActive])
+  @@index([tenantId, isShopListed, isActive])
   @@index([supplierId])
   @@map("products")
+}
+
+// ─── PRODUCT IMAGES ───────────────────────────────
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  imageUrl  String   @map("image_url")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+// ─── PRODUCT RESERVATIONS ─────────────────────────
+
+model ProductReservation {
+  id                     String            @id @default(uuid())
+  tenantId               String            @map("tenant_id")
+  productId              String            @map("product_id")
+  quantity               Int               @default(1)
+  unitPrice              Decimal           @map("unit_price") @db.Decimal(10, 2)
+  shippingCost           Decimal           @default(0) @map("shipping_cost") @db.Decimal(10, 2)
+  customerName           String            @map("customer_name")
+  customerEmail          String?           @map("customer_email")
+  customerPhone          String            @map("customer_phone")
+  fulfillmentType        FulfillmentType   @map("fulfillment_type")
+  preferredPaymentMethod ShopPaymentMethod @map("preferred_payment_method")
+  status                 ReservationStatus @default(PENDING)
+  shippingAddress        String?           @map("shipping_address") @db.Text
+  notes                  String?           @db.Text
+  marketplaceUserId      String?           @map("marketplace_user_id")
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([productId])
+  @@map("product_reservations")
 }
 
 // ─── PROMOTIONS ─────────────────────────────────────

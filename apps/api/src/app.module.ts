@@ -33,6 +33,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ServiceBundlesModule } from './modules/service-bundles/service-bundles.module';
+import { ShopModule } from './modules/shop/shop.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
@@ -79,6 +80,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     SuppliersModule,
     PromotionsModule,
     ServiceBundlesModule,
+    ShopModule,
     WebSocketModule,
   ],
   providers: [

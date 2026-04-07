@@ -53,7 +53,16 @@ interface AvailableSlot {
   employeeId: string;
 }
 
-type BookingStep = null | 'location' | 'service' | 'employee' | 'datetime' | 'confirm' | 'success';
+type BookingStep = null | 'location' | 'service' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
+
+interface BookingCartItem {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  imageUrl?: string;
+  quantity: number;
+}
 
 const DOW_MAP: Record<number, string> = {
   0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY',
@@ -151,7 +160,7 @@ function SlotGrid({
 }
 
 export default function BusinessDetailPage() {
-  const { isAuthenticated } = useMarketplaceAuth();
+  const { isAuthenticated, user } = useMarketplaceAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useParams();
@@ -182,6 +191,7 @@ export default function BusinessDetailPage() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
+  const [bookingCart, setBookingCart] = useState<BookingCartItem[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [preferredTime, setPreferredTime] = useState('');
   const [showFullCalendar, setShowFullCalendar] = useState(false);
@@ -280,15 +290,55 @@ export default function BusinessDetailPage() {
   });
   const bizRewards: any[] = (bizRewardsData as any)?.data || [];
 
+  // Shop products for booking flow
+  const { data: shopProductsData } = useQuery({
+    queryKey: ['shop-products-booking', tenantSlug],
+    queryFn: async () => {
+      const r = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/products?perPage=100`);
+      return r.ok ? r.json() : null;
+    },
+    enabled: !!biz?.shopEnabled,
+  });
+  const shopProducts: any[] = shopProductsData?.data || [];
+
+  const bookingCartTotal = bookingCart.reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+
   // Booking mutation
   const bookMutation = useMutation({
-    mutationFn: () =>
-      marketplaceApi.post(`/book/${tenantSlug}`, {
+    mutationFn: async () => {
+      const apptRes: any = await marketplaceApi.post(`/book/${tenantSlug}`, {
         serviceIds: selectedServiceIds,
         employeeId: selectedSlot?.employeeId || selectedEmployee?.id,
         startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
-      }),
+      });
+
+      // Also create product reservations if cart has items
+      if (bookingCart.length > 0) {
+        try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          const token = marketplaceApi.getAccessToken();
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          await fetch(`${API_URL}/api/public/${tenantSlug}/shop/reserve-batch`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              items: bookingCart.map((c) => ({ productId: c.id, quantity: c.quantity })),
+              customerName: user ? `${user.firstName} ${user.lastName}` : 'Cliente',
+              customerPhone: user?.phone || '0000000',
+              customerEmail: user?.email || undefined,
+              fulfillmentType: 'PICKUP',
+              preferredPaymentMethod: 'CASH',
+              notes: `Apartado junto con cita del ${selectedSlot?.startTime || ''}`,
+            }),
+          });
+        } catch (err) {
+          console.error('Error creating product reservations:', err);
+        }
+      }
+
+      return apptRes;
+    },
     onSuccess: async (res: any) => {
       const appointment = res?.data?.data || res?.data || res;
       // If business accepts online payment, redirect to Stripe Checkout
@@ -368,6 +418,7 @@ export default function BusinessDetailPage() {
     setSelectedDate(dayjs());
     setSelectedSlot(null);
     setBookingNotes('');
+    setBookingCart([]);
     setSelectedLocationId(null);
     setPreferredTime('');
     // If multiple locations, show location selection first
@@ -654,6 +705,23 @@ export default function BusinessDetailPage() {
             </p>
             <p className="text-xs text-gray-500 mt-1">Reseñas</p>
           </button>
+          {/* Shop button - second row centered */}
+          {biz.shopEnabled && (
+            <div className="col-span-3 flex justify-center">
+              <Link
+                href={`/marketplace/${tenantSlug}/shop`}
+                className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 px-6 py-3 text-center transition-all hover:shadow-md hover:border-[#008080]/30"
+              >
+                <svg className="w-5 h-5" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+                </svg>
+                <span className="text-sm font-semibold" style={{ color: TEAL }}>Tienda</span>
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Gallery Carousel */}
@@ -980,7 +1048,8 @@ export default function BusinessDetailPage() {
                   if (bookEmployeeId) setBookingStep('service'); // came from professional profile
                   else setBookingStep('employee');
                 }
-                else if (bookingStep === 'confirm') setBookingStep('datetime');
+                else if (bookingStep === 'products') setBookingStep('datetime');
+                else if (bookingStep === 'confirm') setBookingStep(biz?.shopEnabled ? 'products' : 'datetime');
               }}
               className="p-1 hover:bg-gray-100 rounded-lg"
             >
@@ -1029,6 +1098,7 @@ export default function BusinessDetailPage() {
                 { key: 'service', label: 'Servicio' },
                 ...(!bookEmployeeId ? [{ key: 'employee', label: 'Profesional' }] : []),
                 { key: 'datetime', label: 'Horario' },
+                ...(biz?.shopEnabled ? [{ key: 'products', label: 'Productos' }] : []),
                 { key: 'confirm', label: 'Confirmar' },
               ].map(({ key, label }, idx, arr) => {
                 const activeSteps = arr.map(s => s.key);
@@ -1441,7 +1511,7 @@ export default function BusinessDetailPage() {
 
                   {selectedSlot && (
                     <button
-                      onClick={() => setBookingStep('confirm')}
+                      onClick={() => setBookingStep(biz?.shopEnabled ? 'products' : 'confirm')}
                       className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors mt-4"
                       style={{ backgroundColor: TEAL }}
                       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
@@ -1503,6 +1573,88 @@ export default function BusinessDetailPage() {
               )}
 
               {/* Step 4: Confirm */}
+              {/* Products step */}
+              {bookingStep === 'products' && (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">Agrega productos</h2>
+                  <p className="text-xs text-gray-500 mb-4">Selecciona productos para apartar junto con tu cita (opcional)</p>
+
+                  {shopProducts.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-400">No hay productos disponibles</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {shopProducts.map((product: any) => {
+                        const inCart = bookingCart.find((c) => c.id === product.id);
+                        return (
+                          <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                            <div className="aspect-square overflow-hidden bg-gray-100">
+                              {product.imageUrl ? (
+                                <img src={`${API_URL}${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" /></svg>
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-2.5">
+                              <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-tight">{product.name}</p>
+                              <p className="text-xs font-bold mt-1" style={{ color: TEAL }}>{formatCurrency(Number(product.price), product.currency || 'MXN')}</p>
+                              <div className="mt-2">
+                                {inCart ? (
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      <button onClick={() => {
+                                        if (inCart.quantity <= 1) setBookingCart((c) => c.filter((i) => i.id !== product.id));
+                                        else setBookingCart((c) => c.map((i) => i.id === product.id ? { ...i, quantity: i.quantity - 1 } : i));
+                                      }} className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs">-</button>
+                                      <span className="text-xs font-semibold w-4 text-center">{inCart.quantity}</span>
+                                      <button onClick={() => setBookingCart((c) => c.map((i) => i.id === product.id ? { ...i, quantity: Math.min(product.stock, i.quantity + 1) } : i))}
+                                        className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs">+</button>
+                                    </div>
+                                    <button onClick={() => setBookingCart((c) => c.filter((i) => i.id !== product.id))} className="text-[9px] text-red-500">Quitar</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setBookingCart((c) => [...c, { id: product.id, name: product.name, price: Number(product.price), currency: product.currency || 'MXN', imageUrl: product.imageUrl, quantity: 1 }])}
+                                    className="w-full py-1.5 text-[10px] font-medium rounded-lg text-white" style={{ backgroundColor: TEAL }}>
+                                    Agregar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Cart summary */}
+                  {bookingCart.length > 0 && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Productos seleccionados</p>
+                      {bookingCart.map((item) => (
+                        <div key={item.id} className="flex justify-between text-xs py-1">
+                          <span className="text-gray-700">{item.quantity}x {item.name}</span>
+                          <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, item.currency)}</span>
+                        </div>
+                      ))}
+                      <div className="border-t border-gray-100 mt-2 pt-2 flex justify-between text-sm font-semibold">
+                        <span>Subtotal productos</span>
+                        <span style={{ color: TEAL }}>{formatCurrency(bookingCartTotal, bookingCart[0]?.currency || 'MXN')}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button onClick={() => setBookingStep('confirm')}
+                    className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors" style={{ backgroundColor: TEAL }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}>
+                    {bookingCart.length > 0 ? 'Continuar con productos' : 'Continuar sin productos'}
+                  </button>
+                </div>
+              )}
+
               {bookingStep === 'confirm' && selectedSlot && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -1527,6 +1679,21 @@ export default function BusinessDetailPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Products */}
+                    {bookingCart.length > 0 && (
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                          Productos
+                        </p>
+                        {bookingCart.map((item) => (
+                          <div key={item.id} className="flex justify-between text-sm py-0.5">
+                            <span className="text-gray-700">{item.quantity}x {item.name}</span>
+                            <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, item.currency)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Date & Time */}
                     <div className="border-t border-gray-100 pt-4">
@@ -1577,6 +1744,12 @@ export default function BusinessDetailPage() {
                           {totalDuration} min
                         </span>
                       </div>
+                      {bookingCart.length > 0 && (
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-500">Productos</span>
+                          <span className="font-medium text-gray-900">{formatCurrency(bookingCartTotal, bookingCart[0]?.currency || 'MXN')}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between mb-1">
                         <span className="font-semibold text-gray-900">
                           Total
@@ -1585,7 +1758,7 @@ export default function BusinessDetailPage() {
                           className="font-bold text-lg"
                           style={{ color: TEAL }}
                         >
-                          {formatCurrency(totalPrice)}
+                          {formatCurrency(totalPrice + bookingCartTotal)}
                         </span>
                       </div>
                       {totalPointsEarned > 0 && (

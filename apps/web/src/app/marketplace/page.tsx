@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
@@ -60,6 +60,8 @@ export default function MarketplacePage() {
 
   const [sortBy, setSortBy] = useState<SortBy>('');
   const [availableNow, setAvailableNow] = useState(false);
+  const searchParams = useSearchParams();
+  const shopOnly = searchParams.get('shop') === '1';
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
@@ -80,13 +82,14 @@ export default function MarketplacePage() {
   }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-discover', search, category, sortBy, availableNow, coords?.lat, coords?.lng],
+    queryKey: ['marketplace-discover', search, category, sortBy, availableNow, shopOnly, coords?.lat, coords?.lng],
     queryFn: () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (category) params.set('category', category);
       if (sortBy) params.set('sortBy', sortBy);
       if (availableNow) params.set('availableNow', 'true');
+      if (shopOnly) params.set('shopOnly', 'true');
       if (coords) { params.set('lat', String(coords.lat)); params.set('lng', String(coords.lng)); }
       params.set('perPage', '50');
       return marketplaceApi.get<{ data: Business[]; meta: any }>(`/discover?${params}`);
@@ -166,7 +169,7 @@ export default function MarketplacePage() {
     return (
       <button
         key={biz.id}
-        onClick={() => router.push(`/marketplace/${biz.slug}`)}
+        onClick={() => router.push(shopOnly ? `/marketplace/${biz.slug}/shop` : `/marketplace/${biz.slug}`)}
         className="w-full rounded-2xl overflow-hidden text-left active:scale-[0.98] transition-transform relative"
         style={{ height: 140 }}
       >

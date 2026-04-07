@@ -1,0 +1,214 @@
+LANDING PAGE
+
+
+la gestion de suscripciones el pago como independiente es de 5 dolares por Siliba Bussiness y 10 dolares como empleado, en total la consola como independiente cuesta $15 dolares, no 5 hay que ser muy claro en eso, y la consola de negocio es de $10 dolares por Siliba Bussiness + $10 dolares por empleado, y quiero que quede muy claro que la version de independiente solo permite una persona como administrador y trabajador, en caso de necesitar contratar mas personal debe cambiarse al plan de empresa.
+
+
+Login
+
+Quitar boton Volver al marketplace, lo unico que se puede hacer en esa pantalla es logearse, registrarse o recuperar contraseña, nada mas.
+
+ en el login me muestra la barra de menu de abajo, eso no debe ser posible, debo estar logeado para verla.
+
+CLIENTE
+
+
+
+
+
+
+
+
+
+INICIO
+
+===
+Quiero que las opciones  de filtros esten dentro de un icono que representente Ajustes, dentro mostraras la seccion de Ordenar donde mostrara Mas cercana, Mas puntuados, Mas servicios,
+
+esas son las opciones para ordenar, Tambien quiero que debajo del buscador de negocios se tenga la opcion de "Categoria" al darle click debe abrir una ventana donde se seleccione la categoria que esta buscando y al seleccionarla el nombre de la categoria seleccionada quedara en el boton de categoria para que se entienda que ya fue seleccionada. quiero que el boton de Disponible ahora se vea completo ya que es el principal distintivo de esta aplicacion. dejando en total 4 botones, Disponible ahora, Categoria, Filtros como icono y Favoritos.
+
+
+el icono de favoritos en las tarjetas me parece muy feo, quiero que sea un corazon sin el circulo, solo el corazon sin fondo, una vez seleccionandolo crea una animacion de llenado que simule una palpitacion fluida.
+quiero que en la market la barra de busqueda y la seccion de ajustes dejalo fijo, para que las tarjetas se puedan deslizar, ademas, actualmente las tarjetas son muy grandes, dales el mismo tamaño que tienen los cupones, la misma altura.
+
+
+ bien, seguimos, El icono de Filtros en marketplace deja solo el icono sin texto. y tambien al
+  darle click añade una opcion para limpiar filtros por que en este momento no se pueden quitar
+  despues de agregarse al quitar el texto del icono ya se podra posicionar mejor el icono de
+  favoritos.
+
+
+❯ hay un movimiento como animacion de gelatina o algo similar que hace la pagina cuando llega a su
+  limite superior y sigo tratando de scrollear, hasta que ese efecto no le afecte nunca a l abarra
+  de menu. el boton de limpiar que colocaste del lado derecho tiene una x para cerrar ventana pero
+  eso confunde, parece como si ambos botones hicieran lo mismo por eso la opcion de limpiar colcoala
+  encima de ORDENAR POR en vez de en el top de esa ventana.
+
+CITAS
+===
+El total lo esta concatenando no sumando, revisalo es muy delicado, revisa no cometer ese error en ninguna otra parte de la aplicacion.
+
+ Desde citas permiteme crear nuevas, enlazandome a la market, y en la market no tengo el boton que teniamos de crear cita en los negocios.
+
+Trabajemos en la creacion de citas, en el flujo de entrar a una tienda y Recervar Cita, esa vista no respeta la zona segura del tipo por lo que se mezcla con los elementos, debe respetarlo como todas las demas, los servicios hazlos mas pequeños, toman mucho espacio en pantalla. los servicios deben dar mas informacion,  en la tarjeta deja solo los datos que ya tiene pero si le doy click permiteme ver mas detalle, y Tambien quiero que aparezcan maximo 3 fotos del servicio las cuales seran cargadas por el administrador para que el cliente pueda ver de que se trata ese servicio. los cuadros de colores no me sirven de nada, en su lugar coloca un "check" para poder marcar que servicios quiero y el div que contiene la cantidad de servicios seleccionados, el tiempo total y el costo total asi como el boton de continuar dejalo fijo para que siempre este presente en pantalla, ademas en la fase 2 de la reserva de cita la selection de profesional si le doy en ver perfil y despues a la flecha de regresar me regresa al negocio no al proceso 2 en el que me quede, debes corregir ese flujo para continuar donde me quede, en la seleccion de fecha y hora, si el dia real que abrimos el calendario no hay mas citas por el horario o cualquier motivo que ya no haya cita alguna ese dia pasate al siguiente para que el usuario no vea como primera opcion un dia sin opciones. la seccion del calendario esta muy bien solo la seleccion de horarios disponibles no me gusta que sean muchas tarjetas, mejor manejalo como una sola columna donde en la parte superior aparezca la foto del profesional y aparezcan los dias, y el horario sera una sola columna que se podra scrollear verticalmente mostrando los espacios disponibles asi como los espacios ocupados, permitiendo dar click en esa seccion para fijar la hora. el paso 4 esta perfecto y la confirmacion Tambien.
+
+
+a la hora de realizar una cita, el proceso actual confirma la cita y hay un boton que dice "ver
+  mis cita" ese boton debe llevar al menu citas no a perfil.
+
+
+
+En el perfil de un profesional agrega un boton para "agendar cita" al darle click debe llevar directamente a la seleccion de servicios y en este caso omitira al profesional por que ya sabremos quien es, despues se selecciona horario y se continua el proceso normal de servicio.
+
+
+
+
+El listado de horarios disponibles luce todo encimado, necesito que los intervalos de tiempo sean de 30 minutos para reducirlo, ademas de que visualmente tiene que ser mas limpio,  Tambien en el proceso de reserva de cita en las empresas que tienen mas de una sucursal pide seleccionar la sucursal, ordenandolas de la mas cercana a la mas lejana.  Tambien cambiemos que se muestre todo el calendario  hagamos que todo el calendario se muestre al precionar un icono de calendario, del lado derecho, del lado izquierdo un campo con el dia actual el cual con las reglas que ya se tienen podria ser el dia siguiente disponible, es importante mostrar al profesionista en esa lista para que se sepa que es la persona que esta disponible, muestra sus horarios ocupados y los disponibles Tambien preguntale al usuario si hay algun horario de su preferencia en ese caso toma el horario y la fecha, si no hay disponibilidad dale opciones de horario libres.
+
+
+
+
+
+cupones
+Los cupones actualmente ya muestran la informacion importante, solo quiero que el diseño del Div de cada cupon parezca un ticket, un cupon de feria, ademas, la logica actual es brindar un codigo para canjear el cupon, ese codigo mantenlo en el backend nada mas, en el front agrega el boton CANJEAR sobre cada cupon, adicional, la fecha de expiracion hazla mas visible, la etiqueta de "Activo" quitala, al final todos los cupones que estan en esa seccion son activos, no es necesario ser redundante.
+
+
+A la hora de canjear un cupon llevame directamente a canjearlo, la logica es ir al negocio directamente al calendario para poder agendarlo ese cupon ya contempla datos, usalos para facilitar el proceso de registro de cita.  en ese caso, cuando se realice el proceso de agenda muestra en el top un mensaje que haga referencia a que se esta canjeando dicho cupon y Tambien muestra en el resumen como afecta el cupon segun sea el caso.
+
+GALERIA
+
+
+
+===
+EMPLEADO
+
+
+
+
+
+
+Mi perfil
+
+~~al querer ajustar la foto de perfil  nueva si quiero moverla para ubicarla mejor sigue activo el scroll del fondo,  bloquea el fondo mientras la ventana de ajustes de foto este activa.
+
+hay algo mas que me llama la atencion en toda la aplicacion ahora que estoy usando un celular real, la aplicacion usa el 100% de la altura de la pantalla pero quiero que deje libre la zona de los iconos y notificaciones ya que por ejemplo el celular que estoy usando es un Samsung Galaxy S10+ y quedan iconos debajo de la camara y el logo de Siliba esta encimado con las notificaciones. Veo que practicamente todas las aplicaciones de mi celular respetan ese espacio.~~
+
+
+
+
+ADMINISTRADOR
+
+CLIENTES
+
+no veo la foto de perfil del cliente sergio ibarra con el que estoy haciendo pruebas.
+
+
+
+
+
+
+
+
+
+*Cosas a probar:
+Desactivacion de un empleado.
+
+Eltexto de:
+Tu cuenta ha sido desactivada*
+Demo Salon ha decidido desvincular tu perfil.
+
+Sale en blanco y el fondo es blanco no se ve, ademas el logo de siliba lo cambiaste, manten el logo siempre igual no quiero varaiaciones, guardalo en tu memoria.
+
+
+Una vez que una cuenta es desvinculada e ingreso en la opcion de Registrar nueva empresa me manda nuevamente a http://localhost:3000/register?type=business donde me pregunta si soy cliente profesional o empresario pero eso no tiene sentido por que yo ya dije que quiero crear una empresa, si le doy ahi me pide mis datos pero ya los conoce, pide el nombre, correo, apellido, telefono y contraseña pero eso ya lo sabe ya que ya es un usuario activo. todo ese flujo no tiene sentido, arreglalo.
+La opcion de Continuar como independiente lo mismo, no tiene sentido que me mande al menu de los tipos de cuenta y creacion de cuenta si ya es una cuenta activa y sabe que es profesional, en ese caso deberia  darle la bienvenida a Siliba como emprendedor.  el perfil de emprendedor tiene un costo de $15 dolares al mes, ya que cobra 10 por el uso de la herramienta y 5 por el perfil de empleado que en este caso tiene todo lo que tiene el administrador limitado, solo funciona como un profesionista que se puede buscar en la marketlace pero en otra seccion asi que en el buscador de marketplace debe poderse buscar por "Profesionistas" donde se pueden buscar cualquier tipo de profesionistas, desde independientes hasta afiliados a una empresa. importante que al moverse a independiente le pida pagar por su licencia para poder usarlo.  y en el caso de vincular a otra empresa debe solicitar un codigo de invitacion entrar al modal y en ese caso el profesional no paga nada pero la empresa que lo contrate Debera tener una licencia para poder invitar, si no tiene licencias libres no pueden invitar, la unica accion que pueden hacer es adqurir una licencia para poder invitiar o liberar una licencia existente
+
+
+En la tarjeta de plan anual el plan anual dice "mes equiv." dejalo solo como mes. haz mas grande el tamaño de letra para que sea mas llamativo los montos y porcentajes de descuento.
+
+adicional añade en el perfil de profesionista alguna seccion dentro de "inicio" que muestre el nombre de la empresa a la que esta afiliada
+
+ademas en la seccion de Mis comisiones debe verse el nombre de la empresa Tambien.
+
+
+
+Creacion de cuenta.
+Solo puedo seleccionar 1 tipo de negocio, debo poder seleccionar varias, puede ser una barberia y un salon al mismo tiempo.  la seccion de direccion extiendela, pudes calle, ciudad, codigo postal, pide los mismos datos que cuando creamos una sucursal.
+al crear la cuenta el paso 3 pregunta por los 3 tipos de plan, eso sustituyelo ya que ahora no es asi, el plan de pago es la licencia de Siliba Bussiness x 10 dolares al mes  (Especifica lo que incluye la consola de adiminstrador) y pidele agregar la cantidad de empleados despues, es importante que esta seccion no la muestren la creacion de cuenta, en su lugar, dale la bienvenida y en la parte superior de cada seccion colocale un anuncio "Periodo de prueba de Siliba Bussiness, te quedan CANTIDAD DE DIAS y un boton que diga "Ver suscripciones" donde lo llevara a la seccion de suscripciones para pagar por una licencia real y para sus empleados, previo a eso el puede cargar a todos sus empleados sin problema alguno mientras tenga periodo de prueba, cada vez que agregue un empleado en la seccion de suscripciones lo vas agregando a la cuenta para que la empresa separa cuanto Debera pagar pasando el periodo de prueba, es importante anunciarle al empresario que si no paga licencia al termino del periodo de prueba la cuenta sera suspendida y el usuario no podra ingresar a su consola, aparecer en la marketplace ni recibir citas, en ese caso cuando quiera logearse nuevamente Debera mandarlo a la seccion de adqurir suscripcion para que haga el pago y su cuenta se habilite nuevamente.
+
+ADMINISTRADOR
+
+al crear una portada la imagen se puede salir del espacio, dale los mismos ajustes que a las fotos de perfil.
+
+
+Inicio:
+❯ Hay una seccion donde me da la bienvenida y me explica los costos, esta bien todo, solo el boton de
+ aceptar terminos y condiciones permite que el texto terminos y condiciones al darle click abra
+terminos y condiciones y tambien haz otro check para el aviso de privacidad, lo mismo, deja un cuadro
+ de aceptacion. y que se pueda entrar a leerlo. ya con la cuenta creada, en el texto "Período de
+prueba de Siliba Business — Te quedan 30 días. Al vencer, tu cuenta será suspendida y no aparecerás
+en el marketplace." quita "Al vencer, tu cuenta será suspendida y no aparecerás en el marketplace."
+no es necesario mostrarlo, hasta el cambio de estatus cuando los dias se agotan como quedo definido.
+la pantalla de Inicio a la hora de logearse como administrador quiero que sea "Inicio" pero el
+contenido de inicio quiero que sea el contenido de "Reportes" y lo primero que debe pedir la cuenta
+es crear el perfil de "Mi negocio" y acto siguiente pidele al usuario que agregue empleados,
+recordando el flujo correcto haciendolo por codigo de invitacion ya que en la seccion de
+http://localhost:3000/staff en el boton de Nuevo empleado ese boton esta muy bien pero no la
+ejecucion debe ser la de http://localhost:3000/settings/invite-codes.
+
+
+Al quererme registrar como profesionista asociado por medio de codigo de invitacion me dice "Configuracion de roles incompleta" eso no tiene sentido. lo que debemos hacer es que cuando se genere el codigo de invitacion no sea solo un codigo si no que pregunte a que puedo se le esta contratando, donde podra el administrador crear un nombre de puesto, con opciones pre establecidas segun la categoria de negocio pero Tambien la opcion de agregar sus propios nombres de puesto y al momento de colocar dicho codigo como profesional debe mostrarme un popup con la informacion del negocio, importante nombrar el nombre del lugar, el nombre del dueño, el nombre del puesto. una vez aceptado el administrador Debera elegir que tipo de servicios son los que puede hacer el empleado, en caso de no tener servicios creados obligara la plataforma a crear almenos 1 para poder avanzar.
+
+Si me quiero registrar como preficional me pregunta si quiero registrarme
+A revisar:
+● Push completado. Resumen de todo lo que quedó en el commit:
+
+  - Paso sucursal en el booking flow para negocios con varias ubicaciones, ordenadas por distancia GPS
+  - "Agendar cita" desde perfil profesional → pre-selecciona empleado y omite ese paso
+  - Slots cada 30 min en lugar de 15 (menos ruido visual)
+  - Nuevo datetime step con: header del empleado seleccionado, input de hora preferida con feedback
+  (confirma si está libre, muestra 3 alternativas si no), selector de fecha compacto con ← → y botón
+  calendario, SlotGrid con slots teal=disponible / gris tachado=ocupado, el slot preferido se resalta
+  con borde teal más grueso
+  - GPS silencioso en Android via @capacitor/geolocation
+
+
+
+
+
+
+El boton del banner del periodo de prueba: flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors bg-[#008080] text-white hover:bg-[#006666] manda a error 404 en vez de enviar a vert suscripciones.
+
+
+
+
+
+
+
+
+Si algo sale mal, restauramos con:
+  C:\xampp\mysql\bin\mysql -u root siliba < C:\xampp\htdocs\Zonadedamas\backup_siliba_20260402_163752.sql
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ahora quiero que las compras se generen como notificacion dentro del portal de administrador,
+  ysando el mismo estilo de notificaciones que el que tenemos cuando un empleado se une a la
+  empresa. ademas añade una seccion de "Ventas" en la configuracion 
+
+
+
+
+
+
+Emilio@democontinental.com

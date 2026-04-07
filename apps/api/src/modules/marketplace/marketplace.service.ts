@@ -420,6 +420,7 @@ export class MarketplaceService {
         birthDate: true,
         gender: true,
         allergies: true,
+        address: true,
         country: true,
         language: true,
         currency: true,
@@ -457,7 +458,7 @@ export class MarketplaceService {
   async discover(dto: MarketplaceDiscoverDto) {
     const {
       lat, lng, radiusKm = 25, category, search,
-      sortBy, availableToday, availableNow,
+      sortBy, availableToday, availableNow, shopOnly,
       page = 1, perPage = 20,
     } = dto;
     const offset = (page - 1) * perPage;
@@ -485,6 +486,11 @@ export class MarketplaceService {
 
     if (availableToday) {
       conditions.push(`EXISTS (SELECT 1 FROM business_hours bh WHERE bh.tenant_id = t.id AND bh.day_of_week = ${dayOfWeekExpr} AND bh.is_open = true)`);
+    }
+
+    if (shopOnly) {
+      conditions.push('t.shop_enabled = true');
+      conditions.push(`EXISTS (SELECT 1 FROM products p WHERE p.tenant_id = t.id AND p.is_shop_listed = true AND p.is_active = true AND p.stock > 0)`);
     }
 
     if (availableNow) {
@@ -752,6 +758,7 @@ export class MarketplaceService {
         currency: true,
         isMarketplaceListed: true,
         stripeOnboardingComplete: true,
+        shopEnabled: true,
       },
     });
 
@@ -856,12 +863,13 @@ export class MarketplaceService {
       isFavorited = !!fav;
     }
 
-    const { stripeOnboardingComplete, ...tenantData } = tenant;
+    const { stripeOnboardingComplete, shopEnabled, ...tenantData } = tenant;
 
     return {
       data: {
         ...tenantData,
         acceptsOnlinePayment: !!stripeOnboardingComplete,
+        shopEnabled: !!shopEnabled,
         averageRating: ratingAgg._avg.rating
           ? Math.round(ratingAgg._avg.rating * 10) / 10
           : null,
@@ -1313,6 +1321,7 @@ export class MarketplaceService {
     if (dto.birthDate !== undefined) updateData.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
     if (dto.gender !== undefined) updateData.gender = dto.gender || null;
     if (dto.allergies !== undefined) updateData.allergies = dto.allergies || null;
+    if (dto.address !== undefined) updateData.address = dto.address || null;
     if (dto.phone !== undefined) updateData.phone = dto.phone || null;
 
     const user = await this.prisma.marketplaceUser.update({
@@ -1328,6 +1337,7 @@ export class MarketplaceService {
         birthDate: true,
         gender: true,
         allergies: true,
+        address: true,
         createdAt: true,
       },
     });
@@ -1674,6 +1684,50 @@ export class MarketplaceService {
   }
 
   // ─── STATS & GALLERY ─────────────────────────────────
+
+  async getMyPurchases(marketplaceUserId: string, page: number, perPage: number) {
+    const skip = (page - 1) * perPage;
+
+    const where: any = { marketplaceUserId };
+
+    const [data, total] = await Promise.all([
+      this.prisma.productReservation.findMany({
+        where,
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              imageUrl: true,
+              currency: true,
+            },
+          },
+          tenant: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              logoUrl: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: perPage,
+      }),
+      this.prisma.productReservation.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
 
   async getMyStats(marketplaceUserId: string) {
     const clients = await this.prisma.client.findMany({

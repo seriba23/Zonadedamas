@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
+import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { formatCurrency } from '@/lib/utils';
 
 interface Supplier {
@@ -26,7 +27,15 @@ interface Product {
   unit?: string;
   supplierId?: string;
   supplier?: Supplier;
+  currency: string;
+  imageUrl?: string;
+  supplierUrl?: string;
+  notes?: string;
+  shippingEnabled: boolean;
+  shippingCost?: number;
+  isShopListed: boolean;
   isActive: boolean;
+  images?: { id: string; imageUrl: string; sortOrder: number }[];
 }
 
 interface ProductForm {
@@ -40,21 +49,18 @@ interface ProductForm {
   minStock: number | string;
   unit: string;
   supplierId: string;
+  currency: string;
+  supplierUrl: string;
+  notes: string;
+  shippingEnabled: boolean;
+  shippingCost: number | string;
+  isShopListed: boolean;
   isActive: boolean;
 }
 
-const DEFAULT_CATEGORIES = [
-  'Coloracion',
-  'Cuidado Capilar',
-  'Styling',
-  'Cuidado Facial',
-  'Cuidado Corporal',
-  'Unas',
-  'Herramientas',
-  'Desechables',
-  'Limpieza',
-  'Otro',
-];
+const DEFAULT_CATEGORIES: string[] = [];
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const defaultForm: ProductForm = {
   name: '',
@@ -65,8 +71,14 @@ const defaultForm: ProductForm = {
   costPrice: '',
   stock: 0,
   minStock: 0,
-  unit: 'unidad',
+  unit: 'pieza',
   supplierId: '',
+  currency: 'MXN',
+  supplierUrl: '',
+  notes: '',
+  shippingEnabled: false,
+  shippingCost: '',
+  isShopListed: false,
   isActive: true,
 };
 
@@ -78,12 +90,17 @@ export default function InventoryPage() {
   const [form, setForm] = useState<ProductForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   // Quick-create supplier popup
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
+  const [newSupplierWebsite, setNewSupplierWebsite] = useState('');
+  const [newSupplierNotes, setNewSupplierNotes] = useState('');
   const [supplierError, setSupplierError] = useState<string | null>(null);
 
   // Quick-add category popup
@@ -91,7 +108,8 @@ export default function InventoryPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
+  // Inventory type tab: 'all' | 'consumable' | 'shop'
+  const [inventoryTab, setInventoryTab] = useState<'all' | 'consumable' | 'shop'>('all');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -117,8 +135,17 @@ export default function InventoryPage() {
       ),
   });
 
-  const products = data?.data || [];
+  const allProducts = data?.data || [];
+  const products = inventoryTab === 'all'
+    ? allProducts
+    : inventoryTab === 'shop'
+      ? allProducts.filter((p) => p.isShopListed)
+      : allProducts.filter((p) => !p.isShopListed);
   const meta = data?.meta;
+
+  // Derive categories from existing products + custom ones added in this session
+  const existingCategories = [...new Set(allProducts.map((p) => p.category).filter(Boolean))] as string[];
+  const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...existingCategories, ...customCategories])];
 
   const { data: suppliersData } = useQuery({
     queryKey: ['suppliers-for-products'],
@@ -128,11 +155,19 @@ export default function InventoryPage() {
   const suppliers = suppliersData?.data || [];
 
   const saveMutation = useMutation({
-    mutationFn: (payload: Record<string, any>) => {
+    mutationFn: async (payload: Record<string, any>) => {
+      let result: any;
       if (editingProduct) {
-        return api.put(`/api/products/${editingProduct.id}`, payload);
+        result = await api.put(`/api/products/${editingProduct.id}`, payload);
+      } else {
+        result = await api.post('/api/products', payload);
       }
-      return api.post('/api/products', payload);
+      // Upload pending image after create/update
+      const productId = result?.data?.id || editingProduct?.id;
+      if (pendingImage && productId) {
+        await api.upload(`/api/products/${productId}/image`, pendingImage);
+      }
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -152,7 +187,7 @@ export default function InventoryPage() {
   });
 
   const quickSupplierMutation = useMutation({
-    mutationFn: (payload: { name: string; phone?: string; email?: string }) =>
+    mutationFn: (payload: { name: string; phone?: string; email?: string; address?: string; notes?: string }) =>
       api.post<{ data: Supplier }>('/api/suppliers', payload),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers-for-products'] });
@@ -164,6 +199,8 @@ export default function InventoryPage() {
       setNewSupplierName('');
       setNewSupplierPhone('');
       setNewSupplierEmail('');
+      setNewSupplierWebsite('');
+      setNewSupplierNotes('');
       setSupplierError(null);
     },
     onError: (err: any) => {
@@ -188,10 +225,14 @@ export default function InventoryPage() {
       setSupplierError('El telefono debe tener exactamente 10 digitos');
       return;
     }
+    const websiteVal = newSupplierWebsite.trim();
+    const notesVal = newSupplierNotes.trim();
     quickSupplierMutation.mutate({
       name: newSupplierName.trim(),
       ...(phoneVal && { phone: phoneVal }),
       ...(emailVal && { email: emailVal }),
+      ...(websiteVal && { address: websiteVal }),
+      ...(notesVal && { notes: notesVal }),
     });
   }
 
@@ -210,11 +251,15 @@ export default function InventoryPage() {
     setEditingProduct(null);
     setForm(defaultForm);
     setFormError(null);
+    setPendingImage(null);
+    setImagePreview(null);
     setIsModalOpen(true);
   }
 
   function openEdit(product: Product) {
     setEditingProduct(product);
+    setPendingImage(null);
+    setImagePreview(null);
     setForm({
       name: product.name,
       sku: product.sku || '',
@@ -224,8 +269,14 @@ export default function InventoryPage() {
       costPrice: product.costPrice,
       stock: product.stock,
       minStock: product.minStock,
-      unit: product.unit || 'unidad',
+      unit: product.unit || 'pieza',
       supplierId: product.supplierId || '',
+      currency: product.currency || 'MXN',
+      supplierUrl: product.supplierUrl || '',
+      notes: product.notes || '',
+      shippingEnabled: product.shippingEnabled ?? false,
+      shippingCost: product.shippingCost ?? '',
+      isShopListed: product.isShopListed ?? false,
       isActive: product.isActive,
     });
     setFormError(null);
@@ -237,6 +288,8 @@ export default function InventoryPage() {
     setEditingProduct(null);
     setForm(defaultForm);
     setFormError(null);
+    setPendingImage(null);
+    setImagePreview(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -255,8 +308,14 @@ export default function InventoryPage() {
       costPrice: Number(form.costPrice) || 0,
       stock: Number(form.stock) || 0,
       minStock: Number(form.minStock) || 0,
-      unit: form.unit || 'unidad',
+      unit: form.unit || 'pieza',
       supplierId: form.supplierId || null,
+      currency: form.currency || 'MXN',
+      supplierUrl: form.supplierUrl || null,
+      notes: form.notes || null,
+      shippingEnabled: form.shippingEnabled,
+      shippingCost: form.shippingEnabled && form.shippingCost !== '' ? Number(form.shippingCost) : null,
+      isShopListed: form.isShopListed,
       isActive: form.isActive,
     };
 
@@ -272,11 +331,29 @@ export default function InventoryPage() {
       <Header title="Inventario" />
 
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">
-            {meta?.total ?? products.length} producto{(meta?.total ?? products.length) !== 1 ? 's' : ''}
-          </p>
+        {/* Inventory type tabs + add button */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="flex gap-1 -mb-px">
+              {([
+                { key: 'all', label: 'Todo' },
+                { key: 'consumable', label: 'Consumibles' },
+                { key: 'shop', label: 'Para venta' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setInventoryTab(tab.key); setPage(1); }}
+                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    inventoryTab === tab.key
+                      ? 'border-[#008080] text-[#008080]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
           {hasPermission('inventory.create') && (
             <button onClick={openCreate} className="btn-primary">
               + Agregar Producto
@@ -396,10 +473,22 @@ export default function InventoryPage() {
                       }`}
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{product.name}</div>
-                        {product.description && (
-                          <div className="text-xs text-gray-400 line-clamp-1">{product.description}</div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {product.imageUrl && (
+                            <img src={`${API_URL}${product.imageUrl}`} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                          )}
+                          <div>
+                            <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                              {product.name}
+                              {product.isShopListed && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-teal-50 text-teal-700">Tienda</span>
+                              )}
+                            </div>
+                            {product.description && (
+                              <div className="text-xs text-gray-400 line-clamp-1">{product.description}</div>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">
                         {product.sku || '-'}
@@ -414,10 +503,10 @@ export default function InventoryPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-900 font-medium">
-                        {formatCurrency(product.price)}
+                        {formatCurrency(product.price, product.currency || 'MXN')}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-500">
-                        {formatCurrency(product.costPrice)}
+                        {formatCurrency(product.costPrice, product.currency || 'MXN')}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {isLowStock(product) ? (
@@ -430,7 +519,22 @@ export default function InventoryPage() {
                       </td>
                       <td className="px-4 py-3 text-center text-gray-500">{product.minStock}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">
-                        {product.supplier?.name || '-'}
+                        <div className="flex items-center gap-1">
+                          <span>{product.supplier?.name || '-'}</span>
+                          {product.supplierUrl && (
+                            <a
+                              href={product.supplierUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#008080] hover:text-[#006666]"
+                              title="Comprar al proveedor"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              </svg>
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         {product.isActive ? (
@@ -586,6 +690,27 @@ export default function InventoryPage() {
               />
             </div>
 
+            {/* Currency */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+              <select
+                value={form.currency}
+                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+                className="input-field w-48"
+              >
+                <option value="MXN">MXN - Peso Mexicano</option>
+                <option value="USD">USD - Dolar Estadounidense</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="COP">COP - Peso Colombiano</option>
+                <option value="ARS">ARS - Peso Argentino</option>
+                <option value="CLP">CLP - Peso Chileno</option>
+                <option value="PEN">PEN - Sol Peruano</option>
+                <option value="BRL">BRL - Real Brasileno</option>
+                <option value="DOP">DOP - Peso Dominicano</option>
+                <option value="GTQ">GTQ - Quetzal</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Precio de venta *</label>
@@ -645,7 +770,7 @@ export default function InventoryPage() {
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                   className="input-field"
                 >
-                  <option value="unidad">Unidad</option>
+                  <option value="pieza">Pieza</option>
                   <option value="ml">ml</option>
                   <option value="g">g</option>
                   <option value="oz">oz</option>
@@ -682,6 +807,143 @@ export default function InventoryPage() {
                 </button>
               </div>
             </div>
+
+            {/* Supplier URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de compra al proveedor</label>
+              <input
+                type="url"
+                value={form.supplierUrl}
+                onChange={(e) => setForm((f) => ({ ...f, supplierUrl: e.target.value }))}
+                className="input-field"
+                placeholder="https://www.proveedor.com/producto"
+              />
+              <p className="text-xs text-gray-400 mt-1">URL para reordenar este producto con el proveedor</p>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                className="input-field resize-none"
+                rows={2}
+                placeholder="Notas internas sobre este producto..."
+              />
+            </div>
+
+            {/* Product Image */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del producto</label>
+              <div className="flex items-center gap-4">
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                  />
+                ) : editingProduct?.imageUrl ? (
+                  <img
+                    src={`${API_URL}${editingProduct.imageUrl}`}
+                    alt={editingProduct.name}
+                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 border border-gray-200">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                    </svg>
+                  </div>
+                )}
+                <label className="cursor-pointer text-sm font-medium text-primary-600 hover:text-primary-700">
+                  {imagePreview || editingProduct?.imageUrl ? 'Cambiar imagen' : 'Subir imagen'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setCropFile(file);
+                      if (e.target) e.target.value = '';
+                    }}
+                  />
+                </label>
+                {(imagePreview || pendingImage) && (
+                  <button
+                    type="button"
+                    onClick={() => { setPendingImage(null); setImagePreview(null); }}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Quitar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Mostrar en tienda</p>
+                <p className="text-xs text-gray-500">Visible para clientes en tu perfil publico</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={form.isShopListed}
+                  onChange={(e) => setForm((f) => ({ ...f, isShopListed: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+              </div>
+            </label>
+
+            {/* Shipping - only shown when isShopListed */}
+            {form.isShopListed && (
+              <div>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Envio local disponible</p>
+                    <p className="text-xs text-gray-500">Permite que este producto pueda ser enviado al cliente a su casa o ubicacion</p>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={form.shippingEnabled}
+                      onChange={(e) => setForm((f) => ({ ...f, shippingEnabled: e.target.checked, ...(!e.target.checked && { shippingCost: '' }) }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                  </div>
+                </label>
+                {form.shippingEnabled && (
+                  <div className="mt-3 pl-4 border-l-2 border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Costo de envio local</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.shippingCost}
+                        onChange={(e) => setForm((f) => ({ ...f, shippingCost: e.target.value }))}
+                        className="input-field w-40"
+                        placeholder="0.00"
+                      />
+                      <p className="text-xs text-gray-500">
+                        {!form.shippingCost || Number(form.shippingCost) === 0
+                          ? 'Envio gratis'
+                          : `${formatCurrency(Number(form.shippingCost), form.currency || 'MXN')} por envio`}
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Deja en 0 o vacio para envio gratis</p>
+                  </div>
+                )}
+                {!form.shippingEnabled && (
+                  <p className="text-xs text-gray-400 mt-1">Este producto solo podra recogerse en tienda</p>
+                )}
+              </div>
+            )}
 
             <label className="flex items-center justify-between cursor-pointer">
               <p className="text-sm font-medium text-gray-700">Activo</p>
@@ -754,6 +1016,26 @@ export default function InventoryPage() {
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pagina web</label>
+              <input
+                type="url"
+                value={newSupplierWebsite}
+                onChange={(e) => setNewSupplierWebsite(e.target.value)}
+                className="input-field"
+                placeholder="https://www.ejemplo.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea
+                value={newSupplierNotes}
+                onChange={(e) => setNewSupplierNotes(e.target.value)}
+                className="input-field resize-none"
+                rows={2}
+                placeholder="Notas sobre el proveedor..."
+              />
+            </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => { setShowNewSupplier(false); setSupplierError(null); }} className="btn-secondary">
                 Cancelar
@@ -825,6 +1107,31 @@ export default function InventoryPage() {
             </div>
           </div>
         </Modal>
+      )}
+      {/* Image Crop Modal */}
+      {cropFile && (
+        <AvatarCropModal
+          imageFile={cropFile}
+          shape="square"
+          onAccept={(croppedFile) => {
+            setCropFile(null);
+            setPendingImage(croppedFile);
+            setImagePreview(URL.createObjectURL(croppedFile));
+          }}
+          onCancel={() => setCropFile(null)}
+          onChooseAnother={() => {
+            setCropFile(null);
+            // Re-trigger file input
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/jpeg,image/png,image/webp';
+            input.onchange = (e: any) => {
+              const file = e.target?.files?.[0];
+              if (file) setCropFile(file);
+            };
+            input.click();
+          }}
+        />
       )}
     </div>
   );

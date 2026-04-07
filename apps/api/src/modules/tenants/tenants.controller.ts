@@ -18,6 +18,7 @@ import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto'
 import { SetBusinessHoursDto } from './dto/business-hours.dto';
 import { CreateBusinessClosureDto, ClosureQueryDto } from './dto/business-closure.dto';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
+import { UpdateShopSettingsDto } from './dto/update-shop-settings.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -187,6 +188,26 @@ export class TenantsController {
   ) {
     const result = await this.tenantsService.deleteClosure(id, tenantId);
     return { data: result };
+  }
+
+  // Shop Settings
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.update')
+  @Get('tenants/shop-settings')
+  async getShopSettings(@CurrentTenant() tenantId: string) {
+    const settings = await this.tenantsService.getShopSettings(tenantId);
+    return { data: settings };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.update')
+  @Put('tenants/shop-settings')
+  async updateShopSettings(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: UpdateShopSettingsDto,
+  ) {
+    const settings = await this.tenantsService.updateShopSettings(tenantId, dto);
+    return { data: settings };
   }
 
   // Gallery

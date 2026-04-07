@@ -40,6 +40,6 @@ function getJwtSecret(): string {
   ],
   controllers: [MarketplaceController],
   providers: [MarketplaceService, MarketplaceJwtStrategy],
-  exports: [MarketplaceService],
+  exports: [MarketplaceService, MarketplaceJwtStrategy, PassportModule, JwtModule],
 })
 export class MarketplaceModule {}

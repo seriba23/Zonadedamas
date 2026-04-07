@@ -49,7 +49,32 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
   supplierId?: string;
+
+  @IsOptional()
+  @IsString()
+  supplierUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  shippingEnabled?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  shippingCost?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isShopListed?: boolean;
 
   @IsOptional()
   @IsBoolean()

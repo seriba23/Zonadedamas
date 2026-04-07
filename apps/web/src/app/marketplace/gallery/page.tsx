@@ -68,8 +68,17 @@ export default function MarketplaceGalleryPage() {
     <div className="min-h-screen">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-        <div className="max-w-2xl mx-auto pt-2 flex items-end justify-between">
-          <div>
+        <div className="max-w-2xl mx-auto pt-2 flex items-center gap-3">
+          <button
+            onClick={() => router.push('/marketplace/profile')}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+            title="Volver al perfil"
+          >
+            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="flex-1">
             <h1 className="text-lg font-bold text-gray-900">Mi galería</h1>
             {!isLoading && totalPhotos > 0 && (
               <p className="text-xs text-gray-400 mt-0.5">{totalPhotos} foto{totalPhotos !== 1 ? 's' : ''} de resultados</p>

@@ -8,8 +8,11 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   Request,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -33,6 +36,36 @@ export class ProductsController {
       page: page ? Number(page) : undefined,
       perPage: perPage ? Number(perPage) : undefined,
     });
+  }
+
+  @Get('reservations')
+  @RequirePermissions('inventory.read')
+  findAllReservations(
+    @Request() req: any,
+    @Query('page') page?: string,
+    @Query('perPage') perPage?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.productsService.findAllReservations(req.user.tenantId, {
+      page: page ? Number(page) : undefined,
+      perPage: perPage ? Number(perPage) : undefined,
+      status,
+    });
+  }
+
+  @Put('reservations/:id/status')
+  @RequirePermissions('inventory.update')
+  updateReservationStatus(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('status') status: string,
+  ) {
+    return this.productsService.updateReservationStatus(
+      req.user.tenantId,
+      id,
+      status,
+      req.user.userId,
+    );
   }
 
   @Get()
@@ -94,6 +127,54 @@ export class ProductsController {
       req.user.tenantId,
       id,
       req.user.userId,
+    );
+  }
+
+  // ─── Image Management ────────────────────────────
+
+  @Post(':id/image')
+  @RequirePermissions('inventory.update')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadMainImage(
+    @Request() req: any,
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    return this.productsService.uploadMainImage(
+      req.user.tenantId,
+      id,
+      file,
+      req.user.userId,
+    );
+  }
+
+  @Post(':id/gallery')
+  @RequirePermissions('inventory.update')
+  @UseInterceptors(FileInterceptor('file'))
+  addGalleryImage(
+    @Request() req: any,
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    return this.productsService.addGalleryImage(
+      req.user.tenantId,
+      id,
+      file,
+      req.user.userId,
+    );
+  }
+
+  @Delete(':id/gallery/:imageId')
+  @RequirePermissions('inventory.update')
+  removeGalleryImage(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+  ) {
+    return this.productsService.removeGalleryImage(
+      req.user.tenantId,
+      id,
+      imageId,
     );
   }
 }

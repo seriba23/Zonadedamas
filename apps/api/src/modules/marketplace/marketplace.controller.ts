@@ -185,6 +185,20 @@ export class MarketplaceController {
   }
 
   @UseGuards(MarketplaceJwtGuard)
+  @Get('my-purchases')
+  async getMyPurchases(
+    @Req() req: any,
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '20',
+  ) {
+    return this.marketplaceService.getMyPurchases(
+      req.user.marketplaceUserId,
+      parseInt(page, 10) || 1,
+      Math.min(parseInt(perPage, 10) || 20, 100),
+    );
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
   @Get('my-stats')
   async getMyStats(@Req() req: any) {
     return this.marketplaceService.getMyStats(req.user.marketplaceUserId);

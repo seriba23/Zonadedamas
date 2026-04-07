@@ -1,10 +1,34 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const TEAL = '#008080';
+
+const RESERVATION_STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmado',
+  READY: 'Listo para entrega',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelado',
+};
+
+const RESERVATION_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  PENDING: { bg: '#fef3c7', color: '#d97706' },
+  CONFIRMED: { bg: '#dbeafe', color: '#2563eb' },
+  READY: { bg: '#ccfbf1', color: '#0d9488' },
+  DELIVERED: { bg: '#d1fae5', color: '#059669' },
+  CANCELLED: { bg: '#fee2e2', color: '#dc2626' },
+};
+
+const FULFILLMENT_LABELS: Record<string, string> = { PICKUP: 'Recoger en tienda', SHIPPING: 'Envio a domicilio' };
+const PAYMENT_LABELS: Record<string, string> = { CASH: 'Efectivo', SPEI: 'SPEI', CARD: 'Tarjeta' };
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -37,14 +61,22 @@ function formatTime(dateStr: string) {
 export default function MarketplaceAppointmentsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+  const [tab, setTab] = useState<'citas' | 'compras'>('citas');
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments'),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && tab === 'citas',
+  });
+
+  const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
+    queryKey: ['marketplace-my-purchases'],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-purchases'),
+    enabled: isAuthenticated && tab === 'compras',
   });
 
   const appointments: any[] = (data as any)?.data || [];
+  const purchases: any[] = (purchasesData as any)?.data || [];
 
   const upcoming = appointments.filter((a) =>
     ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status),
@@ -83,66 +115,145 @@ export default function MarketplaceAppointmentsPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-        <div className="max-w-2xl mx-auto pt-2 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">Mis citas</h1>
+      <div className="bg-white border-b border-gray-100 px-4 pb-0 safe-top">
+        <div className="max-w-2xl mx-auto pt-2 flex items-center justify-between mb-2">
+          <h1 className="text-lg font-bold text-gray-900">{tab === 'citas' ? 'Mis citas' : 'Mis compras'}</h1>
+          {tab === 'citas' && (
+            <button
+              onClick={() => router.push('/marketplace')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
+              style={{ backgroundColor: TEAL }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Nueva cita
+            </button>
+          )}
+        </div>
+        {/* Tabs */}
+        <div className="max-w-2xl mx-auto flex gap-1 -mb-px">
           <button
-            onClick={() => router.push('/marketplace')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
-            style={{ backgroundColor: '#008080' }}
+            onClick={() => setTab('citas')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === 'citas' ? '' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            style={tab === 'citas' ? { borderColor: TEAL, color: TEAL } : undefined}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Nueva cita
+            Citas
+          </button>
+          <button
+            onClick={() => setTab('compras')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === 'compras' ? '' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            style={tab === 'compras' ? { borderColor: TEAL, color: TEAL } : undefined}
+          >
+            Compras
           </button>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4">
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: '#008080' }} />
-          </div>
-        ) : appointments.length === 0 ? (
-          <div className="text-center py-16 flex flex-col items-center gap-4">
-            <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-            </svg>
-            <p className="text-gray-500">No tienes citas todavía</p>
-            <Link
-              href="/marketplace"
-              className="px-6 py-2.5 text-white rounded-full text-sm font-medium"
-              style={{ backgroundColor: '#008080' }}
-            >
-              Explorar negocios
-            </Link>
-          </div>
+        {tab === 'citas' ? (
+          isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: TEAL }} />
+            </div>
+          ) : appointments.length === 0 ? (
+            <div className="text-center py-16 flex flex-col items-center gap-4">
+              <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              <p className="text-gray-500">No tienes citas todavía</p>
+              <Link href="/marketplace" className="px-6 py-2.5 text-white rounded-full text-sm font-medium" style={{ backgroundColor: TEAL }}>
+                Explorar negocios
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {upcoming.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Próximas</h2>
+                  <div className="space-y-3">
+                    {upcoming.map((appt) => (
+                      <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {past.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Historial</h2>
+                  <div className="space-y-3">
+                    {past.map((appt) => (
+                      <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )
         ) : (
-          <div className="space-y-6">
-            {upcoming.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Próximas</h2>
-                <div className="space-y-3">
-                  {upcoming.map((appt) => (
-                    <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
-                  ))}
-                </div>
-              </section>
-            )}
+          // ───── Compras tab ─────
+          purchasesLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: TEAL }} />
+            </div>
+          ) : purchases.length === 0 ? (
+            <div className="text-center py-16 flex flex-col items-center gap-4">
+              <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+              <p className="text-gray-500">No has apartado productos todavía</p>
+              <Link href="/marketplace?shop=1" className="px-6 py-2.5 text-white rounded-full text-sm font-medium" style={{ backgroundColor: TEAL }}>
+                Explorar tiendas
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {purchases.map((p) => (
+                <PurchaseCard key={p.id} purchase={p} />
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
 
-            {past.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Historial</h2>
-                <div className="space-y-3">
-                  {past.map((appt) => (
-                    <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
-                  ))}
-                </div>
-              </section>
-            )}
+function PurchaseCard({ purchase }: { purchase: any }) {
+  const status = RESERVATION_STATUS_STYLE[purchase.status] || RESERVATION_STATUS_STYLE.PENDING;
+  const total = Number(purchase.unitPrice) * purchase.quantity + (Number(purchase.shippingCost) || 0);
+  const currency = purchase.product?.currency || 'MXN';
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-start gap-3">
+        {purchase.product?.imageUrl ? (
+          <img src={`${API_URL}${purchase.product.imageUrl}`} alt={purchase.product.name} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" />
+            </svg>
           </div>
         )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <p className="text-sm font-semibold text-gray-900 truncate">{purchase.product?.name}</p>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0" style={{ backgroundColor: status.bg, color: status.color }}>
+              {RESERVATION_STATUS_LABEL[purchase.status]}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mb-2">{purchase.tenant?.name}</p>
+          <div className="flex items-center justify-between text-xs">
+            <div className="text-gray-500">
+              <span>{purchase.quantity}x · {FULFILLMENT_LABELS[purchase.fulfillmentType]} · {PAYMENT_LABELS[purchase.preferredPaymentMethod]}</span>
+            </div>
+            <span className="font-bold" style={{ color: TEAL }}>{formatCurrency(total, currency)}</span>
+          </div>
+          {purchase.shippingAddress && (
+            <p className="text-[10px] text-gray-400 mt-2 truncate">📍 {purchase.shippingAddress}</p>
+          )}
+          <p className="text-[10px] text-gray-400 mt-1">{new Date(purchase.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+        </div>
       </div>
     </div>
   );

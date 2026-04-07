@@ -46,6 +46,12 @@ export class MarketplaceDiscoverDto {
   @IsBoolean()
   availableNow?: boolean;
 
+  /** Filter only businesses with active shop and at least one product listed */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  shopOnly?: boolean;
+
   @IsOptional()
   @Transform(({ value }) => parseInt(value))
   @IsInt()

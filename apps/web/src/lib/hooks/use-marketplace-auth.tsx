@@ -14,6 +14,7 @@ interface MarketplaceUser {
   gender?: string | null;
   birthDate?: string | null;
   allergies?: string | null;
+  address?: string | null;
   socialProvider?: string | null;
 }
 
