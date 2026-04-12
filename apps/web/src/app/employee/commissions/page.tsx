@@ -205,9 +205,9 @@ export default function EmployeeCommissionsPage() {
         ) : rows.length === 0 ? (
           <div className="p-12 text-center">
             <span className="text-4xl mb-3 block">💰</span>
-            <p className="text-gray-500">No hay comisiones en este periodo</p>
+            <p className="text-gray-500">No hay comisiones en este período</p>
             <p className="text-sm text-gray-400 mt-1">
-              Las comisiones aparecen cuando se completan citas con servicios que tienen comision configurada
+              Las comisiones aparecen cuando se completan citas con servicios que tienen comisión configurada
             </p>
           </div>
         ) : (
@@ -221,7 +221,7 @@ export default function EmployeeCommissionsPage() {
                     <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Cliente</th>
                     <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Servicio</th>
                     <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase text-right">Precio</th>
-                    <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase text-right">Comision</th>
+                    <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase text-right">Comisión</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">

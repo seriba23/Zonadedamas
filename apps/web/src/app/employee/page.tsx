@@ -243,7 +243,7 @@ export default function EmployeeDashboard() {
       {/* Today's appointments */}
       <div className="bg-white rounded-xl border border-gray-200 mb-6">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Citas del dia</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Citas del día</h2>
           <Link href="/employee/appointments" className="text-xs text-primary-600 font-medium hover:underline">
             Ver todas
           </Link>

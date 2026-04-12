@@ -133,7 +133,7 @@ export default function EmployeeGalleryPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Mi Galeria</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Mi Galería</h1>
 
       {/* Filters */}
       {availableMonths.length > 0 && (
@@ -172,9 +172,9 @@ export default function EmployeeGalleryPage() {
       ) : filteredPhotos.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <span className="text-4xl mb-3 block">📸</span>
-          <p className="text-gray-500">No hay fotos en tu galeria</p>
+          <p className="text-gray-500">No hay fotos en tu galería</p>
           <p className="text-sm text-gray-400 mt-1">
-            Las fotos de resultados de tus citas completadas apareceran aqui
+            Las fotos de resultados de tus citas completadas aparecerán aquí
           </p>
         </div>
       ) : (

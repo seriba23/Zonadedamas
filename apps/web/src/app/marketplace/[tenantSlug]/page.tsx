@@ -687,7 +687,7 @@ export default function BusinessDetailPage() {
             <p className="text-2xl font-bold" style={{ color: TEAL }}>
               {biz.averageRating != null ? biz.averageRating : '--'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Puntuacion</p>
+            <p className="text-xs text-gray-500 mt-1">Puntuación</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
             <p className="text-2xl font-bold" style={{ color: TEAL }}>

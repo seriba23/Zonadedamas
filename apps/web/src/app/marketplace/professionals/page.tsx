@@ -260,7 +260,7 @@ export default function ProfessionalsPage() {
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
               </svg>
-              {filterJobTitle || 'Profesion'}
+              {filterJobTitle || 'Profesión'}
             </button>
 
             {/* Favoritos */}
@@ -316,7 +316,7 @@ export default function ProfessionalsPage() {
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[60vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-white px-5 pt-5 pb-3 border-b border-gray-100">
               <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-gray-900">Filtrar por profesion</h3>
+              <h3 className="text-base font-semibold text-gray-900">Filtrar por profesión</h3>
             </div>
             <div className="p-4 space-y-1">
               <button

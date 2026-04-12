@@ -575,7 +575,7 @@ export default function MarketplaceProfilePage() {
             <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z" />
             </svg>
-            <p className="text-xs font-medium">Galeria</p>
+            <p className="text-xs font-medium">Galería</p>
           </button>
         </div>
 
@@ -796,7 +796,7 @@ export default function MarketplaceProfilePage() {
         {activeSection === 'default' && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-900">Proximas citas</h2>
+              <h2 className="text-sm font-semibold text-gray-900">Próximas citas</h2>
             </div>
 
             {upcomingLoading ? (
@@ -805,7 +805,7 @@ export default function MarketplaceProfilePage() {
               </div>
             ) : upcomingAppointments.length === 0 ? (
               <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
-                <p className="text-gray-400 text-sm">No tienes citas proximas</p>
+                <p className="text-gray-400 text-sm">No tienes citas próximas</p>
                 <Link
                   href="/marketplace"
                   className="text-sm font-medium mt-2 inline-block"
@@ -874,7 +874,7 @@ export default function MarketplaceProfilePage() {
             onClick={handleLogout}
             className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
           >
-            Cerrar sesion
+            Cerrar sesión
           </button>
         )}
       </div>
