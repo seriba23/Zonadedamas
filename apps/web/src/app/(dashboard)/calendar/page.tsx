@@ -13,7 +13,7 @@ import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
 dayjs.extend(isoWeek);
 
-type ViewMode = 'day' | 'week' | 'month';
+type ViewMode = 'day' | 'week' | 'month' | 'custom';
 
 interface Appointment {
   id: string;
@@ -58,6 +58,9 @@ export default function CalendarPage() {
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
 
+  const [customStart, setCustomStart] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+  const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
+
   // Filter state
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
   const [filterClientId, setFilterClientId] = useState('');
@@ -77,16 +80,20 @@ export default function CalendarPage() {
     }
   }, [serviceDropdownOpen]);
 
-  const startDate = viewMode === 'month'
-    ? currentDate.startOf('month').startOf('isoWeek').format('YYYY-MM-DD')
-    : viewMode === 'week'
-      ? currentDate.startOf('week').format('YYYY-MM-DD')
-      : currentDate.format('YYYY-MM-DD');
-  const endDate = viewMode === 'month'
-    ? currentDate.endOf('month').endOf('isoWeek').format('YYYY-MM-DD')
-    : viewMode === 'week'
-      ? currentDate.endOf('week').format('YYYY-MM-DD')
-      : currentDate.format('YYYY-MM-DD');
+  const startDate = viewMode === 'custom'
+    ? customStart
+    : viewMode === 'month'
+      ? currentDate.startOf('month').startOf('isoWeek').format('YYYY-MM-DD')
+      : viewMode === 'week'
+        ? currentDate.startOf('week').format('YYYY-MM-DD')
+        : currentDate.format('YYYY-MM-DD');
+  const endDate = viewMode === 'custom'
+    ? customEnd
+    : viewMode === 'month'
+      ? currentDate.endOf('month').endOf('isoWeek').format('YYYY-MM-DD')
+      : viewMode === 'week'
+        ? currentDate.endOf('week').format('YYYY-MM-DD')
+        : currentDate.format('YYYY-MM-DD');
 
   // Build query params - month view needs more results
   const queryParams = new URLSearchParams({
@@ -341,6 +348,7 @@ export default function CalendarPage() {
                 { key: 'day' as ViewMode, label: 'Día' },
                 { key: 'week' as ViewMode, label: 'Semana' },
                 { key: 'month' as ViewMode, label: 'Mes' },
+                { key: 'custom' as ViewMode, label: 'Personalizado' },
               ]).map((v) => (
                 <button
                   key={v.key}
@@ -353,29 +361,40 @@ export default function CalendarPage() {
                 </button>
               ))}
             </div>
+            {viewMode === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="input-field w-auto text-sm py-1.5" />
+                <span className="text-gray-500">-</span>
+                <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="input-field w-auto text-sm py-1.5" />
+              </div>
+            )}
 
-            {/* Date navigation */}
-            <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Anterior">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
-              Hoy
-            </button>
-            <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Siguiente">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            {/* Date navigation — hidden in custom mode */}
+            {viewMode !== 'custom' && (
+              <>
+                <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Anterior">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+                  Hoy
+                </button>
+                <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Siguiente">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
 
-            <span className="text-base font-medium text-gray-900 capitalize">
+            {viewMode !== 'custom' && <span className="text-base font-medium text-gray-900 capitalize">
               {viewMode === 'month'
                 ? formatDate(currentDate.toDate(), 'MMMM YYYY')
                 : viewMode === 'day'
                   ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
                   : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
-            </span>
+            </span>}
           </div>
 
           <button
@@ -579,6 +598,45 @@ export default function CalendarPage() {
                 </div>
               ))}
             </div>
+          </div>
+        ) : viewMode === 'custom' ? (
+          <div className="h-full overflow-auto p-6 bg-white">
+            {appointments.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">No hay citas en este período</div>
+            ) : (
+              <div className="space-y-2">
+                {appointments.map((apt) => {
+                  const totalPrice = (apt.items || []).reduce((sum, i) => sum + Number(i.priceSnapshot || 0), 0);
+                  return (
+                    <div
+                      key={apt.id}
+                      onClick={() => handleAppointmentClick(apt.id)}
+                      className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                      style={{ borderLeft: `3px solid ${apt.employee?.color || '#008080'}` }}
+                    >
+                      <div className="min-w-[100px]">
+                        <p className="text-sm font-medium text-gray-900">{dayjs(apt.startTime).format('D MMM YYYY')}</p>
+                        <p className="text-xs text-gray-500">{dayjs(apt.startTime).format('h:mm A')} - {dayjs(apt.endTime).format('h:mm A')}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{apt.client?.firstName} {apt.client?.lastName}</p>
+                        <p className="text-xs text-gray-500 truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</p>
+                      </div>
+                      <div className="text-xs text-gray-500">{apt.employee?.firstName} {apt.employee?.lastName}</div>
+                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(totalPrice)}</div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        apt.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                        apt.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
+                        apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {apt.status === 'COMPLETED' ? 'Completada' : apt.status === 'CANCELLED' ? 'Cancelada' : apt.status === 'PENDING' ? 'Pendiente' : apt.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           <CalendarView
