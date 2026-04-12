@@ -332,98 +332,50 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full">
       <Header title="Calendario" />
 
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
-        {/* Date navigation */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={goBack}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="Anterior"
-          >
-            <svg
-              className="w-5 h-5 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
+      <div className="px-6 py-4 bg-white border-b border-gray-200">
+        {/* View mode selector — same style as Reports date range */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+              {([
+                { key: 'day' as ViewMode, label: 'Día' },
+                { key: 'week' as ViewMode, label: 'Semana' },
+                { key: 'month' as ViewMode, label: 'Mes' },
+              ]).map((v) => (
+                <button
+                  key={v.key}
+                  onClick={() => setViewMode(v.key)}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 last:border-r-0 ${
+                    viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
 
-          <button
-            onClick={goToToday}
-            className="btn-secondary text-sm px-3 py-1.5"
-          >
-            Hoy
-          </button>
-
-          <button
-            onClick={goForward}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="Siguiente"
-          >
-            <svg
-              className="w-5 h-5 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
-
-          <span className="text-base font-medium text-gray-900 capitalize">
-            {viewMode === 'month'
-              ? formatDate(currentDate.toDate(), 'MMMM YYYY')
-              : viewMode === 'day'
-                ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
-                : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
-          </span>
-        </div>
-
-        {/* View mode + New appointment */}
-        <div className="flex items-center gap-3">
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => setViewMode('day')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === 'day'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Día
+            {/* Date navigation */}
+            <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Anterior">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-300 ${
-                viewMode === 'week'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Semana
+            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+              Hoy
             </button>
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-300 ${
-                viewMode === 'month'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Mes
+            <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Siguiente">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
+
+            <span className="text-base font-medium text-gray-900 capitalize">
+              {viewMode === 'month'
+                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
+                : viewMode === 'day'
+                  ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
+                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
+            </span>
           </div>
 
           <button
