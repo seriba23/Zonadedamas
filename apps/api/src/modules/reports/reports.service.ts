@@ -275,4 +275,30 @@ export class ReportsService {
       last7Days,
     };
   }
+
+  async getAlertCounts(tenantId: string) {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const startOfDay = new Date(`${todayStr}T00:00:00Z`);
+    const endOfDay = new Date(`${todayStr}T23:59:59Z`);
+
+    const [lowStockCount, pendingReservations, unconfirmedAppointments] = await Promise.all([
+      this.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count FROM products
+        WHERE tenant_id = ${tenantId} AND is_active = true AND stock <= min_stock
+      `.then((r) => Number(r[0]?.count || 0)).catch(() => 0),
+      this.prisma.productReservation.count({
+        where: { tenantId, status: 'PENDING' },
+      }).catch(() => 0),
+      this.prisma.appointment.count({
+        where: {
+          tenantId,
+          status: 'PENDING',
+          startTime: { gte: startOfDay, lte: endOfDay },
+        },
+      }),
+    ]);
+
+    return { lowStockCount, pendingReservations, unconfirmedAppointments };
+  }
 }

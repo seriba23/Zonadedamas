@@ -31,4 +31,11 @@ export class ReportsController {
     const data = await this.reportsService.getTodaySummary(req.user.tenantId);
     return { data };
   }
+
+  @Get('alerts')
+  @RequirePermissions('reports.revenue')
+  async getAlerts(@Req() req: any) {
+    const data = await this.reportsService.getAlertCounts(req.user.tenantId);
+    return { data };
+  }
 }
