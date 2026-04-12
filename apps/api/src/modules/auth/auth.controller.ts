@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   Param,
@@ -8,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -33,7 +36,10 @@ class ChangePasswordDto {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -94,5 +100,47 @@ export class AuthController {
   ) {
     await this.authService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
     return { data: { message: 'Contraseña actualizada' } };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('register-as-professional')
+  async registerAsProfessional(@CurrentUser() userPayload: JwtPayload) {
+    const { userId, tenantId } = userPayload;
+
+    const existing = await this.prisma.employee.findFirst({
+      where: { userId, tenantId },
+    });
+    if (existing) {
+      throw new ConflictException('Ya tienes un perfil de profesional');
+    }
+
+    const location = await this.prisma.location.findFirst({
+      where: { tenantId, isActive: true },
+    });
+    if (!location) {
+      throw new BadRequestException('No hay ubicaciones activas');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
+    });
+    if (!user) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+
+    const employee = await this.prisma.employee.create({
+      data: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        locationId: location.id,
+        tenantId,
+        userId,
+        color: '#008080',
+      },
+    });
+
+    return { data: employee };
   }
 }

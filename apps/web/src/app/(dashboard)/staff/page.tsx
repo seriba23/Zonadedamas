@@ -54,7 +54,7 @@ export default function StaffPage() {
   });
 
   const registerSelfMutation = useMutation({
-    mutationFn: () => api.post('/api/employees/register-self'),
+    mutationFn: () => api.post('/api/auth/register-as-professional'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       if (refreshUser) refreshUser();
