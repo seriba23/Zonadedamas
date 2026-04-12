@@ -109,7 +109,6 @@ export class EmployeesController {
   }
 
   @Post('register-self')
-  @RequirePermissions('employees.create')
   async registerSelf(
     @CurrentTenant() tenantId: string,
     @Req() req: any,
