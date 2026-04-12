@@ -8,7 +8,6 @@ import { Modal } from '@/components/ui/modal';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import dayjs from 'dayjs';
 import Link from 'next/link';
-import { QuickActions } from '@/components/dashboard/quick-actions';
 
 type DateRange = 'today' | '7d' | '30d' | 'month' | 'custom';
 
@@ -415,11 +414,6 @@ export default function ReportsPage() {
       <Header title="Reportes" />
 
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Quick Actions */}
-        <div className="mb-6">
-          <QuickActions />
-        </div>
-
         {/* Date range selector */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <div className="flex rounded-lg border border-gray-300 overflow-hidden">

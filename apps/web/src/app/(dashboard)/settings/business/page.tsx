@@ -82,7 +82,7 @@ export default function BusinessSettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-current'] });
       queryClient.invalidateQueries({ queryKey: ['tenant-setup-check'] });
-      router.push('/reports');
+      router.push('/dashboard');
     },
   });
 

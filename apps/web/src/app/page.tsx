@@ -56,7 +56,7 @@ export default function HomePage() {
         return;
       }
 
-      router.push(isAdmin ? '/reports' : '/employee');
+      router.push(isAdmin ? '/dashboard' : '/employee');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas');
     } finally {
@@ -84,7 +84,7 @@ export default function HomePage() {
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
         const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/reports');
+        router.push(isEmployee ? '/employee' : '/dashboard');
       }
     } catch {
       // If staff social fails, try marketplace social
@@ -125,7 +125,7 @@ export default function HomePage() {
 
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/reports')}
+                onClick={() => router.push('/dashboard')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">

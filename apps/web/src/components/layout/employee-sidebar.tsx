@@ -76,7 +76,7 @@ export function EmployeeSidebar() {
         <div className="border-t border-gray-200 p-4">
           <div
             className={`flex items-center gap-3 mb-3 ${isAdmin ? 'cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-gray-100 transition-colors' : ''}`}
-            onClick={() => { if (isAdmin) window.location.href = '/reports'; }}
+            onClick={() => { if (isAdmin) window.location.href = '/dashboard'; }}
             title={isAdmin ? 'Cambiar a Administrador' : undefined}
           >
             <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0 overflow-hidden">
