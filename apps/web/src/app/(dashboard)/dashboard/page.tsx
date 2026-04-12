@@ -188,8 +188,8 @@ export default function DashboardPage() {
           <svg className="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-gray-900 font-semibold mb-1">Tu negocio esta configurado</p>
-          <p className="text-sm text-gray-500 mb-4">Consulta tus estadisticas en Reportes</p>
+          <p className="text-gray-900 font-semibold mb-1">Tu negocio está configurado</p>
+          <p className="text-sm text-gray-500 mb-4">Consulta tus estadísticas en Reportes</p>
           <button
             onClick={() => router.push('/reports')}
             className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"

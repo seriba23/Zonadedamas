@@ -31,9 +31,9 @@ const TABS: { key: StaffTab; label: string }[] = [
   { key: 'horarios', label: 'Horarios' },
   { key: 'comisiones', label: 'Comisiones' },
   { key: 'evaluaciones', label: 'Evaluaciones' },
-  { key: 'formacion', label: 'Formacion' },
+  { key: 'formacion', label: 'Formación' },
   { key: 'documentos', label: 'Documentos' },
-  { key: 'nomina', label: 'Nomina' },
+  { key: 'nomina', label: 'Nómina' },
 ];
 
 export default function StaffPage() {
@@ -183,7 +183,7 @@ export default function StaffPage() {
           <PlaceholderTab
             icon="📋"
             title="Registro de asistencias"
-            desc="Gestiona vacaciones, permisos, ausencias y dias festivos de tu equipo."
+            desc="Gestiona vacaciones, permisos, ausencias y días festivos de tu equipo."
             hint="Selecciona un empleado de la lista para gestionar sus ausencias individualmente desde su perfil."
           />
         )}
@@ -194,7 +194,7 @@ export default function StaffPage() {
             icon="🕐"
             title="Horarios del equipo"
             desc="Vista general de los horarios de todos los empleados en una sola pantalla."
-            hint="Proximamente: grid semanal con los horarios de todo el equipo."
+            hint="Próximamente: grid semanal con los horarios de todo el equipo."
           />
         )}
 
@@ -203,8 +203,8 @@ export default function StaffPage() {
           <PlaceholderTab
             icon="💰"
             title="Comisiones"
-            desc="Calculo y seguimiento de comisiones por empleado y servicio."
-            hint="Proximamente: configuracion de porcentajes por servicio y reportes de pago."
+            desc="Cálculo y seguimiento de comisiones por empleado y servicio."
+            hint="Próximamente: configuración de porcentajes por servicio y reportes de pago."
           />
         )}
 
@@ -212,9 +212,9 @@ export default function StaffPage() {
         {activeTab === 'evaluaciones' && (
           <PlaceholderTab
             icon="⭐"
-            title="Evaluaciones de desempeno"
-            desc="Evaluaciones periodicas del rendimiento de tu equipo."
-            hint="Proximamente: calificaciones, objetivos y retroalimentacion."
+            title="Evaluaciones de desempeño"
+            desc="Evaluaciones periódicas del rendimiento de tu equipo."
+            hint="Próximamente: calificaciones, objetivos y retroalimentación."
           />
         )}
 
@@ -222,9 +222,9 @@ export default function StaffPage() {
         {activeTab === 'formacion' && (
           <PlaceholderTab
             icon="🎓"
-            title="Formacion y capacitacion"
+            title="Formación y capacitación"
             desc="Cursos, certificaciones y desarrollo profesional del equipo."
-            hint="Proximamente: registro de cursos completados y pendientes."
+            hint="Próximamente: registro de cursos completados y pendientes."
           />
         )}
 
@@ -234,7 +234,7 @@ export default function StaffPage() {
             icon="📄"
             title="Documentos"
             desc="Contratos, identificaciones, certificados y archivos de cada empleado."
-            hint="Proximamente: repositorio centralizado de documentos del equipo."
+            hint="Próximamente: repositorio centralizado de documentos del equipo."
           />
         )}
 
@@ -242,9 +242,9 @@ export default function StaffPage() {
         {activeTab === 'nomina' && (
           <PlaceholderTab
             icon="💵"
-            title="Nomina"
+            title="Nómina"
             desc="Registro de pagos, adelantos y bonificaciones del equipo."
-            hint="Proximamente: historial de pagos y exportacion para contabilidad."
+            hint="Próximamente: historial de pagos y exportación para contabilidad."
           />
         )}
       </div>

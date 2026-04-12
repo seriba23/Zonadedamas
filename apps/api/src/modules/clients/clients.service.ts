@@ -48,12 +48,26 @@ export class ClientsService {
           _count: {
             select: { appointments: true },
           },
+          appointments: {
+            where: { status: 'COMPLETED' },
+            orderBy: { startTime: 'desc' },
+            take: 1,
+            select: { startTime: true },
+          },
         },
       }),
       this.prisma.client.count({ where }),
     ]);
 
-    return buildPaginatedResponse(data, total, params);
+    const mapped = data.map((client) => {
+      const { appointments, ...rest } = client;
+      return {
+        ...rest,
+        lastVisit: appointments[0]?.startTime ?? null,
+      };
+    });
+
+    return buildPaginatedResponse(mapped, total, params);
   }
 
   async findOne(id: string, tenantId: string) {

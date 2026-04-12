@@ -174,7 +174,7 @@ export default function BusinessHoursPage() {
 
           {/* Apply to all */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-            <p className="text-sm font-medium text-gray-700 mb-3">Aplicar horario a todos los dias</p>
+            <p className="text-sm font-medium text-gray-700 mb-3">Aplicar horario a todos los días</p>
             <div className="flex items-center gap-3 flex-wrap">
               <input
                 type="time"

@@ -177,12 +177,16 @@ export default function ReservationsPage() {
 
               {r.shippingAddress && (
                 <p className="text-xs text-gray-500 mb-3 bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="font-medium">Direccion:</span> {r.shippingAddress}
+                  <span className="font-medium">Dirección:</span> {r.shippingAddress}
                 </p>
               )}
 
               {r.notes && (
-                <p className="text-xs text-gray-500 mb-3 italic">"{r.notes}"</p>
+                <p className="text-xs text-gray-500 mb-3 italic">
+                  "{r.notes.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/g, (match) =>
+                    new Date(match).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  )}"
+                </p>
               )}
 
               {/* Actions */}

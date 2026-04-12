@@ -512,7 +512,7 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Revenue chart */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Ingresos por dia</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Ingresos por día</h3>
             {isLoading ? (
               <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
             ) : stats.revenueByDay.length === 0 ? (
@@ -543,7 +543,7 @@ export default function ReportsPage() {
 
           {/* Top services - INTERACTIVE */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Servicios mas populares</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Servicios más populares</h3>
             {isLoading ? (
               <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
             ) : stats.topServices.length === 0 ? (
@@ -613,7 +613,7 @@ export default function ReportsPage() {
 
           {/* Payment methods - INTERACTIVE */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Metodos de pago</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Métodos de pago</h3>
             {isLoading ? (
               <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
             ) : paymentEntries.length === 0 ? (
@@ -666,7 +666,7 @@ export default function ReportsPage() {
               <div className="space-y-4">
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-3xl font-bold" style={{ color: '#008080' }}>{stats.clientMetrics.retentionRate.toFixed(1)}%</p>
-                  <p className="text-sm text-gray-500 mt-1">Tasa de retencion</p>
+                  <p className="text-sm text-gray-500 mt-1">Tasa de retención</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div

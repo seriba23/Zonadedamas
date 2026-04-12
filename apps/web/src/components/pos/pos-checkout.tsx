@@ -315,7 +315,7 @@ export function PosCheckout({
                   onClick={() => setDiscountType('amount')}
                   className={`px-3 py-2 text-sm ${discountType === 'amount' ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                 >
-                  RD$
+                  US$
                 </button>
                 <button
                   onClick={() => setDiscountType('percent')}

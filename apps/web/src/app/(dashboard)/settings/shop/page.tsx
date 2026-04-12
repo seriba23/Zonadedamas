@@ -119,7 +119,7 @@ export default function ShopSettingsPage() {
             <p className="text-sm font-medium" style={{ color: TEAL }}>Siliba no procesa pagos de productos</p>
             <p className="text-xs mt-1" style={{ color: '#555' }}>
               Los clientes apartan productos y pagan directamente a tu negocio al recogerlos o recibirlos.
-              Tu controlas los metodos de pago que aceptas.
+              Tú controlas los métodos de pago que aceptas.
             </p>
           </div>
         </div>
@@ -132,7 +132,7 @@ export default function ShopSettingsPage() {
           checked={settings.shopEnabled}
           onChange={(v) => setSettings({ ...settings, shopEnabled: v })}
           label="Habilitar tienda"
-          description="Muestra la seccion de productos en tu perfil del marketplace"
+          description="Muestra la sección de productos en tu perfil del marketplace"
         />
       </div>
 
@@ -156,9 +156,9 @@ export default function ShopSettingsPage() {
 
       {/* Payment Methods */}
       <div className={`bg-white rounded-xl border border-gray-200 p-5 mb-6 transition-opacity ${settings.shopEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">Metodos de pago aceptados</h2>
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">Métodos de pago aceptados</h2>
         <p className="text-xs text-gray-500 mb-3">
-          Estos son los metodos que tus clientes podran elegir al apartar un producto.
+          Estos son los métodos que tus clientes podrán elegir al apartar un producto.
           El cobro lo realizas tu directamente.
         </p>
         <Toggle
@@ -237,7 +237,7 @@ export default function ShopSettingsPage() {
 
       {saved && (
         <p className="text-center text-sm mt-3" style={{ color: TEAL }}>
-          Configuracion guardada correctamente
+          Configuración guardada correctamente
         </p>
       )}
     </div>

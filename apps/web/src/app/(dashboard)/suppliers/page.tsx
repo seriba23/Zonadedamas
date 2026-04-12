@@ -184,7 +184,7 @@ export default function SuppliersPage() {
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Contacto</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Telefono</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Teléfono</th>
                     <th className="text-center px-4 py-3 font-medium text-gray-600">Productos</th>
                     <th className="text-center px-4 py-3 font-medium text-gray-600">Estado</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
@@ -346,7 +346,7 @@ export default function SuppliersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                 <input
                   type="tel"
                   value={form.phone}
@@ -358,13 +358,13 @@ export default function SuppliersPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Direccion</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
               <input
                 type="text"
                 value={form.address}
                 onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                 className="input-field"
-                placeholder="Direccion del proveedor"
+                placeholder="Dirección del proveedor"
               />
             </div>
 
@@ -410,7 +410,7 @@ export default function SuppliersPage() {
         <Modal title="Eliminar Proveedor" onClose={() => setDeleteConfirm(null)}>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              ¿Estas seguro de que deseas eliminar este proveedor? Los productos asociados quedaran sin proveedor.
+              ¿Estás seguro de que deseas eliminar este proveedor? Los productos asociados quedarán sin proveedor.
             </p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="btn-secondary">

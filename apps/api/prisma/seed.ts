@@ -337,14 +337,14 @@ const ROLE_DEFINITIONS = [
   {
     name: 'Owner',
     slug: 'owner',
-    description: 'Dueno del negocio — acceso total a todas las funciones incluyendo facturacion y configuracion',
+    description: 'Dueño del negocio — acceso total a todas las funciones incluyendo facturación y configuración',
     isSystem: true,
     permissions: ALL_PERMISSIONS,
   },
   {
     name: 'Admin',
     slug: 'admin',
-    description: 'Administrador — acceso total excepto facturacion. Puede gestionar roles, usuarios y configuracion',
+    description: 'Administrador — acceso total excepto facturación. Puede gestionar roles, usuarios y configuración',
     isSystem: true,
     permissions: ALL_PERMISSIONS.filter((p) => !ADMIN_EXCLUDED.includes(p)),
   },
@@ -356,7 +356,7 @@ const ROLE_DEFINITIONS = [
     permissions: MANAGER_PERMISSIONS,
   },
   {
-    name: 'Recepcion',
+    name: 'Recepción',
     slug: 'frontdesk',
     description: 'Recepcionista — agenda citas, atiende clientes, cobra en POS y valida cupones',
     isSystem: true,
@@ -372,14 +372,14 @@ const ROLE_DEFINITIONS = [
   {
     name: 'Contador',
     slug: 'accountant',
-    description: 'Contador — acceso a reportes financieros, pagos, inventario y exportacion de datos',
+    description: 'Contador — acceso a reportes financieros, pagos, inventario y exportación de datos',
     isSystem: true,
     permissions: ACCOUNTANT_PERMISSIONS,
   },
   {
     name: 'Solo Lectura',
     slug: 'readonly',
-    description: 'Observador — puede ver toda la informacion pero no modificar nada',
+    description: 'Observador — puede ver toda la información pero no modificar nada',
     isSystem: true,
     permissions: READONLY_PERMISSIONS,
   },

@@ -92,7 +92,7 @@ export default function CalendarPage() {
   const queryParams = new URLSearchParams({
     startDate,
     endDate,
-    perPage: viewMode === 'month' ? '500' : '100',
+    perPage: '100',
   });
   if (filterEmployeeId) queryParams.set('employeeId', filterEmployeeId);
   if (filterClientId) queryParams.set('clientId', filterClientId);

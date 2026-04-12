@@ -141,7 +141,7 @@ export default function PromotionsPage() {
       closeModal();
     },
     onError: (err: { message?: string }) => {
-      setFormError(err.message || 'Error al guardar la promocion');
+      setFormError(err.message || 'Error al guardar la promoción');
     },
   });
 
@@ -243,7 +243,7 @@ export default function PromotionsPage() {
           </p>
           {hasPermission('promotions.read') && (
             <button onClick={openCreate} className="btn-primary">
-              + Crear Promocion
+              + Crear Promoción
             </button>
           )}
         </div>
@@ -318,7 +318,7 @@ export default function PromotionsPage() {
             <p className="text-gray-500 mb-4">No hay promociones configuradas</p>
             {hasPermission('promotions.read') && (
               <button onClick={openCreate} className="btn-primary">
-                Crear primera promocion
+                Crear primera promoción
               </button>
             )}
           </div>
@@ -332,7 +332,7 @@ export default function PromotionsPage() {
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Tipo</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Valor</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">Codigo</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Código</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Vigencia</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Usos</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
@@ -409,7 +409,7 @@ export default function PromotionsPage() {
                               {hasPermission('promotions.read') && (
                                 <button
                                   onClick={() => {
-                                    if (confirm('¿Eliminar esta promocion?')) {
+                                    if (confirm('¿Eliminar esta promoción?')) {
                                       deleteMutation.mutate(promo.id);
                                     }
                                   }}
@@ -475,7 +475,7 @@ export default function PromotionsPage() {
       {/* Create/Edit Modal */}
       {isModalOpen && (
         <Modal
-          title={editingPromotion ? 'Editar Promocion' : 'Nueva Promocion'}
+          title={editingPromotion ? 'Editar Promoción' : 'Nueva Promoción'}
           onClose={closeModal}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -496,13 +496,13 @@ export default function PromotionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 className="input-field resize-none"
                 rows={2}
-                placeholder="Descripcion opcional..."
+                placeholder="Descripción opcional..."
               />
             </div>
 
@@ -545,7 +545,7 @@ export default function PromotionsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Codigo promocional</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Código promocional</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -601,7 +601,7 @@ export default function PromotionsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monto minimo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monto mínimo</label>
                 <input
                   type="number"
                   min="0"
@@ -609,7 +609,7 @@ export default function PromotionsPage() {
                   value={form.minAmount}
                   onChange={(e) => setForm((f) => ({ ...f, minAmount: e.target.value }))}
                   className="input-field"
-                  placeholder="Sin minimo"
+                  placeholder="Sin mínimo"
                 />
               </div>
             </div>
@@ -620,7 +620,7 @@ export default function PromotionsPage() {
                 Servicios aplicables
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                Selecciona los servicios donde aplica esta promocion. Si no seleccionas ninguno, aplica a todos.
+                Selecciona los servicios donde aplica esta promoción. Si no seleccionas ninguno, aplica a todos.
               </p>
               <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
                 {services.map((svc) => (
