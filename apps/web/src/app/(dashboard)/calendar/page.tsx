@@ -174,6 +174,20 @@ export default function CalendarPage() {
       )
     : allAppointments;
 
+  // Stats for current view (day/week/month)
+  const viewStats = useMemo(() => {
+    let total = 0, completed = 0, cancelled = 0, revenue = 0;
+    for (const apt of appointments) {
+      total++;
+      if (apt.status === 'COMPLETED') {
+        completed++;
+        revenue += (apt.items || []).reduce((sum, item) => sum + Number(item.priceSnapshot || 0), 0);
+      }
+      if (apt.status === 'CANCELLED') cancelled++;
+    }
+    return { total, completed, cancelled, revenue };
+  }, [appointments]);
+
   // Monthly view data
   const monthGridData = useMemo(() => {
     if (viewMode !== 'month') return { weeks: [], stats: { total: 0, completed: 0, cancelled: 0, revenue: 0 }, maxCount: 0 };
@@ -516,28 +530,29 @@ export default function CalendarPage() {
         )}
       </div>
 
+      {/* Quick stats row — all views */}
+      <div className="grid grid-cols-4 gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50">
+        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Total citas</p>
+          <p className="text-xl font-bold text-gray-900">{viewStats.total}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Completadas</p>
+          <p className="text-xl font-bold text-green-600">{viewStats.completed}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Canceladas</p>
+          <p className="text-xl font-bold text-red-500">{viewStats.cancelled}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Ingresos</p>
+          <p className="text-xl font-bold text-primary-600">{formatCurrency(viewStats.revenue)}</p>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-hidden">
         {viewMode === 'month' ? (
           <div className="h-full flex flex-col overflow-auto bg-white">
-            {/* Quick stats row */}
-            <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total citas</p>
-                <p className="text-2xl font-bold text-gray-900">{monthGridData.stats.total}</p>
-              </div>
-              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Completadas</p>
-                <p className="text-2xl font-bold text-green-600">{monthGridData.stats.completed}</p>
-              </div>
-              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Canceladas</p>
-                <p className="text-2xl font-bold text-red-500">{monthGridData.stats.cancelled}</p>
-              </div>
-              <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Ingresos</p>
-                <p className="text-2xl font-bold text-primary-600">{formatCurrency(monthGridData.stats.revenue)}</p>
-              </div>
-            </div>
 
             {/* Day-of-week header */}
             <div className="grid grid-cols-7 border-b border-gray-200">
