@@ -48,7 +48,7 @@ interface ServiceSummary {
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(dayjs());
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<
     string | null
