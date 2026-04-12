@@ -598,19 +598,24 @@ export default function CalendarPage() {
                             <span className="text-xs font-semibold text-primary-700">
                               {count} cita{count !== 1 ? 's' : ''}
                             </span>
-                            {/* Show up to 2 appointment previews */}
-                            {cell.appointments.slice(0, 2).map((apt) => (
-                              <div
-                                key={apt.id}
-                                className="text-[10px] leading-tight truncate rounded px-1 py-0.5"
-                                style={{
-                                  backgroundColor: apt.employee?.color ? `${apt.employee.color}20` : '#00808020',
-                                  borderLeft: `2px solid ${apt.employee?.color || '#008080'}`,
-                                }}
-                              >
-                                {dayjs(apt.startTime).format('H:mm')} {apt.client?.firstName || 'Cliente'}
-                              </div>
-                            ))}
+                            {/* Show up to 2 appointment previews — height proportional to duration */}
+                            {cell.appointments.slice(0, 2).map((apt) => {
+                              const duration = apt.items?.reduce((sum: number, item: any) => sum + (item.durationSnapshot || 30), 0) || 30;
+                              const minH = Math.max(Math.round(duration / 15) * 4 + 12, 16);
+                              return (
+                                <div
+                                  key={apt.id}
+                                  className="text-[10px] leading-tight truncate rounded px-1.5 flex items-center"
+                                  style={{
+                                    minHeight: `${minH}px`,
+                                    backgroundColor: apt.employee?.color ? `${apt.employee.color}20` : '#00808020',
+                                    borderLeft: `2px solid ${apt.employee?.color || '#008080'}`,
+                                  }}
+                                >
+                                  {dayjs(apt.startTime).format('H:mm')} {apt.client?.firstName || 'Cliente'}
+                                </div>
+                              );
+                            })}
                             {count > 2 && (
                               <span className="text-[10px] text-gray-500">+{count - 2} más</span>
                             )}
