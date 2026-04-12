@@ -58,7 +58,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(isAdmin ? '/dashboard' : '/employee');
+      router.push(isAdmin ? '/reports' : '/employee');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
@@ -85,7 +85,7 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
         const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/dashboard');
+        router.push(isEmployee ? '/employee' : '/reports');
       }
     } catch (err: any) {
       setApiError(err?.message || 'Error al iniciar sesión');
@@ -122,7 +122,7 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
         const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/dashboard');
+        router.push(isEmployee ? '/employee' : '/reports');
       }
     } catch (err: any) {
       setInviteError(err?.message || 'Código de invitación inválido');
@@ -147,7 +147,7 @@ export default function LoginPage() {
 
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/reports')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">

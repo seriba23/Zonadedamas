@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { usePermissions } from '@/lib/hooks/use-permissions';
-import { useSetupStatus } from '@/lib/hooks/use-setup-status';
 import { getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +24,7 @@ interface NavItem {
   children?: NavChild[];
 }
 
-const STATIC_NAV_ITEMS: NavItem[] = [
+const navItems: NavItem[] = [
   { label: 'Reportes', href: '/reports', icon: '📊', permission: 'reports.revenue' },
   { label: 'Calendario', href: '/calendar', icon: '📅', permission: 'appointments.read' },
   { label: 'Clientes', href: '/clients', icon: '👥', permission: 'clients.read' },
@@ -64,13 +63,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { hasPermission } = usePermissions();
-  const { isSetupComplete, isLoading: setupLoading } = useSetupStatus();
-
-  const firstItem: NavItem = isSetupComplete && !setupLoading
-    ? { label: 'Dashboard', href: '/dashboard', icon: '📊' }
-    : { label: 'Inicio', href: '/dashboard', icon: '🏠' };
-
-  const navItems = [firstItem, ...STATIC_NAV_ITEMS];
 
   const visibleItems = navItems.filter(
     (item) => !item.permission || hasPermission(item.permission),

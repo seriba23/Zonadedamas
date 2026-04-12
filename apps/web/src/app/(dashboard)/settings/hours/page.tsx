@@ -111,7 +111,7 @@ export default function BusinessHoursPage() {
       queryClient.invalidateQueries({ queryKey: ['business-hours'] });
       queryClient.invalidateQueries({ queryKey: ['business-hours-check'] });
       setHasChanges(false);
-      router.push('/dashboard');
+      router.push('/reports');
     },
   });
 
