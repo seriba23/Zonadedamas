@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
+  ConflictException,
   Delete,
   Get,
   Param,
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -104,6 +106,50 @@ export class EmployeesController {
       query.status,
     );
     return { data: timeOffs };
+  }
+
+  @Post('register-self')
+  @RequirePermissions('employees.create')
+  async registerSelf(
+    @CurrentTenant() tenantId: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+
+    // Check if already registered as employee
+    const existing = await this.prisma.employee.findFirst({
+      where: { userId, tenantId },
+    });
+    if (existing) {
+      throw new ConflictException('Ya tienes un perfil de profesional');
+    }
+
+    // Get first active location
+    const location = await this.prisma.location.findFirst({
+      where: { tenantId, isActive: true },
+    });
+    if (!location) {
+      throw new BadRequestException('No hay ubicaciones activas');
+    }
+
+    // Get user data
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
+    });
+    if (!user) {
+      throw new BadRequestException('Usuario no encontrado');
+    }
+
+    const employee = await this.employeesService.create(tenantId, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone || undefined,
+      locationId: location.id,
+      userId,
+    });
+
+    return { data: employee };
   }
 
   @Post()

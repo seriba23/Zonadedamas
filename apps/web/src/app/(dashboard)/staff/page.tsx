@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
+import { useAuth } from '@/lib/hooks/use-auth';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -38,6 +39,8 @@ const TABS: { key: StaffTab; label: string }[] = [
 
 export default function StaffPage() {
   const { hasPermission } = usePermissions();
+  const { user, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<StaffTab>('empleados');
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState('');
@@ -48,6 +51,14 @@ export default function StaffPage() {
       api.get<{ data: Employee[] }>(
         `/api/employees?perPage=100${showInactive ? '&includeInactive=true' : ''}`,
       ),
+  });
+
+  const registerSelfMutation = useMutation({
+    mutationFn: () => api.post('/api/employees/register-self'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      if (refreshUser) refreshUser();
+    },
   });
 
   const employees = (data?.data || []).filter((e) =>
@@ -103,11 +114,25 @@ export default function StaffPage() {
                   <span className="text-xs text-gray-500">Inactivos</span>
                 </label>
               </div>
-              {hasPermission('employees.create') && (
-                <Link href="/settings/invite-codes" className="btn-primary text-sm">
-                  + Nuevo Empleado
-                </Link>
-              )}
+              <div className="flex items-center gap-2">
+                {hasPermission('employees.create') && !user?.employeeId && (
+                  <button
+                    onClick={() => registerSelfMutation.mutate()}
+                    disabled={registerSelfMutation.isPending}
+                    className="px-4 py-2.5 text-sm font-medium rounded-lg border border-[#008080] text-[#008080] hover:bg-[#e0f2f1] transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                    {registerSelfMutation.isPending ? 'Registrando...' : 'Registrarme como profesional'}
+                  </button>
+                )}
+                {hasPermission('employees.create') && (
+                  <Link href="/settings/invite-codes" className="btn-primary text-sm">
+                    + Nuevo Empleado
+                  </Link>
+                )}
+              </div>
             </div>
 
             {isLoading ? (
