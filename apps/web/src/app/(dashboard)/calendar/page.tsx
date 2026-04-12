@@ -555,9 +555,9 @@ export default function CalendarPage() {
                   {week.map((cell) => {
                     const count = cell.appointments.length;
                     const intensity = monthGridData.maxCount > 0 ? count / monthGridData.maxCount : 0;
-                    // Teal bg with increasing opacity based on density
+                    // Gray bg with increasing opacity based on density
                     const bgColor = count > 0
-                      ? `rgba(0, 128, 128, ${0.08 + intensity * 0.32})`
+                      ? `rgba(156, 163, 175, ${0.1 + intensity * 0.25})`
                       : undefined;
 
                     return (
