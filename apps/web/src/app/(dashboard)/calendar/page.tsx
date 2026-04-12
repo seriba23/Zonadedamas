@@ -202,7 +202,7 @@ export default function CalendarPage() {
       total++;
       if (apt.status === 'COMPLETED') {
         completed++;
-        revenue += (apt.items || []).reduce((sum, item) => sum + (item.priceSnapshot || 0), 0);
+        revenue += (apt.items || []).reduce((sum, item) => sum + Number(item.priceSnapshot || 0), 0);
       }
       if (apt.status === 'CANCELLED') cancelled++;
     }
