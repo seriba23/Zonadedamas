@@ -114,25 +114,11 @@ export default function StaffPage() {
                   <span className="text-xs text-gray-500">Inactivos</span>
                 </label>
               </div>
-              <div className="flex items-center gap-2">
-                {hasPermission('employees.create') && !user?.employeeId && (
-                  <button
-                    onClick={() => registerSelfMutation.mutate()}
-                    disabled={registerSelfMutation.isPending}
-                    className="px-4 py-2.5 text-sm font-medium rounded-lg border border-[#008080] text-[#008080] hover:bg-[#e0f2f1] transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                    </svg>
-                    {registerSelfMutation.isPending ? 'Registrando...' : 'Registrarme como profesional'}
-                  </button>
-                )}
-                {hasPermission('employees.create') && (
-                  <Link href="/settings/invite-codes" className="btn-primary text-sm">
-                    + Nuevo Empleado
-                  </Link>
-                )}
-              </div>
+              {hasPermission('employees.create') && (
+                <Link href="/settings/invite-codes" className="btn-primary text-sm">
+                  + Nuevo Empleado
+                </Link>
+              )}
             </div>
 
             {isLoading ? (
@@ -152,6 +138,45 @@ export default function StaffPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Admin row — shown if admin has no employee profile */}
+                    {user && !user.employeeId && hasPermission('employees.create') && (
+                      <tr className="border-b border-gray-100 bg-amber-50/40">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
+                              style={{ backgroundColor: '#008080' }}
+                            >
+                              {user.avatarUrl ? (
+                                <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <>{user.firstName[0]}{user.lastName[0]}</>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</p>
+                              <p className="text-[10px] text-gray-400">Administrador</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); registerSelfMutation.mutate(); }}
+                            disabled={registerSelfMutation.isPending}
+                            className="px-3 py-1 text-xs font-medium rounded-full bg-[#008080] text-white hover:bg-[#006666] transition-colors disabled:opacity-50"
+                          >
+                            {registerSelfMutation.isPending ? 'Activando...' : 'Activar'}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-gray-600">{user.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-400">—</td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Sin activar</span>
+                        </td>
+                      </tr>
+                    )}
                     {employees.map((emp) => (
                       <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => window.location.href = `/staff/${emp.id}`}>
                         <td className="px-4 py-3">
