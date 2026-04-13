@@ -2115,12 +2115,43 @@ export default function BusinessDetailPage() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
-                  <span className="font-semibold text-gray-900">Total:</span>
-                  <span className="font-bold" style={{ color: TEAL }}>
-                    {formatCurrency(totalPrice)}
-                  </span>
-                </div>
+                {(() => {
+                  let disc = 0;
+                  if (selectedCoupon?.reward) {
+                    const reward = selectedCoupon.reward;
+                    if (reward.type === 'DESCUENTO') {
+                      disc = reward.discountMode === 'PERCENTAGE'
+                        ? Math.round(totalPrice * Number(reward.discountAmount) / 100 * 100) / 100
+                        : Math.min(Number(reward.discountAmount), totalPrice);
+                    } else if (reward.type === 'SERVICIO') {
+                      const svc = selectedServices?.find((s: any) => s.id === reward.serviceId);
+                      if (svc) disc = Number(svc.price);
+                    }
+                  }
+                  const finalTotal = Math.max(0, totalPrice - disc);
+                  return (
+                    <>
+                      {disc > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Subtotal:</span>
+                            <span className="text-gray-500">{formatCurrency(totalPrice)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
+                            <span className="text-green-600 font-medium">-{formatCurrency(disc)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
+                        <span className="font-semibold text-gray-900">Total:</span>
+                        <span className="font-bold" style={{ color: TEAL }}>
+                          {formatCurrency(finalTotal)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
                 {totalPointsEarned > 0 && (
                   <div className="flex items-center justify-between text-sm bg-amber-50 rounded-lg px-3 py-2">
                     <span className="text-amber-700 font-medium flex items-center gap-1">
