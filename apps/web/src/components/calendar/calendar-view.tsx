@@ -49,8 +49,8 @@ interface CalendarViewProps {
   employeeTimeOffs?: EmployeeTimeOff[];
 }
 
-const HOUR_START = 7;
-const HOUR_END = 21;
+const HOUR_START = 6;
+const HOUR_END = 22;
 const TOTAL_HOURS = HOUR_END - HOUR_START;
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 40; // px per 30-min slot
