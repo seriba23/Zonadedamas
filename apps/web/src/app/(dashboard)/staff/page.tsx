@@ -20,7 +20,14 @@ interface Employee {
   avatarUrl?: string | null;
   jobTitle?: string | null;
   isActive: boolean;
+  locationId?: string;
+  location?: { id: string; name: string };
   employeeServices?: { service: { name: string } }[];
+}
+
+interface Location {
+  id: string;
+  name: string;
 }
 
 type StaffTab = 'empleados' | 'permisos' | 'asistencias' | 'organigrama' | 'comisiones' | 'documentos' | 'formacion' | 'evaluaciones' | 'nomina' | 'horarios';
@@ -53,12 +60,24 @@ export default function StaffPage() {
       ),
   });
 
+  const { data: locationsData } = useQuery({
+    queryKey: ['locations'],
+    queryFn: () => api.get<{ data: Location[] }>('/api/locations'),
+  });
+  const locations = locationsData?.data || [];
+
   const registerSelfMutation = useMutation({
     mutationFn: () => api.post('/api/auth/register-as-professional'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       if (refreshUser) refreshUser();
     },
+  });
+
+  const changeLocationMutation = useMutation({
+    mutationFn: ({ empId, locationId }: { empId: string; locationId: string }) =>
+      api.put(`/api/employees/${empId}`, { locationId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
   });
 
   const employees = (data?.data || []).filter((e) =>
@@ -132,6 +151,7 @@ export default function StaffPage() {
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Puesto</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Sucursal</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Servicios</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
@@ -168,6 +188,7 @@ export default function StaffPage() {
                             {registerSelfMutation.isPending ? 'Activando...' : 'Activar'}
                           </button>
                         </td>
+                        <td className="px-4 py-3 text-xs text-gray-400">—</td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-600">{user.email}</p>
                         </td>
@@ -195,6 +216,22 @@ export default function StaffPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{emp.jobTitle || '—'}</td>
+                        <td className="px-4 py-3">
+                          {locations.length > 1 ? (
+                            <select
+                              value={emp.location?.id || ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => changeLocationMutation.mutate({ empId: emp.id, locationId: e.target.value })}
+                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] cursor-pointer"
+                            >
+                              {locations.map((loc) => (
+                                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-xs text-gray-600">{emp.location?.name || '—'}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-600">{emp.email || '—'}</p>
                           {emp.phone && <p className="text-xs text-gray-400">{emp.phone}</p>}
