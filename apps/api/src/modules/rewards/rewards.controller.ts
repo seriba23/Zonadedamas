@@ -52,6 +52,17 @@ export class RewardsController {
     return this.rewardsService.findOne(req.user.tenantId, id);
   }
 
+  @Post('gift')
+  @RequirePermissions('rewards.create')
+  giftReward(@Request() req: any, @Body() dto: GiftRewardDto) {
+    return this.rewardsService.giftReward(
+      req.user.tenantId,
+      dto.rewardId,
+      dto.clientId,
+      req.user.userId,
+    );
+  }
+
   @Post()
   @RequirePermissions('rewards.create')
   create(@Request() req: any, @Body() dto: CreateRewardDto) {
@@ -97,14 +108,4 @@ export class RewardsController {
     );
   }
 
-  @Post('gift')
-  @RequirePermissions('rewards.create')
-  giftReward(@Request() req: any, @Body() dto: GiftRewardDto) {
-    return this.rewardsService.giftReward(
-      req.user.tenantId,
-      dto.rewardId,
-      dto.clientId,
-      req.user.userId,
-    );
-  }
 }
