@@ -1664,6 +1664,13 @@ export class MarketplaceService {
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
+          redemption: {
+            select: {
+              id: true,
+              code: true,
+              reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
+            },
+          },
         },
         orderBy: { startTime: filter === 'upcoming' ? 'asc' : 'desc' },
         skip: (page - 1) * perPage,

@@ -15,7 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',
-  NO_SHOW: 'No asistió',
+  NO_SHOW: 'Ausente',
 };
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
@@ -180,12 +180,24 @@ export default function AppointmentDetailPage() {
                   )}
                 </div>
               ))}
-              {appt.items.length > 1 && (
-                <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between">
-                  <p className="text-sm font-semibold text-gray-700">Total</p>
-                  <p className="text-sm font-semibold text-gray-900">${total}</p>
+              {appt.redemption && Number(appt.discountAmount) > 0 && (
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                  <div className="flex justify-between mb-1">
+                    <p className="text-sm text-gray-500">Subtotal</p>
+                    <p className="text-sm text-gray-500">${total}</p>
+                  </div>
+                  <div className="flex justify-between">
+                    <p className="text-sm text-green-600 font-medium">{appt.redemption.reward?.name}</p>
+                    <p className="text-sm text-green-600 font-medium">-${Number(appt.discountAmount)}</p>
+                  </div>
                 </div>
               )}
+              <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between">
+                <p className="text-sm font-semibold text-gray-700">Total</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  ${Math.max(0, total - Number(appt.discountAmount || 0))}
+                </p>
+              </div>
             </div>
           </div>
         )}
