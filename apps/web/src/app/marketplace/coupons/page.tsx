@@ -108,13 +108,16 @@ export default function MarketplaceCouponsPage() {
 function CouponCard({ redemption, disabled = false }: { redemption: any; disabled?: boolean }) {
   const router = useRouter();
   const reward = redemption.reward;
+  const tenant = redemption.tenant;
   const isDiscount = reward?.type === 'DESCUENTO';
   const expiry = formatExpiry(redemption.expiresAt);
   const days = daysLeft(redemption.expiresAt);
   const isUrgent = days !== null && days <= 7 && !disabled;
 
   const valueLabel = isDiscount
-    ? (reward?.discountPercent ? `-${reward.discountPercent}%` : `$${reward?.discountAmount ?? ''}`)
+    ? (reward?.discountMode === 'PERCENT'
+      ? `-${Number(reward.discountAmount)}%`
+      : `$${reward?.discountAmount ?? ''}`)
     : 'GRATIS';
 
   const statusLabel = redemption.status === 'USED' ? 'USADO' : 'VENCIDO';
@@ -168,20 +171,27 @@ function CouponCard({ redemption, disabled = false }: { redemption: any; disable
         {/* ── Contenido principal ── */}
         <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
           <div>
-            <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward?.name || 'Cupón'}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward?.name || 'Cupón'}</p>
+              {tenant && (
+                <span className="text-[10px] font-medium text-[#008080] bg-teal-50 px-2 py-0.5 rounded-full flex-shrink-0 truncate max-w-[120px]">
+                  {tenant.name}
+                </span>
+              )}
+            </div>
             {reward && (
               <p className="text-xs text-gray-500 mt-0.5">
                 {isDiscount
-                  ? (reward.discountPercent
-                    ? `${reward.discountPercent}% de descuento`
+                  ? (reward.discountMode === 'PERCENT'
+                    ? `${Number(reward.discountAmount)}% de descuento`
                     : `$${reward.discountAmount} de descuento`)
-                  : 'Servicio gratis'}
+                  : (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')}
               </p>
             )}
           </div>
 
           <div className="flex items-center justify-between mt-2 gap-2">
-            {/* Fecha de vencimiento — destacada */}
+            {/* Fecha de vencimiento */}
             {expiry && (
               <div
                 className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
@@ -199,10 +209,10 @@ function CouponCard({ redemption, disabled = false }: { redemption: any; disable
               </div>
             )}
 
-            {/* Botón CANJEAR o estado */}
+            {/* Botón CANJEAR → va directo al negocio del cupón */}
             {!disabled ? (
               <button
-                onClick={() => router.push('/marketplace')}
+                onClick={() => router.push(tenant?.slug ? `/marketplace/${tenant.slug}` : '/marketplace')}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white transition-transform active:scale-95"
                 style={{ backgroundColor: '#008080', letterSpacing: '0.05em' }}
               >

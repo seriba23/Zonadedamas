@@ -10,6 +10,15 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { IsString, IsUUID } from 'class-validator';
+
+class GiftRewardDto {
+  @IsUUID()
+  rewardId: string;
+
+  @IsUUID()
+  clientId: string;
+}
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -84,6 +93,17 @@ export class RewardsController {
     return this.rewardsService.markCouponUsed(
       req.user.tenantId,
       code,
+      req.user.userId,
+    );
+  }
+
+  @Post('gift')
+  @RequirePermissions('rewards.create')
+  giftReward(@Request() req: any, @Body() dto: GiftRewardDto) {
+    return this.rewardsService.giftReward(
+      req.user.tenantId,
+      dto.rewardId,
+      dto.clientId,
       req.user.userId,
     );
   }

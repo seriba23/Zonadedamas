@@ -66,6 +66,10 @@ export default function RewardsPage() {
   const [couponModal, setCouponModal] = useState<{ open: boolean; code: string }>({ open: false, code: '' });
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponSuccess, setCouponSuccess] = useState<string | null>(null);
+  const [giftModal, setGiftModal] = useState(false);
+  const [giftRewardId, setGiftRewardId] = useState('');
+  const [giftClientId, setGiftClientId] = useState('');
+  const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['rewards'],
@@ -80,6 +84,21 @@ export default function RewardsPage() {
   });
 
   const services = servicesData?.data || [];
+
+  const { data: clientsData } = useQuery({
+    queryKey: ['clients-for-gift'],
+    queryFn: () => api.get<{ data: Array<{ id: string; firstName: string; lastName: string }> }>('/api/clients?perPage=100'),
+  });
+  const clients = clientsData?.data || [];
+
+  const giftMutation = useMutation({
+    mutationFn: () => api.post('/api/rewards/gift', { rewardId: giftRewardId, clientId: giftClientId }),
+    onSuccess: (res: any) => {
+      setGiftSuccess(`Cupón ${res?.data?.code || ''} enviado exitosamente`);
+      setGiftRewardId('');
+      setGiftClientId('');
+    },
+  });
 
   const saveMutation = useMutation({
     mutationFn: (payload: Record<string, any>) => {
@@ -203,6 +222,14 @@ export default function RewardsPage() {
                 className="btn-secondary text-sm"
               >
                 Usar cupón
+              </button>
+            )}
+            {hasPermission('rewards.create') && (
+              <button
+                onClick={() => { setGiftModal(true); setGiftSuccess(null); }}
+                className="btn-secondary text-sm"
+              >
+                Regalar cupón
               </button>
             )}
             {hasPermission('rewards.create') && (
@@ -556,6 +583,57 @@ export default function RewardsPage() {
                 {useCouponMutation.isPending ? 'Verificando...' : 'Marcar como usado'}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Gift coupon modal */}
+      {giftModal && (
+        <Modal title="Regalar cupón a cliente" onClose={() => setGiftModal(false)} size="sm">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Recompensa</label>
+              <select
+                value={giftRewardId}
+                onChange={(e) => setGiftRewardId(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Selecciona una recompensa</option>
+                {rewards.filter((r) => r.isActive).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name} ({r.type === 'DESCUENTO' ? 'Descuento' : 'Servicio'})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+              <select
+                value={giftClientId}
+                onChange={(e) => setGiftClientId(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Selecciona un cliente</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+                ))}
+              </select>
+            </div>
+            {giftSuccess && (
+              <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 font-medium">
+                {giftSuccess}
+              </div>
+            )}
+            {giftMutation.isError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+                Error al regalar cupón
+              </div>
+            )}
+            <button
+              onClick={() => giftMutation.mutate()}
+              disabled={!giftRewardId || !giftClientId || giftMutation.isPending}
+              className="btn-primary w-full"
+            >
+              {giftMutation.isPending ? 'Enviando...' : 'Regalar cupón'}
+            </button>
           </div>
         </Modal>
       )}

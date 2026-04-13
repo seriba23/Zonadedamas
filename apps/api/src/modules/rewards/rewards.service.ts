@@ -267,4 +267,53 @@ export class RewardsService {
       },
     };
   }
+
+  async giftReward(tenantId: string, rewardId: string, clientId: string, userId: string) {
+    const reward = await this.prisma.reward.findFirst({
+      where: { id: rewardId, tenantId, isActive: true },
+    });
+    if (!reward) throw new NotFoundException('Recompensa no encontrada');
+
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, tenantId },
+    });
+    if (!client) throw new NotFoundException('Cliente no encontrado');
+
+    // Generate coupon code
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const redemption = await this.prisma.rewardRedemption.create({
+      data: {
+        tenantId,
+        rewardId,
+        clientId,
+        pointsSpent: 0,
+        code,
+        expiresAt,
+        status: 'ACTIVE',
+      },
+      include: {
+        reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
+        client: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CREATE',
+      entityType: 'RewardRedemption',
+      entityId: redemption.id,
+      newData: { giftedTo: `${client.firstName} ${client.lastName}`, reward: reward.name, code },
+    });
+
+    return { data: redemption };
+  }
 }
