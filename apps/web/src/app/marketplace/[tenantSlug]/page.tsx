@@ -1870,13 +1870,15 @@ export default function BusinessDetailPage() {
                       </div>
                     )}
 
-                    {/* Duration, Total & Points */}
+                    {/* Duration, Subtotal, Discount & Total */}
                     <div className="border-t border-gray-100 pt-4">
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-500">Duración</span>
-                        <span className="font-medium text-gray-900">
-                          {totalDuration} min
-                        </span>
+                        <span className="font-medium text-gray-900">{totalDuration} min</span>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-500">Subtotal servicios</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(totalPrice)}</span>
                       </div>
                       {bookingCart.length > 0 && (
                         <div className="flex justify-between text-sm mb-1">
@@ -1884,49 +1886,42 @@ export default function BusinessDetailPage() {
                           <span className="font-medium text-gray-900">{formatCurrency(bookingCartTotal, bookingCart[0]?.currency || 'MXN')}</span>
                         </div>
                       )}
-                      {selectedCoupon && (() => {
-                        const reward = selectedCoupon.reward;
+                      {(() => {
                         let disc = 0;
-                        if (reward?.type === 'DESCUENTO') {
-                          disc = reward.discountMode === 'PERCENTAGE'
-                            ? Math.round(totalPrice * Number(reward.discountAmount) / 100 * 100) / 100
-                            : Math.min(Number(reward.discountAmount), totalPrice);
-                        } else if (reward?.type === 'SERVICIO') {
-                          const svc = selectedServices?.find((s: any) => s.id === reward.serviceId);
-                          if (svc) disc = Number(svc.price);
+                        if (selectedCoupon?.reward) {
+                          const reward = selectedCoupon.reward;
+                          if (reward.type === 'DESCUENTO') {
+                            disc = reward.discountMode === 'PERCENTAGE'
+                              ? Math.round(totalPrice * Number(reward.discountAmount) / 100 * 100) / 100
+                              : Math.min(Number(reward.discountAmount), totalPrice);
+                          } else if (reward.type === 'SERVICIO') {
+                            const svc = selectedServices?.find((s: any) => s.id === reward.serviceId);
+                            if (svc) disc = Number(svc.price);
+                          }
                         }
-                        return disc > 0 ? (
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-green-600 font-medium">Cupón: {reward?.name}</span>
-                            <span className="text-green-600 font-medium">-{formatCurrency(disc)}</span>
-                          </div>
-                        ) : null;
+                        const finalTotal = Math.max(0, totalPrice + bookingCartTotal - disc);
+                        return (
+                          <>
+                            {disc > 0 && (
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
+                                <span className="text-green-600 font-medium">-{formatCurrency(disc)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-2 border-t border-gray-100 mt-2">
+                              <span className="font-semibold text-gray-900">Total a pagar</span>
+                              <div className="text-right">
+                                {disc > 0 && (
+                                  <span className="text-sm text-gray-400 line-through mr-2">{formatCurrency(totalPrice + bookingCartTotal)}</span>
+                                )}
+                                <span className="font-bold text-lg" style={{ color: TEAL }}>
+                                  {formatCurrency(finalTotal)}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        );
                       })()}
-                      <div className="flex justify-between mb-1">
-                        <span className="font-semibold text-gray-900">
-                          Total
-                        </span>
-                        <span
-                          className="font-bold text-lg"
-                          style={{ color: TEAL }}
-                        >
-                          {(() => {
-                            let disc = 0;
-                            if (selectedCoupon?.reward) {
-                              const reward = selectedCoupon.reward;
-                              if (reward.type === 'DESCUENTO') {
-                                disc = reward.discountMode === 'PERCENTAGE'
-                                  ? Math.round(totalPrice * Number(reward.discountAmount) / 100 * 100) / 100
-                                  : Math.min(Number(reward.discountAmount), totalPrice);
-                              } else if (reward.type === 'SERVICIO') {
-                                const svc = selectedServices?.find((s: any) => s.id === reward.serviceId);
-                                if (svc) disc = Number(svc.price);
-                              }
-                            }
-                            return formatCurrency(Math.max(0, totalPrice + bookingCartTotal - disc));
-                          })()}
-                        </span>
-                      </div>
                       {totalPointsEarned > 0 && (
                         <div className="flex items-center justify-between text-sm bg-amber-50 rounded-lg px-3 py-2 mt-2">
                           <span className="text-amber-700 font-medium flex items-center gap-1">
