@@ -764,6 +764,8 @@ model Appointment {
   createdBy          String?           @map("created_by")
   photoConsent       Boolean?          @map("photo_consent")
   photoConsentAt     DateTime?         @map("photo_consent_at")
+  redemptionId       String?           @unique @map("redemption_id")
+  discountAmount     Decimal?          @map("discount_amount") @db.Decimal(10, 2)
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -771,6 +773,7 @@ model Appointment {
   location      Location                   @relation(fields: [locationId], references: [id], onDelete: Cascade)
   client        Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   employee      Employee                   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  redemption    RewardRedemption?          @relation(fields: [redemptionId], references: [id], onDelete: SetNull)
   items         AppointmentItem[]
   statusHistory AppointmentStatusHistory[]
   payments      Payment[]
@@ -1210,9 +1213,10 @@ model RewardRedemption {
   usedAt      DateTime? @map("used_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reward      Reward       @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointment Appointment?
 
   @@index([tenantId])
   @@index([clientId])

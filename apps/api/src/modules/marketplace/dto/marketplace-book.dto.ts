@@ -14,4 +14,8 @@ export class MarketplaceBookDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }

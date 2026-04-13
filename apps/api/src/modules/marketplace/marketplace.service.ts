@@ -2174,8 +2174,57 @@ export class MarketplaceService {
       throw new NotFoundException('Profesional no encontrado');
     }
 
+    // Validate coupon if provided
+    let redemption: any = null;
+    let discountAmount: number | null = null;
+
+    if (dto.couponCode) {
+      redemption = await this.prisma.rewardRedemption.findFirst({
+        where: { code: dto.couponCode, tenantId: tenant.id, clientId: client.id, status: 'ACTIVE' },
+        include: { reward: { include: { service: { select: { id: true } } } } },
+      });
+
+      if (!redemption) {
+        throw new BadRequestException('Cupón no válido o ya utilizado');
+      }
+
+      if (redemption.expiresAt && new Date(redemption.expiresAt) < new Date()) {
+        throw new BadRequestException('Este cupón ha expirado');
+      }
+
+      const reward = redemption.reward;
+
+      // Validate coupon is compatible with selected services
+      if (reward.type === 'SERVICIO' && reward.serviceId) {
+        if (!dto.serviceIds.includes(reward.serviceId)) {
+          throw new BadRequestException('Este cupón solo aplica para el servicio asociado a la recompensa');
+        }
+      }
+
+      // Calculate discount
+      if (reward.type === 'DESCUENTO') {
+        const services = await this.prisma.service.findMany({
+          where: { id: { in: dto.serviceIds }, tenantId: tenant.id },
+          select: { price: true },
+        });
+        const subtotal = services.reduce((s, svc) => s + Number(svc.price), 0);
+        if (reward.discountMode === 'PERCENTAGE') {
+          discountAmount = Math.round(subtotal * Number(reward.discountAmount) / 100 * 100) / 100;
+        } else {
+          discountAmount = Math.min(Number(reward.discountAmount), subtotal);
+        }
+      } else if (reward.type === 'SERVICIO' && reward.serviceId) {
+        // Free service: discount = price of that service
+        const freeService = await this.prisma.service.findFirst({
+          where: { id: reward.serviceId, tenantId: tenant.id },
+          select: { price: true },
+        });
+        if (freeService) discountAmount = Number(freeService.price);
+      }
+    }
+
     // Delegate to AppointmentsService
-    return this.appointmentsService.create(
+    const appointment = await this.appointmentsService.create(
       {
         locationId: employee.locationId,
         clientId: client.id,
@@ -2187,6 +2236,29 @@ export class MarketplaceService {
       },
       tenant.id,
     );
+
+    // Mark coupon as used and link to appointment
+    if (redemption && appointment?.data?.id) {
+      await this.prisma.$transaction([
+        this.prisma.rewardRedemption.update({
+          where: { id: redemption.id },
+          data: { status: 'USED', usedAt: new Date() },
+        }),
+        this.prisma.appointment.update({
+          where: { id: appointment.data.id },
+          data: { redemptionId: redemption.id, discountAmount },
+        }),
+      ]);
+    }
+
+    return {
+      ...appointment,
+      data: {
+        ...appointment.data,
+        discountAmount,
+        couponApplied: redemption ? { code: redemption.code, reward: redemption.reward.name } : null,
+      },
+    };
   }
 
   // ─── CHECKOUT (Stripe) ─────────────────────────────────

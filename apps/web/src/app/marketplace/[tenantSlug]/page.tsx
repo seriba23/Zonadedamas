@@ -191,6 +191,7 @@ export default function BusinessDetailPage() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
+  const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
   const [bookingCart, setBookingCart] = useState<BookingCartItem[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [preferredTime, setPreferredTime] = useState('');
@@ -253,26 +254,56 @@ export default function BusinessDetailPage() {
     enabled: bookingStep === 'datetime' && selectedServiceIds.length > 0,
   });
 
+  // Query all employees' availability when user has a preferred time and a specific employee selected
+  const { data: allEmpSlotsData } = useQuery({
+    queryKey: [
+      'marketplace-slots-all',
+      tenantSlug,
+      selectedDate.format('YYYY-MM-DD'),
+      selectedServiceIds,
+    ],
+    queryFn: async () => {
+      const dateStr = selectedDate.format('YYYY-MM-DD');
+      const res = await fetch(`${API_URL}/api/public/${tenantSlug}/availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: dateStr,
+          endDate: dateStr,
+          serviceIds: selectedServiceIds,
+        }),
+      });
+      if (!res.ok) throw new Error('Error al cargar horarios');
+      return res.json();
+    },
+    enabled: bookingStep === 'datetime' && selectedServiceIds.length > 0 && !anyEmployee && !!selectedEmployee && !!preferredTime,
+  });
+
   // Flatten availability response
-  const rawSlots = (slotsData as any)?.data || [];
-  const slots: AvailableSlot[] = [];
-  if (Array.isArray(rawSlots)) {
-    for (const day of rawSlots) {
-      if (day.employees) {
-        for (const emp of day.employees) {
-          for (const slot of emp.slots) {
-            slots.push({
-              startTime: `${day.date}T${slot.startTime}:00`,
-              endTime: `${day.date}T${slot.endTime}:00`,
-              employeeId: emp.id,
-            });
+  const flattenSlots = (raw: any): AvailableSlot[] => {
+    const result: AvailableSlot[] = [];
+    const data = raw?.data || [];
+    if (Array.isArray(data)) {
+      for (const day of data) {
+        if (day.employees) {
+          for (const emp of day.employees) {
+            for (const slot of emp.slots) {
+              result.push({
+                startTime: `${day.date}T${slot.startTime}:00`,
+                endTime: `${day.date}T${slot.endTime}:00`,
+                employeeId: emp.id,
+              });
+            }
           }
+        } else if (day.startTime) {
+          result.push(day);
         }
-      } else if (day.startTime) {
-        slots.push(day);
       }
     }
-  }
+    return result;
+  };
+
+  const slots = flattenSlots(slotsData);
   // Deduplicate slots by startTime (when anyEmployee, multiple employees can have same slot)
   const deduped = anyEmployee
     ? Array.from(new Map(slots.map((s) => [s.startTime, s])).values())
@@ -281,6 +312,9 @@ export default function BusinessDetailPage() {
   // Filter out past slots when selected date is today
   const now = new Date();
   const uniqueSlots = deduped.filter((s) => new Date(s.startTime) > now);
+
+  // All employees' slots (for cross-employee suggestion)
+  const allEmpSlots = flattenSlots(allEmpSlotsData).filter((s) => new Date(s.startTime) > now);
 
   // Business rewards
   const { data: bizRewardsData } = useQuery({
@@ -301,6 +335,16 @@ export default function BusinessDetailPage() {
   });
   const shopProducts: any[] = shopProductsData?.data || [];
 
+  // User's active coupons for this business
+  const { data: userCouponsData } = useQuery({
+    queryKey: ['user-coupons', tenantSlug],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-rewards'),
+    enabled: !!user,
+  });
+  const userCoupons = (userCouponsData?.data || []).filter(
+    (r: any) => r.status === 'ACTIVE' && r.tenant?.slug === tenantSlug,
+  );
+
   const bookingCartTotal = bookingCart.reduce((s, c) => s + Number(c.price) * c.quantity, 0);
 
   // Booking mutation
@@ -311,6 +355,7 @@ export default function BusinessDetailPage() {
         employeeId: selectedSlot?.employeeId || selectedEmployee?.id,
         startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
+        couponCode: selectedCoupon?.code || undefined,
       });
 
       // Also create product reservations if cart has items
@@ -1423,66 +1468,155 @@ export default function BusinessDetailPage() {
                     </div>
                   </div>
 
-                  {/* Preferred time */}
-                  <div className="mb-4 p-3 rounded-xl border" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a' }}>
-                    <p className="text-xs font-medium mb-2" style={{ color: '#92400e' }}>¿Tienes algún horario de preferencia?</p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="time"
-                        value={preferredTime}
-                        onChange={(e) => setPreferredTime(e.target.value)}
-                        className="flex-1 text-sm border rounded-lg px-3 py-1.5 bg-white focus:outline-none"
-                        style={{ borderColor: '#fcd34d' }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.boxShadow = `0 0 0 2px rgba(0,128,128,0.2)`; }}
-                        onBlur={(e) => { e.currentTarget.style.borderColor = '#fcd34d'; e.currentTarget.style.boxShadow = 'none'; }}
-                      />
-                      {preferredTime && (
-                        <button onClick={() => setPreferredTime('')} className="text-xs px-2 py-1 rounded-lg hover:bg-amber-100" style={{ color: '#b45309' }}>✕</button>
-                      )}
-                    </div>
-                    {preferredTime && (() => {
-                      const pref = preferredTime.substring(0, 5);
-                      const found = uniqueSlots.find(s => s.startTime.split('T')[1]?.startsWith(pref));
-                      if (found) return <p className="text-xs mt-1.5 font-medium" style={{ color: '#065f46' }}>✓ Las {pref} está disponible — aparece destacado abajo</p>;
-                      const alts = uniqueSlots.slice(0, 3).map(s => s.startTime.split('T')[1]?.substring(0, 5));
-                      return alts.length > 0
-                        ? <p className="text-xs mt-1.5" style={{ color: '#92400e' }}>Las {pref} no está disponible. Opciones cercanas: {alts.join(', ')}</p>
-                        : null;
-                    })()}
-                  </div>
-
-                  {/* Date selector row */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5">
+                  {/* Date selector + Calendar + Preferred time — unified row */}
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 mb-4">
+                    {/* Date selector */}
+                    <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-2 py-2">
                       <button
                         disabled={selectedDate.isSame(dayjs(), 'day')}
                         onClick={() => { setSelectedDate((d) => d.subtract(1, 'day')); setSelectedSlot(null); }}
-                        className="p-1 rounded-lg hover:bg-gray-100 disabled:opacity-30"
+                        className="p-1 rounded-lg hover:bg-gray-100 disabled:opacity-30 flex-shrink-0"
                       >
-                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                       </button>
-                      <div className="flex-1 text-center">
-                        <p className="text-sm font-semibold text-gray-900">
-                          {selectedDate.isSame(dayjs(), 'day') ? 'Hoy' : selectedDate.isSame(dayjs().add(1, 'day'), 'day') ? 'Mañana' : selectedDate.format('dddd')}
+                      <div className="flex-1 text-center min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {selectedDate.isSame(dayjs(), 'day') ? 'Hoy' : selectedDate.isSame(dayjs().add(1, 'day'), 'day') ? 'Mañana' : selectedDate.format('ddd D')}
                         </p>
-                        <p className="text-xs text-gray-400">{selectedDate.format('D [de] MMMM')}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{selectedDate.format('MMM YYYY')}</p>
                       </div>
                       <button
                         onClick={() => { setSelectedDate((d) => d.add(1, 'day')); setSelectedSlot(null); }}
-                        className="p-1 rounded-lg hover:bg-gray-100"
+                        className="p-1 rounded-lg hover:bg-gray-100 flex-shrink-0"
                       >
-                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </button>
                     </div>
+
+                    {/* Calendar button */}
                     <button
                       onClick={() => setShowFullCalendar(true)}
-                      className="w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 flex-shrink-0"
+                      className="w-11 flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
                     >
                       <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
                       </svg>
                     </button>
+
+                    {/* Preferred time */}
+                    <div className="relative flex items-center bg-white border border-gray-200 rounded-xl px-2 py-2">
+                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <input
+                        type="time"
+                        value={preferredTime}
+                        onChange={(e) => setPreferredTime(e.target.value)}
+                        placeholder="Preferencia"
+                        className="flex-1 text-sm bg-transparent focus:outline-none min-w-0 text-gray-700"
+                      />
+                      {preferredTime && (
+                        <button onClick={() => setPreferredTime('')} className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-1">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Preferred time feedback */}
+                  {preferredTime && (() => {
+                    const pref = preferredTime.substring(0, 5);
+                    const prefMinutes = parseInt(pref.split(':')[0]) * 60 + parseInt(pref.split(':')[1]);
+                    const found = uniqueSlots.find(s => s.startTime.split('T')[1]?.startsWith(pref));
+
+                    // Exact match with current employee
+                    if (found) {
+                      if (!selectedSlot || !selectedSlot.startTime.includes(pref)) {
+                        setTimeout(() => setSelectedSlot(found), 0);
+                      }
+                      return (
+                        <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: '#e0f2f1' }}>
+                          <svg className="w-4 h-4 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          <p className="text-xs font-medium" style={{ color: '#065f46' }}>Las {pref} está disponible</p>
+                        </div>
+                      );
+                    }
+
+                    // No exact match — find closest slot from current employee
+                    const closest = [...uniqueSlots]
+                      .map(s => {
+                        const t = s.startTime.split('T')[1]?.substring(0, 5) || '';
+                        const mins = parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
+                        return { slot: s, time: t, diff: Math.abs(mins - prefMinutes) };
+                      })
+                      .sort((a, b) => a.diff - b.diff)[0];
+
+                    // Check other employees for a better match
+                    const altEmp = !anyEmployee && selectedEmployee ? (() => {
+                      const otherSlots = allEmpSlots.filter(s => s.employeeId !== selectedEmployee.id);
+                      const exact = otherSlots.find(s => s.startTime.split('T')[1]?.startsWith(pref));
+                      if (exact) {
+                        const emp = availableEmployees.find(e => e.id === exact.employeeId);
+                        return emp ? { emp, time: pref, slot: exact, diff: 0 } : null;
+                      }
+                      // Closest from other employees
+                      const closestOther = otherSlots
+                        .map(s => {
+                          const t = s.startTime.split('T')[1]?.substring(0, 5) || '';
+                          const mins = parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
+                          const emp = availableEmployees.find(e => e.id === s.employeeId);
+                          return { slot: s, emp, time: t, diff: Math.abs(mins - prefMinutes) };
+                        })
+                        .filter(x => x.emp)
+                        .sort((a, b) => a.diff - b.diff)[0];
+                      return closestOther && (!closest || closestOther.diff < closest.diff) ? closestOther : null;
+                    })() : null;
+
+                    if (closest) {
+                      if (!selectedSlot || !selectedSlot.startTime.includes(closest.time)) {
+                        setTimeout(() => setSelectedSlot(closest.slot), 0);
+                      }
+                    }
+
+                    return (
+                      <div className="mb-3 space-y-2">
+                        {closest ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: '#e0f2f1' }}>
+                            <svg className="w-4 h-4 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                            <p className="text-xs font-medium" style={{ color: '#065f46' }}>¿Qué tal a las <span className="font-bold">{closest.time}</span>?</p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50">
+                            <svg className="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <p className="text-xs" style={{ color: '#92400e' }}>{selectedEmployee?.firstName} no tiene horarios disponibles hoy</p>
+                          </div>
+                        )}
+                        {altEmp && (
+                          <button
+                            onClick={() => {
+                              setSelectedEmployee(altEmp.emp!);
+                              setSelectedSlot(altEmp.slot);
+                              setPreferredTime(altEmp.time);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 border-dashed transition-colors hover:bg-teal-50"
+                            style={{ borderColor: '#99d5d5' }}
+                          >
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
+                              style={{ backgroundColor: altEmp.emp!.color }}
+                            >
+                              {altEmp.emp!.avatarUrl
+                                ? <img src={`${API_URL}${altEmp.emp!.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                                : <>{altEmp.emp!.firstName[0]}{altEmp.emp!.lastName[0]}</>}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <p className="text-xs font-semibold text-gray-900">{altEmp.emp!.firstName} disponible a las {altEmp.time}</p>
+                              <p className="text-[10px] text-gray-500">Toca para cambiar de profesional</p>
+                            </div>
+                            <svg className="w-4 h-4 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Slot grid */}
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -1750,6 +1884,24 @@ export default function BusinessDetailPage() {
                           <span className="font-medium text-gray-900">{formatCurrency(bookingCartTotal, bookingCart[0]?.currency || 'MXN')}</span>
                         </div>
                       )}
+                      {selectedCoupon && (() => {
+                        const reward = selectedCoupon.reward;
+                        let disc = 0;
+                        if (reward?.type === 'DESCUENTO') {
+                          disc = reward.discountMode === 'PERCENTAGE'
+                            ? Math.round(totalPrice * Number(reward.discountAmount) / 100 * 100) / 100
+                            : Math.min(Number(reward.discountAmount), totalPrice);
+                        } else if (reward?.type === 'SERVICIO') {
+                          const svc = selectedServices?.find((s: any) => s.id === reward.serviceId);
+                          if (svc) disc = Number(svc.price);
+                        }
+                        return disc > 0 ? (
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-green-600 font-medium">Cupón: {reward?.name}</span>
+                            <span className="text-green-600 font-medium">-{formatCurrency(disc)}</span>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="flex justify-between mb-1">
                         <span className="font-semibold text-gray-900">
                           Total
@@ -1758,7 +1910,21 @@ export default function BusinessDetailPage() {
                           className="font-bold text-lg"
                           style={{ color: TEAL }}
                         >
-                          {formatCurrency(totalPrice + bookingCartTotal)}
+                          {(() => {
+                            let disc = 0;
+                            if (selectedCoupon?.reward) {
+                              const reward = selectedCoupon.reward;
+                              if (reward.type === 'DESCUENTO') {
+                                disc = reward.discountMode === 'PERCENTAGE'
+                                  ? Math.round(totalPrice * Number(reward.discountAmount) / 100 * 100) / 100
+                                  : Math.min(Number(reward.discountAmount), totalPrice);
+                              } else if (reward.type === 'SERVICIO') {
+                                const svc = selectedServices?.find((s: any) => s.id === reward.serviceId);
+                                if (svc) disc = Number(svc.price);
+                              }
+                            }
+                            return formatCurrency(Math.max(0, totalPrice + bookingCartTotal - disc));
+                          })()}
                         </span>
                       </div>
                       {totalPointsEarned > 0 && (
@@ -1774,6 +1940,50 @@ export default function BusinessDetailPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Coupon selector - max 1 per booking */}
+                  {userCoupons.length > 0 && (
+                    <div className="border border-gray-200 rounded-xl p-3 mb-4">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Tienes cupones disponibles</p>
+                      <div className="space-y-2">
+                        {userCoupons.map((r: any) => {
+                          const reward = r.reward;
+                          const isSelected = selectedCoupon?.id === r.id;
+                          // Check compatibility: SERVICIO coupons only if their service is in the selected services
+                          const isCompatible = reward?.type === 'DESCUENTO' || (reward?.type === 'SERVICIO' && reward?.service?.id && selectedServiceIds.includes(reward.service.id));
+                          if (!isCompatible) return null;
+                          const label = reward?.type === 'DESCUENTO'
+                            ? (reward.discountMode === 'PERCENTAGE' ? `${Number(reward.discountAmount)}% de descuento` : `$${reward.discountAmount} de descuento`)
+                            : (reward?.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis');
+                          return (
+                            <button
+                              key={r.id}
+                              onClick={() => setSelectedCoupon(isSelected ? null : r)}
+                              className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors ${
+                                isSelected
+                                  ? 'border-[#008080] bg-teal-50'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <p className={`text-sm font-medium ${isSelected ? 'text-[#008080]' : 'text-gray-900'}`}>{reward?.name}</p>
+                                <p className="text-[11px] text-gray-500">{label}</p>
+                              </div>
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected ? 'border-[#008080] bg-[#008080]' : 'border-gray-300'
+                              }`}>
+                                {isSelected && (
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Notes */}
                   <textarea
