@@ -20,6 +20,8 @@ export default function ServiceDetailPage() {
   const [priceValue, setPriceValue] = useState('');
   const [durationValue, setDurationValue] = useState('');
   const [editingCommissions, setEditingCommissions] = useState<Map<string, { commission: string; customPrice: string }>>(new Map());
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['service-detail', serviceId],
@@ -229,7 +231,6 @@ export default function ServiceDetailPage() {
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Precio cliente</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Comisión</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Ganancia negocio</th>
-                    <th className="w-20"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -285,25 +286,117 @@ export default function ServiceDetailPage() {
                             {formatCurrency(profit)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {editingCommissions.has(emp.id) && (
-                            <button
-                              onClick={() => {
-                                const vals = editingCommissions.get(emp.id)!;
-                                saveCommissionMutation.mutate({ employeeId: emp.id, commission: vals.commission, customPrice: vals.customPrice });
-                              }}
-                              disabled={saveCommissionMutation.isPending}
-                              className="text-xs font-medium text-[#008080] hover:text-[#006666]"
-                            >
-                              {saveCommissionMutation.isPending ? '...' : 'Guardar'}
-                            </button>
-                          )}
-                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            )}
+
+            {/* Changes summary + Save all */}
+            {editingCommissions.size > 0 && !showConfirmSave && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold text-[#008080]">{editingCommissions.size}</span> cambio{editingCommissions.size !== 1 ? 's' : ''} pendiente{editingCommissions.size !== 1 ? 's' : ''}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingCommissions(new Map())}
+                    className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmSave(true)}
+                    className="text-sm font-medium text-white px-4 py-1.5 rounded-lg"
+                    style={{ backgroundColor: '#008080' }}
+                  >
+                    Revisar y guardar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmation panel */}
+            {showConfirmSave && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-teal-50">
+                <h3 className="text-sm font-bold text-gray-900 mb-3">Confirmar cambios</h3>
+                <div className="space-y-2 mb-4">
+                  {Array.from(editingCommissions.entries()).map(([empId, vals]) => {
+                    const es = employees.find((e: any) => e.employee.id === empId);
+                    if (!es) return null;
+                    const emp = es.employee;
+                    const oldPrice = es.customPrice != null ? Number(es.customPrice) : Number(service.price);
+                    const oldComm = es.commission != null ? Number(es.commission) : 0;
+                    const newPrice = vals.customPrice ? Number(vals.customPrice) : oldPrice;
+                    const newComm = vals.commission ? Number(vals.commission) : oldComm;
+                    const priceChanged = newPrice !== oldPrice;
+                    const commChanged = newComm !== oldComm;
+                    if (!priceChanged && !commChanged) return null;
+
+                    return (
+                      <div key={empId} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2 border border-teal-200">
+                        <span className="font-medium text-gray-900 min-w-[120px]">{emp.firstName} {emp.lastName}</span>
+                        <div className="flex gap-4 text-xs text-gray-600">
+                          {priceChanged && (
+                            <span>Precio: <span className="line-through text-gray-400">{formatCurrency(oldPrice)}</span> → <span className="font-semibold text-[#008080]">{formatCurrency(newPrice)}</span></span>
+                          )}
+                          {commChanged && (
+                            <span>Comisión: <span className="line-through text-gray-400">{formatCurrency(oldComm)}</span> → <span className="font-semibold text-green-600">{formatCurrency(newComm)}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setShowConfirmSave(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setSaving(true);
+                      for (const [empId, vals] of editingCommissions.entries()) {
+                        const es = employees.find((e: any) => e.employee.id === empId);
+                        if (!es) continue;
+                        try {
+                          const res = await api.get<{ data: any[] }>(`/api/employees/${empId}/services`);
+                          const currentServices = res.data || [];
+                          const services = currentServices.map((entry: any) => {
+                            if (entry.serviceId === serviceId) {
+                              return {
+                                serviceId: entry.serviceId,
+                                commission: vals.commission ? Number(vals.commission) : (entry.commission != null ? Number(entry.commission) : null),
+                                customPrice: vals.customPrice ? Number(vals.customPrice) : (entry.customPrice != null ? Number(entry.customPrice) : null),
+                              };
+                            }
+                            return {
+                              serviceId: entry.serviceId,
+                              commission: entry.commission != null ? Number(entry.commission) : null,
+                              customPrice: entry.customPrice != null ? Number(entry.customPrice) : null,
+                            };
+                          });
+                          await api.put(`/api/employees/${empId}/services`, { services });
+                        } catch (err) {
+                          console.error('Error saving commission for', empId, err);
+                        }
+                      }
+                      setSaving(false);
+                      setShowConfirmSave(false);
+                      setEditingCommissions(new Map());
+                      queryClient.invalidateQueries({ queryKey: ['service-detail', serviceId] });
+                    }}
+                    disabled={saving}
+                    className="text-sm font-medium text-white px-5 py-2 rounded-lg disabled:opacity-50"
+                    style={{ backgroundColor: '#008080' }}
+                  >
+                    {saving ? 'Guardando...' : `Confirmar ${editingCommissions.size} cambio${editingCommissions.size !== 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
