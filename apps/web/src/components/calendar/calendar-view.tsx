@@ -530,7 +530,7 @@ export function CalendarView({
                     style={{ gridRow: slotIdx + 1, gridColumn: 1 }}
                   >
                     {isHourLine && (
-                      <span className="text-xs text-gray-400 absolute -top-2 right-2">
+                      <span className={`text-xs text-gray-400 absolute right-2 ${slotIdx === 0 ? 'top-1' : '-top-2'}`}>
                         {formatHourLabel(hour)}
                       </span>
                     )}
