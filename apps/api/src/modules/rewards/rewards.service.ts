@@ -305,7 +305,7 @@ export class RewardsService {
       },
     });
 
-    await this.auditService.log({
+    await this.audit.log({
       tenantId,
       userId,
       action: 'CREATE',
