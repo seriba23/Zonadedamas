@@ -98,7 +98,7 @@ export class EmployeesService {
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
         include: {
           location: { select: { id: true, name: true } },
-          employeeServices: { include: { service: { select: { id: true, name: true } } } },
+          employeeServices: { include: { service: { select: { id: true, name: true, price: true, durationMinutes: true } } } },
           schedules: { select: { isWorking: true } },
           _count: { select: { appointments: true } },
         },
