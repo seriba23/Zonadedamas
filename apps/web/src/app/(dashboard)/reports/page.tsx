@@ -114,7 +114,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   IN_PROGRESS: { label: 'En curso', color: 'bg-purple-100 text-purple-800' },
   COMPLETED: { label: 'Completada', color: 'bg-green-100 text-green-800' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-800' },
-  NO_SHOW: { label: 'No asistio', color: 'bg-gray-100 text-gray-800' },
+  NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-800' },
 };
 
 export default function ReportsPage() {
@@ -245,7 +245,7 @@ export default function ReportsPage() {
     if (detail === 'revenue') return 'Ingresos - Citas Completadas';
     if (detail === 'appointments') return 'Todas las Citas';
     if (detail === 'cancelled') return 'Citas Canceladas';
-    if (detail === 'noshow') return 'No-Shows';
+    if (detail === 'noshow') return 'Ausencias';
     if (detail === 'newClients') return 'Clientes Nuevos';
     if (detail === 'returningClients') return 'Clientes Recurrentes';
     if (typeof detail === 'object' && detail) {
@@ -257,77 +257,108 @@ export default function ReportsPage() {
     return 'Detalle';
   }
 
+  function renderAppointmentsTable(apts: Appointment[], totalRevenue: number, revenueOnly: boolean) {
+    return (
+      <div>
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+          <span className="text-sm font-medium text-gray-600">{apts.length} cita{apts.length !== 1 ? 's' : ''}</span>
+          <span className="text-sm font-bold text-green-700">Total: {formatCurrency(totalRevenue)}</span>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto">
+          <table className="w-full">
+            <thead className="sticky top-0 bg-white border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Horario</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Servicios</th>
+                {!revenueOnly && <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Estado</th>}
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Monto</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {apts.map((apt) => {
+                const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
+                const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+                return (
+                  <tr key={apt.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{apt.client.firstName} {apt.client.lastName}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
+                        <span className="text-sm text-gray-600">{apt.employee.firstName} {apt.employee.lastName}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</td>
+                    {!revenueOnly && (
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{formatCurrency(total)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   function renderDetailContent() {
     // Payment method detail -> show payments
     if (typeof detail === 'object' && detail?.type === 'paymentMethod') {
       const payments = detailPayments || [];
       if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (payments.length === 0) return <div className="p-8 text-center text-gray-400">No hay pagos con este metodo en este periodo</div>;
+      if (payments.length === 0) return <div className="p-8 text-center text-gray-400">No hay pagos con este método en este período</div>;
       const total = payments.reduce((s, p) => s + Number(p.totalAmount), 0);
       return (
         <div>
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
             <span className="text-sm font-medium text-gray-600">{payments.length} pago{payments.length !== 1 ? 's' : ''}</span>
-            <span className="text-sm font-bold text-green-700">{formatCurrency(total)}</span>
+            <span className="text-sm font-bold text-green-700">Total: {formatCurrency(total)}</span>
           </div>
-          <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
-            {payments.map((p) => (
-              <li key={p.id} className="px-4 py-3 hover:bg-gray-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{p.client.firstName} {p.client.lastName}</p>
-                    <p className="text-xs text-gray-500">{dayjs(p.createdAt).format('DD/MM/YYYY HH:mm')}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">{formatCurrency(Number(p.totalAmount))}</p>
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
-                      {PAYMENT_LABELS[p.paymentMethod] || p.paymentMethod}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-white border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Método</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Monto</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(p.createdAt).format('DD/MM/YYYY HH:mm')}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{p.client.firstName} {p.client.lastName}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{PAYMENT_LABELS[p.paymentMethod] || p.paymentMethod}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{p.status === 'COMPLETED' ? 'Completado' : p.status}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{formatCurrency(Number(p.totalAmount))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       );
     }
 
-    // Revenue detail -> show completed appointments (revenue comes from completed appointment items)
+    // Revenue detail -> show completed appointments
     if (detail === 'revenue') {
       const apts = (detailAppointments || []).filter((a) => a.status === 'COMPLETED');
       if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (apts.length === 0) return <div className="p-8 text-center text-gray-400">No hay citas completadas en este periodo</div>;
+      if (apts.length === 0) return <div className="p-8 text-center text-gray-400">No hay citas completadas en este período</div>;
       const totalRevenue = apts.reduce((s, a) => s + a.items.reduce((is, i) => is + Number(i.priceSnapshot), 0), 0);
-      return (
-        <div>
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between">
-            <span className="text-sm font-medium text-gray-600">{apts.length} cita{apts.length !== 1 ? 's' : ''} completada{apts.length !== 1 ? 's' : ''}</span>
-            <span className="text-sm font-bold text-green-700">{formatCurrency(totalRevenue)}</span>
-          </div>
-          <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
-            {apts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map((apt) => {
-              const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
-              return (
-                <li key={apt.id} className="px-4 py-3 hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
-                      <p className="text-sm font-medium text-gray-900">{apt.client.firstName} {apt.client.lastName}</p>
-                    </div>
-                    <p className="text-sm font-bold text-green-700">{formatCurrency(total)}</p>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-xs text-gray-500">{dayjs(apt.startTime).format('DD/MM/YYYY')} &middot; {dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</p>
-                      <p className="text-xs text-gray-500">{apt.employee.firstName} {apt.employee.lastName} &middot; {apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</p>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      );
+      return renderAppointmentsTable(apts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()), totalRevenue, true);
     }
 
     // Appointments detail (all, cancelled, no-show, by employee, by client, by service)
@@ -335,71 +366,45 @@ export default function ReportsPage() {
       || (typeof detail === 'object' && detail !== null && (detail.type === 'employee' || detail.type === 'client' || detail.type === 'service'))) {
       const apts = getFilteredAppointments();
       if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (apts.length === 0) return <div className="p-8 text-center text-gray-400">No hay citas en este periodo</div>;
+      if (apts.length === 0) return <div className="p-8 text-center text-gray-400">No hay citas en este período</div>;
       const totalRevenue = apts.reduce((s, a) => s + a.items.reduce((is, i) => is + Number(i.priceSnapshot), 0), 0);
-      return (
-        <div>
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between">
-            <span className="text-sm font-medium text-gray-600">{apts.length} cita{apts.length !== 1 ? 's' : ''}</span>
-            <span className="text-sm font-bold text-green-700">{formatCurrency(totalRevenue)}</span>
-          </div>
-          <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
-            {apts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map((apt) => {
-              const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
-              const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
-              return (
-                <li key={apt.id} className="px-4 py-3 hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
-                      <p className="text-sm font-medium text-gray-900">
-                        {apt.client.firstName} {apt.client.lastName}
-                      </p>
-                    </div>
-                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        {dayjs(apt.startTime).format('DD/MM/YYYY')} &middot; {dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {apt.employee.firstName} {apt.employee.lastName} &middot; {apt.items.map((i) => i.serviceNameSnapshot).join(', ')}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-700">{formatCurrency(total)}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      );
+      return renderAppointmentsTable(apts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()), totalRevenue, false);
     }
 
     // New clients detail
     if (detail === 'newClients') {
       const clients = detailClients || [];
       if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (clients.length === 0) return <div className="p-8 text-center text-gray-400">No hay clientes nuevos en este periodo</div>;
+      if (clients.length === 0) return <div className="p-8 text-center text-gray-400">No hay clientes nuevos en este período</div>;
       return (
         <div>
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <span className="text-sm font-medium text-gray-600">{clients.length} cliente{clients.length !== 1 ? 's' : ''} nuevo{clients.length !== 1 ? 's' : ''}</span>
           </div>
-          <ul className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
-            {clients.map((c) => (
-              <li key={c.id} className="px-4 py-3 hover:bg-gray-50">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{c.firstName} {c.lastName}</p>
-                    <p className="text-xs text-gray-500">{c.email || c.phone || 'Sin contacto'}</p>
-                  </div>
-                  <p className="text-xs text-gray-400">{dayjs(c.createdAt).format('DD/MM/YYYY')}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-white border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Nombre</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Teléfono</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Citas</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Registro</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {clients.map((c) => (
+                  <tr key={c.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.firstName} {c.lastName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{c.email || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{c.phone || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{c._count?.appointments || 0}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dayjs(c.createdAt).format('DD/MM/YYYY')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       );
     }
@@ -472,7 +477,7 @@ export default function ReportsPage() {
                 {stats.kpis.cancelledAppointments} canceladas
               </button>
               <button onClick={(e) => { e.stopPropagation(); setDetail('noshow'); }} className="text-xs text-gray-600 font-medium hover:underline">
-                {stats.kpis.noShowCount} no-show
+                {stats.kpis.noShowCount} ausencia{stats.kpis.noShowCount !== 1 ? 's' : ''}
               </button>
             </div>
           </div>
@@ -492,7 +497,7 @@ export default function ReportsPage() {
             <p className="text-xs text-primary-600 mt-2 font-medium">Ver pagos &rarr;</p>
           </div>
 
-          {/* No-show */}
+          {/* Ausencias */}
           <div
             onClick={() => setDetail('noshow')}
             className={`bg-white rounded-xl border border-gray-200 p-5 ${clickableCard}`}
@@ -503,7 +508,7 @@ export default function ReportsPage() {
               </svg>
             </div>
             <p className="text-2xl font-bold text-gray-900">{isLoading ? <span className="inline-block h-7 w-24 bg-gray-200 rounded animate-pulse" /> : `${stats.kpis.noShowRate.toFixed(1)}%`}</p>
-            <p className="text-sm text-gray-500 mt-1">Tasa de no-show</p>
+            <p className="text-sm text-gray-500 mt-1">Tasa de ausencias</p>
             <p className="text-xs text-red-600 mt-2 font-medium">{stats.kpis.noShowCount} cita{stats.kpis.noShowCount !== 1 ? 's' : ''} &rarr;</p>
           </div>
         </div>
@@ -749,7 +754,7 @@ export default function ReportsPage() {
 
       {/* Detail Modal */}
       {detail && (
-        <Modal title={getDetailTitle()} onClose={() => setDetail(null)}>
+        <Modal title={getDetailTitle()} onClose={() => setDetail(null)} size="full">
           {renderDetailContent()}
         </Modal>
       )}
