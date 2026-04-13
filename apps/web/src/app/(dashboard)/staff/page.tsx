@@ -49,14 +49,16 @@ export default function StaffPage() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<StaffTab>('empleados');
-  const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState('');
+  const [filterLocation, setFilterLocation] = useState('');
+  const [filterService, setFilterService] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', showInactive],
+    queryKey: ['employees'],
     queryFn: () =>
       api.get<{ data: Employee[] }>(
-        `/api/employees?perPage=100${showInactive ? '&includeInactive=true' : ''}`,
+        '/api/employees?perPage=100&includeInactive=true',
       ),
   });
 
@@ -80,9 +82,18 @@ export default function StaffPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
   });
 
-  const employees = (data?.data || []).filter((e) =>
-    !search || `${e.firstName} ${e.lastName} ${e.email || ''}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const allEmployees = data?.data || [];
+  const employees = allEmployees.filter((e) => {
+    if (search && !`${e.firstName} ${e.lastName} ${e.email || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterLocation && e.location?.id !== filterLocation) return false;
+    if (filterService && !(e.employeeServices || []).some((es) => es.service.name === filterService)) return false;
+    if (filterStatus === 'active' && !e.isActive) return false;
+    if (filterStatus === 'inactive' && e.isActive) return false;
+    return true;
+  });
+
+  // Unique services for filter dropdown
+  const allServices = [...new Set(allEmployees.flatMap((e) => (e.employeeServices || []).map((es) => es.service.name)))].sort();
 
   return (
     <div className="flex flex-col h-full">
@@ -113,25 +124,47 @@ export default function StaffPage() {
         {activeTab === 'empleados' && (
           <div>
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-center gap-2 flex-wrap flex-1">
                 <input
                   type="text"
                   placeholder="Buscar empleado..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] max-w-xs"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] w-48"
                 />
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <button
-                    type="button"
-                    onClick={() => setShowInactive(!showInactive)}
-                    className="relative w-8 h-4.5 rounded-full transition-colors"
-                    style={{ backgroundColor: showInactive ? '#008080' : '#d1d5db', height: 20 }}
+                {locations.length > 1 && (
+                  <select
+                    value={filterLocation}
+                    onChange={(e) => setFilterLocation(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
                   >
-                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showInactive ? 'translate-x-4' : 'translate-x-0.5'}`} style={{ width: 16, height: 16 }} />
-                  </button>
-                  <span className="text-xs text-gray-500">Inactivos</span>
-                </label>
+                    <option value="">Todas las sucursales</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                )}
+                {allServices.length > 0 && (
+                  <select
+                    value={filterService}
+                    onChange={(e) => setFilterService(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
+                  >
+                    <option value="">Todos los servicios</option>
+                    {allServices.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
+                >
+                  <option value="">Todos los estados</option>
+                  <option value="active">Activos</option>
+                  <option value="inactive">Inactivos</option>
+                </select>
               </div>
               {hasPermission('employees.create') && (
                 <Link href="/settings/invite-codes" className="btn-primary text-sm">
