@@ -282,7 +282,7 @@ export default function ReportsPage() {
                 const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
                 const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
                 return (
-                  <tr key={apt.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}
+                  <tr key={apt.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}>
                     <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{apt.client.firstName} {apt.client.lastName}</td>
