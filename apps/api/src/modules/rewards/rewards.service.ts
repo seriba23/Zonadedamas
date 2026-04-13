@@ -270,7 +270,7 @@ export class RewardsService {
 
   async giftReward(tenantId: string, rewardId: string, clientId: string, userId: string) {
     const reward = await this.prisma.reward.findFirst({
-      where: { id: rewardId, tenantId, isActive: true },
+      where: { id: rewardId, tenantId },
     });
     if (!reward) throw new NotFoundException('Recompensa no encontrada');
 

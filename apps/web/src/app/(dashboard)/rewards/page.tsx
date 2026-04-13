@@ -70,6 +70,8 @@ export default function RewardsPage() {
   const [giftRewardId, setGiftRewardId] = useState('');
   const [giftClientId, setGiftClientId] = useState('');
   const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
+  const [giftInForm, setGiftInForm] = useState(false);
+  const [giftClientIds, setGiftClientIds] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['rewards'],
@@ -140,6 +142,8 @@ export default function RewardsPage() {
     setEditingReward(null);
     setForm(defaultForm);
     setFormError(null);
+    setGiftInForm(false);
+    setGiftClientIds([]);
     setIsModalOpen(true);
   }
 
@@ -174,7 +178,7 @@ export default function RewardsPage() {
       setFormError('El nombre es requerido');
       return;
     }
-    if (!form.pointsRequired || Number(form.pointsRequired) < 1) {
+    if (!giftInForm && (!form.pointsRequired || Number(form.pointsRequired) < 1)) {
       setFormError('Los puntos requeridos deben ser al menos 1');
       return;
     }
@@ -183,7 +187,7 @@ export default function RewardsPage() {
       name: form.name,
       description: form.description || undefined,
       type: form.type,
-      pointsRequired: Number(form.pointsRequired),
+      pointsRequired: giftInForm ? 0 : Number(form.pointsRequired),
       isActive: form.isActive,
       maxRedemptions: form.maxRedemptions ? Number(form.maxRedemptions) : null,
       validUntil: form.validUntil || null,
@@ -199,7 +203,30 @@ export default function RewardsPage() {
       payload.discountMode = form.discountMode;
     }
 
-    saveMutation.mutate(payload);
+    // If gifting, mark as not publicly visible
+    if (giftInForm && giftClientIds.length > 0) {
+      payload.isActive = false;
+    }
+
+    saveMutation.mutate(payload, {
+      onSuccess: async (res: any) => {
+        // After saving, gift to selected clients
+        if (giftInForm && giftClientIds.length > 0) {
+          const rewardId = res?.data?.id || editingReward?.id;
+          if (rewardId) {
+            for (const clientId of giftClientIds) {
+              try {
+                await api.post('/api/rewards/gift', { rewardId, clientId });
+              } catch (err) {
+                console.error('Error gifting to client:', clientId, err);
+              }
+            }
+          }
+          setGiftInForm(false);
+          setGiftClientIds([]);
+        }
+      },
+    });
   }
 
   return (
@@ -529,12 +556,56 @@ export default function RewardsPage() {
               </div>
             </label>
 
+            {/* Gift to specific clients */}
+            <div className="border-t border-gray-200 pt-4">
+              <label className="flex items-center justify-between cursor-pointer mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Regalar a clientes</p>
+                  <p className="text-[11px] text-gray-400">Enviar directamente sin cobrar puntos. No se muestra públicamente.</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={giftInForm}
+                    onChange={(e) => { setGiftInForm(e.target.checked); if (!e.target.checked) setGiftClientIds([]); }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+
+              {giftInForm && (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                  {clients.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={giftClientIds.includes(c.id)}
+                        onChange={() => setGiftClientIds((prev) =>
+                          prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                        )}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">{c.firstName} {c.lastName}</span>
+                    </label>
+                  ))}
+                  {clients.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-2">No hay clientes registrados</p>
+                  )}
+                  {giftClientIds.length > 0 && (
+                    <p className="text-xs text-[#008080] font-medium pt-1">{giftClientIds.length} cliente{giftClientIds.length !== 1 ? 's' : ''} seleccionado{giftClientIds.length !== 1 ? 's' : ''}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={closeModal} className="btn-secondary">
                 Cancelar
               </button>
               <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
-                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
+                {saveMutation.isPending ? 'Guardando...' : (giftInForm && giftClientIds.length > 0 ? `Guardar y regalar (${giftClientIds.length})` : 'Guardar')}
               </button>
             </div>
           </form>
