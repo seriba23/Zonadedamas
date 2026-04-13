@@ -14,7 +14,7 @@ interface AppointmentItem {
 
 interface AppointmentPhoto {
   id: string;
-  url: string;
+  imageUrl: string;
   caption: string | null;
   createdAt: string;
 }
@@ -94,7 +94,7 @@ export default function EmployeeGalleryPage() {
       for (const photo of photos) {
         result.push({
           photoId: photo.id,
-          url: photo.url,
+          url: photo.imageUrl,
           caption: photo.caption,
           appointmentId: apt.id,
           date: apt.startTime,
