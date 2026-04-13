@@ -24,7 +24,7 @@ export class CreateRewardDto {
   type: 'SERVICIO' | 'DESCUENTO';
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   pointsRequired: number;
 
   @IsOptional()
