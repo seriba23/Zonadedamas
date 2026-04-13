@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   IN_PROGRESS: { label: 'En curso', color: 'bg-purple-50 text-purple-700' },
   COMPLETED: { label: 'Completada', color: 'bg-green-50 text-green-700' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-50 text-red-700' },
-  NO_SHOW: { label: 'No asistio', color: 'bg-gray-100 text-gray-600' },
+  NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-600' },
 };
 
 interface Appointment {
@@ -892,13 +892,16 @@ export default function MarketplaceProfilePage() {
 
 function ProfileCouponCard({ redemption, disabled = false }: { redemption: any; disabled?: boolean }) {
   const reward = redemption.reward;
+  const tenant = redemption.tenant;
   const isDiscount = reward?.type === 'DESCUENTO';
   const expiry = formatExpiry(redemption.expiresAt);
   const days = daysLeft(redemption.expiresAt);
   const isUrgent = days !== null && days <= 7 && !disabled;
 
   const valueLabel = isDiscount
-    ? (reward?.discountPercent ? `-${reward.discountPercent}%` : `$${reward?.discountAmount ?? ''}`)
+    ? (reward?.discountMode === 'PERCENT'
+      ? `-${Number(reward.discountAmount)}%`
+      : `$${reward?.discountAmount ?? ''}`)
     : 'GRATIS';
 
   const statusLabel = redemption.status === 'USED' ? 'USADO' : 'VENCIDO';
@@ -942,12 +945,21 @@ function ProfileCouponCard({ redemption, disabled = false }: { redemption: any; 
         {/* Contenido principal */}
         <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
           <div>
-            <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward?.name || 'Cupón'}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward?.name || 'Cupón'}</p>
+              {tenant && (
+                <span className="text-[10px] font-medium text-[#008080] bg-teal-50 px-2 py-0.5 rounded-full flex-shrink-0 truncate max-w-[120px]">
+                  {tenant.name}
+                </span>
+              )}
+            </div>
             {reward && (
               <p className="text-xs text-gray-500 mt-0.5">
                 {isDiscount
-                  ? (reward.discountPercent ? `${reward.discountPercent}% de descuento` : `$${reward.discountAmount} de descuento`)
-                  : 'Servicio gratis'}
+                  ? (reward.discountMode === 'PERCENT'
+                    ? `${Number(reward.discountAmount)}% de descuento`
+                    : `$${reward.discountAmount} de descuento`)
+                  : (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')}
               </p>
             )}
           </div>
@@ -968,7 +980,7 @@ function ProfileCouponCard({ redemption, disabled = false }: { redemption: any; 
             )}
             {!disabled ? (
               <Link
-                href="/marketplace"
+                href={tenant?.slug ? `/marketplace/${tenant.slug}` : '/marketplace'}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white transition-transform active:scale-95"
                 style={{ backgroundColor: '#008080', letterSpacing: '0.05em' }}
               >
