@@ -34,7 +34,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   IN_PROGRESS: { label: 'En curso', color: 'bg-purple-100 text-purple-800' },
   COMPLETED: { label: 'Completada', color: 'bg-green-100 text-green-800' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-800' },
-  NO_SHOW: { label: 'No asistió', color: 'bg-gray-100 text-gray-800' },
+  NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-800' },
 };
 
 function getDateRange(range: RangeFilter): { startDate: string; endDate: string } {
@@ -310,18 +310,11 @@ export default function EmployeeAppointmentsPage() {
                     disabled={noShowMutation.isPending}
                     className="py-2.5 px-4 text-sm font-medium border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors"
                   >
-                    No asistió
+                    Ausente
                   </button>
                 </div>
               )}
 
-              {['PENDING'].includes(selectedApt.status) && (
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="text-xs text-gray-400 text-center">
-                    Esta cita está pendiente de confirmación
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </div>

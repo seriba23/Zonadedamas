@@ -393,12 +393,10 @@ export function AppointmentModal({
   const canReschedule =
     appointment &&
     ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
-  const canConfirm =
-    appointment &&
-    ['pending', 'rescheduled'].includes(statusLower);
+  const canConfirm = false; // Citas se auto-confirman al crearse
   const canAddServices =
     appointment &&
-    ['pending', 'confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
+    ['confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
 
   const totalPrice = appointment?.items?.reduce(
     (sum, item) => sum + Number(item.priceSnapshot || 0),

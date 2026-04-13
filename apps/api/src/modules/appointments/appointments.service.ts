@@ -108,7 +108,7 @@ export class AppointmentsService {
               internalNotes: dto.internalNotes,
               source: dto.source || 'MANUAL',
               createdBy: userId,
-              status: 'PENDING',
+              status: 'CONFIRMED',
             },
           });
 
@@ -145,7 +145,7 @@ export class AppointmentsService {
             data: {
               appointmentId: appointment.id,
               fromStatus: null,
-              toStatus: 'PENDING',
+              toStatus: 'CONFIRMED',
               changedBy: userId,
             },
           });
@@ -337,7 +337,7 @@ export class AppointmentsService {
               employeeId,
               startTime: newStartTime,
               endTime: newEndTime,
-              status: 'PENDING',
+              status: 'CONFIRMED',
             },
           });
 
@@ -363,7 +363,7 @@ export class AppointmentsService {
             data: {
               appointmentId: id,
               fromStatus: appointment.status,
-              toStatus: 'PENDING',
+              toStatus: 'CONFIRMED',
               changedBy: userId,
               notes: `Rescheduled to ${newStartTime.toISOString()}`,
             },
