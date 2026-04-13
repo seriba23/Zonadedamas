@@ -146,7 +146,7 @@ export default function CalendarPage() {
   const { data: businessHoursData } = useQuery({
     queryKey: ['business-hours'],
     queryFn: () =>
-      api.get<{ data: Array<{ dayOfWeek: string; isOpen: boolean }> }>('/api/tenant/business-hours'),
+      api.get<{ data: Array<{ dayOfWeek: string; isOpen: boolean; startTime?: string; endTime?: string }> }>('/api/tenant/business-hours'),
   });
 
   const businessClosedDays = new Set(
@@ -648,6 +648,7 @@ export default function CalendarPage() {
             onAppointmentDragEnd={handleAppointmentDragEnd}
             closures={closures}
             employeeTimeOffs={employeeTimeOffs}
+            businessHours={businessHoursData?.data || []}
           />
         )}
       </div>

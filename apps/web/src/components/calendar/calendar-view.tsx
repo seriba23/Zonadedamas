@@ -38,6 +38,13 @@ export interface EmployeeTimeOff {
   employee?: { id: string; firstName: string; lastName: string; color?: string };
 }
 
+export interface BusinessHourEntry {
+  dayOfWeek: string;
+  isOpen: boolean;
+  startTime?: string; // "HH:mm"
+  endTime?: string;   // "HH:mm"
+}
+
 interface CalendarViewProps {
   date: Dayjs;
   appointments: Appointment[];
@@ -47,6 +54,7 @@ interface CalendarViewProps {
   onAppointmentDragEnd?: (appointmentId: string, newStartTime: string) => void;
   closures?: BusinessClosure[];
   employeeTimeOffs?: EmployeeTimeOff[];
+  businessHours?: BusinessHourEntry[];
 }
 
 const HOUR_START = 6;
@@ -191,6 +199,7 @@ export function CalendarView({
   onAppointmentDragEnd,
   closures = [],
   employeeTimeOffs = [],
+  businessHours = [],
 }: CalendarViewProps) {
   const gridBodyRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -253,6 +262,20 @@ export function CalendarView({
   const closureByDay = useMemo(() => {
     return weekDays.map((d) => isDateInClosure(d, closures));
   }, [weekDays, closures]);
+
+  // Business hours per day of week (0=Sun..6=Sat)
+  const DOW_MAP: Record<string, number> = { SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6 };
+  const businessHoursByDow = useMemo(() => {
+    const map = new Map<number, { isOpen: boolean; start: number; end: number }>();
+    for (const bh of businessHours) {
+      const dow = DOW_MAP[bh.dayOfWeek];
+      if (dow === undefined) continue;
+      const start = bh.startTime ? parseInt(bh.startTime.split(':')[0]) * 60 + parseInt(bh.startTime.split(':')[1]) : HOUR_START * 60;
+      const end = bh.endTime ? parseInt(bh.endTime.split(':')[0]) * 60 + parseInt(bh.endTime.split(':')[1]) : HOUR_END * 60;
+      map.set(dow, { isOpen: bh.isOpen, start, end });
+    }
+    return map;
+  }, [businessHours]);
 
   // Time-offs per day
   const timeOffsByDay = useMemo(() => {
@@ -434,11 +457,13 @@ export function CalendarView({
           const closure = closureByDay[i];
           const dayTimeOffs = timeOffsByDay[i];
           const hasTimeOffs = dayTimeOffs.length > 0 && !closure;
+          const dayBh = businessHoursByDow.get(day.day());
+          const isDayClosed = closure || (dayBh && !dayBh.isOpen);
           return (
             <div
               key={day.format('YYYY-MM-DD')}
               className={`text-center py-2 border-l border-gray-100 relative group ${
-                closure ? 'bg-gray-100' : isToday(day) ? 'bg-blue-50/50' : ''
+                isDayClosed ? 'bg-gray-100' : isToday(day) ? 'bg-blue-50/50' : ''
               }`}
             >
               <p className="text-xs text-gray-500 uppercase">
@@ -446,7 +471,7 @@ export function CalendarView({
               </p>
               <p
                 className={`text-lg font-semibold ${
-                  closure
+                  isDayClosed
                     ? 'text-gray-400'
                     : isToday(day)
                       ? 'text-blue-600'
@@ -455,7 +480,7 @@ export function CalendarView({
               >
                 {day.format('D')}
               </p>
-              {closure && (
+              {isDayClosed && (
                 <p className="text-xs text-gray-400 truncate px-1">Cerrado</p>
               )}
               {hasTimeOffs && (
@@ -537,17 +562,25 @@ export function CalendarView({
                   </div>
 
                   {/* Day cells with grid lines */}
-                  {weekDays.map((_, dayIdx) => (
-                    <div
-                      key={dayIdx}
-                      className={`border-l border-gray-100 ${
-                        isHourLine
-                          ? 'border-t border-t-gray-200'
-                          : 'border-t border-t-gray-100 border-dashed'
-                      }`}
-                      style={{ gridRow: slotIdx + 1, gridColumn: dayIdx + 2 }}
-                    />
-                  ))}
+                  {weekDays.map((day, dayIdx) => {
+                    const dow = day.day();
+                    const bh = businessHoursByDow.get(dow);
+                    const isClosed = bh ? !bh.isOpen : false;
+                    const slotMinutes = HOUR_START * 60 + slotIdx * SLOT_MINUTES;
+                    const isOutsideHours = bh && bh.isOpen ? (slotMinutes < bh.start || slotMinutes >= bh.end) : false;
+                    const isDisabled = isClosed || isOutsideHours;
+                    return (
+                      <div
+                        key={dayIdx}
+                        className={`border-l border-gray-100 ${
+                          isHourLine
+                            ? 'border-t border-t-gray-200'
+                            : 'border-t border-t-gray-100 border-dashed'
+                        } ${isDisabled ? 'bg-gray-50' : ''}`}
+                        style={{ gridRow: slotIdx + 1, gridColumn: dayIdx + 2 }}
+                      />
+                    );
+                  })}
                 </React.Fragment>
               );
             })}
