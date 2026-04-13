@@ -432,21 +432,23 @@ export default function RewardsPage() {
                   <option value="DESCUENTO">Descuento</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Puntos requeridos *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={form.pointsRequired}
-                  onChange={(e) => setForm((f) => ({ ...f, pointsRequired: e.target.value }))}
-                  className="input-field"
-                  placeholder="Ej: 500"
-                  required
-                />
-              </div>
+              {!giftInForm && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Puntos requeridos *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.pointsRequired}
+                    onChange={(e) => setForm((f) => ({ ...f, pointsRequired: e.target.value }))}
+                    className="input-field"
+                    placeholder="Ej: 500"
+                    required={!giftInForm}
+                  />
+                </div>
+              )}
             </div>
 
             {form.type === 'SERVICIO' && (
