@@ -60,15 +60,13 @@ export function CloseAppointmentWizard({
     if (uploadedPhotos.length >= 3) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.postForm<{ data: { url: string } }>(
+      const res = await api.upload<{ data: { url: string } }>(
         `/api/appointments/${appointment.id}/photos`,
-        formData,
+        file,
       );
       setUploadedPhotos((prev) => [...prev, res.data.url]);
-    } catch {
-      // silently ignore
+    } catch (err) {
+      console.error('Error uploading photo:', err);
     } finally {
       setUploading(false);
     }
