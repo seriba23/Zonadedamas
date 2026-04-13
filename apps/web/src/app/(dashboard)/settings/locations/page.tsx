@@ -88,20 +88,20 @@ export default function LocationsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['locations'],
-    queryFn: () => api.get<{ data: Location[] }>('/api/tenants/locations'),
+    queryFn: () => api.get<{ data: Location[] }>('/api/locations'),
   });
   const locations: Location[] = (data as any)?.data || [];
 
   const createMutation = useMutation({
-    mutationFn: (body: any) => api.post('/api/tenants/locations', body),
+    mutationFn: (body: any) => api.post('/api/locations', body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); },
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: any }) => api.put(`/api/tenants/locations/${id}`, body),
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.put(`/api/locations/${id}`, body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); },
   });
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/tenants/locations/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/locations/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); setDeleteConfirm(null); },
   });
 
