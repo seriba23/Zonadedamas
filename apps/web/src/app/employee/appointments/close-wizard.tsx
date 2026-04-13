@@ -60,11 +60,11 @@ export function CloseAppointmentWizard({
     if (uploadedPhotos.length >= 3) return;
     setUploading(true);
     try {
-      const res = await api.upload<{ data: { url: string } }>(
+      const res = await api.upload<{ data: { imageUrl: string } }>(
         `/api/appointments/${appointment.id}/photos`,
         file,
       );
-      setUploadedPhotos((prev) => [...prev, res.data.url]);
+      setUploadedPhotos((prev) => [...prev, res.data.imageUrl]);
     } catch (err) {
       console.error('Error uploading photo:', err);
     } finally {
@@ -79,6 +79,10 @@ export function CloseAppointmentWizard({
         amount: total,
       }),
     onSuccess: () => setStep('done'),
+    onError: (err: any) => {
+      // 409 = payment already recorded, skip to done
+      if (err?.statusCode === 409) setStep('done');
+    },
   });
 
   const completeMutation = useMutation({
