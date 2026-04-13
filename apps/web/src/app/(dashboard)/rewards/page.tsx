@@ -68,10 +68,8 @@ export default function RewardsPage() {
   const [couponSuccess, setCouponSuccess] = useState<string | null>(null);
   const [giftModal, setGiftModal] = useState(false);
   const [giftRewardId, setGiftRewardId] = useState('');
-  const [giftClientId, setGiftClientId] = useState('');
-  const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
-  const [giftInForm, setGiftInForm] = useState(false);
   const [giftClientIds, setGiftClientIds] = useState<string[]>([]);
+  const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['rewards'],
@@ -142,8 +140,6 @@ export default function RewardsPage() {
     setEditingReward(null);
     setForm(defaultForm);
     setFormError(null);
-    setGiftInForm(false);
-    setGiftClientIds([]);
     setIsModalOpen(true);
   }
 
@@ -178,7 +174,7 @@ export default function RewardsPage() {
       setFormError('El nombre es requerido');
       return;
     }
-    if (!giftInForm && (!form.pointsRequired || Number(form.pointsRequired) < 1)) {
+    if (!form.pointsRequired || Number(form.pointsRequired) < 1) {
       setFormError('Los puntos requeridos deben ser al menos 1');
       return;
     }
@@ -187,7 +183,7 @@ export default function RewardsPage() {
       name: form.name,
       description: form.description || undefined,
       type: form.type,
-      pointsRequired: giftInForm ? 0 : Number(form.pointsRequired),
+      pointsRequired: Number(form.pointsRequired),
       isActive: form.isActive,
       maxRedemptions: form.maxRedemptions ? Number(form.maxRedemptions) : null,
       validUntil: form.validUntil || null,
@@ -203,30 +199,7 @@ export default function RewardsPage() {
       payload.discountMode = form.discountMode;
     }
 
-    // If gifting, mark as not publicly visible
-    if (giftInForm && giftClientIds.length > 0) {
-      payload.isActive = false;
-    }
-
-    saveMutation.mutate(payload, {
-      onSuccess: async (res: any) => {
-        // After saving, gift to selected clients
-        if (giftInForm && giftClientIds.length > 0) {
-          const rewardId = res?.data?.id || editingReward?.id;
-          if (rewardId) {
-            for (const clientId of giftClientIds) {
-              try {
-                await api.post('/api/rewards/gift', { rewardId, clientId });
-              } catch (err) {
-                console.error('Error gifting to client:', clientId, err);
-              }
-            }
-          }
-          setGiftInForm(false);
-          setGiftClientIds([]);
-        }
-      },
-    });
+    saveMutation.mutate(payload);
   }
 
   return (
@@ -432,23 +405,21 @@ export default function RewardsPage() {
                   <option value="DESCUENTO">Descuento</option>
                 </select>
               </div>
-              {!giftInForm && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Puntos requeridos *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.pointsRequired}
-                    onChange={(e) => setForm((f) => ({ ...f, pointsRequired: e.target.value }))}
-                    className="input-field"
-                    placeholder="Ej: 500"
-                    required={!giftInForm}
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Puntos requeridos *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.pointsRequired}
+                  onChange={(e) => setForm((f) => ({ ...f, pointsRequired: e.target.value }))}
+                  className="input-field"
+                  placeholder="Ej: 500"
+                  required
+                />
+              </div>
             </div>
 
             {form.type === 'SERVICIO' && (
@@ -558,60 +529,12 @@ export default function RewardsPage() {
               </div>
             </label>
 
-            {/* Gift to specific clients */}
-            <div className="border-t border-gray-200 pt-4">
-              <label className="flex items-center justify-between cursor-pointer mb-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Regalar a clientes</p>
-                  <p className="text-[11px] text-gray-400">Enviar directamente sin cobrar puntos. No se muestra públicamente.</p>
-                </div>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={giftInForm}
-                    onChange={(e) => {
-                      setGiftInForm(e.target.checked);
-                      if (e.target.checked) setForm((f) => ({ ...f, pointsRequired: 0 }));
-                      if (!e.target.checked) { setGiftClientIds([]); setForm((f) => ({ ...f, pointsRequired: '' })); }
-                    }}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-                </div>
-              </label>
-
-              {giftInForm && (
-                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                  {clients.map((c) => (
-                    <label key={c.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={giftClientIds.includes(c.id)}
-                        onChange={() => setGiftClientIds((prev) =>
-                          prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
-                        )}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-gray-700">{c.firstName} {c.lastName}</span>
-                    </label>
-                  ))}
-                  {clients.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center py-2">No hay clientes registrados</p>
-                  )}
-                  {giftClientIds.length > 0 && (
-                    <p className="text-xs text-[#008080] font-medium pt-1">{giftClientIds.length} cliente{giftClientIds.length !== 1 ? 's' : ''} seleccionado{giftClientIds.length !== 1 ? 's' : ''}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={closeModal} className="btn-secondary">
                 Cancelar
               </button>
               <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
-                {saveMutation.isPending ? 'Guardando...' : (giftInForm && giftClientIds.length > 0 ? `Guardar y regalar (${giftClientIds.length})` : 'Guardar')}
+                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </form>
@@ -664,9 +587,9 @@ export default function RewardsPage() {
         </Modal>
       )}
 
-      {/* Gift coupon modal */}
+      {/* Gift coupon modal — multi-client */}
       {giftModal && (
-        <Modal title="Regalar cupón a cliente" onClose={() => setGiftModal(false)} size="sm">
+        <Modal title="Regalar cupón a clientes" onClose={() => { setGiftModal(false); setGiftSuccess(null); setGiftClientIds([]); }}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Recompensa</label>
@@ -676,23 +599,35 @@ export default function RewardsPage() {
                 className="input-field w-full"
               >
                 <option value="">Selecciona una recompensa</option>
-                {rewards.filter((r) => r.isActive).map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} ({r.type === 'DESCUENTO' ? 'Descuento' : 'Servicio'})</option>
+                {rewards.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name} ({r.type === 'DESCUENTO' ? 'Descuento' : 'Servicio'}) — {r.pointsRequired} pts</option>
                 ))}
               </select>
+              <p className="text-[11px] text-gray-400 mt-1">Al regalar, no se cobran puntos al cliente</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-              <select
-                value={giftClientId}
-                onChange={(e) => setGiftClientId(e.target.value)}
-                className="input-field w-full"
-              >
-                <option value="">Selecciona un cliente</option>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Clientes</label>
+              <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
                 {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+                  <label key={c.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={giftClientIds.includes(c.id)}
+                      onChange={() => setGiftClientIds((prev) =>
+                        prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                      )}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{c.firstName} {c.lastName}</span>
+                  </label>
                 ))}
-              </select>
+                {clients.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-2">No hay clientes registrados</p>
+                )}
+              </div>
+              {giftClientIds.length > 0 && (
+                <p className="text-xs text-[#008080] font-medium mt-1">{giftClientIds.length} cliente{giftClientIds.length !== 1 ? 's' : ''} seleccionado{giftClientIds.length !== 1 ? 's' : ''}</p>
+              )}
             </div>
             {giftSuccess && (
               <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 font-medium">
@@ -705,11 +640,24 @@ export default function RewardsPage() {
               </div>
             )}
             <button
-              onClick={() => giftMutation.mutate()}
-              disabled={!giftRewardId || !giftClientId || giftMutation.isPending}
+              onClick={async () => {
+                if (!giftRewardId || giftClientIds.length === 0) return;
+                let sent = 0;
+                for (const clientId of giftClientIds) {
+                  try {
+                    await api.post('/api/rewards/gift', { rewardId: giftRewardId, clientId });
+                    sent++;
+                  } catch (err) {
+                    console.error('Error gifting to client:', clientId, err);
+                  }
+                }
+                setGiftSuccess(`Cupón enviado a ${sent} cliente${sent !== 1 ? 's' : ''}`);
+                setGiftClientIds([]);
+              }}
+              disabled={!giftRewardId || giftClientIds.length === 0 || giftMutation.isPending}
               className="btn-primary w-full"
             >
-              {giftMutation.isPending ? 'Enviando...' : 'Regalar cupón'}
+              {`Regalar cupón (${giftClientIds.length})`}
             </button>
           </div>
         </Modal>
