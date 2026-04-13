@@ -293,41 +293,73 @@ function PurchaseCard({ purchase }: { purchase: any }) {
 function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) {
   const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
+  const empColor = appt.employee?.color || '#008080';
+  const d = new Date(appt.startTime);
+  const day = d.toLocaleDateString('es-MX', { day: 'numeric' });
+  const month = d.toLocaleDateString('es-MX', { month: 'short' }).toUpperCase();
+  const time = formatTime(appt.startTime);
+  const weekday = d.toLocaleDateString('es-MX', { weekday: 'long' });
 
   return (
     <button
       onClick={onPress}
       className="w-full bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md transition-shadow"
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Status badge */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-gray-900 truncate">{appt.tenant?.name || '—'}</p>
+        <span
+          className="px-2.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0"
+          style={{ backgroundColor: style.bg, color: style.color }}
+        >
+          {STATUS_LABEL[appt.status] || appt.status}
+        </span>
+      </div>
+
+      {/* Main content */}
+      <div className="flex items-center gap-3">
+        {/* Employee photo */}
+        {appt.employee && (
+          <Link
+            href={`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-shrink-0"
+          >
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden ring-2 ring-white shadow"
+              style={{ backgroundColor: empColor }}
+            >
+              {appt.employee.avatarUrl ? (
+                <img src={`${API_URL}${appt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span>{appt.employee.firstName?.[0]}{appt.employee.lastName?.[0]}</span>
+              )}
+            </div>
+          </Link>
+        )}
+
+        {/* Service + Employee name */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{appt.tenant?.name || '—'}</p>
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{services}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75" />
-            </svg>
-            <span className="text-xs text-gray-600">
-              {formatDate(appt.startTime)} · {formatTime(appt.startTime)}
-            </span>
-          </div>
+          <p className="text-xs text-gray-500 truncate">{services}</p>
           {appt.employee && (
             <Link
               href={`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-xs mt-1 inline-flex items-center gap-1"
+              className="text-sm font-medium hover:underline truncate block"
               style={{ color: '#008080' }}
             >
               {appt.employee.firstName} {appt.employee.lastName}
             </Link>
           )}
         </div>
-        <span
-          className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0"
-          style={{ backgroundColor: style.bg, color: style.color }}
-        >
-          {STATUS_LABEL[appt.status] || appt.status}
-        </span>
+
+        {/* Date & Time - prominent, bottom right */}
+        <div className="flex-shrink-0 text-right">
+          <p className="text-2xl font-bold text-gray-900 leading-none">{day}</p>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase">{month}</p>
+          <p className="text-sm font-semibold mt-1" style={{ color: '#008080' }}>{time}</p>
+          <p className="text-[10px] text-gray-400 capitalize">{weekday}</p>
+        </div>
       </div>
     </button>
   );
