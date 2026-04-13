@@ -12,7 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
 
 const RESERVATION_STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pendiente',
+  PENDING: 'Apartado',
   CONFIRMED: 'Confirmado',
   READY: 'Listo para entrega',
   DELIVERED: 'Entregado',
@@ -27,7 +27,7 @@ const RESERVATION_STATUS_STYLE: Record<string, { bg: string; color: string }> = 
   CANCELLED: { bg: '#fee2e2', color: '#dc2626' },
 };
 
-const FULFILLMENT_LABELS: Record<string, string> = { PICKUP: 'Recoger en tienda', SHIPPING: 'Envio a domicilio' };
+const FULFILLMENT_LABELS: Record<string, string> = { PICKUP: 'Recoger en tienda física', SHIPPING: 'Envío a domicilio' };
 const PAYMENT_LABELS: Record<string, string> = { CASH: 'Efectivo', SPEI: 'SPEI', CARD: 'Tarjeta' };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -36,7 +36,7 @@ const STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',
-  NO_SHOW: 'No asistió',
+  NO_SHOW: 'Ausente',
 };
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
@@ -253,6 +253,26 @@ function PurchaseCard({ purchase }: { purchase: any }) {
             <p className="text-[10px] text-gray-400 mt-2 truncate">📍 {purchase.shippingAddress}</p>
           )}
           <p className="text-[10px] text-gray-400 mt-1">{new Date(purchase.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+
+          {/* Leyenda según si tiene cita asociada o no */}
+          {purchase.status === 'PENDING' && (
+            <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+              {purchase.appointmentId ? (
+                <p className="text-[11px] text-amber-700">
+                  💰 El producto debe ser pagado el día de tu cita:{' '}
+                  <span className="font-semibold">
+                    {purchase.appointment?.startTime
+                      ? new Date(purchase.appointment.startTime).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                      : 'próxima cita'}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-700">
+                  📞 Contacta al negocio para coordinar la entrega y pago de tu producto
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

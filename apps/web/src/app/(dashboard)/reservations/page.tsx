@@ -9,7 +9,7 @@ const TEAL = '#008080';
 const TEAL_LIGHT = '#e0f2f1';
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pendiente',
+  PENDING: 'Apartado',
   CONFIRMED: 'Confirmado',
   READY: 'Listo',
   DELIVERED: 'Entregado',
@@ -25,8 +25,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const FULFILLMENT_LABELS: Record<string, string> = {
-  PICKUP: 'Recoger en tienda',
-  SHIPPING: 'Envio',
+  PICKUP: 'Recoger en tienda física',
+  SHIPPING: 'Envío a domicilio',
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -38,7 +38,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 const TABS = ['ALL', 'PENDING', 'CONFIRMED', 'READY', 'DELIVERED', 'CANCELLED'];
 const TAB_LABELS: Record<string, string> = {
   ALL: 'Todos',
-  PENDING: 'Pendientes',
+  PENDING: 'Apartados',
   CONFIRMED: 'Confirmados',
   READY: 'Listos',
   DELIVERED: 'Entregados',
