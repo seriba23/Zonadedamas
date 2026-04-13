@@ -62,6 +62,7 @@ export default function ServicesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const [viewTab, setViewTab] = useState<'servicios' | 'comisiones-servicio' | 'comisiones-empleado'>('servicios');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState<ServiceForm>(defaultForm);
@@ -102,6 +103,13 @@ export default function ServicesPage() {
   const catalogItems: { name: string; category: string | null }[] = (catalogData as any)?.data || [];
 
   const services = data?.data || [];
+
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees-for-commissions'],
+    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100'),
+    enabled: viewTab !== 'servicios',
+  });
+  const allEmployees = (employeesData?.data || []).filter((e: any) => e.isActive);
 
   const saveMutation = useMutation({
     mutationFn: (payload: Record<string, any>) => {
@@ -191,7 +199,26 @@ export default function ServicesPage() {
     <div className="flex flex-col h-full">
       <Header title="Servicios" />
 
+      {/* View tabs */}
+      <div className="border-b border-gray-200 px-6 flex items-center gap-6">
+        {(['servicios', 'comisiones-servicio', 'comisiones-empleado'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setViewTab(tab)}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              viewTab === tab
+                ? 'border-[#008080] text-[#008080]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'servicios' ? 'Servicios' : tab === 'comisiones-servicio' ? 'Comisiones por servicio' : 'Comisiones por empleado'}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-6">
+        {viewTab === 'servicios' && (
+          <>
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">
             {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
@@ -325,6 +352,110 @@ export default function ServicesPage() {
                 );
               });
             })()}
+          </div>
+        )}
+          </>
+        )}
+
+        {/* ─── Comisiones por servicio ─── */}
+        {viewTab === 'comisiones-servicio' && (
+          <div className="space-y-4">
+            {services.map((svc) => (
+              <div key={svc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => router.push(`/services/${svc.id}`)}
+                  className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{svc.name}</p>
+                    <p className="text-xs text-gray-400">{svc.subcategory || svc.category || '—'} · {svc.durationMinutes} min</p>
+                  </div>
+                  <div className="text-right flex items-center gap-3">
+                    <span className="text-sm font-bold text-gray-900">{formatCurrency(svc.price)}</span>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+            ))}
+            {services.length === 0 && (
+              <div className="text-center py-12 text-gray-400">No hay servicios configurados</div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Comisiones por empleado ─── */}
+        {viewTab === 'comisiones-empleado' && (
+          <div className="space-y-4">
+            {allEmployees.map((emp: any) => {
+              const empServices = (emp.employeeServices || []) as any[];
+              return (
+                <div key={emp.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
+                      style={{ backgroundColor: emp.color || '#008080' }}
+                    >
+                      {emp.avatarUrl ? (
+                        <img src={`${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001')}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <>{emp.firstName[0]}{emp.lastName[0]}</>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{emp.firstName} {emp.lastName}</p>
+                      <p className="text-xs text-gray-400">{empServices.length} servicio{empServices.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  {empServices.length === 0 ? (
+                    <div className="px-5 py-3 text-xs text-gray-400">Sin servicios asignados</div>
+                  ) : (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
+                          <th className="text-left px-4 py-2 font-semibold">Servicio</th>
+                          <th className="text-center px-4 py-2 font-semibold">Precio base</th>
+                          <th className="text-center px-4 py-2 font-semibold">Precio cliente</th>
+                          <th className="text-center px-4 py-2 font-semibold">Comisión</th>
+                          <th className="text-center px-4 py-2 font-semibold">Ganancia</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {empServices.map((es: any) => {
+                          const svc = es.service;
+                          if (!svc) return null;
+                          const base = Number(svc.price);
+                          const client = es.customPrice != null ? Number(es.customPrice) : base;
+                          const comm = Number(es.commission || 0);
+                          return (
+                            <tr key={svc.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 text-sm text-gray-900">{svc.name}</td>
+                              <td className="px-4 py-2 text-center text-sm text-gray-500">{formatCurrency(base)}</td>
+                              <td className="px-4 py-2 text-center text-sm">{formatCurrency(client)}</td>
+                              <td className="px-4 py-2 text-center text-sm font-medium text-green-600">{comm > 0 ? formatCurrency(comm) : '—'}</td>
+                              <td className="px-4 py-2 text-center text-sm font-medium">{formatCurrency(client - comm)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-gray-50 border-t border-gray-200 text-xs font-semibold text-gray-700">
+                          <td className="px-4 py-2">Total</td>
+                          <td className="px-4 py-2"></td>
+                          <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => s + (es.customPrice != null ? Number(es.customPrice) : Number(es.service?.price || 0)), 0))}</td>
+                          <td className="px-4 py-2 text-center text-green-600">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.commission || 0), 0))}</td>
+                          <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => { const cp = es.customPrice != null ? Number(es.customPrice) : Number(es.service?.price || 0); return s + cp - Number(es.commission || 0); }, 0))}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+            {allEmployees.length === 0 && (
+              <div className="text-center py-12 text-gray-400">No hay empleados activos</div>
+            )}
           </div>
         )}
       </div>
