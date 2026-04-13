@@ -569,7 +569,11 @@ export default function RewardsPage() {
                   <input
                     type="checkbox"
                     checked={giftInForm}
-                    onChange={(e) => { setGiftInForm(e.target.checked); if (!e.target.checked) setGiftClientIds([]); }}
+                    onChange={(e) => {
+                      setGiftInForm(e.target.checked);
+                      if (e.target.checked) setForm((f) => ({ ...f, pointsRequired: 0 }));
+                      if (!e.target.checked) { setGiftClientIds([]); setForm((f) => ({ ...f, pointsRequired: '' })); }
+                    }}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
