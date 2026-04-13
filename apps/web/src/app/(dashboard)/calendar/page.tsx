@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { api } from '@/lib/api';
@@ -47,6 +48,7 @@ interface ServiceSummary {
 }
 
 export default function CalendarPage() {
+  const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -60,6 +62,15 @@ export default function CalendarPage() {
 
   const [customStart, setCustomStart] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
   const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
+
+  // Open appointment from URL param (e.g. from reports detail)
+  useEffect(() => {
+    const aptId = searchParams.get('appointmentId');
+    if (aptId) {
+      setSelectedAppointmentId(aptId);
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Filter state
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
