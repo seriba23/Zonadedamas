@@ -311,7 +311,7 @@ export class RewardsService {
       action: 'CREATE',
       entityType: 'RewardRedemption',
       entityId: redemption.id,
-      newData: { giftedTo: `${client.firstName} ${client.lastName}`, reward: reward.name, code },
+      newValues: { giftedTo: `${client.firstName} ${client.lastName}`, reward: reward.name, code },
     });
 
     return { data: redemption };
