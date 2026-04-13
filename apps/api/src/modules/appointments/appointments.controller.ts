@@ -162,7 +162,7 @@ export class AppointmentsController {
   }
 
   @Post(':id/photos')
-  @RequirePermissions('appointments.update')
+  @RequirePermissions('appointments.complete')
   @UseInterceptors(FileInterceptor('file'))
   async uploadPhoto(
     @CurrentTenant() tenantId: string,
