@@ -337,7 +337,7 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Calendario" />
+      <Header title="Citas" />
 
       <div className="px-6 py-4 bg-white border-b border-gray-200">
         {/* View mode selector — same style as Reports date range */}
