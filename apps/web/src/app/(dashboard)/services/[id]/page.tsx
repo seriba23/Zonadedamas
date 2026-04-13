@@ -139,7 +139,7 @@ export default function ServiceDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* Price - editable */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-xs text-gray-500 mb-1">Precio</p>
@@ -209,6 +209,26 @@ export default function ServiceDetailPage() {
                     </svg>
                   </button>
                 )}
+              </div>
+
+              {/* Currency */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-xs text-gray-500 mb-1">Moneda</p>
+                <select
+                  value={service.currency || 'USD'}
+                  onChange={(e) => updateServiceMutation.mutate({ currency: e.target.value })}
+                  className="text-lg font-bold text-gray-900 bg-transparent border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080] cursor-pointer"
+                >
+                  <option value="USD">USD - Dólar</option>
+                  <option value="MXN">MXN - Peso MX</option>
+                  <option value="DOP">DOP - Peso RD</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="COP">COP - Peso CO</option>
+                  <option value="ARS">ARS - Peso AR</option>
+                  <option value="CLP">CLP - Peso CL</option>
+                  <option value="PEN">PEN - Sol PE</option>
+                  <option value="BRL">BRL - Real BR</option>
+                </select>
               </div>
             </div>
           </div>
