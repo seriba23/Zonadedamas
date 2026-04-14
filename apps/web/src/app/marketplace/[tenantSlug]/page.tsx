@@ -187,6 +187,7 @@ export default function BusinessDetailPage() {
     paymentStatus === 'success' ? 'success' : null,
   );
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes'>('servicios');
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
   const [anyEmployee, setAnyEmployee] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs());
@@ -492,6 +493,7 @@ export default function BusinessDetailPage() {
 
   // Derived data
   const services: BizService[] = biz?.services || [];
+  const bizBundles: any[] = biz?.bundles || [];
   const employees: BizEmployee[] = biz?.employees || [];
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
   const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
@@ -1309,26 +1311,104 @@ export default function BusinessDetailPage() {
 
                 return (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">
                     Selecciona el servicio
                   </h2>
-                  {hasSubcategories ? (
-                    <div className="space-y-5">
-                      {groups.map(([subcategory, svcList]) => (
-                        <div key={subcategory}>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                            {subcategory}
-                          </p>
-                          <div className="grid gap-3">
-                            {svcList.map(renderServiceButton)}
+
+                  {/* Tabs: Servicios | Paquetes */}
+                  {bizBundles.length > 0 && (
+                    <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
+                      <button
+                        onClick={() => setServiceTab('servicios')}
+                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                          serviceTab === 'servicios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Servicios
+                      </button>
+                      <button
+                        onClick={() => setServiceTab('paquetes')}
+                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                          serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Paquetes
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Paquetes */}
+                  {serviceTab === 'paquetes' && bizBundles.length > 0 && (
+                    <div className="grid gap-3 mb-4">
+                      {bizBundles.map((bundle: any) => {
+                        const bundleServiceIds: string[] = Array.isArray(bundle.serviceIds) ? bundle.serviceIds : [];
+                        const isSelected = bundleServiceIds.length > 0 && bundleServiceIds.every((id: string) => selectedServiceIds.includes(id));
+                        const bundleServices = services.filter((s) => bundleServiceIds.includes(s.id));
+                        const originalPrice = bundleServices.reduce((sum, s) => sum + Number(s.price), 0);
+
+                        return (
+                          <button
+                            key={bundle.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedServiceIds((prev) => prev.filter((id) => !bundleServiceIds.includes(id)));
+                              } else {
+                                setSelectedServiceIds((prev) => [...new Set([...prev, ...bundleServiceIds])]);
+                              }
+                            }}
+                            className="w-full text-left p-4 rounded-xl border-2 transition-all"
+                            style={isSelected ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT } : { borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-medium text-gray-900">{bundle.name}</p>
+                              <div className="text-right">
+                                {originalPrice > Number(bundle.bundlePrice) && (
+                                  <span className="text-xs text-gray-400 line-through mr-2">
+                                    {formatCurrency(originalPrice, bundleServices[0]?.currency)}
+                                  </span>
+                                )}
+                                <span className="font-bold" style={{ color: TEAL }}>
+                                  {formatCurrency(Number(bundle.bundlePrice), bundleServices[0]?.currency)}
+                                </span>
+                              </div>
+                            </div>
+                            {bundle.description && (
+                              <p className="text-xs text-gray-500 mb-2">{bundle.description}</p>
+                            )}
+                            <div className="flex flex-wrap gap-1">
+                              {bundleServices.map((s) => (
+                                <span key={s.id} className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
+                                  {s.name}
+                                </span>
+                              ))}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">{bundle.totalDuration} min{bundle.savingsPercent ? ` · ${Number(bundle.savingsPercent)}% de ahorro` : ''}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Servicios individuales */}
+                  {serviceTab === 'servicios' && (
+                    hasSubcategories ? (
+                      <div className="space-y-5">
+                        {groups.map(([subcategory, svcList]) => (
+                          <div key={subcategory}>
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                              {subcategory}
+                            </p>
+                            <div className="grid gap-3">
+                              {svcList.map(renderServiceButton)}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid gap-3">
-                      {services.map(renderServiceButton)}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid gap-3">
+                        {services.map(renderServiceButton)}
+                      </div>
+                    )
                   )}
 
                   {selectedServiceIds.length > 0 && (

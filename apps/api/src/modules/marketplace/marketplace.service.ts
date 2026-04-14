@@ -843,6 +843,21 @@ export class MarketplaceService {
       },
     });
 
+    // Get bundles
+    const bundles = await this.prisma.serviceBundle.findMany({
+      where: { tenantId: tenant.id, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        bundlePrice: true,
+        serviceIds: true,
+        totalDuration: true,
+        savingsPercent: true,
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+
     // Get gallery images
     const gallery = await this.prisma.tenantGalleryImage.findMany({
       where: { tenantId: tenant.id },
@@ -893,6 +908,7 @@ export class MarketplaceService {
         })),
         businessHours,
         locations,
+        bundles,
         gallery,
         isFavorited,
       },
