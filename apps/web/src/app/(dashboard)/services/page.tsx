@@ -150,14 +150,15 @@ export default function ServicesPage() {
   function openEdit(service: Service) {
     setEditingService(service);
     const hasPoints = (service.pointsReward ?? 0) > 0;
-    // Find catalog category for this service name
+    // Find catalog category: try by name match, then fall back to service's subcategory/category
     const matchedCatalog = catalogItems.find((c) => c.name === service.name);
+    const profession = matchedCatalog?.category || service.subcategory || service.category || '';
     setForm({
       name: service.name,
       description: service.description || '',
       durationMinutes: service.durationMinutes,
       price: service.price,
-      catalogCategory: matchedCatalog?.category || '',
+      catalogCategory: profession,
       currency: service.currency || 'MXN',
       categories: (service.subcategory || service.category || '').split(',').map(s => s.trim()).filter(Boolean),
       generatesPoints: hasPoints,
