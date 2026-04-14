@@ -612,202 +612,181 @@ export default function ServicesPage() {
   );
 }
 
-/* ─── Employee Services View with toggle ─── */
+/* ─── Employee Services View — inline checkbox table like staff editor ─── */
 function EmployeeServicesView({ employees, allServices }: { employees: any[]; allServices: Service[] }) {
   const queryClient = useQueryClient();
-  const [managingEmpId, setManagingEmpId] = useState<string | null>(null);
-  const [pendingChanges, setPendingChanges] = useState<Map<string, Set<string>>>(new Map()); // empId -> set of serviceIds to add
-  const [pendingRemoves, setPendingRemoves] = useState<Map<string, Set<string>>>(new Map()); // empId -> set of serviceIds to remove
+  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
-
+  const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-  function toggleService(empId: string, svcId: string, currentlyAssigned: boolean) {
-    if (currentlyAssigned) {
-      // Mark for removal
-      setPendingRemoves((prev) => {
-        const next = new Map(prev);
-        const set = new Set(next.get(empId) || []);
-        set.has(svcId) ? set.delete(svcId) : set.add(svcId);
-        next.set(empId, set);
-        return next;
-      });
-    } else {
-      // Mark for addition
-      setPendingChanges((prev) => {
-        const next = new Map(prev);
-        const set = new Set(next.get(empId) || []);
-        set.has(svcId) ? set.delete(svcId) : set.add(svcId);
-        next.set(empId, set);
-        return next;
-      });
+  function getConfigMap(empId: string, empServices: any[]) {
+    if (!configMaps.has(empId)) {
+      const m = new Map<string, { commission: number | null }>();
+      for (const es of empServices) {
+        m.set(es.service?.id || es.serviceId, { commission: es.commission != null ? Number(es.commission) : null });
+      }
+      return m;
     }
+    return configMaps.get(empId)!;
+  }
+
+  function toggleService(empId: string, svcId: string, empServices: any[]) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const map = new Map(getConfigMap(empId, empServices));
+      if (map.has(svcId)) {
+        map.delete(svcId);
+      } else {
+        map.set(svcId, { commission: null });
+      }
+      next.set(empId, map);
+      return next;
+    });
+  }
+
+  function updateCommission(empId: string, svcId: string, value: string, empServices: any[]) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const map = new Map(getConfigMap(empId, empServices));
+      const existing = map.get(svcId);
+      if (existing) {
+        map.set(svcId, { commission: value === '' ? null : parseFloat(value) });
+      }
+      next.set(empId, map);
+      return next;
+    });
+  }
+
+  function hasChanges(empId: string, empServices: any[]) {
+    const map = configMaps.get(empId);
+    if (!map) return false;
+    const currentIds = new Set(empServices.map((es: any) => es.service?.id || es.serviceId));
+    if (map.size !== currentIds.size) return true;
+    for (const [svcId, config] of map) {
+      if (!currentIds.has(svcId)) return true;
+      const es = empServices.find((e: any) => (e.service?.id || e.serviceId) === svcId);
+      if (!es) return true;
+      const oldComm = es.commission != null ? Number(es.commission) : null;
+      if ((config.commission ?? null) !== oldComm) return true;
+    }
+    return false;
   }
 
   async function saveChanges(empId: string, empServices: any[]) {
+    const map = getConfigMap(empId, empServices);
     setSavingEmpId(empId);
-    const toAdd = pendingChanges.get(empId) || new Set();
-    const toRemove = pendingRemoves.get(empId) || new Set();
-
-    // Build final service list: current - removed + added
-    const finalServices = [
-      ...empServices
-        .filter((es: any) => !toRemove.has(es.service?.id || es.serviceId))
-        .map((es: any) => ({
-          serviceId: es.service?.id || es.serviceId,
-          commission: es.commission != null ? Number(es.commission) : null,
-          customPrice: es.customPrice != null ? Number(es.customPrice) : null,
-        })),
-      ...Array.from(toAdd).map((svcId) => ({
-        serviceId: svcId,
-        commission: null,
-        customPrice: null,
-      })),
-    ];
-
     try {
-      await api.put(`/api/employees/${empId}/services`, { services: finalServices });
+      await api.put(`/api/employees/${empId}/services`, {
+        services: Array.from(map.entries()).map(([serviceId, config]) => ({
+          serviceId,
+          commission: config.commission,
+        })),
+      });
       queryClient.invalidateQueries({ queryKey: ['employees-for-commissions'] });
-      // Clear pending
-      setPendingChanges((prev) => { const n = new Map(prev); n.delete(empId); return n; });
-      setPendingRemoves((prev) => { const n = new Map(prev); n.delete(empId); return n; });
-      setManagingEmpId(null);
+      setConfigMaps((prev) => { const n = new Map(prev); n.delete(empId); return n; });
+      setSavedEmpId(empId);
+      setTimeout(() => setSavedEmpId(null), 2000);
     } catch (err) {
-      console.error('Error saving services:', err);
+      console.error('Error saving:', err);
     }
     setSavingEmpId(null);
-  }
-
-  function hasChanges(empId: string) {
-    return (pendingChanges.get(empId)?.size || 0) > 0 || (pendingRemoves.get(empId)?.size || 0) > 0;
   }
 
   return (
     <div className="space-y-4">
       {employees.map((emp: any) => {
         const empServices = (emp.employeeServices || []) as any[];
-        const assignedIds = new Set(empServices.map((es: any) => es.service?.id || es.serviceId));
-        const isManaging = managingEmpId === emp.id;
-        const toAdd = pendingChanges.get(emp.id) || new Set();
-        const toRemove = pendingRemoves.get(emp.id) || new Set();
+        const map = getConfigMap(emp.id, empServices);
+        const changed = hasChanges(emp.id, empServices);
 
         return (
           <div key={emp.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Header */}
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
-                  style={{ backgroundColor: emp.color || '#008080' }}
-                >
-                  {emp.avatarUrl ? (
-                    <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <>{emp.firstName[0]}{emp.lastName[0]}</>
-                  )}
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color || '#008080' }}>
+                  {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
                 </div>
                 <div>
                   <p className="text-sm font-bold text-gray-900">{emp.firstName} {emp.lastName}</p>
-                  <p className="text-xs text-gray-400">{empServices.length} servicio{empServices.length !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-gray-400">{map.size} de {allServices.length} servicios</p>
                 </div>
               </div>
-              <button
-                onClick={() => setManagingEmpId(isManaging ? null : emp.id)}
-                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                  isManaging ? 'bg-gray-100 text-gray-700' : 'text-[#008080] hover:bg-teal-50'
-                }`}
-              >
-                {isManaging ? 'Cerrar' : 'Gestionar servicios'}
-              </button>
+              {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
             </div>
 
-            {/* Manage mode: show all services with toggles */}
-            {isManaging && (
-              <div className="border-b border-gray-100">
-                <div className="px-5 py-2 bg-gray-50 text-xs text-gray-500 font-medium">
-                  Activar o desactivar servicios para este empleado
-                </div>
-                <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
-                  {allServices.map((svc) => {
-                    const isAssigned = assignedIds.has(svc.id);
-                    const willAdd = toAdd.has(svc.id);
-                    const willRemove = toRemove.has(svc.id);
-                    const finalState = willAdd ? true : willRemove ? false : isAssigned;
-
-                    return (
-                      <label key={svc.id} className="flex items-center justify-between px-5 py-2.5 hover:bg-gray-50 cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={finalState}
-                            onChange={() => toggleService(emp.id, svc.id, isAssigned && !willRemove)}
-                            className="rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
-                          />
-                          <span className="text-sm text-gray-900">{svc.name}</span>
-                        </div>
-                        <span className="text-xs text-gray-400">{formatCurrency(svc.price, svc.currency)}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-                {hasChanges(emp.id) && (
-                  <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-between">
-                    <p className="text-xs text-teal-800">
-                      {toAdd.size > 0 && <span className="font-medium">+{toAdd.size} por agregar</span>}
-                      {toAdd.size > 0 && toRemove.size > 0 && ' · '}
-                      {toRemove.size > 0 && <span className="font-medium text-red-600">-{toRemove.size} por quitar</span>}
-                    </p>
-                    <button
-                      onClick={() => saveChanges(emp.id, empServices)}
-                      disabled={savingEmpId === emp.id}
-                      className="text-xs font-medium text-white px-4 py-1.5 rounded-lg disabled:opacity-50"
-                      style={{ backgroundColor: '#008080' }}
-                    >
-                      {savingEmpId === emp.id ? 'Guardando...' : 'Guardar cambios'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Services table */}
-            {empServices.length === 0 && !isManaging ? (
-              <div className="px-5 py-3 text-xs text-gray-400">Sin servicios asignados</div>
-            ) : empServices.length > 0 && (
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <th className="text-left px-4 py-2 font-semibold">Servicio</th>
-                    <th className="text-center px-4 py-2 font-semibold">Precio</th>
-                    <th className="text-center px-4 py-2 font-semibold">Comisión</th>
-                    <th className="text-center px-4 py-2 font-semibold">Ganancia</th>
+            {/* Table with checkboxes inline */}
+            <div className="max-h-[400px] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                  <tr className="text-xs text-gray-500 uppercase">
+                    <th className="w-8 px-2 py-2"></th>
+                    <th className="text-left px-2 py-2 font-semibold">Servicio</th>
+                    <th className="text-center px-2 py-2 font-semibold w-24">Precio</th>
+                    <th className="text-center px-2 py-2 font-semibold w-28">Comisión</th>
+                    <th className="text-center px-2 py-2 font-semibold w-24">Ganancia</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {empServices.map((es: any) => {
-                    const svc = es.service;
-                    if (!svc) return null;
-                    const willRemove = toRemove.has(svc.id);
+                <tbody>
+                  {allServices.map((svc) => {
+                    const isSelected = map.has(svc.id);
+                    const config = map.get(svc.id);
                     const price = Number(svc.price);
-                    const comm = Number(es.commission || 0);
+                    const comm = config?.commission ?? 0;
+                    const profit = price - Number(comm);
+
                     return (
-                      <tr key={svc.id} className={`hover:bg-gray-50 ${willRemove ? 'opacity-40 line-through' : ''}`}>
-                        <td className="px-4 py-2 text-sm text-gray-900">{svc.name}</td>
-                        <td className="px-4 py-2 text-center text-sm font-medium text-gray-900">{formatCurrency(price, svc.currency)}</td>
-                        <td className="px-4 py-2 text-center text-sm font-medium text-green-600">{comm > 0 ? formatCurrency(comm, svc.currency) : '—'}</td>
-                        <td className="px-4 py-2 text-center text-sm font-medium">{formatCurrency(price - comm, svc.currency)}</td>
+                      <tr key={svc.id} className={`border-t border-gray-100 ${isSelected ? 'bg-teal-50/30' : ''}`}>
+                        <td className="px-2 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleService(emp.id, svc.id, empServices)}
+                            className="w-4 h-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <span className={isSelected ? 'text-gray-900' : 'text-gray-400'}>{svc.name}</span>
+                          <span className="text-xs text-gray-400 ml-1">({svc.durationMinutes}min)</span>
+                        </td>
+                        <td className="px-2 py-2 text-center text-gray-500 tabular-nums">{formatCurrency(price, svc.currency)}</td>
+                        <td className="px-2 py-2 text-center">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            disabled={!isSelected}
+                            placeholder="0"
+                            value={config?.commission ?? ''}
+                            onChange={(e) => updateCommission(emp.id, svc.id, e.target.value, empServices)}
+                            className="w-24 text-right text-sm border border-gray-200 rounded px-2 py-1 tabular-nums disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-center tabular-nums">
+                          {isSelected && config?.commission != null ? (
+                            <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit, svc.currency)}</span>
+                          ) : <span className="text-gray-300">--</span>}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50 border-t border-gray-200 text-xs font-semibold text-gray-700">
-                    <td className="px-4 py-2">Total</td>
-                    <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.service?.price || 0), 0))}</td>
-                    <td className="px-4 py-2 text-center text-green-600">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.commission || 0), 0))}</td>
-                    <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.service?.price || 0) - Number(es.commission || 0), 0))}</td>
-                  </tr>
-                </tfoot>
               </table>
+            </div>
+
+            {/* Save bar */}
+            {changed && (
+              <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-end">
+                <button
+                  onClick={() => saveChanges(emp.id, empServices)}
+                  disabled={savingEmpId === emp.id}
+                  className="text-xs font-medium text-white px-4 py-1.5 rounded-lg disabled:opacity-50"
+                  style={{ backgroundColor: '#008080' }}
+                >
+                  {savingEmpId === emp.id ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
             )}
           </div>
         );
