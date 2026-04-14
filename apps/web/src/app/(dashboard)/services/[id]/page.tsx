@@ -15,10 +15,9 @@ export default function ServiceDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const serviceId = params.id as string;
-  const [editingPrice, setEditingPrice] = useState(false);
-  const [editingDuration, setEditingDuration] = useState(false);
-  const [priceValue, setPriceValue] = useState('');
-  const [durationValue, setDurationValue] = useState('');
+  const [priceValue, setPriceValue] = useState<string | null>(null);
+  const [durationValue, setDurationValue] = useState<string | null>(null);
+  const [currencyValue, setCurrencyValue] = useState<string | null>(null);
   const [editingCommissions, setEditingCommissions] = useState<Map<string, { commission: string; customPrice: string }>>(new Map());
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -148,97 +147,77 @@ export default function ServiceDetailPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              {/* Price - editable */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Precio</p>
-                {editingPrice ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={priceValue}
-                      onChange={(e) => setPriceValue(e.target.value)}
-                      className="w-28 text-lg font-bold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080]"
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => updateServiceMutation.mutate({ price: Number(priceValue) })}
-                      className="text-xs font-medium text-white px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#008080' }}
-                    >
-                      Guardar
-                    </button>
-                    <button onClick={() => setEditingPrice(false)} className="text-xs text-gray-400">Cancelar</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => { setPriceValue(String(service.price)); setEditingPrice(true); }}
-                    className="text-2xl font-bold text-gray-900 hover:text-[#008080] transition-colors"
-                  >
-                    {formatCurrency(service.price)}
-                    <svg className="w-3.5 h-3.5 inline ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-                    </svg>
-                  </button>
-                )}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Precio</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={priceValue ?? service.price}
+                  onChange={(e) => setPriceValue(e.target.value)}
+                  className="input-field text-lg font-bold"
+                />
               </div>
-
-              {/* Duration - editable */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Duración</p>
-                {editingDuration ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="5"
-                      step="5"
-                      value={durationValue}
-                      onChange={(e) => setDurationValue(e.target.value)}
-                      className="w-20 text-lg font-bold border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080]"
-                      autoFocus
-                    />
-                    <span className="text-sm text-gray-500">min</span>
-                    <button
-                      onClick={() => updateServiceMutation.mutate({ durationMinutes: Number(durationValue) })}
-                      className="text-xs font-medium text-white px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#008080' }}
-                    >
-                      Guardar
-                    </button>
-                    <button onClick={() => setEditingDuration(false)} className="text-xs text-gray-400">Cancelar</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => { setDurationValue(String(service.durationMinutes)); setEditingDuration(true); }}
-                    className="text-2xl font-bold text-gray-900 hover:text-[#008080] transition-colors"
-                  >
-                    {service.durationMinutes} min
-                    <svg className="w-3.5 h-3.5 inline ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-                    </svg>
-                  </button>
-                )}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Duración (min)</label>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  value={durationValue ?? service.durationMinutes}
+                  onChange={(e) => setDurationValue(e.target.value)}
+                  className="input-field text-lg font-bold"
+                />
               </div>
-
-              {/* Currency */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Moneda</p>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Moneda</label>
                 <select
-                  value={service.currency || 'USD'}
-                  onChange={(e) => updateServiceMutation.mutate({ currency: e.target.value })}
-                  className="text-lg font-bold text-gray-900 bg-transparent border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080] cursor-pointer"
+                  value={currencyValue ?? service.currency ?? 'USD'}
+                  onChange={(e) => setCurrencyValue(e.target.value)}
+                  className="input-field text-lg font-bold"
                 >
-                  <option value="USD">USD - Dólar</option>
-                  <option value="MXN">MXN - Peso MX</option>
-                  <option value="DOP">DOP - Peso RD</option>
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="COP">COP - Peso CO</option>
-                  <option value="ARS">ARS - Peso AR</option>
-                  <option value="CLP">CLP - Peso CL</option>
-                  <option value="PEN">PEN - Sol PE</option>
-                  <option value="BRL">BRL - Real BR</option>
+                  <option value="USD">USD</option>
+                  <option value="MXN">MXN</option>
+                  <option value="DOP">DOP</option>
+                  <option value="EUR">EUR</option>
+                  <option value="COP">COP</option>
+                  <option value="ARS">ARS</option>
+                  <option value="CLP">CLP</option>
+                  <option value="PEN">PEN</option>
+                  <option value="BRL">BRL</option>
                 </select>
               </div>
             </div>
+
+            {/* Save button */}
+            {(priceValue !== null || durationValue !== null || currencyValue !== null) && (
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+                {savedMsg && <span className="text-xs font-medium text-green-600">{savedMsg}</span>}
+                <button
+                  onClick={() => { setPriceValue(null); setDurationValue(null); setCurrencyValue(null); }}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Descartar
+                </button>
+                <button
+                  onClick={() => {
+                    const payload: any = {};
+                    if (priceValue !== null) payload.price = Number(priceValue);
+                    if (durationValue !== null) payload.durationMinutes = Number(durationValue);
+                    if (currencyValue !== null) payload.currency = currencyValue;
+                    updateServiceMutation.mutate(payload);
+                    setPriceValue(null);
+                    setDurationValue(null);
+                    setCurrencyValue(null);
+                  }}
+                  disabled={updateServiceMutation.isPending}
+                  className="text-sm font-medium text-white px-5 py-2 rounded-lg disabled:opacity-50"
+                  style={{ backgroundColor: '#008080' }}
+                >
+                  {updateServiceMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Employees & Commissions */}
