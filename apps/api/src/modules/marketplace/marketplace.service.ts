@@ -1756,12 +1756,12 @@ export class MarketplaceService {
   async getMyStats(marketplaceUserId: string) {
     const clients = await this.prisma.client.findMany({
       where: { marketplaceUserId },
-      select: { id: true, loyaltyPoints: true },
+      select: { id: true, tenantId: true, loyaltyPoints: true, tenant: { select: { name: true, slug: true, logoUrl: true } } },
     });
     const clientIds = clients.map((c) => c.id);
 
     if (clientIds.length === 0) {
-      return { data: { totalServices: 0, totalPoints: 0, totalPhotos: 0 } };
+      return { data: { totalServices: 0, totalPoints: 0, totalPhotos: 0, pointsByTenant: [] } };
     }
 
     const [totalServices, totalPhotos] = await Promise.all([
@@ -1779,8 +1779,17 @@ export class MarketplaceService {
     ]);
 
     const totalPoints = clients.reduce((sum, c) => sum + c.loyaltyPoints, 0);
+    const pointsByTenant = clients
+      .filter((c) => c.loyaltyPoints > 0)
+      .map((c) => ({
+        tenantId: c.tenantId,
+        tenantName: c.tenant.name,
+        tenantSlug: c.tenant.slug,
+        tenantLogo: c.tenant.logoUrl,
+        points: c.loyaltyPoints,
+      }));
 
-    return { data: { totalServices, totalPoints, totalPhotos } };
+    return { data: { totalServices, totalPoints, totalPhotos, pointsByTenant } };
   }
 
   async getMyGallery(marketplaceUserId: string) {
