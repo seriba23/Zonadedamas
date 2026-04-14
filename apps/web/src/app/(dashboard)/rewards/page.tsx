@@ -446,7 +446,7 @@ export default function RewardsPage() {
             )}
 
             {form.type === 'DESCUENTO' && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Valor del descuento *
@@ -477,9 +477,17 @@ export default function RewardsPage() {
                     className="input-field"
                   >
                     <option value="PERCENTAGE">Porcentaje (%)</option>
-                    <option value="FLAT">Monto fijo ($)</option>
+                    <option value="FLAT">Monto fijo</option>
                   </select>
                 </div>
+                {form.discountMode === 'FLAT' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+                    <select value={(form as any).currency || 'USD'} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value } as any))} className="input-field">
+                      <option value="USD">USD</option><option value="MXN">MXN</option><option value="DOP">DOP</option><option value="EUR">EUR</option><option value="COP">COP</option><option value="ARS">ARS</option><option value="CLP">CLP</option><option value="PEN">PEN</option><option value="BRL">BRL</option>
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
