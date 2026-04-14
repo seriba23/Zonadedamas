@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-interface ExchangeRateCache {
+export interface ExchangeRateCache {
   base: string;
   rates: Record<string, number>;
   date: string;
