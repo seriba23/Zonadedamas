@@ -232,7 +232,7 @@ export class EmployeesService {
           isWorking: s.isWorking,
           startTime: s.startTime || '09:00',
           endTime: s.endTime || '18:00',
-          effectiveFrom: new Date(s.effectiveFrom),
+          effectiveFrom: s.effectiveFrom ? new Date(s.effectiveFrom) : new Date('2020-01-01'),
           effectiveUntil: s.effectiveUntil ? new Date(s.effectiveUntil) : undefined,
         })),
       });
