@@ -1094,7 +1094,7 @@ export default function BusinessDetailPage() {
                   else setBookingStep('employee');
                 }
                 else if (bookingStep === 'products') setBookingStep('datetime');
-                else if (bookingStep === 'confirm') setBookingStep(biz?.shopEnabled ? 'products' : 'datetime');
+                else if (bookingStep === 'confirm') setBookingStep(biz?.shopEnabled && shopProducts.length > 0 ? 'products' : 'datetime');
               }}
               className="p-1 hover:bg-gray-100 rounded-lg"
             >
@@ -1645,7 +1645,7 @@ export default function BusinessDetailPage() {
 
                   {selectedSlot && (
                     <button
-                      onClick={() => setBookingStep(biz?.shopEnabled ? 'products' : 'confirm')}
+                      onClick={() => setBookingStep(biz?.shopEnabled && shopProducts.length > 0 ? 'products' : 'confirm')}
                       className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors mt-4"
                       style={{ backgroundColor: TEAL }}
                       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
