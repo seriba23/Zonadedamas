@@ -621,10 +621,15 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+  const allServiceIds = new Set(allServices.map((s) => s.id));
+
   function buildInitialMap(empServices: any[]) {
     const m = new Map<string, { commission: number | null }>();
     for (const es of empServices) {
-      m.set(es.service?.id || es.serviceId, { commission: es.commission != null ? Number(es.commission) : null });
+      const svcId = es.service?.id || es.serviceId;
+      if (allServiceIds.has(svcId)) {
+        m.set(svcId, { commission: es.commission != null ? Number(es.commission) : null });
+      }
     }
     return m;
   }
