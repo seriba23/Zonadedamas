@@ -22,6 +22,7 @@ export default function ServiceDetailPage() {
   const [editingCommissions, setEditingCommissions] = useState<Map<string, { commission: string; customPrice: string }>>(new Map());
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['service-detail', serviceId],
@@ -39,6 +40,8 @@ export default function ServiceDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       setEditingPrice(false);
       setEditingDuration(false);
+      setSavedMsg('Guardado');
+      setTimeout(() => setSavedMsg(''), 2000);
     },
   });
 
@@ -129,7 +132,12 @@ export default function ServiceDetailPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{service.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold text-gray-900">{service.name}</h1>
+                  {savedMsg && (
+                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full animate-pulse">{savedMsg}</span>
+                  )}
+                </div>
                 {service.subcategory && (
                   <span className="inline-block mt-1 px-2.5 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: '#008080' }}>
                     {service.subcategory}
