@@ -159,17 +159,6 @@ export default function ServiceDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Duración (min)</label>
-                <input
-                  type="number"
-                  min="5"
-                  step="5"
-                  value={durationValue ?? service.durationMinutes}
-                  onChange={(e) => setDurationValue(e.target.value)}
-                  className="input-field text-lg font-bold"
-                />
-              </div>
-              <div>
                 <label className="block text-xs text-gray-500 mb-1">Moneda</label>
                 <select
                   value={currencyValue ?? service.currency ?? 'USD'}
@@ -186,6 +175,17 @@ export default function ServiceDetailPage() {
                   <option value="PEN">PEN</option>
                   <option value="BRL">BRL</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Duración (min)</label>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  value={durationValue ?? service.durationMinutes}
+                  onChange={(e) => setDurationValue(e.target.value)}
+                  className="input-field text-lg font-bold"
+                />
               </div>
             </div>
 
