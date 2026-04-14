@@ -6,7 +6,8 @@ import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
 import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
-import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 interface Service {
   id: string;
@@ -91,6 +92,7 @@ export function AppointmentModal({
 
   // Form state for new appointment
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const { format: formatCurrency } = useCurrency();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || '');
   const [selectedStartTime, setSelectedStartTime] = useState('');
   const [selectedEndTime, setSelectedEndTime] = useState('');
