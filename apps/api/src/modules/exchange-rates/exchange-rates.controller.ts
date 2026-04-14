@@ -8,7 +8,7 @@ export class ExchangeRatesController {
 
   @Public()
   @Get()
-  async getRates() {
+  async getRates(): Promise<{ data: any }> {
     const data = await this.exchangeRatesService.getRates();
     return { data };
   }

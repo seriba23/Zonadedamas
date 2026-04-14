@@ -7,7 +7,8 @@ import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 interface Service {
   id: string;
@@ -59,6 +60,7 @@ const defaultForm: ServiceForm = {
 };
 
 export default function ServicesPage() {
+  const { format: formatCurrency } = useCurrency();
   const { hasPermission } = usePermissions();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -587,6 +589,7 @@ export default function ServicesPage() {
 
 /* ─── Service Commissions View — per service, expand to see employees ─── */
 function ServiceCommissionsView({ services, allEmployees }: { services: Service[]; allEmployees: any[] }) {
+  const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
   const [editingComm, setEditingComm] = useState<Map<string, Map<string, string>>>(new Map()); // svcId -> empId -> commission
@@ -822,6 +825,7 @@ function ServiceCommissionsView({ services, allEmployees }: { services: Service[
 
 /* ─── Employee Services View — inline checkbox table like staff editor ─── */
 function EmployeeServicesView({ employees, allServices }: { employees: any[]; allServices: Service[] }) {
+  const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);

@@ -9,7 +9,8 @@ import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
 dayjs.extend(isoWeek);
@@ -48,6 +49,7 @@ interface ServiceSummary {
 }
 
 export default function CalendarPage() {
+  const { format: formatCurrency } = useCurrency();
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('week');

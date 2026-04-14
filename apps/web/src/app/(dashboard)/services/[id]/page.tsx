@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -94,6 +94,7 @@ export default function ServiceDetailPage() {
 
   const employees = (service.employeeServices || []).filter((es: any) => es.employee.isActive);
   const currency = currencyValue ?? service.currency ?? 'USD';
+  const { format: formatCurrency } = useCurrency();
   const fmt = (n: number) => formatCurrency(n, currency);
 
   function getEditValue(empId: string, field: 'commission' | 'customPrice', original: number | null) {

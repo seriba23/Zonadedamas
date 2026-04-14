@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { Modal } from '@/components/ui/modal';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 import Link from 'next/link';
 
@@ -118,6 +119,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function ReportsPage() {
+  const { format: formatCurrency } = useCurrency();
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [customStart, setCustomStart] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
   const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));

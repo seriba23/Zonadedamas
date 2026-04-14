@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import { KpiCard } from './kpi-card';
 import { Last7DaysChart } from './last-7-days-chart';
 import { UpcomingAppointments } from './upcoming-appointments';
@@ -18,6 +18,7 @@ interface TodayReport {
 }
 
 export function DashboardView() {
+  const { format: formatCurrency } = useCurrency();
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'today'],
     queryFn: () => api.get<TodayReport>('/api/reports/today'),
