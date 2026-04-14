@@ -416,8 +416,7 @@ export default function ServicesPage() {
                       <thead>
                         <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
                           <th className="text-left px-4 py-2 font-semibold">Servicio</th>
-                          <th className="text-center px-4 py-2 font-semibold">Precio base</th>
-                          <th className="text-center px-4 py-2 font-semibold">Precio cliente</th>
+                          <th className="text-center px-4 py-2 font-semibold">Precio</th>
                           <th className="text-center px-4 py-2 font-semibold">Comisión</th>
                           <th className="text-center px-4 py-2 font-semibold">Ganancia</th>
                         </tr>
@@ -426,16 +425,14 @@ export default function ServicesPage() {
                         {empServices.map((es: any) => {
                           const svc = es.service;
                           if (!svc) return null;
-                          const base = Number(svc.price);
-                          const client = es.customPrice != null ? Number(es.customPrice) : base;
+                          const price = Number(svc.price);
                           const comm = Number(es.commission || 0);
                           return (
                             <tr key={svc.id} className="hover:bg-gray-50">
                               <td className="px-4 py-2 text-sm text-gray-900">{svc.name}</td>
-                              <td className="px-4 py-2 text-center text-sm text-gray-500">{formatCurrency(base)}</td>
-                              <td className="px-4 py-2 text-center text-sm">{formatCurrency(client)}</td>
-                              <td className="px-4 py-2 text-center text-sm font-medium text-green-600">{comm > 0 ? formatCurrency(comm) : '—'}</td>
-                              <td className="px-4 py-2 text-center text-sm font-medium">{formatCurrency(client - comm)}</td>
+                              <td className="px-4 py-2 text-center text-sm font-medium text-gray-900">{formatCurrency(price, svc.currency)}</td>
+                              <td className="px-4 py-2 text-center text-sm font-medium text-green-600">{comm > 0 ? formatCurrency(comm, svc.currency) : '—'}</td>
+                              <td className="px-4 py-2 text-center text-sm font-medium">{formatCurrency(price - comm, svc.currency)}</td>
                             </tr>
                           );
                         })}
@@ -443,10 +440,9 @@ export default function ServicesPage() {
                       <tfoot>
                         <tr className="bg-gray-50 border-t border-gray-200 text-xs font-semibold text-gray-700">
                           <td className="px-4 py-2">Total</td>
-                          <td className="px-4 py-2"></td>
-                          <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => s + (es.customPrice != null ? Number(es.customPrice) : Number(es.service?.price || 0)), 0))}</td>
+                          <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.service?.price || 0), 0))}</td>
                           <td className="px-4 py-2 text-center text-green-600">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.commission || 0), 0))}</td>
-                          <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => { const cp = es.customPrice != null ? Number(es.customPrice) : Number(es.service?.price || 0); return s + cp - Number(es.commission || 0); }, 0))}</td>
+                          <td className="px-4 py-2 text-center">{formatCurrency(empServices.reduce((s: number, es: any) => s + Number(es.service?.price || 0) - Number(es.commission || 0), 0))}</td>
                         </tr>
                       </tfoot>
                     </table>

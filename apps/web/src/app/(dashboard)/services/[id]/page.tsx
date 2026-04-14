@@ -102,15 +102,10 @@ export default function ServiceDetailPage() {
     return original != null ? String(original) : '';
   }
 
-  function handleCommChange(empId: string, field: 'commission' | 'customPrice', value: string) {
+  function handleCommChange(empId: string, value: string) {
     setEditingCommissions((prev) => {
       const next = new Map(prev);
-      const es = employees.find((e: any) => e.employee.id === empId);
-      const current = next.get(empId) || {
-        commission: es?.commission != null ? String(es.commission) : '',
-        customPrice: es?.customPrice != null ? String(es.customPrice) : '',
-      };
-      next.set(empId, { ...current, [field]: value });
+      next.set(empId, { commission: value, customPrice: '' });
       return next;
     });
   }
@@ -236,8 +231,7 @@ export default function ServiceDetailPage() {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
-                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Precio base</th>
-                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Precio cliente</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Precio</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Comisión</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Ganancia negocio</th>
                   </tr>
@@ -246,9 +240,9 @@ export default function ServiceDetailPage() {
                   {employees.map((es: any) => {
                     const emp = es.employee;
                     const editValues = editingCommissions.get(emp.id);
-                    const clientPrice = editValues?.customPrice ? Number(editValues.customPrice) : (es.customPrice != null ? Number(es.customPrice) : Number(service.price));
+                    const price = Number(service.price);
                     const commission = editValues?.commission ? Number(editValues.commission) : (es.commission != null ? Number(es.commission) : 0);
-                    const profit = clientPrice - commission;
+                    const profit = price - commission;
 
                     return (
                       <tr key={emp.id} className="hover:bg-gray-50">
@@ -267,25 +261,14 @@ export default function ServiceDetailPage() {
                             <span className="text-sm font-medium text-gray-900 hover:underline">{emp.firstName} {emp.lastName}</span>
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-center text-sm text-gray-500">{fmt(service.price)}</td>
-                        <td className="px-4 py-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={getEditValue(emp.id, 'customPrice', es.customPrice)}
-                            onChange={(e) => handleCommChange(emp.id, 'customPrice', e.target.value)}
-                            placeholder={String(service.price)}
-                            className="w-24 text-center text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                          />
-                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">{fmt(price)}</td>
                         <td className="px-4 py-3 text-center">
                           <input
                             type="number"
                             min="0"
                             step="0.01"
                             value={getEditValue(emp.id, 'commission', es.commission)}
-                            onChange={(e) => handleCommChange(emp.id, 'commission', e.target.value)}
+                            onChange={(e) => handleCommChange(emp.id, e.target.value)}
                             placeholder="0"
                             className="w-24 text-center text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
                           />
@@ -335,25 +318,17 @@ export default function ServiceDetailPage() {
                     const es = employees.find((e: any) => e.employee.id === empId);
                     if (!es) return null;
                     const emp = es.employee;
-                    const oldPrice = es.customPrice != null ? Number(es.customPrice) : Number(service.price);
                     const oldComm = es.commission != null ? Number(es.commission) : 0;
-                    const newPrice = vals.customPrice ? Number(vals.customPrice) : oldPrice;
                     const newComm = vals.commission ? Number(vals.commission) : oldComm;
-                    const priceChanged = newPrice !== oldPrice;
-                    const commChanged = newComm !== oldComm;
-                    if (!priceChanged && !commChanged) return null;
+                    if (newComm === oldComm) return null;
 
                     return (
                       <div key={empId} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2 border border-teal-200">
                         <span className="font-medium text-gray-900 min-w-[120px]">{emp.firstName} {emp.lastName}</span>
-                        <div className="flex gap-4 text-xs text-gray-600">
-                          {priceChanged && (
-                            <span>Precio: <span className="line-through text-gray-400">{fmt(oldPrice)}</span> → <span className="font-semibold text-[#008080]">{fmt(newPrice)}</span></span>
-                          )}
-                          {commChanged && (
-                            <span>Comisión: <span className="line-through text-gray-400">{fmt(oldComm)}</span> → <span className="font-semibold text-green-600">{fmt(newComm)}</span></span>
-                          )}
-                        </div>
+                        <span className="text-xs text-gray-600">
+                          Comisión: <span className="line-through text-gray-400">{fmt(oldComm)}</span> → <span className="font-semibold text-green-600">{fmt(newComm)}</span>
+                          <span className="text-gray-400 ml-2">(Ganancia: {fmt(Number(service.price) - newComm)})</span>
+                        </span>
                       </div>
                     );
                   })}
