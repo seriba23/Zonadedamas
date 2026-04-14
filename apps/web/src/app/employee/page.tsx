@@ -47,7 +47,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   IN_PROGRESS: { label: 'En curso', color: 'bg-purple-100 text-purple-800' },
   COMPLETED: { label: 'Completada', color: 'bg-green-100 text-green-800' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-800' },
-  NO_SHOW: { label: 'No asistió', color: 'bg-gray-100 text-gray-800' },
+  NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-800' },
 };
 
 export default function EmployeeDashboard() {

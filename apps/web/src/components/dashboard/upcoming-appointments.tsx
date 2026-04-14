@@ -21,7 +21,7 @@ function statusLabel(status: string) {
     IN_PROGRESS: { text: 'En curso', className: 'bg-blue-100 text-blue-700' },
     COMPLETED: { text: 'Completada', className: 'bg-gray-100 text-gray-600' },
     CANCELLED: { text: 'Cancelada', className: 'bg-red-100 text-red-600' },
-    NO_SHOW: { text: 'No-show', className: 'bg-red-100 text-red-600' },
+    NO_SHOW: { text: 'Ausente', className: 'bg-red-100 text-red-600' },
   };
   return map[status] || { text: status, className: 'bg-gray-100 text-gray-600' };
 }
