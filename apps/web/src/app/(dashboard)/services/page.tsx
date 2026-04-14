@@ -15,6 +15,7 @@ interface Service {
   description?: string;
   durationMinutes: number;
   price: number;
+  currency?: string;
   color?: string;
   isActive: boolean;
   category?: string;
@@ -157,7 +158,7 @@ export default function ServicesPage() {
       durationMinutes: service.durationMinutes,
       price: service.price,
       catalogCategory: matchedCatalog?.category || '',
-      currency: (service as any).currency || 'MXN',
+      currency: service.currency || 'MXN',
       categories: (service.subcategory || service.category || '').split(',').map(s => s.trim()).filter(Boolean),
       generatesPoints: hasPoints,
       pointsReward: service.pointsReward ?? '',
@@ -325,7 +326,7 @@ export default function ServicesPage() {
 
                           {/* Price */}
                           <span className={`text-sm font-semibold flex-shrink-0 ${Number(service.price) === 0 ? 'text-amber-500' : 'text-gray-900'}`}>
-                            {Number(service.price) === 0 ? 'Sin precio' : formatCurrency(service.price)}
+                            {Number(service.price) === 0 ? 'Sin precio' : formatCurrency(service.price, service.currency)}
                           </span>
 
                           {/* Actions */}
@@ -371,7 +372,7 @@ export default function ServicesPage() {
                     <p className="text-xs text-gray-400">{svc.subcategory || svc.category || '—'} · {svc.durationMinutes} min</p>
                   </div>
                   <div className="text-right flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-900">{formatCurrency(svc.price)}</span>
+                    <span className="text-sm font-bold text-gray-900">{formatCurrency(svc.price, svc.currency)}</span>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>

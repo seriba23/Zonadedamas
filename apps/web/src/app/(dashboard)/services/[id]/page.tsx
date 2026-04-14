@@ -93,6 +93,8 @@ export default function ServiceDetailPage() {
   }
 
   const employees = (service.employeeServices || []).filter((es: any) => es.employee.isActive);
+  const currency = currencyValue ?? service.currency ?? 'USD';
+  const fmt = (n: number) => formatCurrency(n, currency);
 
   function getEditValue(empId: string, field: 'commission' | 'customPrice', original: number | null) {
     const editing = editingCommissions.get(empId);
@@ -265,7 +267,7 @@ export default function ServiceDetailPage() {
                             <span className="text-sm font-medium text-gray-900 hover:underline">{emp.firstName} {emp.lastName}</span>
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-center text-sm text-gray-500">{formatCurrency(service.price)}</td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-500">{fmt(service.price)}</td>
                         <td className="px-4 py-3 text-center">
                           <input
                             type="number"
@@ -290,7 +292,7 @@ export default function ServiceDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {formatCurrency(profit)}
+                            {fmt(profit)}
                           </span>
                         </td>
                       </tr>
@@ -346,10 +348,10 @@ export default function ServiceDetailPage() {
                         <span className="font-medium text-gray-900 min-w-[120px]">{emp.firstName} {emp.lastName}</span>
                         <div className="flex gap-4 text-xs text-gray-600">
                           {priceChanged && (
-                            <span>Precio: <span className="line-through text-gray-400">{formatCurrency(oldPrice)}</span> → <span className="font-semibold text-[#008080]">{formatCurrency(newPrice)}</span></span>
+                            <span>Precio: <span className="line-through text-gray-400">{fmt(oldPrice)}</span> → <span className="font-semibold text-[#008080]">{fmt(newPrice)}</span></span>
                           )}
                           {commChanged && (
-                            <span>Comisión: <span className="line-through text-gray-400">{formatCurrency(oldComm)}</span> → <span className="font-semibold text-green-600">{formatCurrency(newComm)}</span></span>
+                            <span>Comisión: <span className="line-through text-gray-400">{fmt(oldComm)}</span> → <span className="font-semibold text-green-600">{fmt(newComm)}</span></span>
                           )}
                         </div>
                       </div>
