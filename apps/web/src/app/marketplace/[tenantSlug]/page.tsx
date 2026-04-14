@@ -1256,12 +1256,12 @@ export default function BusinessDetailPage() {
               {/* Step 1: Services */}
               {bookingStep === 'service' && (() => {
                 const grouped: Record<string, BizService[]> = {};
-                services.forEach((s) => {
+                [...services].sort((a, b) => a.name.localeCompare(b.name, 'es')).forEach((s) => {
                   const key = s.subcategory || 'Otros';
                   if (!grouped[key]) grouped[key] = [];
                   grouped[key].push(s);
                 });
-                const groups = Object.entries(grouped);
+                const groups = Object.entries(grouped).sort(([a], [b]) => a === 'Otros' ? 1 : b === 'Otros' ? -1 : a.localeCompare(b, 'es'));
                 const hasSubcategories = groups.length > 1 || groups[0]?.[0] !== 'Otros';
 
                 const renderServiceButton = (service: BizService) => {
@@ -1284,12 +1284,6 @@ export default function BusinessDetailPage() {
                       }
                     >
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-lg flex-shrink-0"
-                          style={{
-                            backgroundColor: service.color || TEAL,
-                          }}
-                        />
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">
                             {service.name}
