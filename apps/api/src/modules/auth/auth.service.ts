@@ -231,6 +231,18 @@ export class AuthService {
         },
       });
 
+      // Auto-create default schedule: Mon-Sat 09:00-18:00
+      await tx.employeeSchedule.createMany({
+        data: (['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const).map((day) => ({
+          employeeId: newEmployee.id,
+          dayOfWeek: day,
+          isWorking: day !== 'SUNDAY',
+          startTime: '09:00',
+          endTime: '18:00',
+          effectiveFrom: new Date('2020-01-01'),
+        })),
+      });
+
       // Assign services from invite code
       if (invite.services && invite.services.length > 0) {
         await tx.employeeService.createMany({
@@ -398,7 +410,7 @@ export class AuthService {
       });
 
       // Create employee linked to user
-      await tx.employee.create({
+      const ownerEmployee = await tx.employee.create({
         data: {
           tenantId: tenant.id,
           userId: newUser.id,
@@ -409,6 +421,18 @@ export class AuthService {
           phone: dto.phone || null,
           isActive: true,
         },
+      });
+
+      // Auto-create default schedule
+      await tx.employeeSchedule.createMany({
+        data: (['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const).map((day) => ({
+          employeeId: ownerEmployee.id,
+          dayOfWeek: day,
+          isWorking: day !== 'SUNDAY',
+          startTime: '09:00',
+          endTime: '18:00',
+          effectiveFrom: new Date('2020-01-01'),
+        })),
       });
 
       // Create Owner role for this tenant with all permissions
@@ -533,7 +557,7 @@ export class AuthService {
         },
       });
 
-      await tx.employee.create({
+      const socialEmployee = await tx.employee.create({
         data: {
           tenantId: tenant.id,
           userId: newUser.id,
@@ -544,6 +568,17 @@ export class AuthService {
           phone: dto.phone || null,
           isActive: true,
         },
+      });
+
+      await tx.employeeSchedule.createMany({
+        data: (['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const).map((day) => ({
+          employeeId: socialEmployee.id,
+          dayOfWeek: day,
+          isWorking: day !== 'SUNDAY',
+          startTime: '09:00',
+          endTime: '18:00',
+          effectiveFrom: new Date('2020-01-01'),
+        })),
       });
 
       const ownerRole = await tx.role.create({
@@ -696,7 +731,7 @@ export class AuthService {
         },
       });
 
-      await tx.employee.create({
+      const socialInviteEmployee = await tx.employee.create({
         data: {
           tenantId: invite.tenantId,
           userId: newUser.id,
@@ -707,6 +742,17 @@ export class AuthService {
           avatarUrl: profile.avatarUrl || null,
           isActive: true,
         },
+      });
+
+      await tx.employeeSchedule.createMany({
+        data: (['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const).map((day) => ({
+          employeeId: socialInviteEmployee.id,
+          dayOfWeek: day,
+          isWorking: day !== 'SUNDAY',
+          startTime: '09:00',
+          endTime: '18:00',
+          effectiveFrom: new Date('2020-01-01'),
+        })),
       });
 
       await tx.userRole.create({
