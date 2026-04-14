@@ -307,7 +307,7 @@ export default function ServicesPage() {
                     {/* Services list */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-50">
                       {catServices.map((service) => (
-                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => router.push(`/services/${service.id}`)}>
+                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openEdit(service)}>
                           {/* Name + description */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900">{service.name}</p>
@@ -329,23 +329,18 @@ export default function ServicesPage() {
                             {Number(service.price) === 0 ? 'Sin precio' : formatCurrency(service.price, service.currency)}
                           </span>
 
-                          {/* Actions */}
-                          <div className="flex items-center gap-0.5 flex-shrink-0">
-                            {hasPermission('services.update') && (
-                              <button onClick={() => openEdit(service)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700" title="Editar">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                            )}
-                            {hasPermission('services.delete') && (
-                              <button onClick={() => { if (confirm(`¿Eliminar "${service.name}"?`)) deleteMutation.mutate(service.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Eliminar">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
+                          {/* Delete */}
+                          {hasPermission('services.delete') && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`¿Eliminar "${service.name}"?`)) deleteMutation.mutate(service.id); }}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 flex-shrink-0"
+                              title="Eliminar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
