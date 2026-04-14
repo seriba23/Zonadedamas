@@ -621,21 +621,23 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-  function getConfigMap(empId: string, empServices: any[]) {
-    if (!configMaps.has(empId)) {
-      const m = new Map<string, { commission: number | null }>();
-      for (const es of empServices) {
-        m.set(es.service?.id || es.serviceId, { commission: es.commission != null ? Number(es.commission) : null });
-      }
-      return m;
+  function buildInitialMap(empServices: any[]) {
+    const m = new Map<string, { commission: number | null }>();
+    for (const es of empServices) {
+      m.set(es.service?.id || es.serviceId, { commission: es.commission != null ? Number(es.commission) : null });
     }
-    return configMaps.get(empId)!;
+    return m;
+  }
+
+  function getConfigMap(empId: string, empServices: any[]) {
+    return configMaps.get(empId) || buildInitialMap(empServices);
   }
 
   function toggleService(empId: string, svcId: string, empServices: any[]) {
     setConfigMaps((prev) => {
       const next = new Map(prev);
-      const map = new Map(getConfigMap(empId, empServices));
+      const current = next.get(empId) || buildInitialMap(empServices);
+      const map = new Map(current);
       if (map.has(svcId)) {
         map.delete(svcId);
       } else {
@@ -649,7 +651,8 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
   function updateCommission(empId: string, svcId: string, value: string, empServices: any[]) {
     setConfigMaps((prev) => {
       const next = new Map(prev);
-      const map = new Map(getConfigMap(empId, empServices));
+      const current = next.get(empId) || buildInitialMap(empServices);
+      const map = new Map(current);
       const existing = map.get(svcId);
       if (existing) {
         map.set(svcId, { commission: value === '' ? null : parseFloat(value) });
