@@ -12,6 +12,7 @@ export interface AuthUser {
   isEmployeeActive?: boolean;
   jobTitle?: string | null;
   tenantName?: string;
+  tenantCurrency?: string;
   subscriptionStatus?: string;
   subscriptionPlan?: string;
   trialEndsAt?: string | null;

@@ -35,6 +35,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ServiceBundlesModule } from './modules/service-bundles/service-bundles.module';
 import { ShopModule } from './modules/shop/shop.module';
 import { WebSocketModule } from './modules/websocket/websocket.module';
+import { ExchangeRatesModule } from './modules/exchange-rates/exchange-rates.module';
 
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -82,6 +83,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     ServiceBundlesModule,
     ShopModule,
     WebSocketModule,
+    ExchangeRatesModule,
   ],
   providers: [
     {

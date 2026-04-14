@@ -304,6 +304,7 @@ export class TenantsService {
         ...(dto.businessPhone !== undefined && { businessPhone: dto.businessPhone }),
         ...(dto.isMarketplaceListed !== undefined && { isMarketplaceListed: dto.isMarketplaceListed }),
         ...(dto.cardColor !== undefined && { cardColor: dto.cardColor }),
+        ...(dto.currency !== undefined && { currency: dto.currency }),
       },
     });
   }

@@ -895,7 +895,7 @@ export class AuthService {
       }),
       this.prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { name: true },
+        select: { name: true, currency: true },
       }),
     ]);
 
@@ -907,6 +907,7 @@ export class AuthService {
       isEmployeeActive: employee ? employee.isActive : true,
       jobTitle: employee?.jobTitle || null,
       tenantName: tenant?.name || '',
+      tenantCurrency: tenant?.currency || 'USD',
       subscriptionStatus: subscription?.status || 'ACTIVE',
       subscriptionPlan: subscription?.plan || 'BASICO',
       trialEndsAt: subscription?.trialEndsAt?.toISOString() || null,

@@ -28,4 +28,8 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsString()
   cardColor?: string;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 }
