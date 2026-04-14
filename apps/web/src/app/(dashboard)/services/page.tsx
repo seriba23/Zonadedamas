@@ -618,6 +618,7 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
   const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
   const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
+  const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   function getConfigMap(empId: string, empServices: any[]) {
@@ -699,11 +700,19 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
         const empServices = (emp.employeeServices || []) as any[];
         const map = getConfigMap(emp.id, empServices);
         const changed = hasChanges(emp.id, empServices);
+        const isExpanded = expandedEmps.has(emp.id);
 
         return (
           <div key={emp.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Header */}
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            {/* Header — clickable to expand/collapse */}
+            <button
+              onClick={() => setExpandedEmps((prev) => {
+                const next = new Set(prev);
+                next.has(emp.id) ? next.delete(emp.id) : next.add(emp.id);
+                return next;
+              })}
+              className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color || '#008080' }}>
                   {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
@@ -713,10 +722,18 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
                   <p className="text-xs text-gray-400">{map.size} de {allServices.length} servicios</p>
                 </div>
               </div>
-              {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
-            </div>
+              <div className="flex items-center gap-2">
+                {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
+                {changed && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />}
+                <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
 
-            {/* Table with checkboxes inline */}
+            {/* Table — only shown when expanded */}
+            {isExpanded && (
+              <>
             <div className="max-h-[400px] overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
@@ -779,7 +796,7 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
             {changed && (
               <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-end">
                 <button
-                  onClick={() => saveChanges(emp.id, empServices)}
+                  onClick={(e) => { e.stopPropagation(); saveChanges(emp.id, empServices); }}
                   disabled={savingEmpId === emp.id}
                   className="text-xs font-medium text-white px-4 py-1.5 rounded-lg disabled:opacity-50"
                   style={{ backgroundColor: '#008080' }}
@@ -787,6 +804,8 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
                   {savingEmpId === emp.id ? 'Guardando...' : 'Guardar cambios'}
                 </button>
               </div>
+            )}
+              </>
             )}
           </div>
         );
