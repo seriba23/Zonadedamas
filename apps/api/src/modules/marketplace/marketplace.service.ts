@@ -775,6 +775,7 @@ export class MarketplaceService {
         description: true,
         durationMinutes: true,
         price: true,
+        currency: true,
         color: true,
         category: true,
         subcategory: true,
