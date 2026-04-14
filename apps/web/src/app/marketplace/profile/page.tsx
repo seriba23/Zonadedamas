@@ -763,40 +763,6 @@ export default function MarketplaceProfilePage() {
         {/* ─── Mis puntos y cupones — solo en vista default ────────── */}
         {activeSection === 'default' && (
           <div className="space-y-4">
-            {/* Puntos por negocio */}
-            {(stats as any).pointsByTenant?.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900 mb-3">Mis puntos</h2>
-                <div className="space-y-2">
-                  {(stats as any).pointsByTenant.map((t: any) => (
-                    <Link
-                      key={t.tenantId}
-                      href={`/marketplace/${t.tenantSlug}`}
-                      className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
-                          {t.tenantLogo ? (
-                            <img src={`${API_URL}${t.tenantLogo}`} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            t.tenantName[0]
-                          )}
-                        </div>
-                        <p className="text-sm font-medium text-gray-900">{t.tenantName}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span className="text-sm font-bold" style={{ color: TEAL }}>{t.points.toLocaleString()} pts</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Cupones */}
             <div>
               <h2 className="text-sm font-semibold text-gray-900 mb-3">Mis cupones</h2>
               {myRewards.length === 0 ? (
