@@ -113,6 +113,9 @@ export class AuthService {
     if (invite.expiresAt && new Date() > invite.expiresAt) {
       throw new BadRequestException('El código de invitación ha expirado');
     }
+    if (invite.maxUses && invite.usedCount >= invite.maxUses) {
+      throw new BadRequestException('El código de invitación ha alcanzado el límite de usos');
+    }
 
     const owner = await this.prisma.user.findFirst({
       where: {
