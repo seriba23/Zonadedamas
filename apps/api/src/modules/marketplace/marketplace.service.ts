@@ -780,6 +780,8 @@ export class MarketplaceService {
         category: true,
         subcategory: true,
         pointsReward: true,
+        redeemableWithPoints: true,
+        pointsRequired: true,
       },
       orderBy: { sortOrder: 'asc' },
     });

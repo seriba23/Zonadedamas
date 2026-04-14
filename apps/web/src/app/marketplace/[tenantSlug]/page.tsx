@@ -36,6 +36,8 @@ interface BizService {
   category?: string;
   subcategory?: string;
   pointsReward?: number | null;
+  redeemableWithPoints?: boolean;
+  pointsRequired?: number | null;
 }
 
 interface BizEmployee {
@@ -194,6 +196,7 @@ export default function BusinessDetailPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
+  const [payWithPoints, setPayWithPoints] = useState(false);
   const [bookingCart, setBookingCart] = useState<BookingCartItem[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [preferredTime, setPreferredTime] = useState('');
@@ -346,6 +349,14 @@ export default function BusinessDetailPage() {
   const userCoupons = (userCouponsData?.data || []).filter(
     (r: any) => r.status === 'ACTIVE' && r.tenant?.slug === tenantSlug,
   );
+
+  // User's points for this business
+  const { data: userStatsData } = useQuery({
+    queryKey: ['user-stats-booking'],
+    queryFn: () => marketplaceApi.get<{ data: any }>('/my-stats'),
+    enabled: !!user,
+  });
+  const myPointsHere = ((userStatsData as any)?.data?.pointsByTenant || []).find((t: any) => t.tenantSlug === tenantSlug)?.points || 0;
 
   const bookingCartTotal = bookingCart.reduce((s, c) => s + Number(c.price) * c.quantity, 0);
 
@@ -1305,6 +1316,14 @@ export default function BusinessDetailPage() {
                           </p>
                         </div>
                       </div>
+                      {service.redeemableWithPoints && service.pointsRequired && (
+                        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
+                          <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          <span className="text-xs text-amber-700 font-medium">Canjeable por {service.pointsRequired} puntos</span>
+                        </div>
+                      )}
                     </button>
                   );
                 };
@@ -1985,23 +2004,30 @@ export default function BusinessDetailPage() {
                             if (svc) disc = Number(svc.price);
                           }
                         }
-                        const finalTotal = Math.max(0, totalPrice + bookingCartTotal - disc);
+                        const finalTotal = payWithPoints ? 0 : Math.max(0, totalPrice + bookingCartTotal - disc);
+                        const pointsCost = payWithPoints ? selectedServices.reduce((sum, s) => sum + (s.pointsRequired || 0), 0) : 0;
                         return (
                           <>
-                            {disc > 0 && (
+                            {disc > 0 && !payWithPoints && (
                               <div className="flex justify-between text-sm mb-1">
                                 <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
                                 <span className="text-green-600 font-medium">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
                               </div>
                             )}
+                            {payWithPoints && (
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="text-amber-700 font-medium">Pago con puntos</span>
+                                <span className="text-amber-700 font-medium">-{pointsCost} pts</span>
+                              </div>
+                            )}
                             <div className="flex justify-between pt-2 border-t border-gray-100 mt-2">
                               <span className="font-semibold text-gray-900">Total a pagar</span>
                               <div className="text-right">
-                                {disc > 0 && (
+                                {(disc > 0 || payWithPoints) && (
                                   <span className="text-sm text-gray-400 line-through mr-2">{formatCurrency(totalPrice + bookingCartTotal, selectedServices[0]?.currency)}</span>
                                 )}
                                 <span className="font-bold text-lg" style={{ color: TEAL }}>
-                                  {formatCurrency(finalTotal, selectedServices[0]?.currency)}
+                                  {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, selectedServices[0]?.currency)}
                                 </span>
                               </div>
                             </div>
@@ -2065,6 +2091,45 @@ export default function BusinessDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Pay with points option */}
+                  {(() => {
+                    const totalPointsNeeded = selectedServices.reduce((sum, s) => sum + (s.redeemableWithPoints && s.pointsRequired ? s.pointsRequired : 0), 0);
+                    const allRedeemable = selectedServices.every((s) => s.redeemableWithPoints && s.pointsRequired);
+                    const canPayWithPoints = allRedeemable && totalPointsNeeded > 0 && myPointsHere >= totalPointsNeeded;
+
+                    return canPayWithPoints ? (
+                      <div className="mb-4">
+                        <button
+                          onClick={() => { setPayWithPoints(!payWithPoints); if (!payWithPoints) setSelectedCoupon(null); }}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                            payWithPoints
+                              ? 'border-amber-400 bg-amber-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <div className="text-left">
+                              <p className={`text-sm font-medium ${payWithPoints ? 'text-amber-800' : 'text-gray-900'}`}>Pagar con puntos</p>
+                              <p className="text-xs text-gray-500">{totalPointsNeeded} pts necesarios · Tienes {myPointsHere} pts</p>
+                            </div>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            payWithPoints ? 'border-amber-500 bg-amber-500' : 'border-gray-300'
+                          }`}>
+                            {payWithPoints && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Notes */}
                   <textarea
