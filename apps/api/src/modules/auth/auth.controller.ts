@@ -141,6 +141,19 @@ export class AuthController {
       },
     });
 
+    // Auto-create default schedule: Mon-Sat 09:00-18:00
+    const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
+    await this.prisma.employeeSchedule.createMany({
+      data: days.map((day) => ({
+        employeeId: employee.id,
+        dayOfWeek: day,
+        isWorking: day !== 'SUNDAY',
+        startTime: '09:00',
+        endTime: '18:00',
+        effectiveFrom: new Date('2020-01-01'),
+      })),
+    });
+
     return { data: employee };
   }
 }
