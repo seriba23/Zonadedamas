@@ -188,7 +188,7 @@ export default function ServicesPage() {
       durationMinutes: Number(form.durationMinutes),
       price: Number(form.price),
       currency: form.currency,
-      subcategory: form.categories.length > 0 ? form.categories.join(',') : null,
+      subcategory: form.categories.length > 0 ? form.categories.join(',') : (form.catalogCategory || null),
       redeemableWithPoints: form.redeemableWithPoints,
       pointsReward: form.generatesPoints && form.pointsReward !== '' ? Number(form.pointsReward) : null,
       pointsRequired: form.redeemableWithPoints && form.pointsRequired !== '' ? Number(form.pointsRequired) : null,
