@@ -360,30 +360,7 @@ export default function ServicesPage() {
 
         {/* ─── Comisiones por servicio ─── */}
         {viewTab === 'comisiones-servicio' && (
-          <div className="space-y-4">
-            {services.map((svc) => (
-              <div key={svc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => router.push(`/services/${svc.id}`)}
-                  className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{svc.name}</p>
-                    <p className="text-xs text-gray-400">{svc.subcategory || svc.category || '—'} · {svc.durationMinutes} min</p>
-                  </div>
-                  <div className="text-right flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-900">{formatCurrency(svc.price, svc.currency)}</span>
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
-            ))}
-            {services.length === 0 && (
-              <div className="text-center py-12 text-gray-400">No hay servicios configurados</div>
-            )}
-          </div>
+          <ServiceCommissionsView services={services} allEmployees={allEmployees} />
         )}
 
         {/* ─── Comisiones por empleado ─── */}
@@ -607,6 +584,241 @@ export default function ServicesPage() {
             </div>
           </form>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ─── Service Commissions View — per service, expand to see employees ─── */
+function ServiceCommissionsView({ services, allEmployees }: { services: Service[]; allEmployees: any[] }) {
+  const queryClient = useQueryClient();
+  const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
+  const [editingComm, setEditingComm] = useState<Map<string, Map<string, string>>>(new Map()); // svcId -> empId -> commission
+  const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
+  const [savedSvcId, setSavedSvcId] = useState<string | null>(null);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  function getEmployeesForService(svcId: string) {
+    return allEmployees.map((emp: any) => {
+      const es = (emp.employeeServices || []).find((e: any) => (e.service?.id || e.serviceId) === svcId);
+      return { emp, assigned: !!es, commission: es?.commission != null ? Number(es.commission) : null };
+    });
+  }
+
+  function getEditedComm(svcId: string, empId: string, original: number | null) {
+    return editingComm.get(svcId)?.get(empId) ?? (original != null ? String(original) : '');
+  }
+
+  function setComm(svcId: string, empId: string, value: string) {
+    setEditingComm((prev) => {
+      const next = new Map(prev);
+      const svcMap = new Map(next.get(svcId) || []);
+      svcMap.set(empId, value);
+      next.set(svcId, svcMap);
+      return next;
+    });
+  }
+
+  function toggleEmpForService(svcId: string, empId: string, empServices: any[]) {
+    // Toggle by saving immediately via the employee services endpoint
+    setEditingComm((prev) => {
+      const next = new Map(prev);
+      const svcMap = new Map(next.get(svcId) || []);
+      svcMap.set(empId, svcMap.has(empId) ? '__TOGGLE__' : '0');
+      next.set(svcId, svcMap);
+      return next;
+    });
+  }
+
+  function hasSvcChanges(svcId: string) {
+    return (editingComm.get(svcId)?.size || 0) > 0;
+  }
+
+  async function saveSvcChanges(svcId: string) {
+    setSavingSvcId(svcId);
+    const svcEdits = editingComm.get(svcId);
+    if (!svcEdits) { setSavingSvcId(null); return; }
+
+    for (const [empId, val] of svcEdits) {
+      try {
+        const res = await api.get<{ data: any[] }>(`/api/employees/${empId}/services`);
+        const current = res.data || [];
+        const hasService = current.some((es: any) => es.serviceId === svcId);
+
+        let finalServices;
+        if (val === '__TOGGLE__') {
+          // Remove
+          finalServices = current.filter((es: any) => es.serviceId !== svcId).map((es: any) => ({
+            serviceId: es.serviceId,
+            commission: es.commission != null ? Number(es.commission) : null,
+          }));
+        } else if (!hasService) {
+          // Add
+          finalServices = [
+            ...current.map((es: any) => ({ serviceId: es.serviceId, commission: es.commission != null ? Number(es.commission) : null })),
+            { serviceId: svcId, commission: val ? Number(val) : null },
+          ];
+        } else {
+          // Update commission
+          finalServices = current.map((es: any) => ({
+            serviceId: es.serviceId,
+            commission: es.serviceId === svcId ? (val ? Number(val) : null) : (es.commission != null ? Number(es.commission) : null),
+          }));
+        }
+        await api.put(`/api/employees/${empId}/services`, { services: finalServices });
+      } catch (err) {
+        console.error('Error saving:', empId, err);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['employees-for-commissions'] });
+    setEditingComm((prev) => { const n = new Map(prev); n.delete(svcId); return n; });
+    setSavingSvcId(null);
+    setSavedSvcId(svcId);
+    setTimeout(() => setSavedSvcId(null), 2000);
+  }
+
+  return (
+    <div className="space-y-4">
+      {services.map((svc) => {
+        const isExpanded = expandedSvcs.has(svc.id);
+        const empsData = getEmployeesForService(svc.id);
+        const assignedCount = empsData.filter((e) => e.assigned).length;
+        const changed = hasSvcChanges(svc.id);
+
+        return (
+          <div key={svc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Header */}
+            <button
+              onClick={() => setExpandedSvcs((prev) => {
+                const next = new Set(prev);
+                next.has(svc.id) ? next.delete(svc.id) : next.add(svc.id);
+                return next;
+              })}
+              className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+            >
+              <div>
+                <p className="text-sm font-bold text-gray-900">{svc.name}</p>
+                <p className="text-xs text-gray-400">{assignedCount} de {allEmployees.length} empleados · {svc.durationMinutes} min</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-900">{formatCurrency(svc.price, svc.currency)}</span>
+                {savedSvcId === svc.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
+                {changed && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />}
+                <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {isExpanded && (
+              <>
+                <div className="max-h-[400px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                      <tr className="text-xs text-gray-500 uppercase">
+                        <th className="w-8 px-2 py-2"></th>
+                        <th className="text-left px-2 py-2 font-semibold">Empleado</th>
+                        <th className="text-center px-2 py-2 font-semibold w-24">Precio</th>
+                        <th className="text-center px-2 py-2 font-semibold w-28">Comisión</th>
+                        <th className="text-center px-2 py-2 font-semibold w-24">Ganancia</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {empsData.map(({ emp, assigned, commission }) => {
+                        const svcEdits = editingComm.get(svc.id);
+                        const isToggled = svcEdits?.get(emp.id) === '__TOGGLE__';
+                        const isAdding = !assigned && svcEdits?.has(emp.id) && !isToggled;
+                        const isSelected = (assigned && !isToggled) || isAdding;
+                        const commValue = getEditedComm(svc.id, emp.id, commission);
+                        const price = Number(svc.price);
+                        const comm = commValue ? Number(commValue) : 0;
+                        const profit = price - comm;
+
+                        return (
+                          <tr key={emp.id} className={`border-t border-gray-100 ${isSelected ? 'bg-teal-50/30' : ''}`}>
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  if (assigned && !isToggled) {
+                                    setComm(svc.id, emp.id, '__TOGGLE__');
+                                  } else if (isToggled) {
+                                    setEditingComm((prev) => {
+                                      const next = new Map(prev);
+                                      const m = new Map(next.get(svc.id) || []);
+                                      m.delete(emp.id);
+                                      next.set(svc.id, m);
+                                      return next;
+                                    });
+                                  } else if (!assigned && !isAdding) {
+                                    setComm(svc.id, emp.id, '');
+                                  } else {
+                                    setEditingComm((prev) => {
+                                      const next = new Map(prev);
+                                      const m = new Map(next.get(svc.id) || []);
+                                      m.delete(emp.id);
+                                      next.set(svc.id, m);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color || '#008080' }}>
+                                  {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                                </div>
+                                <span className={isSelected ? 'text-gray-900' : 'text-gray-400'}>{emp.firstName} {emp.lastName}</span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 text-center text-gray-500 tabular-nums">{formatCurrency(price, svc.currency)}</td>
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                disabled={!isSelected}
+                                placeholder="0"
+                                value={isToggled ? '' : (svcEdits?.has(emp.id) ? (svcEdits.get(emp.id) || '') : (commission != null ? String(commission) : ''))}
+                                onChange={(e) => setComm(svc.id, emp.id, e.target.value)}
+                                className="w-24 text-right text-sm border border-gray-200 rounded px-2 py-1 tabular-nums disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-center tabular-nums">
+                              {isSelected && comm > 0 ? (
+                                <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit, svc.currency)}</span>
+                              ) : <span className="text-gray-300">--</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {changed && (
+                  <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-end">
+                    <button
+                      onClick={() => saveSvcChanges(svc.id)}
+                      disabled={savingSvcId === svc.id}
+                      className="text-xs font-medium text-white px-4 py-1.5 rounded-lg disabled:opacity-50"
+                      style={{ backgroundColor: '#008080' }}
+                    >
+                      {savingSvcId === svc.id ? 'Guardando...' : 'Guardar cambios'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })}
+      {services.length === 0 && (
+        <div className="text-center py-12 text-gray-400">No hay servicios configurados</div>
       )}
     </div>
   );
