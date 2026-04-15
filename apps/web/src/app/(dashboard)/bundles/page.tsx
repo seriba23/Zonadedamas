@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 interface ServiceInBundle {
   id: string;
@@ -48,6 +48,7 @@ const defaultForm: BundleForm = {
 };
 
 export default function BundlesPage() {
+  const { format: formatCurrency } = useCurrency();
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -160,7 +161,7 @@ export default function BundlesPage() {
 
   // Calculate totals for selected services in the form
   const selectedServices = services.filter((s) => form.serviceIds.includes(s.id));
-  const totalOriginalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalOriginalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const savingsPercent =
     totalOriginalPrice > 0 && Number(form.bundlePrice) > 0
@@ -168,7 +169,7 @@ export default function BundlesPage() {
       : 0;
 
   function getBundleOriginalPrice(bundle: Bundle): number {
-    return bundle.services.reduce((sum, s) => sum + s.price, 0);
+    return bundle.services.reduce((sum, s) => sum + Number(s.price), 0);
   }
 
   function getBundleDuration(bundle: Bundle): number {
