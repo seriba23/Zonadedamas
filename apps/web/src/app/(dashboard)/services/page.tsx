@@ -296,12 +296,7 @@ export default function ServicesPage() {
                 return (
                   <div key={cat}>
                     {/* Category header */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#008080' }}>
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.193 23.193 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
+                    <div className="mb-3">
                       <div>
                         <h3 className="text-sm font-bold text-gray-900">{cat}</h3>
                         <p className="text-[11px] text-gray-400">{catServices.length} servicio{catServices.length !== 1 ? 's' : ''}</p>
