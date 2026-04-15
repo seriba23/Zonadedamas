@@ -22,6 +22,8 @@ export default function DashboardPage() {
             Hola, {user?.firstName || 'Usuario'}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
+            {user?.tenantName && <span className="font-medium text-[#008080]">{user.tenantName}</span>}
+            {user?.tenantName && ' · '}
             {dayjs().format('dddd, D [de] MMMM [de] YYYY')}
           </p>
         </div>
