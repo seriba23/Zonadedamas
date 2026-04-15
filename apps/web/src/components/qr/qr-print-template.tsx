@@ -16,7 +16,7 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
     <div className="w-[210mm] min-h-[297mm] bg-white flex flex-col items-center justify-center p-12 mx-auto print:p-8">
       {/* App branding */}
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold text-indigo-600 tracking-tight">Siliba</h1>
+        <h1 className="text-4xl font-bold text-[#008080] tracking-tight">Siliba</h1>
         <p className="text-lg text-gray-500 mt-1">Tu confianza, en manos de profesionales</p>
       </div>
 
@@ -39,14 +39,14 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
             <img src={`${API_URL}${logoUrl}`} alt="" className="w-full h-full object-cover" />
           </div>
         )}
-        <h2 className="text-2xl font-bold text-gray-900">{tenantName}</h2>
+        <h2 className="text-4xl font-bold text-gray-900">{tenantName}</h2>
         {locationName && (
           <p className="text-lg text-gray-500 mt-1">Sucursal: {locationName}</p>
         )}
       </div>
 
       {/* Divider */}
-      <div className="w-64 h-px bg-gray-300 mb-10" />
+      <div className="w-64 h-px bg-gray-300 mb-16" />
 
       {/* Instructions */}
       <div className="text-center max-w-sm">
@@ -56,7 +56,7 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
 
         <div className="space-y-4 text-left">
           <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#e0f2f1] text-[#008080] flex items-center justify-center text-sm font-bold flex-shrink-0">
               1
             </div>
             <p className="text-base text-gray-700 pt-1">
@@ -64,7 +64,7 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
             </p>
           </div>
           <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#e0f2f1] text-[#008080] flex items-center justify-center text-sm font-bold flex-shrink-0">
               2
             </div>
             <p className="text-base text-gray-700 pt-1">
@@ -72,7 +72,7 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
             </p>
           </div>
           <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#e0f2f1] text-[#008080] flex items-center justify-center text-sm font-bold flex-shrink-0">
               3
             </div>
             <p className="text-base text-gray-700 pt-1">
