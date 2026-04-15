@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
@@ -27,6 +28,7 @@ interface Professional {
 }
 
 export default function ProfessionalsPage() {
+  const router = useRouter();
   const { isAuthenticated } = useMarketplaceAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -244,6 +246,21 @@ export default function ProfessionalsPage() {
               onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
             />
+          </div>
+
+          {/* Tabs: Negocios | Profesionales */}
+          <div className="flex border-b border-gray-200 mb-3">
+            <button
+              onClick={() => router.push('/marketplace')}
+              className="flex-1 pb-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
+            >
+              Negocios
+            </button>
+            <button
+              className="flex-1 pb-2 text-sm font-medium border-b-2 border-[#008080] text-[#008080]"
+            >
+              Profesionales
+            </button>
           </div>
 
           {/* Filter bar */}

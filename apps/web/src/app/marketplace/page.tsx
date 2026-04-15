@@ -52,6 +52,7 @@ export default function MarketplacePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useMarketplaceAuth();
+  const [viewTab, setViewTab] = useState<'negocios' | 'profesionales'>('negocios');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [favoriteSlugs, setFavoriteSlugs] = useState<Set<string>>(new Set());
@@ -335,6 +336,24 @@ export default function MarketplacePage() {
                 onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
               />
+            </div>
+
+            {/* Tabs: Negocios | Profesionales */}
+            <div className="flex border-b border-gray-200 mb-3">
+              <button
+                onClick={() => { setViewTab('negocios'); }}
+                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
+                  viewTab === 'negocios' ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500'
+                }`}
+              >
+                Negocios
+              </button>
+              <button
+                onClick={() => { setViewTab('profesionales'); router.push('/marketplace/professionals'); }}
+                className="flex-1 pb-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
+              >
+                Profesionales
+              </button>
             </div>
 
             {/* Filter bar */}
