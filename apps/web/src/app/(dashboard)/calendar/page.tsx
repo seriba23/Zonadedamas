@@ -16,6 +16,7 @@ import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 dayjs.extend(isoWeek);
 
 type ViewMode = 'day' | 'week' | 'month' | 'custom';
+type MainView = 'calendario' | 'registro';
 
 interface Appointment {
   id: string;
@@ -52,6 +53,7 @@ export default function CalendarPage() {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const [mainView, setMainView] = useState<MainView>('calendario');
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -65,6 +67,14 @@ export default function CalendarPage() {
 
   const [customStart, setCustomStart] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
   const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
+
+  // Registro filters
+  const [regDateFrom, setRegDateFrom] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
+  const [regDateTo, setRegDateTo] = useState(dayjs().format('YYYY-MM-DD'));
+  const [regClient, setRegClient] = useState('');
+  const [regEmployee, setRegEmployee] = useState('');
+  const [regStatus, setRegStatus] = useState('');
+  const [regSearch, setRegSearch] = useState('');
 
   // Open appointment from URL param (e.g. from reports detail)
   useEffect(() => {
@@ -179,6 +189,29 @@ export default function CalendarPage() {
   });
 
   const allAppointments = data?.data || [];
+
+  // Registro query - all appointments for the date range
+  const regParams = new URLSearchParams({ startDate: regDateFrom, endDate: regDateTo, perPage: '100' });
+  if (regEmployee) regParams.set('employeeId', regEmployee);
+  if (regClient) regParams.set('clientId', regClient);
+  if (regStatus) regParams.set('status', regStatus);
+
+  const { data: regData } = useQuery({
+    queryKey: ['appointments-registro', regDateFrom, regDateTo, regEmployee, regClient, regStatus],
+    queryFn: () => api.get<{ data: Appointment[] }>(`/api/appointments?${regParams.toString()}`),
+    enabled: mainView === 'registro',
+  });
+  const regAppointments = (regData?.data || []).filter((apt) => {
+    if (!regSearch) return true;
+    const q = regSearch.toLowerCase();
+    return (
+      apt.client?.firstName?.toLowerCase().includes(q) ||
+      apt.client?.lastName?.toLowerCase().includes(q) ||
+      apt.employee?.firstName?.toLowerCase().includes(q) ||
+      apt.employee?.lastName?.toLowerCase().includes(q) ||
+      apt.items?.some((i) => i.serviceNameSnapshot?.toLowerCase().includes(q))
+    );
+  });
   const employees = employeesData?.data || [];
   const clients = clientsData?.data || [];
   const services = servicesData?.data || [];
@@ -354,6 +387,24 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full">
       <Header title="Citas" />
 
+      {/* Main view tabs */}
+      <div className="border-b border-gray-200 px-6 bg-white">
+        <div className="flex gap-1">
+          {(['calendario', 'registro'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setMainView(tab)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'calendario' ? 'Calendario' : 'Registro de citas'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mainView === 'calendario' && (
       <div className="px-6 py-4 bg-white border-b border-gray-200">
         {/* View mode selector — same style as Reports date range */}
         <div className="flex items-center justify-between">
@@ -667,6 +718,108 @@ export default function CalendarPage() {
           />
         )}
       </div>
+      )}
+
+      {/* ─── Registro de citas ─── */}
+      {mainView === 'registro' && (
+        <div className="flex-1 overflow-y-auto">
+          {/* Filters */}
+          <div className="px-6 py-4 bg-white border-b border-gray-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="text"
+                value={regSearch}
+                onChange={(e) => setRegSearch(e.target.value)}
+                placeholder="Buscar cliente, empleado, servicio..."
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] w-56"
+              />
+              <input type="date" value={regDateFrom} onChange={(e) => setRegDateFrom(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
+              <span className="text-gray-400">-</span>
+              <input type="date" value={regDateTo} onChange={(e) => setRegDateTo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
+              <select value={regEmployee} onChange={(e) => setRegEmployee(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
+                <option value="">Todos los empleados</option>
+                {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+              </select>
+              <select value={regClient} onChange={(e) => setRegClient(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
+                <option value="">Todos los clientes</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+              </select>
+              <select value={regStatus} onChange={(e) => setRegStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
+                <option value="">Todos los estados</option>
+                <option value="CONFIRMED">Confirmada</option>
+                <option value="COMPLETED">Completada</option>
+                <option value="CANCELLED">Cancelada</option>
+                <option value="NO_SHOW">Ausente</option>
+                <option value="IN_PROGRESS">En curso</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <span className="text-sm text-gray-600">{regAppointments.length} cita{regAppointments.length !== 1 ? 's' : ''}</span>
+            <span className="text-sm font-bold text-green-700">
+              Total: {formatCurrency(regAppointments.reduce((s, a) => s + (a.items || []).reduce((is, i) => is + Number(i.priceSnapshot || 0), 0), 0))}
+            </span>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-white border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Horario</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Servicios</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Monto</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {regAppointments.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map((apt) => {
+                  const total = (apt.items || []).reduce((s, i) => s + Number(i.priceSnapshot || 0), 0);
+                  const statusMap: Record<string, { label: string; color: string }> = {
+                    CONFIRMED: { label: 'Confirmada', color: 'bg-green-100 text-green-700' },
+                    COMPLETED: { label: 'Completada', color: 'bg-gray-100 text-gray-600' },
+                    CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-600' },
+                    NO_SHOW: { label: 'Ausente', color: 'bg-red-100 text-red-600' },
+                    IN_PROGRESS: { label: 'En curso', color: 'bg-blue-100 text-blue-700' },
+                    PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700' },
+                  };
+                  const status = statusMap[apt.status] || statusMap.PENDING;
+                  return (
+                    <tr
+                      key={apt.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => { setSelectedAppointmentId(apt.id); setIsModalOpen(true); }}
+                    >
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{apt.client?.firstName} {apt.client?.lastName}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
+                          <span className="text-sm text-gray-600">{apt.employee?.firstName} {apt.employee?.lastName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{formatCurrency(total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {regAppointments.length === 0 && (
+              <div className="text-center py-16 text-gray-400">No hay citas en este período</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <AppointmentModal
