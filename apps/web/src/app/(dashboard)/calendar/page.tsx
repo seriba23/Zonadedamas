@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -50,6 +50,7 @@ interface ServiceSummary {
 
 export default function CalendarPage() {
   const { format: formatCurrency } = useCurrency();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -343,6 +344,7 @@ export default function CalendarPage() {
     try {
       await api.post(`/api/appointments/${appointmentId}/reschedule`, { startTime: newStartTime });
       refetch();
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
     } catch (err) {
       console.error('Error rescheduling:', err);
     }
