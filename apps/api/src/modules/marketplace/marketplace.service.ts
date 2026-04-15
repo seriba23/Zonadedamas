@@ -2259,6 +2259,31 @@ export class MarketplaceService {
       }
     }
 
+    // Pay with points: validate and calculate
+    let pointsSpent = 0;
+    if (dto.payWithPoints) {
+      const services = await this.prisma.service.findMany({
+        where: { id: { in: dto.serviceIds }, tenantId: tenant.id },
+        select: { id: true, name: true, redeemableWithPoints: true, pointsRequired: true },
+      });
+
+      const nonRedeemable = services.filter((s) => !s.redeemableWithPoints || !s.pointsRequired);
+      if (nonRedeemable.length > 0) {
+        throw new BadRequestException('No todos los servicios seleccionados son canjeables con puntos');
+      }
+
+      pointsSpent = services.reduce((sum, s) => sum + (s.pointsRequired || 0), 0);
+      if (pointsSpent <= 0) {
+        throw new BadRequestException('No se puede calcular el costo en puntos');
+      }
+
+      if (client.loyaltyPoints < pointsSpent) {
+        throw new BadRequestException(
+          `Puntos insuficientes. Necesitas ${pointsSpent} pts y tienes ${client.loyaltyPoints} pts`,
+        );
+      }
+    }
+
     // Delegate to AppointmentsService
     const appointment = await this.appointmentsService.create(
       {
@@ -2273,9 +2298,26 @@ export class MarketplaceService {
       tenant.id,
     );
 
+    // Post-booking transactions
+    const postOps: any[] = [];
+
+    // Deduct points if paying with points
+    if (dto.payWithPoints && pointsSpent > 0 && appointment?.data?.id) {
+      postOps.push(
+        this.prisma.client.update({
+          where: { id: client.id },
+          data: { loyaltyPoints: { decrement: pointsSpent } },
+        }),
+        this.prisma.appointment.update({
+          where: { id: appointment.data.id },
+          data: { notes: `${appointment.data.notes || ''}\n[Pagado con ${pointsSpent} puntos]`.trim() },
+        }),
+      );
+    }
+
     // Mark coupon as used and link to appointment
     if (redemption && appointment?.data?.id) {
-      await this.prisma.$transaction([
+      postOps.push(
         this.prisma.rewardRedemption.update({
           where: { id: redemption.id },
           data: { status: 'USED', usedAt: new Date() },
@@ -2284,7 +2326,11 @@ export class MarketplaceService {
           where: { id: appointment.data.id },
           data: { redemptionId: redemption.id, discountAmount },
         }),
-      ]);
+      );
+    }
+
+    if (postOps.length > 0) {
+      await this.prisma.$transaction(postOps);
     }
 
     return {
@@ -2292,6 +2338,7 @@ export class MarketplaceService {
       data: {
         ...appointment.data,
         discountAmount,
+        pointsSpent: pointsSpent > 0 ? pointsSpent : null,
         couponApplied: redemption ? { code: redemption.code, reward: redemption.reward.name } : null,
       },
     };

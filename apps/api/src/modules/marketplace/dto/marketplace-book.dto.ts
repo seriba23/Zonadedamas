@@ -1,4 +1,4 @@
-import { IsArray, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class MarketplaceBookDto {
   @IsArray()
@@ -18,4 +18,8 @@ export class MarketplaceBookDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  payWithPoints?: boolean;
 }

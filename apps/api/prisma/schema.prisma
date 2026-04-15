@@ -1434,10 +1434,13 @@ model ServiceBundle {
   serviceIds     Json     @map("service_ids") // array of service IDs
   totalDuration  Int      @map("total_duration") // sum of durations
   savingsPercent Decimal? @map("savings_percent") @db.Decimal(5, 2)
-  isActive       Boolean  @default(true) @map("is_active")
-  sortOrder      Int      @default(0) @map("sort_order")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  isActive             Boolean  @default(true) @map("is_active")
+  sortOrder            Int      @default(0) @map("sort_order")
+  pointsReward         Int?     @map("points_reward")
+  redeemableWithPoints Boolean  @default(false) @map("redeemable_with_points")
+  pointsRequired       Int?     @map("points_required")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

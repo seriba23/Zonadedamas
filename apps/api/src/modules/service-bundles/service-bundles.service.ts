@@ -155,6 +155,9 @@ export class ServiceBundlesService {
         savingsPercent,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,
+        pointsReward: dto.pointsReward ?? null,
+        redeemableWithPoints: dto.redeemableWithPoints ?? false,
+        pointsRequired: dto.pointsRequired ?? null,
       },
     });
 
@@ -228,6 +231,9 @@ export class ServiceBundlesService {
         ...(savingsPercent !== undefined && { savingsPercent }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        ...(dto.pointsReward !== undefined && { pointsReward: dto.pointsReward }),
+        ...(dto.redeemableWithPoints !== undefined && { redeemableWithPoints: dto.redeemableWithPoints }),
+        ...(dto.pointsRequired !== undefined && { pointsRequired: dto.pointsRequired }),
       },
     });
 

@@ -37,4 +37,18 @@ export class UpdateServiceBundleDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsReward?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  redeemableWithPoints?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pointsRequired?: number | null;
 }

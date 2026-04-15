@@ -22,6 +22,9 @@ interface Bundle {
   bundlePrice: number;
   isActive: boolean;
   services: ServiceInBundle[];
+  pointsReward?: number | null;
+  redeemableWithPoints?: boolean;
+  pointsRequired?: number | null;
 }
 
 interface BundleForm {
@@ -30,6 +33,10 @@ interface BundleForm {
   bundlePrice: number | string;
   isActive: boolean;
   serviceIds: string[];
+  generatesPoints: boolean;
+  pointsReward: number | string;
+  redeemableWithPoints: boolean;
+  pointsRequired: number | string;
 }
 
 interface ServiceOption {
@@ -45,6 +52,10 @@ const defaultForm: BundleForm = {
   bundlePrice: '',
   isActive: true,
   serviceIds: [],
+  generatesPoints: false,
+  pointsReward: '',
+  redeemableWithPoints: false,
+  pointsRequired: '',
 };
 
 export default function BundlesPage() {
@@ -112,6 +123,10 @@ export default function BundlesPage() {
       bundlePrice: bundle.bundlePrice,
       isActive: bundle.isActive,
       serviceIds: bundle.services.map((s) => s.id),
+      generatesPoints: !!bundle.pointsReward && bundle.pointsReward > 0,
+      pointsReward: bundle.pointsReward || '',
+      redeemableWithPoints: bundle.redeemableWithPoints || false,
+      pointsRequired: bundle.pointsRequired || '',
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -154,6 +169,9 @@ export default function BundlesPage() {
       bundlePrice: Number(form.bundlePrice),
       isActive: form.isActive,
       serviceIds: form.serviceIds,
+      pointsReward: form.generatesPoints && Number(form.pointsReward) > 0 ? Number(form.pointsReward) : null,
+      redeemableWithPoints: form.redeemableWithPoints,
+      pointsRequired: form.redeemableWithPoints && Number(form.pointsRequired) > 0 ? Number(form.pointsRequired) : null,
     };
 
     saveMutation.mutate(payload);
@@ -291,6 +309,22 @@ export default function BundlesPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Points badges */}
+                    {((bundle as any).pointsReward > 0 || (bundle as any).redeemableWithPoints) && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {(bundle as any).pointsReward > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#e0f2f1] text-[#008080]">
+                            +{(bundle as any).pointsReward} pts
+                          </span>
+                        )}
+                        {(bundle as any).redeemableWithPoints && (bundle as any).pointsRequired > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#e0f2f1] text-[#008080]">
+                            Canjeable: {(bundle as any).pointsRequired} pts
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Price and duration */}
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100">
@@ -475,6 +509,74 @@ export default function BundlesPage() {
                 )}
               </div>
             )}
+
+            {/* Points system */}
+            <div className="border border-gray-200 rounded-lg p-3 space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sistema de puntos</p>
+              <p className="text-xs text-[#008080]">Los puntos son un incentivo importante para la fidelidad de tus clientes</p>
+
+              {/* Generates points */}
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Este paquete genera puntos</p>
+                  <p className="text-xs text-gray-400">El cliente recibe puntos al adquirir este paquete</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={form.generatesPoints}
+                    onChange={(e) => setForm((f) => ({ ...f, generatesPoints: e.target.checked, ...(!e.target.checked && { pointsReward: '' }) }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+              {form.generatesPoints && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Puntos que otorga</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.pointsReward}
+                    onChange={(e) => setForm((f) => ({ ...f, pointsReward: e.target.value }))}
+                    className="input-field"
+                    placeholder="Ej: 50"
+                  />
+                </div>
+              )}
+
+              {/* Redeemable with points */}
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Canjeable con puntos</p>
+                  <p className="text-xs text-gray-400">Los clientes pueden usar puntos para adquirir este paquete</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={form.redeemableWithPoints}
+                    onChange={(e) => setForm((f) => ({ ...f, redeemableWithPoints: e.target.checked, ...(!e.target.checked && { pointsRequired: '' }) }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+              {form.redeemableWithPoints && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Puntos necesarios para canjear</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.pointsRequired}
+                    onChange={(e) => setForm((f) => ({ ...f, pointsRequired: e.target.value }))}
+                    className="input-field"
+                    placeholder="Ej: 100"
+                  />
+                </div>
+              )}
+            </div>
 
             <label className="flex items-center justify-between cursor-pointer">
               <p className="text-sm font-medium text-gray-700">Activo</p>

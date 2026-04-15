@@ -369,6 +369,7 @@ export default function BusinessDetailPage() {
         startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
         couponCode: selectedCoupon?.code || undefined,
+        payWithPoints: payWithPoints || undefined,
       });
 
       // Also create product reservations if cart has items
