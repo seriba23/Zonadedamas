@@ -12,6 +12,7 @@ import { AppointmentModal } from '@/components/appointments/appointment-modal';
 import { formatDate } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 dayjs.extend(isoWeek);
 
@@ -734,14 +735,24 @@ export default function CalendarPage() {
               <input type="date" value={regDateFrom} onChange={(e) => setRegDateFrom(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
               <span className="text-gray-400">-</span>
               <input type="date" value={regDateTo} onChange={(e) => setRegDateTo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
-              <select value={regEmployee} onChange={(e) => setRegEmployee(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
-                <option value="">Todos los empleados</option>
-                {[...employees].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
-              </select>
-              <select value={regClient} onChange={(e) => setRegClient(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
-                <option value="">Todos los clientes</option>
-                {[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-              </select>
+              <SearchableSelect
+                value={regEmployee}
+                onChange={setRegEmployee}
+                placeholder="Buscar empleado..."
+                allLabel="Todos los empleados"
+                options={[...employees].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((e) => ({
+                  id: e.id, label: `${e.firstName} ${e.lastName}`, avatarUrl: e.avatarUrl, color: e.color,
+                }))}
+              />
+              <SearchableSelect
+                value={regClient}
+                onChange={setRegClient}
+                placeholder="Buscar cliente..."
+                allLabel="Todos los clientes"
+                options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
+                  id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.email || c.phone || undefined, avatarUrl: (c as any).avatarUrl,
+                }))}
+              />
               <select value={regStatus} onChange={(e) => setRegStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
                 <option value="">Todos los estados</option>
                 <option value="CONFIRMED">Confirmada</option>
