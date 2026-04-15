@@ -203,14 +203,12 @@ export default function CalendarPage() {
   });
   const regAppointments = (regData?.data || []).filter((apt) => {
     if (!regSearch) return true;
-    const q = regSearch.toLowerCase();
-    return (
-      apt.client?.firstName?.toLowerCase().includes(q) ||
-      apt.client?.lastName?.toLowerCase().includes(q) ||
-      apt.employee?.firstName?.toLowerCase().includes(q) ||
-      apt.employee?.lastName?.toLowerCase().includes(q) ||
-      apt.items?.some((i) => i.serviceNameSnapshot?.toLowerCase().includes(q))
-    );
+    const q = regSearch.toLowerCase().trim();
+    if (!q) return true;
+    const clientName = `${apt.client?.firstName || ''} ${apt.client?.lastName || ''}`.toLowerCase();
+    const empName = `${apt.employee?.firstName || ''} ${apt.employee?.lastName || ''}`.toLowerCase();
+    const services = (apt.items || []).map((i) => i.serviceNameSnapshot || '').join(' ').toLowerCase();
+    return clientName.includes(q) || empName.includes(q) || services.includes(q);
   });
   const employees = employeesData?.data || [];
   const clients = clientsData?.data || [];
