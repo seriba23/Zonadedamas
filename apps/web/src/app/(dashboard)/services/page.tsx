@@ -691,21 +691,37 @@ function ServiceCommissionsView({ services, allEmployees }: { services: Service[
     setTimeout(() => setSavedSvcId(null), 2000);
   }
 
-  return (
-    <div className="space-y-4">
-      {services.map((svc) => {
-        const isExpanded = expandedSvcs.has(svc.id);
-        const empsData = getEmployeesForService(svc.id);
-        const assignedCount = empsData.filter((e) => e.assigned).length;
-        const changed = hasSvcChanges(svc.id);
+  // Group by category
+  const grouped: Record<string, Service[]> = {};
+  services.forEach((s) => {
+    const cat = s.subcategory || s.category || 'Otros';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(s);
+  });
+  const sortedCats = Object.keys(grouped).sort((a, b) => a === 'Otros' ? 1 : b === 'Otros' ? -1 : a.localeCompare(b, 'es'));
 
-        return (
-          <div key={svc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Header */}
-            <button
-              onClick={() => setExpandedSvcs((prev) => {
-                const next = new Set(prev);
-                next.has(svc.id) ? next.delete(svc.id) : next.add(svc.id);
+  return (
+    <div className="space-y-6">
+      {sortedCats.map((cat) => (
+        <div key={cat}>
+          <div className="mb-3">
+            <h3 className="text-sm font-bold text-gray-900">{cat}</h3>
+            <p className="text-[11px] text-gray-400">{grouped[cat].length} servicio{grouped[cat].length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="space-y-3">
+            {grouped[cat].map((svc) => {
+              const isExpanded = expandedSvcs.has(svc.id);
+              const empsData = getEmployeesForService(svc.id);
+              const assignedCount = empsData.filter((e) => e.assigned).length;
+              const changed = hasSvcChanges(svc.id);
+
+              return (
+                <div key={svc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  {/* Header */}
+                  <button
+                    onClick={() => setExpandedSvcs((prev) => {
+                      const next = new Set(prev);
+                      next.has(svc.id) ? next.delete(svc.id) : next.add(svc.id);
                 return next;
               })}
               className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
@@ -829,7 +845,11 @@ function ServiceCommissionsView({ services, allEmployees }: { services: Service[
             )}
           </div>
         );
-      })}
+              })}
+            </div>
+          </div>
+        </div>
+      ))}
       {services.length === 0 && (
         <div className="text-center py-12 text-gray-400">No hay servicios configurados</div>
       )}
