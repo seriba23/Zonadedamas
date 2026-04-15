@@ -404,7 +404,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {mainView === 'calendario' && (
+      {mainView === 'calendario' && (<>
       <div className="px-6 py-4 bg-white border-b border-gray-200">
         {/* View mode selector — same style as Reports date range */}
         <div className="flex items-center justify-between">
@@ -718,7 +718,7 @@ export default function CalendarPage() {
           />
         )}
       </div>
-      )}
+      </>)}
 
       {/* ─── Registro de citas ─── */}
       {mainView === 'registro' && (
