@@ -848,7 +848,6 @@ function ServiceCommissionsView({ services, allEmployees }: { services: Service[
               })}
             </div>
           </div>
-        </div>
       ))}
       {services.length === 0 && (
         <div className="text-center py-12 text-gray-400">No hay servicios configurados</div>
