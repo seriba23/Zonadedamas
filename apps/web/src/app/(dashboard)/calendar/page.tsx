@@ -736,11 +736,11 @@ export default function CalendarPage() {
               <input type="date" value={regDateTo} onChange={(e) => setRegDateTo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
               <select value={regEmployee} onChange={(e) => setRegEmployee(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
                 <option value="">Todos los empleados</option>
-                {employees.map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+                {[...employees].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
               </select>
               <select value={regClient} onChange={(e) => setRegClient(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
                 <option value="">Todos los clientes</option>
-                {clients.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                {[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
               </select>
               <select value={regStatus} onChange={(e) => setRegStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
                 <option value="">Todos los estados</option>
