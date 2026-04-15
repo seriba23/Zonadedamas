@@ -189,6 +189,7 @@ export default function BusinessDetailPage() {
     paymentStatus === 'success' ? 'success' : null,
   );
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [selectedBundle, setSelectedBundle] = useState<any>(null);
   const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes'>('servicios');
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
   const [anyEmployee, setAnyEmployee] = useState(false);
@@ -472,6 +473,7 @@ export default function BusinessDetailPage() {
       return;
     }
     setSelectedServiceIds([]);
+    setSelectedBundle(null);
     setSelectedEmployee(null);
     setAnyEmployee(false);
     setSelectedDate(dayjs());
@@ -508,7 +510,9 @@ export default function BusinessDetailPage() {
   const bizBundles: any[] = biz?.bundles || [];
   const employees: BizEmployee[] = biz?.employees || [];
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
-  const totalPrice = selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
+  const totalPrice = selectedBundle
+    ? Number(selectedBundle.bundlePrice)
+    : selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const totalPointsEarned = selectedServices.reduce((sum, s) => sum + (s.pointsReward || 0), 0);
 
@@ -1283,13 +1287,14 @@ export default function BusinessDetailPage() {
                   return (
                     <button
                       key={service.id}
-                      onClick={() =>
+                      onClick={() => {
                         setSelectedServiceIds((prev) =>
                           isSelected
                             ? prev.filter((id) => id !== service.id)
                             : [...prev, service.id],
-                        )
-                      }
+                        );
+                        setSelectedBundle(null);
+                      }}
                       className="w-full text-left p-4 rounded-xl border-2 transition-all"
                       style={
                         isSelected
@@ -1372,8 +1377,10 @@ export default function BusinessDetailPage() {
                             onClick={() => {
                               if (isSelected) {
                                 setSelectedServiceIds((prev) => prev.filter((id) => !bundleServiceIds.includes(id)));
+                                setSelectedBundle(null);
                               } else {
-                                setSelectedServiceIds((prev) => [...new Set([...prev, ...bundleServiceIds])]);
+                                setSelectedServiceIds(bundleServiceIds);
+                                setSelectedBundle(bundle);
                               }
                             }}
                             className="w-full text-left p-4 rounded-xl border-2 transition-all"
