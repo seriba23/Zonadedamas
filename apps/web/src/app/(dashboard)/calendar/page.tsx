@@ -806,10 +806,27 @@ export default function CalendarPage() {
                     >
                       <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
                       <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{apt.client?.firstName} {apt.client?.lastName}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: '#008080' }}>
+                            {(apt.client as any)?.avatarUrl ? (
+                              <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.client as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <>{apt.client?.firstName?.[0]}{apt.client?.lastName?.[0]}</>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">{apt.client?.firstName} {apt.client?.lastName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: apt.employee?.color || '#008080' }}>
+                            {(apt.employee as any)?.avatarUrl ? (
+                              <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.employee as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <>{apt.employee?.firstName?.[0]}{apt.employee?.lastName?.[0]}</>
+                            )}
+                          </div>
                           <span className="text-sm text-gray-600">{apt.employee?.firstName} {apt.employee?.lastName}</span>
                         </div>
                       </td>

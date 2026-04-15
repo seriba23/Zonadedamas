@@ -215,8 +215,8 @@ export class AppointmentsService {
         take: perPage,
         orderBy: { startTime: 'asc' },
         include: {
-          client: { select: { id: true, firstName: true, lastName: true } },
-          employee: { select: { id: true, firstName: true, lastName: true, color: true } },
+          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
           items: { select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true, commissionSnapshot: true } },
         },
       }),
