@@ -65,7 +65,8 @@ export default function ServicesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const [viewTab, setViewTab] = useState<'servicios' | 'comisiones-servicio' | 'comisiones-empleado'>('servicios');
+  const [viewTab, setViewTab] = useState<'servicios' | 'comisiones'>('servicios');
+  const [comisionView, setComisionView] = useState<'por-servicio' | 'por-empleado'>('por-servicio');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState<ServiceForm>(defaultForm);
@@ -205,7 +206,7 @@ export default function ServicesPage() {
 
       {/* View tabs */}
       <div className="border-b border-gray-200 px-6 flex items-center gap-6">
-        {(['servicios', 'comisiones-servicio', 'comisiones-empleado'] as const).map((tab) => (
+        {(['servicios', 'comisiones'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setViewTab(tab)}
@@ -215,7 +216,7 @@ export default function ServicesPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'servicios' ? 'Servicios' : tab === 'comisiones-servicio' ? 'Comisiones por servicio' : 'Comisiones por empleado'}
+            {tab === 'servicios' ? 'Servicios' : 'Comisiones'}
           </button>
         ))}
       </div>
@@ -356,14 +357,32 @@ export default function ServicesPage() {
           </>
         )}
 
-        {/* ─── Comisiones por servicio ─── */}
-        {viewTab === 'comisiones-servicio' && (
-          <ServiceCommissionsView services={services} allEmployees={allEmployees} />
-        )}
-
-        {/* ─── Comisiones por empleado ─── */}
-        {viewTab === 'comisiones-empleado' && (
-          <EmployeeServicesView employees={allEmployees} allServices={services} />
+        {/* ─── Comisiones ─── */}
+        {viewTab === 'comisiones' && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  onClick={() => setComisionView('por-servicio')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 ${
+                    comisionView === 'por-servicio' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Por servicio
+                </button>
+                <button
+                  onClick={() => setComisionView('por-empleado')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    comisionView === 'por-empleado' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Por empleado
+                </button>
+              </div>
+            </div>
+            {comisionView === 'por-servicio' && <ServiceCommissionsView services={services} allEmployees={allEmployees} />}
+            {comisionView === 'por-empleado' && <EmployeeServicesView employees={allEmployees} allServices={services} />}
+          </div>
         )}
       </div>
 
