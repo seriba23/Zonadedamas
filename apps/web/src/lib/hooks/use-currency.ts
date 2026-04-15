@@ -38,7 +38,7 @@ export function useCurrency() {
   }
 
   function format(amount: number, fromCurrency?: string): string {
-    const from = fromCurrency || 'USD';
+    const from = fromCurrency || tenantCurrency;
     const converted = convert(amount, from);
     return rawFormat(converted, tenantCurrency);
   }
