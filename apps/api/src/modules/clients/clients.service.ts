@@ -35,6 +35,12 @@ export class ClientsService {
       where.phone = { contains: params.phone };
     }
 
+    if (params.createdAfter || params.createdBefore) {
+      where.createdAt = {};
+      if (params.createdAfter) where.createdAt.gte = new Date(params.createdAfter);
+      if (params.createdBefore) where.createdAt.lte = new Date(params.createdBefore + 'T23:59:59Z');
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.client.findMany({
         where,

@@ -177,7 +177,7 @@ export default function ReportsPage() {
           || (typeof detail === 'object' && detail !== null && (detail.type === 'employee' || detail.type === 'client' || detail.type === 'service'));
 
         const needsPayments = typeof detail === 'object' && detail?.type === 'paymentMethod';
-        const needsClients = detail === 'newClients';
+        const needsClients = detail === 'newClients' || detail === 'returningClients';
 
         if (needsAppointments) {
           const res = await api.get<any>(
@@ -196,10 +196,15 @@ export default function ReportsPage() {
         }
 
         if (needsClients) {
-          const res = await api.get<{ data: Client[] }>(
-            `/api/clients?perPage=100&createdAfter=${bounds.start}&createdBefore=${bounds.end}`,
-          );
-          if (!cancelled) setDetailClients(res.data);
+          const url = detail === 'newClients'
+            ? `/api/clients?perPage=100&createdAfter=${bounds.start}&createdBefore=${bounds.end}`
+            : `/api/clients?perPage=100`;
+          const res = await api.get<{ data: Client[] }>(url);
+          let clients = res.data || [];
+          if (detail === 'returningClients') {
+            clients = clients.filter((c) => (c._count?.appointments || 0) > 1);
+          }
+          if (!cancelled) setDetailClients(clients);
         }
       } catch (err) {
         console.error('Error fetching detail:', err);
@@ -374,10 +379,10 @@ export default function ReportsPage() {
     }
 
     // New clients detail
-    if (detail === 'newClients') {
+    if (detail === 'newClients' || detail === 'returningClients') {
       const clients = detailClients || [];
       if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (clients.length === 0) return <div className="p-8 text-center text-gray-400">No hay clientes nuevos en este período</div>;
+      if (clients.length === 0) return <div className="p-8 text-center text-gray-400">{detail === 'newClients' ? 'No hay clientes nuevos en este período' : 'No hay clientes recurrentes'}</div>;
       return (
         <div>
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">

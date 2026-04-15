@@ -13,6 +13,14 @@ export class SearchClientsDto extends PaginationDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsString()
+  createdAfter?: string;
+
+  @IsOptional()
+  @IsString()
+  createdBefore?: string;
 }
 
 export class CreateClientTagDto {
