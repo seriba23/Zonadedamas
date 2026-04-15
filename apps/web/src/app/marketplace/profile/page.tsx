@@ -471,23 +471,30 @@ export default function MarketplaceProfilePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
           </Link>
-          {/* Avatar */}
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-3 overflow-hidden"
-            style={{ backgroundColor: TEAL_LIGHT }}
-          >
-            {user.avatarUrl ? (
-              <img
-                src={resolveImageUrl(user.avatarUrl) || ''}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-2xl font-bold" style={{ color: TEAL }}>
-                {initials}
+          {/* Avatar — click to edit profile */}
+          <Link href="/marketplace/settings" className="block mx-auto mb-3 relative w-20 h-20 group">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden"
+              style={{ backgroundColor: TEAL_LIGHT }}
+            >
+              {user.avatarUrl ? (
+                <img
+                  src={resolveImageUrl(user.avatarUrl) || ''}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-2xl font-bold" style={{ color: TEAL }}>
+                  {initials}
               </span>
             )}
-          </div>
+            </div>
+            <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+              <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+              </svg>
+            </div>
+          </Link>
 
           <h1 className="text-lg font-bold text-gray-900">
             {user.firstName} {user.lastName}
@@ -728,60 +735,9 @@ export default function MarketplaceProfilePage() {
           </div>
         )}
 
-        {/* ─── Upcoming Appointments — solo en vista default ── */}
+        {/* Próximas citas y cupones se ven en sus secciones dedicadas */}
         {activeSection === 'default' && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-900">Próximas citas</h2>
-            </div>
-
-            {upcomingLoading ? (
-              <div className="text-center py-6">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: TEAL }} />
-              </div>
-            ) : upcomingAppointments.length === 0 ? (
-              <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
-                <p className="text-gray-400 text-sm">No tienes citas próximas</p>
-                <Link
-                  href="/marketplace"
-                  className="text-sm font-medium mt-2 inline-block"
-                  style={{ color: TEAL }}
-                >
-                  Buscar negocios
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {upcomingAppointments.map((apt) => (
-                  <AppointmentCard key={apt.id} apt={apt} userGps={userGps} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── Mis puntos y cupones — solo en vista default ────────── */}
-        {activeSection === 'default' && (
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Mis cupones</h2>
-              {myRewards.length === 0 ? (
-                <div className="text-center py-6 bg-white rounded-xl border border-gray-200">
-                  <svg className="w-8 h-8 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
-                  </svg>
-                  <p className="text-gray-400 text-sm">No tienes cupones canjeados</p>
-                  <p className="text-xs text-gray-300 mt-1">Canjea puntos en los negocios que visitas</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {myRewards.map((r: any) => (
-                    <ProfileCouponCard key={r.id} redemption={r} disabled={r.status !== 'ACTIVE'} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="space-y-3"></div>
         )}
 
         {/* ─── Quick Links — solo en vista default ─────── */}
