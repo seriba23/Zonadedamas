@@ -290,7 +290,6 @@ export function AppointmentModal({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/reschedule`, {
         startTime: newStartTime,
-        endTime: newEndTime,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
