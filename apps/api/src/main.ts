@@ -14,8 +14,11 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
+      process.env.FRONTEND_URL || 'http://localhost:3010',
+      'http://localhost:3000',
+      'http://localhost:3010',
       'http://192.168.3.33:3000',
+      'http://192.168.3.33:3010',
       'capacitor://localhost',
       'http://localhost',
     ],
