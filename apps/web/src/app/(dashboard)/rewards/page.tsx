@@ -112,7 +112,7 @@ export default function RewardsPage() {
       closeModal();
     },
     onError: (err: { message?: string }) => {
-      setFormError(err.message || 'Error al guardar la recompensa');
+      setFormError(err.message || 'Error al guardar el cupón');
     },
   });
 
@@ -204,12 +204,12 @@ export default function RewardsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Recompensas" />
+      <Header title="Cupones" />
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">
-            Configura recompensas que tus clientes pueden canjear con sus puntos de fidelidad.
+            Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
           </p>
           <div className="flex gap-2">
             {hasPermission('rewards.update') && (
@@ -234,14 +234,17 @@ export default function RewardsPage() {
             )}
             {hasPermission('rewards.create') && (
               <button onClick={openCreate} className="btn-primary">
-                + Nueva Recompensa
+                + Nuevo Cupón
               </button>
             )}
           </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}
+          >
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-1/2 mb-3" />
@@ -252,103 +255,32 @@ export default function RewardsPage() {
           </div>
         ) : rewards.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-4xl mb-3">🎁</div>
-            <p className="text-gray-500 mb-4">No hay recompensas configuradas</p>
+            <div className="text-4xl mb-3">🎟️</div>
+            <p className="text-gray-500 mb-4">No hay cupones configurados</p>
             {hasPermission('rewards.create') && (
               <button onClick={openCreate} className="btn-primary">
-                Crear primera recompensa
+                Crear primer cupón
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}
+          >
             {rewards.map((reward) => (
-              <div
+              <CouponAdminCard
                 key={reward.id}
-                className={`bg-white rounded-xl border p-5 hover:shadow-md transition-shadow ${
-                  reward.isActive ? 'border-gray-200' : 'border-gray-100 opacity-60'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-gray-900 text-sm">{reward.name}</h3>
-                      <span
-                        className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
-                          reward.type === 'SERVICIO'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        {reward.type === 'SERVICIO' ? 'Servicio' : 'Descuento'}
-                      </span>
-                      {!reward.isActive && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
-                          Inactivo
-                        </span>
-                      )}
-                    </div>
-                    {reward.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2">{reward.description}</p>
-                    )}
-                  </div>
-                  {hasPermission('rewards.update') && (
-                    <button
-                      onClick={() => openEdit(reward)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2 text-xs text-gray-600">
-                  {reward.type === 'SERVICIO' && reward.service && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-gray-400">Servicio:</span>
-                      <span className="font-medium">{reward.service.name}</span>
-                    </div>
-                  )}
-                  {reward.type === 'DESCUENTO' && reward.discountAmount && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-gray-400">Descuento:</span>
-                      <span className="font-medium">
-                        {reward.discountMode === 'PERCENTAGE'
-                          ? `${reward.discountAmount}%`
-                          : formatCurrency(reward.discountAmount)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-gray-400">Canjes:</span>
-                    <span className="text-xs font-medium text-gray-700">
-                      {reward.timesRedeemed}
-                      {reward.maxRedemptions ? ` / ${reward.maxRedemptions}` : ''}
-                    </span>
-                  </div>
-                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-primary-50 text-primary-700">
-                    {reward.pointsRequired} pts
-                  </span>
-                </div>
-
-                {hasPermission('rewards.delete') && reward.isActive && (
-                  <button
-                    onClick={() => {
-                      if (confirm('¿Desactivar esta recompensa?')) {
-                        deleteMutation.mutate(reward.id);
-                      }
-                    }}
-                    className="mt-2 w-full text-center text-xs text-red-500 hover:text-red-700 py-1"
-                  >
-                    Desactivar
-                  </button>
-                )}
-              </div>
+                reward={reward}
+                canEdit={hasPermission('rewards.update')}
+                canDelete={hasPermission('rewards.delete')}
+                onEdit={() => openEdit(reward)}
+                onDeactivate={() => {
+                  if (confirm('¿Desactivar este cupón?')) {
+                    deleteMutation.mutate(reward.id);
+                  }
+                }}
+              />
             ))}
           </div>
         )}
@@ -357,7 +289,7 @@ export default function RewardsPage() {
       {/* Create/Edit Modal */}
       {isModalOpen && (
         <Modal
-          title={editingReward ? 'Editar Recompensa' : 'Nueva Recompensa'}
+          title={editingReward ? 'Editar Cupón' : 'Nuevo Cupón'}
           onClose={closeModal}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -600,13 +532,13 @@ export default function RewardsPage() {
         <Modal title="Regalar cupón a clientes" onClose={() => { setGiftModal(false); setGiftSuccess(null); setGiftClientIds([]); }}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Recompensa</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cupón</label>
               <select
                 value={giftRewardId}
                 onChange={(e) => setGiftRewardId(e.target.value)}
                 className="input-field w-full"
               >
-                <option value="">Selecciona una recompensa</option>
+                <option value="">Selecciona un cupón</option>
                 {rewards.map((r) => (
                   <option key={r.id} value={r.id}>{r.name} ({r.type === 'DESCUENTO' ? 'Descuento' : 'Servicio'}) — {r.pointsRequired} pts</option>
                 ))}
@@ -669,6 +601,188 @@ export default function RewardsPage() {
             </button>
           </div>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+function formatExpiry(dateStr?: string) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function CouponAdminCard({
+  reward,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDeactivate,
+}: {
+  reward: Reward;
+  canEdit: boolean;
+  canDelete: boolean;
+  onEdit: () => void;
+  onDeactivate: () => void;
+}) {
+  const isDiscount = reward.type === 'DESCUENTO';
+  const active = reward.isActive;
+  const stubColor = active ? '#008080' : '#9ca3af';
+
+  const valueLabel = isDiscount
+    ? (reward.discountMode === 'PERCENTAGE'
+      ? `-${Number(reward.discountAmount ?? 0)}%`
+      : `$${reward.discountAmount ?? 0}`)
+    : 'GRATIS';
+  const stubFontSize =
+    valueLabel.length <= 4 ? '1.125rem' : valueLabel.length <= 6 ? '0.875rem' : '0.75rem';
+
+  const expiry = formatExpiry(reward.validUntil);
+
+  return (
+    <div className="relative" style={{ opacity: active ? 1 : 0.75 }}>
+      {/* Card */}
+      <div
+        className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex"
+        style={{ minHeight: 140 }}
+      >
+        {/* ── Stub izquierdo ── */}
+        <div
+          className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+          style={{ backgroundColor: stubColor }}
+        >
+          <span
+            className="text-white font-black leading-tight text-center break-all w-full px-2"
+            style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
+          >
+            {valueLabel}
+          </span>
+          <span className="text-white/70 text-[9px] uppercase tracking-wider">
+            {isDiscount ? 'descuento' : 'servicio'}
+          </span>
+
+          {/* Perforaciones */}
+          <div
+            className="absolute -right-3 -top-3 w-6 h-6 rounded-full"
+            style={{ backgroundColor: '#f3f4f6' }}
+          />
+          <div
+            className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full"
+            style={{ backgroundColor: '#f3f4f6' }}
+          />
+        </div>
+
+        {/* ── Separador perforado ── */}
+        <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+          {Array.from({ length: 11 }).map((_, i) => (
+            <div
+              key={i}
+              className="w-[3px] h-[3px] rounded-full"
+              style={{ backgroundColor: '#d1d5db' }}
+            />
+          ))}
+        </div>
+
+        {/* ── Contenido principal ── */}
+        <div className="flex-1 py-3 pr-3 flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                {reward.name}
+              </p>
+              {canEdit && (
+                <button
+                  onClick={onEdit}
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex-shrink-0"
+                  title="Editar"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {!active && (
+              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
+                Inactivo
+              </span>
+            )}
+
+            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+              {isDiscount
+                ? reward.discountMode === 'PERCENTAGE'
+                  ? `${Number(reward.discountAmount ?? 0)}% de descuento`
+                  : `${formatCurrency(Number(reward.discountAmount ?? 0))} de descuento`
+                : reward.service?.name
+                  ? `${reward.service.name} gratis`
+                  : 'Servicio gratis'}
+            </p>
+          </div>
+
+          <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+            {expiry ? (
+              <div
+                className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
+                style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}
+              >
+                <svg
+                  className="w-3 h-3 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-[10px] font-semibold whitespace-nowrap">
+                  Vence {expiry}
+                </span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-gray-400">
+                Canjes: {reward.timesRedeemed}
+                {reward.maxRedemptions ? ` / ${reward.maxRedemptions}` : ''}
+              </span>
+            )}
+            <span
+              className="flex-shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-black tracking-wide text-white"
+              style={{ backgroundColor: '#008080', letterSpacing: '0.05em' }}
+            >
+              {reward.pointsRequired} PTS
+            </span>
+          </div>
+
+          {expiry && (
+            <p className="text-[10px] text-gray-400 mt-1">
+              Canjes: {reward.timesRedeemed}
+              {reward.maxRedemptions ? ` / ${reward.maxRedemptions}` : ''}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {canDelete && active && (
+        <button
+          onClick={onDeactivate}
+          className="mt-2 w-full text-center text-xs text-red-500 hover:text-red-700 py-1"
+        >
+          Desactivar
+        </button>
       )}
     </div>
   );

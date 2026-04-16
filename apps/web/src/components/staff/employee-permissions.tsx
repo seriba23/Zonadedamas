@@ -42,7 +42,7 @@ const ADMIN_MODULES = [
   { key: 'reports', label: 'Reportes', desc: 'Ver estadisticas e ingresos' },
   { key: 'inventory', label: 'Inventario', desc: 'Productos y proveedores' },
   { key: 'promotions', label: 'Promociones', desc: 'Cupones y ofertas' },
-  { key: 'rewards', label: 'Recompensas', desc: 'Programa de fidelidad' },
+  { key: 'rewards', label: 'Cupones', desc: 'Programa de fidelidad' },
   { key: 'resources', label: 'Recursos', desc: 'Salas y equipamiento' },
   { key: 'locations', label: 'Sucursales', desc: 'Gestionar ubicaciones' },
 ];
