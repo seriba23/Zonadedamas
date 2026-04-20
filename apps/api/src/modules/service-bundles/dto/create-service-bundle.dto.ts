@@ -28,6 +28,10 @@ export class CreateServiceBundleDto {
 
   @IsOptional()
   @IsBoolean()
+  flexibleOrder?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
 
   @IsOptional()

@@ -366,9 +366,20 @@ export class MarketplaceController {
   }
 
   @UseGuards(MarketplaceJwtGuard)
+  @Get('my-referrals')
+  async getMyReferrals(@Req() req: any) {
+    return this.marketplaceService.getMyReferrals(req.user.marketplaceUserId);
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
   @Get('available-rewards')
   async getAvailableRewards(@Req() req: any) {
     return this.marketplaceService.getAvailableRewards(req.user.marketplaceUserId);
+  }
+
+  @Get('referral/:code')
+  async getReferralInfo(@Param('code') code: string) {
+    return this.marketplaceService.getReferralInfo(code);
   }
 
   @Get(':tenantSlug/rewards')

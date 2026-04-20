@@ -766,9 +766,13 @@ export class MarketplaceService {
       throw new NotFoundException('Negocio no encontrado');
     }
 
-    // Get services
+    // Get services (only those with at least one active employee assigned)
     const services = await this.prisma.service.findMany({
-      where: { tenantId: tenant.id, isActive: true },
+      where: {
+        tenantId: tenant.id,
+        isActive: true,
+        employeeServices: { some: { employee: { isActive: true } } },
+      },
       select: {
         id: true,
         name: true,
@@ -860,6 +864,38 @@ export class MarketplaceService {
       orderBy: { sortOrder: 'asc' },
     });
 
+    // Get active promotions (within date range, with uses available)
+    const now = new Date();
+    const promotions = await this.prisma.promotion.findMany({
+      where: {
+        tenantId: tenant.id,
+        isActive: true,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        type: true,
+        value: true,
+        code: true,
+        startDate: true,
+        endDate: true,
+        maxUses: true,
+        usedCount: true,
+        serviceIds: true,
+        minAmount: true,
+        allowPointPayment: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Filter out promotions that reached max uses
+    const availablePromotions = promotions.filter(
+      (p) => p.maxUses == null || p.usedCount < p.maxUses,
+    );
+
     // Get gallery images
     const gallery = await this.prisma.tenantGalleryImage.findMany({
       where: { tenantId: tenant.id },
@@ -911,6 +947,7 @@ export class MarketplaceService {
         businessHours,
         locations,
         bundles,
+        promotions: availablePromotions,
         gallery,
         isFavorited,
       },
@@ -2036,6 +2073,88 @@ export class MarketplaceService {
     return { data: redemptions };
   }
 
+  async getReferralInfo(code: string) {
+    const referral = await this.prisma.promotionReferral.findFirst({
+      where: { code, status: 'ACTIVE' },
+      include: {
+        promotion: { select: { name: true } },
+        tenant: { select: { name: true, slug: true } },
+      },
+    });
+
+    if (!referral) {
+      return { data: null };
+    }
+
+    // Get generator's name
+    const client = await this.prisma.client.findFirst({
+      where: { id: referral.generatedByClientId },
+      select: { firstName: true, lastName: true },
+    });
+
+    const svcIds: string[] = Array.isArray(referral.serviceIds) ? referral.serviceIds as string[] : [];
+    let serviceNames: string[] = [];
+    if (svcIds.length > 0) {
+      const svcs = await this.prisma.service.findMany({
+        where: { id: { in: svcIds } },
+        select: { name: true },
+      });
+      serviceNames = svcs.map((s) => s.name);
+    }
+
+    return {
+      data: {
+        code: referral.code,
+        status: referral.status,
+        expiresAt: referral.expiresAt,
+        promotionName: referral.promotion.name,
+        tenantName: referral.tenant.name,
+        tenantSlug: referral.tenant.slug,
+        generatedBy: client ? `${client.firstName} ${client.lastName || ''}`.trim() : null,
+        serviceNames,
+      },
+    };
+  }
+
+  async getMyReferrals(marketplaceUserId: string) {
+    const clients = await this.prisma.client.findMany({
+      where: { marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    if (clientIds.length === 0) {
+      return { data: [] };
+    }
+
+    const referrals = await this.prisma.promotionReferral.findMany({
+      where: { generatedByClientId: { in: clientIds } },
+      include: {
+        promotion: { select: { name: true, type: true, description: true } },
+        tenant: { select: { name: true, slug: true, logoUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Resolve service names for each referral
+    const enriched = await Promise.all(
+      referrals.map(async (ref) => {
+        const svcIds: string[] = Array.isArray(ref.serviceIds) ? ref.serviceIds as string[] : [];
+        let serviceNames: string[] = [];
+        if (svcIds.length > 0) {
+          const svcs = await this.prisma.service.findMany({
+            where: { id: { in: svcIds } },
+            select: { name: true },
+          });
+          serviceNames = svcs.map((s) => s.name);
+        }
+        return { ...ref, serviceNames };
+      }),
+    );
+
+    return { data: enriched };
+  }
+
   async redeemReward(
     marketplaceUserId: string,
     tenantSlug: string,
@@ -2259,6 +2378,105 @@ export class MarketplaceService {
       }
     }
 
+    // Validate promotion if provided (mutually exclusive with coupon)
+    let promotionRecord: any = null;
+    if (dto.promotionId && !dto.couponCode) {
+      promotionRecord = await this.prisma.promotion.findFirst({
+        where: { id: dto.promotionId, tenantId: tenant.id, isActive: true },
+      });
+
+      if (!promotionRecord) {
+        throw new BadRequestException('Promoción no encontrada');
+      }
+
+      const now = new Date();
+      if (now < promotionRecord.startDate) {
+        throw new BadRequestException('La promoción aún no ha comenzado');
+      }
+      if (now > promotionRecord.endDate) {
+        throw new BadRequestException('La promoción ha expirado');
+      }
+      if (promotionRecord.maxUses != null && promotionRecord.usedCount >= promotionRecord.maxUses) {
+        throw new BadRequestException('La promoción ha alcanzado el límite de usos');
+      }
+
+      // Validate service compatibility
+      const promoServiceIds: string[] = Array.isArray(promotionRecord.serviceIds) ? promotionRecord.serviceIds : [];
+      if (promoServiceIds.length > 0) {
+        const hasApplicable = dto.serviceIds.some((id) => promoServiceIds.includes(id));
+        if (!hasApplicable) {
+          throw new BadRequestException('La promoción no aplica a los servicios seleccionados');
+        }
+      }
+
+      // Calculate promotion discount
+      const applicableIds = promoServiceIds.length > 0
+        ? dto.serviceIds.filter((id) => promoServiceIds.includes(id))
+        : dto.serviceIds;
+
+      const promoServices = await this.prisma.service.findMany({
+        where: { id: { in: applicableIds }, tenantId: tenant.id },
+        select: { price: true },
+      });
+      const subtotal = promoServices.reduce((s, svc) => s + Number(svc.price), 0);
+
+      if (promotionRecord.minAmount && subtotal < Number(promotionRecord.minAmount)) {
+        throw new BadRequestException(`Monto mínimo requerido: ${promotionRecord.minAmount}`);
+      }
+
+      if (promotionRecord.type === 'PERCENTAGE') {
+        discountAmount = Math.round(subtotal * Number(promotionRecord.value) / 100 * 100) / 100;
+      } else if (promotionRecord.type === 'FIXED_AMOUNT') {
+        discountAmount = Math.min(Number(promotionRecord.value), subtotal);
+      } else if (promotionRecord.type === 'TWO_FOR_ONE') {
+        // 2x1: No discount for the original booker — they pay full price
+        // A referral code will be generated post-booking for a friend
+        discountAmount = null;
+      }
+    }
+
+    // Validate referral code (from 2x1 promotion shared by a friend)
+    let referralRecord: any = null;
+    if (dto.referralCode && !dto.couponCode && !dto.promotionId) {
+      referralRecord = await this.prisma.promotionReferral.findFirst({
+        where: { code: dto.referralCode, tenantId: tenant.id, status: 'ACTIVE' },
+        include: { promotion: true },
+      });
+
+      if (!referralRecord) {
+        throw new BadRequestException('Código de referido no válido o ya utilizado');
+      }
+
+      if (referralRecord.expiresAt && new Date(referralRecord.expiresAt) < new Date()) {
+        throw new BadRequestException('Este código de referido ha expirado');
+      }
+
+      // Validate that at least one of the booked services matches the referral
+      const refServiceIds: string[] = Array.isArray(referralRecord.serviceIds) ? referralRecord.serviceIds : [];
+      if (refServiceIds.length > 0) {
+        const hasMatch = dto.serviceIds.some((id) => refServiceIds.includes(id));
+        if (!hasMatch) {
+          throw new BadRequestException('Este código solo es válido para los servicios de la promoción original');
+        }
+      }
+
+      // The friend who redeems cannot be the same person who generated it
+      if (client.id === referralRecord.generatedByClientId) {
+        throw new BadRequestException('No puedes usar tu propio código de referido');
+      }
+
+      // Apply 100% discount on the applicable services
+      const applicableIds = refServiceIds.length > 0
+        ? dto.serviceIds.filter((id) => refServiceIds.includes(id))
+        : dto.serviceIds;
+
+      const refServices = await this.prisma.service.findMany({
+        where: { id: { in: applicableIds }, tenantId: tenant.id },
+        select: { price: true },
+      });
+      discountAmount = refServices.reduce((s, svc) => s + Number(svc.price), 0);
+    }
+
     // Pay with points: validate and calculate
     let pointsSpent = 0;
     if (dto.payWithPoints) {
@@ -2329,6 +2547,75 @@ export class MarketplaceService {
       );
     }
 
+    // Increment promotion usedCount and save discount
+    if (promotionRecord && appointment?.data?.id) {
+      postOps.push(
+        this.prisma.promotion.update({
+          where: { id: promotionRecord.id },
+          data: { usedCount: { increment: 1 } },
+        }),
+      );
+      if (discountAmount) {
+        postOps.push(
+          this.prisma.appointment.update({
+            where: { id: appointment.data.id },
+            data: {
+              discountAmount,
+              notes: `${appointment.data.notes || ''}\n[Promoción: ${promotionRecord.name}]`.trim(),
+            },
+          }),
+        );
+      }
+    }
+
+    // Mark referral code as used
+    if (referralRecord && appointment?.data?.id) {
+      postOps.push(
+        this.prisma.promotionReferral.update({
+          where: { id: referralRecord.id },
+          data: {
+            status: 'USED',
+            usedAt: new Date(),
+            redeemedByClientId: client.id,
+            redeemedAppointmentId: appointment.data.id,
+          },
+        }),
+        this.prisma.appointment.update({
+          where: { id: appointment.data.id },
+          data: {
+            discountAmount,
+            notes: `${appointment.data.notes || ''}\n[Código 2x1: ${referralRecord.code} — Promoción: ${referralRecord.promotion.name}]`.trim(),
+          },
+        }),
+      );
+    }
+
+    // Generate referral code for TWO_FOR_ONE promotions
+    let referralCode: string | null = null;
+    if (promotionRecord?.type === 'TWO_FOR_ONE' && appointment?.data?.id) {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+
+      const promoSvcIds = Array.isArray(promotionRecord.serviceIds) ? promotionRecord.serviceIds : dto.serviceIds;
+
+      await this.prisma.promotionReferral.create({
+        data: {
+          tenantId: tenant.id,
+          promotionId: promotionRecord.id,
+          appointmentId: appointment.data.id,
+          serviceIds: promoSvcIds,
+          code,
+          generatedByClientId: client.id,
+          expiresAt: promotionRecord.endDate,
+        },
+      });
+
+      referralCode = code;
+    }
+
     if (postOps.length > 0) {
       await this.prisma.$transaction(postOps);
     }
@@ -2340,6 +2627,8 @@ export class MarketplaceService {
         discountAmount,
         pointsSpent: pointsSpent > 0 ? pointsSpent : null,
         couponApplied: redemption ? { code: redemption.code, reward: redemption.reward.name } : null,
+        promotionApplied: promotionRecord ? { id: promotionRecord.id, name: promotionRecord.name } : null,
+        referralCode,
       },
     };
   }

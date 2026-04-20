@@ -273,13 +273,7 @@ export default function RewardsPage() {
                 key={reward.id}
                 reward={reward}
                 canEdit={hasPermission('rewards.update')}
-                canDelete={hasPermission('rewards.delete')}
                 onEdit={() => openEdit(reward)}
-                onDeactivate={() => {
-                  if (confirm('¿Desactivar este cupón?')) {
-                    deleteMutation.mutate(reward.id);
-                  }
-                }}
               />
             ))}
           </div>
@@ -469,13 +463,33 @@ export default function RewardsPage() {
               </div>
             </label>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={closeModal} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
-                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
-              </button>
+            <div className="flex justify-between items-center gap-3 pt-2">
+              <div>
+                {editingReward && editingReward.isActive && hasPermission('rewards.delete') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('¿Desactivar este cupón?')) {
+                        deleteMutation.mutate(editingReward.id, {
+                          onSuccess: () => closeModal(),
+                        });
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  >
+                    {deleteMutation.isPending ? 'Desactivando...' : 'Desactivar cupón'}
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={closeModal} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
+                  {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
             </div>
           </form>
         </Modal>
@@ -615,15 +629,11 @@ function formatExpiry(dateStr?: string) {
 function CouponAdminCard({
   reward,
   canEdit,
-  canDelete,
   onEdit,
-  onDeactivate,
 }: {
   reward: Reward;
   canEdit: boolean;
-  canDelete: boolean;
   onEdit: () => void;
-  onDeactivate: () => void;
 }) {
   const isDiscount = reward.type === 'DESCUENTO';
   const active = reward.isActive;
@@ -776,14 +786,6 @@ function CouponAdminCard({
         </div>
       </div>
 
-      {canDelete && active && (
-        <button
-          onClick={onDeactivate}
-          className="mt-2 w-full text-center text-xs text-red-500 hover:text-red-700 py-1"
-        >
-          Desactivar
-        </button>
-      )}
     </div>
   );
 }

@@ -58,6 +58,22 @@ interface AvailableSlot {
 
 type BookingStep = null | 'location' | 'service' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
 
+interface BizPromotion {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'TWO_FOR_ONE';
+  value: number;
+  code?: string;
+  startDate: string;
+  endDate: string;
+  maxUses?: number;
+  usedCount: number;
+  serviceIds?: string[];
+  minAmount?: number;
+  allowPointPayment?: boolean;
+}
+
 interface BookingCartItem {
   id: string;
   name: string;
@@ -171,6 +187,34 @@ export default function BusinessDetailPage() {
   const tenantSlug = params.tenantSlug as string;
   const bookEmployeeId = searchParams.get('bookEmployee');
 
+  // Referral code from shared link
+  const refFromUrl = searchParams.get('ref');
+  const [refModal, setRefModal] = useState<string | null>(null);
+  const [refSenderName, setRefSenderName] = useState<string | null>(null);
+  const [refServiceNames, setRefServiceNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (refFromUrl) {
+      const code = refFromUrl.toUpperCase();
+      setReferralCodeInput(code);
+      setRefModal(code);
+      localStorage.setItem(`ref_${tenantSlug}`, code);
+      // Fetch referral info to get sender name
+      fetch(`${API_URL}/api/marketplace/referral/${code}`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res?.data?.generatedBy) setRefSenderName(res.data.generatedBy);
+          if (res?.data?.serviceNames) setRefServiceNames(res.data.serviceNames);
+        })
+        .catch(() => {});
+    } else if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`ref_${tenantSlug}`);
+      if (saved) {
+        setReferralCodeInput(saved);
+      }
+    }
+  }, [refFromUrl, tenantSlug]);
+
   // Payment return handling
   const paymentStatus = searchParams.get('payment');
   const sessionId = searchParams.get('session_id');
@@ -190,7 +234,10 @@ export default function BusinessDetailPage() {
   );
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedBundle, setSelectedBundle] = useState<any>(null);
-  const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes'>('servicios');
+  const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes' | 'ofertas'>('servicios');
+  const [selectedPromotion, setSelectedPromotion] = useState<BizPromotion | null>(null);
+  const [referralCodeInput, setReferralCodeInput] = useState('');
+  const [earnedReferralCode, setEarnedReferralCode] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
   const [anyEmployee, setAnyEmployee] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs());
@@ -370,6 +417,8 @@ export default function BusinessDetailPage() {
         startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
         couponCode: selectedCoupon?.code || undefined,
+        promotionId: selectedPromotion?.id || undefined,
+        referralCode: referralCodeInput.trim() || undefined,
         payWithPoints: payWithPoints || undefined,
       });
 
@@ -401,6 +450,18 @@ export default function BusinessDetailPage() {
     },
     onSuccess: async (res: any) => {
       const appointment = res?.data?.data || res?.data || res;
+
+      // Capture referral code from TWO_FOR_ONE promotions
+      const refCode = appointment?.referralCode || res?.data?.referralCode;
+      if (refCode) {
+        setEarnedReferralCode(refCode);
+      }
+
+      // Clear referral code from localStorage after successful booking
+      if (referralCodeInput.trim()) {
+        localStorage.removeItem(`ref_${tenantSlug}`);
+      }
+
       // If business accepts online payment, redirect to Stripe Checkout
       if (biz?.acceptsOnlinePayment && appointment?.id) {
         try {
@@ -469,11 +530,19 @@ export default function BusinessDetailPage() {
 
   const handleBook = () => {
     if (!isAuthenticated) {
-      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
+      const redirect = savedRef
+        ? `/marketplace/${tenantSlug}%3Fref%3D${savedRef}`
+        : `/marketplace/${tenantSlug}`;
+      router.push(`/marketplace/login?redirect=${redirect}`);
       return;
     }
+    const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
     setSelectedServiceIds([]);
     setSelectedBundle(null);
+    setSelectedPromotion(null);
+    setReferralCodeInput(savedRef || '');
+    setEarnedReferralCode(null);
     setSelectedEmployee(null);
     setAnyEmployee(false);
     setSelectedDate(dayjs());
@@ -506,15 +575,38 @@ export default function BusinessDetailPage() {
   }
 
   // Derived data
+  const bizCurrency: string = biz?.currency || 'USD';
   const services: BizService[] = biz?.services || [];
   const bizBundles: any[] = biz?.bundles || [];
+  const bizPromotions: BizPromotion[] = (biz?.promotions || []).map((p: any) => ({ ...p, value: Number(p.value), serviceIds: Array.isArray(p.serviceIds) ? p.serviceIds : [] }));
   const employees: BizEmployee[] = biz?.employees || [];
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
-  const totalPrice = selectedBundle
+  const basePrice = selectedBundle
     ? Number(selectedBundle.bundlePrice)
     : selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const totalPointsEarned = selectedServices.reduce((sum, s) => sum + (s.pointsReward || 0), 0);
+
+  // Calculate promotion discount
+  const promoDiscount = (() => {
+    if (!selectedPromotion || selectedServiceIds.length === 0) return 0;
+    const promoSvcIds = selectedPromotion.serviceIds || [];
+    const applicableServices = promoSvcIds.length > 0
+      ? selectedServices.filter((s) => promoSvcIds.includes(s.id))
+      : selectedServices;
+    if (applicableServices.length === 0) return 0;
+    const subtotal = applicableServices.reduce((sum, s) => sum + Number(s.price), 0);
+    if (selectedPromotion.type === 'PERCENTAGE') {
+      return Math.round(subtotal * selectedPromotion.value / 100 * 100) / 100;
+    } else if (selectedPromotion.type === 'FIXED_AMOUNT') {
+      return Math.min(selectedPromotion.value, subtotal);
+    } else if (selectedPromotion.type === 'TWO_FOR_ONE') {
+      // No discount for the original booker — they pay full price and get a code for a friend
+      return 0;
+    }
+    return 0;
+  })();
+  const totalPrice = basePrice - promoDiscount;
 
   // Filter employees by selected services
   const availableEmployees = employees.filter((emp) =>
@@ -1095,6 +1187,87 @@ export default function BusinessDetailPage() {
         </div>
       )}
 
+      {/* ─── REFERRAL CODE FULLSCREEN MODAL ──────────────── */}
+      {refModal && (
+        <div className="fixed inset-0 z-50 bg-white flex items-center justify-center px-4">
+          <div className="max-w-md w-full text-center">
+            {/* Icon */}
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: '#ede9fe' }}
+            >
+              <svg className="w-8 h-8" style={{ color: '#7c3aed' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21" />
+              </svg>
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Tienes un servicio gratis</h2>
+            <p className="text-gray-500 mb-6">
+              {refSenderName
+                ? <><strong className="text-gray-700">{refSenderName}</strong> te compartió un código para que disfrutes un servicio sin costo en {biz?.name || 'este negocio'}.</>
+                : <>Te compartieron un código para que disfrutes un servicio sin costo en {biz?.name || 'este negocio'}.</>
+              }
+            </p>
+
+            {/* Coupon card */}
+            <div className="bg-white rounded-2xl overflow-hidden shadow-md flex text-left mb-6 mx-auto" style={{ minHeight: 110, maxWidth: 400 }}>
+              <div
+                className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+                style={{ backgroundColor: '#7c3aed' }}
+              >
+                <span className="text-white font-black text-base leading-tight text-center">GRATIS</span>
+                <span className="text-white/70 text-[9px] uppercase tracking-wider">2×1</span>
+                <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-white" />
+                <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full bg-white" />
+              </div>
+              <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                ))}
+              </div>
+              <div className="flex-1 py-3 pr-4 flex flex-col justify-center min-w-0">
+                <p className="text-sm font-bold text-gray-900 leading-tight">Servicio gratis</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {refServiceNames.length > 0
+                    ? refServiceNames.join(', ')
+                    : 'Reserva y tu servicio será sin costo'}
+                </p>
+                <div
+                  className="mt-2 bg-gray-50 rounded-lg py-2 px-3 font-mono text-lg font-black tracking-[0.15em] text-center select-all cursor-pointer"
+                  style={{ color: '#7c3aed' }}
+                  onClick={() => navigator.clipboard.writeText(refModal)}
+                >
+                  {refModal}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setRefModal(null);
+                  router.push('/marketplace/coupons');
+                }}
+                className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors"
+                style={{ backgroundColor: '#7c3aed' }}
+              >
+                Ver mis cupones
+              </button>
+              <button
+                onClick={() => {
+                  setRefModal(null);
+                  handleBook();
+                }}
+                className="w-full py-3 rounded-xl font-medium text-sm transition-colors border-2"
+                style={{ borderColor: '#7c3aed', color: '#7c3aed' }}
+              >
+                Reservar ahora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── BOOKING OVERLAY ─────────────────────────────── */}
       {bookingStep && bookingStep !== 'success' && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
@@ -1340,8 +1513,8 @@ export default function BusinessDetailPage() {
                     Selecciona el servicio
                   </h2>
 
-                  {/* Tabs: Servicios | Paquetes */}
-                  {bizBundles.length > 0 && (
+                  {/* Tabs: Servicios | Paquetes | Ofertas */}
+                  {(bizBundles.length > 0 || bizPromotions.length > 0) && (
                     <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
                       <button
                         onClick={() => setServiceTab('servicios')}
@@ -1351,14 +1524,26 @@ export default function BusinessDetailPage() {
                       >
                         Servicios
                       </button>
-                      <button
-                        onClick={() => setServiceTab('paquetes')}
-                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                          serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Paquetes
-                      </button>
+                      {bizBundles.length > 0 && (
+                        <button
+                          onClick={() => setServiceTab('paquetes')}
+                          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                            serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          Paquetes
+                        </button>
+                      )}
+                      {bizPromotions.length > 0 && (
+                        <button
+                          onClick={() => setServiceTab('ofertas')}
+                          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                            serviceTab === 'ofertas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          Ofertas
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -1381,6 +1566,7 @@ export default function BusinessDetailPage() {
                               } else {
                                 setSelectedServiceIds(bundleServiceIds);
                                 setSelectedBundle(bundle);
+                                setSelectedPromotion(null);
                               }
                             }}
                             className="w-full text-left p-4 rounded-xl border-2 transition-all"
@@ -1427,6 +1613,100 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
+                  {/* Ofertas / Promociones */}
+                  {serviceTab === 'ofertas' && bizPromotions.length > 0 && (
+                    <div className="grid gap-3 mb-4">
+                      {bizPromotions.map((promo) => {
+                        const promoSvcIds = promo.serviceIds || [];
+                        const promoServices = promoSvcIds.length > 0
+                          ? services.filter((s) => promoSvcIds.includes(s.id))
+                          : [];
+                        const isSelected = selectedPromotion?.id === promo.id;
+                        const endDate = new Date(promo.endDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+
+                        const isTwoForOne = promo.type === 'TWO_FOR_ONE';
+                        const discountLabel = promo.type === 'PERCENTAGE'
+                          ? `${promo.value}% de descuento`
+                          : promo.type === 'FIXED_AMOUNT'
+                            ? `${formatCurrency(promo.value, bizCurrency)} de descuento`
+                            : 'Paga uno y regala el mismo servicio a un amigo totalmente gratis';
+
+                        return (
+                          <button
+                            key={promo.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedPromotion(null);
+                                setSelectedServiceIds([]);
+                                setSelectedBundle(null);
+                              } else {
+                                setSelectedPromotion(promo);
+                                setSelectedCoupon(null);
+                                if (promo.allowPointPayment === false) setPayWithPoints(false);
+                                if (promoSvcIds.length > 0) {
+                                  setSelectedServiceIds(promoSvcIds);
+                                  setSelectedBundle(null);
+                                }
+                              }
+                            }}
+                            className="w-full text-left rounded-xl border-2 overflow-hidden transition-all"
+                            style={isSelected ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT } : { borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                          >
+                            {/* Header con descuento */}
+                            <div className="px-4 py-3 flex items-center justify-between">
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-900">{promo.name}</p>
+                                {promo.description && (
+                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
+                                )}
+                              </div>
+                              <span
+                                className="flex-shrink-0 ml-3 px-3 py-1.5 rounded-lg text-sm font-bold text-white"
+                                style={{ backgroundColor: TEAL }}
+                              >
+                                {promo.type === 'PERCENTAGE' ? `-${promo.value}%` : promo.type === 'TWO_FOR_ONE' ? '2×1' : `-${formatCurrency(promo.value, bizCurrency)}`}
+                              </span>
+                            </div>
+
+                            {/* Servicios aplicables */}
+                            {promoServices.length > 0 && (
+                              <div className="px-4 pb-2">
+                                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Aplica a</p>
+                                <div className="space-y-1">
+                                  {promoServices.map((s) => (
+                                    <div key={s.id} className="flex items-center gap-2">
+                                      <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      <span className="text-sm text-gray-700">{s.name}</span>
+                                      <span className="text-xs text-gray-400 ml-auto">{formatCurrency(Number(s.price), s.currency)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {promoSvcIds.length === 0 && (
+                              <div className="px-4 pb-2">
+                                <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                  <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Aplica a todos los servicios
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Footer: vigencia + descuento info */}
+                            <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
+                              <span className="text-[11px] text-gray-400">Válida hasta {endDate}</span>
+                              <span className="text-xs font-semibold" style={{ color: TEAL }}>{discountLabel}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {/* Servicios individuales */}
                   {serviceTab === 'servicios' && (
                     hasSubcategories ? (
@@ -1451,7 +1731,7 @@ export default function BusinessDetailPage() {
 
                   {selectedServiceIds.length > 0 && (
                     <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-1">
                         <span className="text-sm text-gray-600">
                           {selectedServiceIds.length} servicio
                           {selectedServiceIds.length !== 1 ? 's' : ''}
@@ -1460,6 +1740,20 @@ export default function BusinessDetailPage() {
                           {totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}
                         </span>
                       </div>
+                      {promoDiscount > 0 && selectedPromotion && (
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-green-600 flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                            </svg>
+                            {selectedPromotion.name}
+                          </span>
+                          <span className="text-xs font-semibold text-green-600">
+                            -{formatCurrency(promoDiscount, selectedServices[0]?.currency)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="mb-3" />
                       <button
                         onClick={() => setBookingStep('employee')}
                         className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors"
@@ -1991,8 +2285,19 @@ export default function BusinessDetailPage() {
                       </div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-500">Subtotal servicios</span>
-                        <span className="font-medium text-gray-900">{formatCurrency(totalPrice, selectedServices[0]?.currency)}</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(basePrice, selectedServices[0]?.currency)}</span>
                       </div>
+                      {promoDiscount > 0 && selectedPromotion && (
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-green-600 font-medium flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                            </svg>
+                            Oferta: {selectedPromotion.name}
+                          </span>
+                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, selectedServices[0]?.currency)}</span>
+                        </div>
+                      )}
                       {bookingCart.length > 0 && (
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-500">Productos</span>
@@ -2012,6 +2317,7 @@ export default function BusinessDetailPage() {
                             if (svc) disc = Number(svc.price);
                           }
                         }
+                        const hasDiscount = disc > 0 || promoDiscount > 0 || payWithPoints;
                         const finalTotal = payWithPoints ? 0 : Math.max(0, totalPrice + bookingCartTotal - disc);
                         const pointsCost = payWithPoints ? selectedServices.reduce((sum, s) => sum + (s.pointsRequired || 0), 0) : 0;
                         return (
@@ -2031,8 +2337,8 @@ export default function BusinessDetailPage() {
                             <div className="flex justify-between pt-2 border-t border-gray-100 mt-2">
                               <span className="font-semibold text-gray-900">Total a pagar</span>
                               <div className="text-right">
-                                {(disc > 0 || payWithPoints) && (
-                                  <span className="text-sm text-gray-400 line-through mr-2">{formatCurrency(totalPrice + bookingCartTotal, selectedServices[0]?.currency)}</span>
+                                {hasDiscount && (
+                                  <span className="text-sm text-gray-400 line-through mr-2">{formatCurrency(basePrice + bookingCartTotal, selectedServices[0]?.currency)}</span>
                                 )}
                                 <span className="font-bold text-lg" style={{ color: TEAL }}>
                                   {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, selectedServices[0]?.currency)}
@@ -2056,15 +2362,59 @@ export default function BusinessDetailPage() {
                     </div>
                   </div>
 
+                  {/* 2x1 promotion info */}
+                  {selectedPromotion?.type === 'TWO_FOR_ONE' && (
+                    <div className="rounded-xl border-2 border-dashed p-3 mb-4 text-center" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
+                      <p className="text-sm font-bold" style={{ color: TEAL }}>Promoción 2×1</p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Al confirmar, recibirás un <strong>código para compartir</strong> con un amigo.
+                        Tu amigo podrá usar el mismo servicio gratis.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Referral code input (from 2x1 promotions) */}
+                  {!selectedCoupon && !selectedPromotion && !payWithPoints && (
+                    <div className="border border-gray-200 rounded-xl p-3 mb-4">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">¿Tienes un código de referido?</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={referralCodeInput}
+                          onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono tracking-wider text-center uppercase"
+                          placeholder="XXXXXXXX"
+                          maxLength={12}
+                        />
+                        {referralCodeInput.trim() && (
+                          <button
+                            onClick={() => setReferralCodeInput('')}
+                            className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                      {referralCodeInput.trim() && (
+                        <p className="text-[11px] mt-1.5" style={{ color: TEAL }}>
+                          El código se validará al confirmar la reserva
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Coupon selector - max 1 per booking */}
                   {userCoupons.length > 0 && (
-                    <div className="border border-gray-200 rounded-xl p-3 mb-4">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Tienes cupones disponibles</p>
+                    <div className={`border rounded-xl p-3 mb-4 relative ${selectedPromotion ? 'border-gray-100' : 'border-gray-200'}`}>
+                      {selectedPromotion ? (
+                        <p className="text-xs font-semibold text-gray-400 mb-2">Cupones no disponibles al usar una oferta</p>
+                      ) : (
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Tienes cupones disponibles</p>
+                      )}
                       <div className="space-y-2">
                         {userCoupons.map((r: any) => {
                           const reward = r.reward;
                           const isSelected = selectedCoupon?.id === r.id;
-                          // Check compatibility: SERVICIO coupons only if their service is in the selected services
                           const isCompatible = reward?.type === 'DESCUENTO' || (reward?.type === 'SERVICIO' && reward?.service?.id && selectedServiceIds.includes(reward.service.id));
                           if (!isCompatible) return null;
                           const label = reward?.type === 'DESCUENTO'
@@ -2073,12 +2423,13 @@ export default function BusinessDetailPage() {
                           return (
                             <button
                               key={r.id}
-                              onClick={() => setSelectedCoupon(isSelected ? null : r)}
+                              disabled={!!selectedPromotion}
+                              onClick={() => { setSelectedCoupon(isSelected ? null : r); if (!isSelected) setSelectedPromotion(null); }}
                               className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors ${
                                 isSelected
                                   ? 'border-[#008080] bg-teal-50'
                                   : 'border-gray-200 hover:border-gray-300'
-                              }`}
+                              } ${selectedPromotion ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                               <div className="min-w-0">
                                 <p className={`text-sm font-medium ${isSelected ? 'text-[#008080]' : 'text-gray-900'}`}>{reward?.name}</p>
@@ -2106,15 +2457,21 @@ export default function BusinessDetailPage() {
                     const allRedeemable = selectedServices.every((s) => s.redeemableWithPoints && s.pointsRequired);
                     const canPayWithPoints = allRedeemable && totalPointsNeeded > 0 && myPointsHere >= totalPointsNeeded;
 
+                    const pointsBlockedByPromo = selectedPromotion && selectedPromotion.allowPointPayment === false;
+
                     return canPayWithPoints ? (
                       <div className="mb-4">
+                        {pointsBlockedByPromo && (
+                          <p className="text-xs font-semibold text-gray-400 mb-2">No disponible con esta oferta</p>
+                        )}
                         <button
+                          disabled={!!pointsBlockedByPromo}
                           onClick={() => { setPayWithPoints(!payWithPoints); if (!payWithPoints) setSelectedCoupon(null); }}
                           className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
                             payWithPoints
                               ? 'border-teal-400 bg-teal-50'
                               : 'border-gray-200 hover:border-gray-300'
-                          }`}
+                          } ${pointsBlockedByPromo ? 'opacity-40 cursor-not-allowed' : ''}`}
                         >
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
@@ -2287,20 +2644,27 @@ export default function BusinessDetailPage() {
                       if (svc) disc = Number(svc.price);
                     }
                   }
+                  const hasAnyDiscount = disc > 0 || promoDiscount > 0;
                   const finalTotal = Math.max(0, totalPrice - disc);
                   return (
                     <>
+                      {hasAnyDiscount && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Subtotal:</span>
+                          <span className="text-gray-500">{formatCurrency(basePrice, selectedServices[0]?.currency)}</span>
+                        </div>
+                      )}
+                      {promoDiscount > 0 && selectedPromotion && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-green-600 font-medium">Oferta: {selectedPromotion.name}</span>
+                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, selectedServices[0]?.currency)}</span>
+                        </div>
+                      )}
                       {disc > 0 && (
-                        <>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Subtotal:</span>
-                            <span className="text-gray-500">{formatCurrency(totalPrice, selectedServices[0]?.currency)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
-                            <span className="text-green-600 font-medium">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
-                          </div>
-                        </>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
+                          <span className="text-green-600 font-medium">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
+                        </div>
                       )}
                       {payWithPoints && (
                         <div className="flex justify-between text-sm">
@@ -2328,6 +2692,93 @@ export default function BusinessDetailPage() {
                     <span className="font-bold text-amber-800">+{totalPointsEarned} pts</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Promotion applied info */}
+            {selectedPromotion && !earnedReferralCode && (
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
+                <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                </svg>
+                <p className="text-sm text-green-700 font-medium">Oferta aplicada: {selectedPromotion.name}</p>
+              </div>
+            )}
+
+            {/* Referral code from 2x1 promotion — coupon style */}
+            {earnedReferralCode && (
+              <div className="mb-6">
+                {selectedPromotion && (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-3">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                    </svg>
+                    <p className="text-sm text-green-700 font-medium">Promoción 2×1 aplicada</p>
+                  </div>
+                )}
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Código para tu amigo</p>
+                {/* Coupon-style card */}
+                <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 110 }}>
+                  {/* Stub izquierdo — morado para diferenciarlo */}
+                  <div
+                    className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+                    style={{ backgroundColor: '#7c3aed' }}
+                  >
+                    <span className="text-white font-black text-lg leading-tight text-center">2×1</span>
+                    <span className="text-white/70 text-[9px] uppercase tracking-wider">regalo</span>
+                    <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-gray-50" />
+                    <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full bg-gray-50" />
+                  </div>
+
+                  {/* Separador perforado */}
+                  <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                    {Array.from({ length: 9 }).map((_, i) => (
+                      <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                    ))}
+                  </div>
+
+                  {/* Contenido principal */}
+                  <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 leading-tight">Servicio gratis para un amigo</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Comparte este código y tu amigo obtiene el mismo servicio sin costo</p>
+                      <div
+                        className="mt-2 bg-gray-50 rounded-lg py-2 px-3 font-mono text-lg font-black tracking-[0.15em] select-all cursor-pointer text-center"
+                        style={{ color: '#7c3aed' }}
+                        onClick={() => navigator.clipboard.writeText(earnedReferralCode)}
+                        title="Click para copiar"
+                      >
+                        {earnedReferralCode}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end mt-2">
+                      <button
+                        onClick={() => {
+                          const refUrl = `${window.location.origin}/marketplace/${tenantSlug}?ref=${earnedReferralCode}`;
+                          if (navigator.share) {
+                            navigator.share({
+                              title: `Código 2x1 en ${biz?.name}`,
+                              text: `Usa mi código ${earnedReferralCode} para obtener un servicio gratis en ${biz?.name}. Reserva en:`,
+                              url: refUrl,
+                            }).catch(() => {});
+                          } else {
+                            navigator.clipboard.writeText(
+                              `Usa mi código ${earnedReferralCode} para un servicio gratis en ${biz?.name}. Reserva aquí: ${refUrl}`
+                            );
+                          }
+                        }}
+                        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white transition-transform active:scale-95 flex items-center gap-1.5"
+                        style={{ backgroundColor: '#7c3aed', letterSpacing: '0.05em' }}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                        </svg>
+                        COMPARTIR
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -110,6 +110,7 @@ export class PromotionsService {
         maxUses: dto.maxUses,
         serviceIds: dto.serviceIds ?? [],
         minAmount: dto.minAmount,
+        allowPointPayment: dto.allowPointPayment ?? true,
         isActive: dto.isActive ?? true,
       },
     });
@@ -173,6 +174,7 @@ export class PromotionsService {
         ...(dto.maxUses !== undefined && { maxUses: dto.maxUses }),
         ...(dto.serviceIds !== undefined && { serviceIds: dto.serviceIds }),
         ...(dto.minAmount !== undefined && { minAmount: dto.minAmount }),
+        ...(dto.allowPointPayment !== undefined && { allowPointPayment: dto.allowPointPayment }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });

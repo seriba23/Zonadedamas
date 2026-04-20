@@ -3,12 +3,14 @@ import { Throttle } from '@nestjs/throttler';
 import { PublicBookingService } from './public-booking.service';
 import { PublicAvailabilityQueryDto, PublicBookDto } from './dto/public-booking.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AvailabilityService } from '../availability/availability.service';
 
 @Controller('public/:tenantSlug')
 export class PublicBookingController {
   constructor(
     private readonly publicBookingService: PublicBookingService,
     private readonly prisma: PrismaService,
+    private readonly availabilityService: AvailabilityService,
   ) {}
 
   @Get('services')
@@ -55,6 +57,18 @@ export class PublicBookingController {
     }
 
     return { data: flatSlots };
+  }
+
+  @Post('bundle-availability')
+  async getBundleAvailability(
+    @Param('tenantSlug') tenantSlug: string,
+    @Body() body: { bundleId: string; startDate: string; endDate: string; locationId?: string },
+  ) {
+    const tenant = await this.publicBookingService.resolveTenant(tenantSlug);
+    return this.availabilityService.getBundleAvailability(
+      { bundleId: body.bundleId, startDate: body.startDate, endDate: body.endDate, locationId: body.locationId },
+      tenant.id,
+    );
   }
 
   @Post('book')

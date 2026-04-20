@@ -20,6 +20,14 @@ export class MarketplaceBookDto {
   couponCode?: string;
 
   @IsOptional()
+  @IsUUID('4')
+  promotionId?: string;
+
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
+
+  @IsOptional()
   @IsBoolean()
   payWithPoints?: boolean;
 }

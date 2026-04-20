@@ -1,6 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AvailabilityService } from './availability.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { BundleAvailabilityQueryDto } from './dto/bundle-availability-query.dto';
 import { AllSlotsQueryDto } from './dto/all-slots-query.dto';
 import { CheckAfterDto } from './dto/check-after.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -68,5 +69,14 @@ export class AvailabilityController {
   ) {
     const result = await this.availabilityService.checkAfterTime(dto, tenantId);
     return { data: result };
+  }
+
+  @Post('bundle')
+  @RequirePermissions('availability.read')
+  async bundleAvailability(
+    @CurrentTenant() tenantId: string,
+    @Body() query: BundleAvailabilityQueryDto,
+  ) {
+    return this.availabilityService.getBundleAvailability(query, tenantId);
   }
 }

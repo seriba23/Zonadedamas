@@ -19,6 +19,7 @@ interface Employee {
   color?: string;
   avatarUrl?: string | null;
   jobTitle?: string | null;
+  managerId?: string | null;
   isActive: boolean;
   locationId?: string;
   location?: { id: string; name: string };
@@ -295,7 +296,7 @@ export default function StaffPage() {
 
         {/* ─── Tab: Organigrama ─── */}
         {activeTab === 'organigrama' && (
-          <OrgChart employees={data?.data || []} />
+          <OrgChart employees={data?.data || []} onUpdate={() => queryClient.invalidateQueries({ queryKey: ['employees'] })} />
         )}
 
         {/* ─── Tab: Asistencias ─── */}
@@ -385,50 +386,69 @@ function PlaceholderTab({ icon, title, desc, hint }: { icon: string; title: stri
 }
 
 /* ─── Organigrama Component ─── */
-function OrgChart({ employees }: { employees: Employee[] }) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: () => void }) {
   const [zoom, setZoom] = useState(1);
+  const [editMode, setEditMode] = useState(false);
+  const [editingEmpId, setEditingEmpId] = useState<string | null>(null);
+  const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null);
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+  const { hasPermission } = usePermissions();
+
+  const expandAll = () => setCollapsedNodes(new Set());
+  const collapseAll = () => {
+    const withChildren = new Set<string>();
+    employees.forEach((emp) => {
+      if (emp.managerId) {
+        withChildren.add(emp.managerId);
+      }
+    });
+    setCollapsedNodes(withChildren);
+  };
+  const toggleCollapse = (id: string) => {
+    setCollapsedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: ({ empId, managerId }: { empId: string; managerId: string | null }) =>
+      api.put(`/api/employees/${empId}`, { managerId: managerId || null }),
+    onSuccess: () => {
+      setEditingEmpId(null);
+      onUpdate();
+    },
+  });
 
   if (employees.length === 0) {
     return <div className="text-center py-20 text-gray-400">No hay empleados registrados</div>;
   }
 
-  // Find owner (first employee, or one without jobTitle meaning they're the boss)
-  const owner = employees.find((e) => !e.jobTitle || e.jobTitle === 'Owner') || employees[0];
+  // Build hierarchy from managerId
+  const empMap = new Map(employees.map((e) => [e.id, e]));
+  const childrenMap = new Map<string, Employee[]>();
+  for (const emp of employees) {
+    if (emp.managerId && empMap.has(emp.managerId)) {
+      const list = childrenMap.get(emp.managerId) || [];
+      list.push(emp);
+      childrenMap.set(emp.managerId, list);
+    }
+  }
 
-  // Build hierarchy: group by jobTitle
-  const byJobTitle: Record<string, Employee[]> = {};
-  employees.forEach((emp) => {
-    if (emp.id === owner.id) return;
-    const title = emp.jobTitle || 'Sin puesto';
-    if (!byJobTitle[title]) byJobTitle[title] = [];
-    byJobTitle[title].push(emp);
-  });
+  // Root nodes: no managerId, or managerId points to someone not in the list
+  const roots = employees.filter((e) => !e.managerId || !empMap.has(e.managerId));
+  // The owner/admin is the first root (ideally the one with jobTitle 'Owner' or no jobTitle)
+  const topRoot = roots.find((e) => e.jobTitle === 'Owner' || e.jobTitle === 'Dueño') || roots[0];
+  // Unassigned: roots that are NOT the topRoot
+  const unassigned = roots.filter((e) => e.id !== topRoot?.id);
 
-  const toggleNode = (id: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const expandAll = () => {
-    const all = new Set<string>();
-    all.add(owner.id);
-    Object.keys(byJobTitle).forEach((t) => all.add(t));
-    setExpandedNodes(all);
-  };
-
-  const collapseAll = () => setExpandedNodes(new Set());
-
-  function OrgCard({ emp, size = 'normal' }: { emp: Employee; size?: 'large' | 'normal' }) {
+  function OrgCard({ emp, size = 'normal', isEditing }: { emp: Employee; size?: 'large' | 'normal'; isEditing?: boolean }) {
     const isLarge = size === 'large';
     return (
       <div className={`flex flex-col items-center ${isLarge ? 'mb-2' : ''}`}>
         <div
-          className={`rounded-2xl border-2 border-white shadow-lg flex flex-col items-center justify-center overflow-hidden ${isLarge ? 'w-28 h-32' : 'w-24 h-28'}`}
+          className={`rounded-2xl border-2 shadow-lg flex flex-col items-center justify-center overflow-hidden transition-all ${isLarge ? 'w-28 h-32' : 'w-24 h-28'} ${isEditing ? 'border-[#008080] ring-2 ring-teal-300' : 'border-white'}`}
           style={{ backgroundColor: emp.color || '#008080' }}
         >
           <div className={`bg-white/20 flex items-center justify-center ${isLarge ? 'w-14 h-14 rounded-full mb-1.5' : 'w-10 h-10 rounded-full mb-1'}`}>
@@ -441,8 +461,115 @@ function OrgChart({ employees }: { employees: Employee[] }) {
           <p className="text-[10px] font-semibold text-white text-center px-1 leading-tight">{emp.firstName}</p>
           <p className="text-[9px] text-white/70 text-center px-1 leading-tight">{emp.lastName}</p>
         </div>
-        {emp.jobTitle && (
-          <span className="text-[9px] text-gray-500 mt-1 text-center">{emp.jobTitle}</span>
+        <span className="text-[9px] text-gray-500 mt-1 text-center">{emp.jobTitle || 'Sin puesto'}</span>
+      </div>
+    );
+  }
+
+  function ManagerPicker({ emp }: { emp: Employee }) {
+    return (
+      <div className="mt-2 bg-white rounded-lg border border-gray-200 shadow-lg p-3 w-52 z-10 relative">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Reporta a:</p>
+        <select
+          value={selectedManagerId || ''}
+          onChange={(e) => setSelectedManagerId(e.target.value || null)}
+          className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:border-[#008080] focus:ring-1 focus:ring-[#008080] mb-2"
+        >
+          <option value="">Sin jefe (nivel superior)</option>
+          {employees
+            .filter((e) => e.id !== emp.id)
+            .map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.firstName} {e.lastName}{e.jobTitle ? ` — ${e.jobTitle}` : ''}
+              </option>
+            ))}
+        </select>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => saveMutation.mutate({ empId: emp.id, managerId: selectedManagerId })}
+            disabled={saveMutation.isPending}
+            className="flex-1 text-[10px] font-medium text-white py-1 rounded-md disabled:opacity-50"
+            style={{ backgroundColor: '#008080' }}
+          >
+            {saveMutation.isPending ? '...' : 'Guardar'}
+          </button>
+          <button
+            onClick={() => setEditingEmpId(null)}
+            className="flex-1 text-[10px] font-medium text-gray-600 py-1 rounded-md border border-gray-200 hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function OrgNode({ emp, isRoot }: { emp: Employee; isRoot?: boolean }) {
+    const children = childrenMap.get(emp.id) || [];
+    const isEditing = editingEmpId === emp.id;
+
+    return (
+      <div className="flex flex-col items-center">
+        {/* Card + edit button */}
+        <div className="relative group">
+          <Link href={`/staff/${emp.id}`}>
+            <OrgCard emp={emp} size={isRoot ? 'large' : 'normal'} isEditing={isEditing} />
+          </Link>
+          {editMode && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setEditingEmpId(isEditing ? null : emp.id);
+                setSelectedManagerId(emp.managerId || null);
+              }}
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Cambiar jefe"
+            >
+              <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Inline manager picker */}
+        {isEditing && editMode && <ManagerPicker emp={emp} />}
+
+        {/* Children */}
+        {children.length > 0 && (
+          <>
+            <div className="w-px h-3 bg-gray-300" />
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCollapse(emp.id); }}
+              className="w-5 h-5 rounded-full border border-gray-300 bg-white flex items-center justify-center text-gray-400 hover:border-[#008080] hover:text-[#008080] transition-colors"
+              title={collapsedNodes.has(emp.id) ? 'Expandir' : 'Contraer'}
+            >
+              <span className="text-[10px] font-bold">{collapsedNodes.has(emp.id) ? `+${children.length}` : '−'}</span>
+            </button>
+            {!collapsedNodes.has(emp.id) && (
+              <>
+                <div className="w-px h-3 bg-gray-300" />
+                {children.length === 1 ? (
+                  <OrgNode emp={children[0]} />
+                ) : (
+                  <>
+                    <div className="relative">
+                      <div className="h-px bg-gray-300" style={{ width: Math.max(children.length * 140, 140) }} />
+                    </div>
+                    <div className="flex gap-6">
+                      {children.map((child) => (
+                        <div key={child.id} className="flex flex-col items-center">
+                          <div className="w-px h-6 bg-gray-300" />
+                          <OrgNode emp={child} />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
     );
@@ -454,6 +581,22 @@ function OrgChart({ employees }: { employees: Employee[] }) {
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <button onClick={expandAll} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50">Expandir</button>
         <button onClick={collapseAll} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50">Contraer</button>
+        {hasPermission('employees.update') && (
+          <button
+            onClick={() => { setEditMode(!editMode); setEditingEmpId(null); }}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${editMode ? 'bg-[#008080] text-white' : 'border border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+          >
+            {editMode ? 'Listo' : 'Editar estructura'}
+          </button>
+        )}
+        {unassigned.length > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200">
+            <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="text-xs text-red-700">{unassigned.length} empleado{unassigned.length !== 1 ? 's' : ''} sin jefe asignado</span>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))} className="px-2.5 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">−</button>
           <span className="text-xs text-gray-500 min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
@@ -465,46 +608,41 @@ function OrgChart({ employees }: { employees: Employee[] }) {
       {/* Org tree */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-auto" style={{ minHeight: 400 }}>
         <div className="flex flex-col items-center py-10 px-8" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', minWidth: 'max-content' }}>
-          {/* Owner / Root */}
-          <OrgCard emp={owner} size="large" />
+          <OrgNode emp={topRoot} isRoot />
 
-          {/* Connector line */}
-          {Object.keys(byJobTitle).length > 0 && (
-            <>
-              <div className="w-px h-6 bg-gray-300" />
-              <div className="relative">
-                <div className="h-px bg-gray-300" style={{ width: Math.max(Object.keys(byJobTitle).length * 160, 160) }} />
-              </div>
-
-              {/* Groups by job title */}
-              <div className="flex gap-8 mt-0">
-                {Object.entries(byJobTitle).map(([title, emps]) => {
-                  const isExpanded = expandedNodes.has(title);
-                  return (
-                    <div key={title} className="flex flex-col items-center">
-                      <div className="w-px h-6 bg-gray-300" />
-                      <button
-                        onClick={() => toggleNode(title)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors mb-2"
-                        style={{ borderColor: '#008080', color: isExpanded ? 'white' : '#008080', backgroundColor: isExpanded ? '#008080' : 'white' }}
-                      >
-                        {title} ({emps.length})
-                      </button>
-
-                      {isExpanded && (
-                        <div className="flex gap-4 mt-2">
-                          {emps.map((emp) => (
-                            <Link key={emp.id} href={`/staff/${emp.id}`}>
-                              <OrgCard emp={emp} />
-                            </Link>
-                          ))}
-                        </div>
+          {/* Unassigned employees */}
+          {unassigned.length > 0 && (
+            <div className="mt-10 pt-6 border-t-2 border-dashed border-gray-200 w-full">
+              <p className="text-xs font-semibold text-gray-400 text-center mb-4">Sin jefe asignado</p>
+              <div className="flex gap-6 justify-center flex-wrap">
+                {unassigned.map((emp) => (
+                  <div key={emp.id} className="flex flex-col items-center">
+                    <div className="relative group">
+                      <Link href={`/staff/${emp.id}`}>
+                        <OrgCard emp={emp} />
+                      </Link>
+                      {editMode && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditingEmpId(editingEmpId === emp.id ? null : emp.id);
+                            setSelectedManagerId(null);
+                          }}
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Asignar jefe"
+                        >
+                          <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
                       )}
                     </div>
-                  );
-                })}
+                    {editingEmpId === emp.id && editMode && <ManagerPicker emp={emp} />}
+                  </div>
+                ))}
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

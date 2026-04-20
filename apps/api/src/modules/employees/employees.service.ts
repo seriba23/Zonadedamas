@@ -202,9 +202,14 @@ export class EmployeesService {
 
   async update(id: string, tenantId: string, dto: UpdateEmployeeDto) {
     await this.findOne(id, tenantId);
+    // Normalize managerId: empty string → null
+    const data: any = { ...dto };
+    if ('managerId' in data && !data.managerId) {
+      data.managerId = null;
+    }
     const employee = await this.prisma.employee.update({
       where: { id },
-      data: dto,
+      data,
     });
     if (dto.isActive !== undefined) {
       const deactivating = dto.isActive === false;

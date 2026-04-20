@@ -345,7 +345,11 @@ export class ClientPortalService {
 
   async getServices(tenantId: string) {
     return this.prisma.service.findMany({
-      where: { tenantId, isActive: true },
+      where: {
+        tenantId,
+        isActive: true,
+        employeeServices: { some: { employee: { isActive: true } } },
+      },
       select: {
         id: true,
         name: true,

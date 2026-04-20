@@ -38,18 +38,23 @@ export class ServiceBundlesService {
       this.prisma.serviceBundle.count({ where }),
     ]);
 
-    // Enrich with service details
+    // Enrich with service details (preserving serviceIds order)
     const enrichedData = await Promise.all(
       data.map(async (bundle) => {
-        const services = await this.prisma.service.findMany({
-          where: { id: { in: bundle.serviceIds as string[] }, tenantId },
+        const serviceIds = bundle.serviceIds as string[];
+        const fetchedServices = await this.prisma.service.findMany({
+          where: { id: { in: serviceIds }, tenantId },
           select: { id: true, name: true, price: true, durationMinutes: true },
         });
+        // Maintain the order defined in serviceIds
+        const serviceMap = new Map(fetchedServices.map((s) => [s.id, s]));
+        const services = serviceIds.map((id) => serviceMap.get(id)).filter(Boolean);
+
         const totalOriginalPrice = services.reduce(
-          (sum, s) => sum + Number(s.price),
+          (sum, s) => sum + Number(s!.price),
           0,
         );
-        const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+        const totalDuration = services.reduce((sum, s) => sum + s!.durationMinutes, 0);
         const savingsPercent =
           totalOriginalPrice > 0
             ? Math.round(
@@ -86,15 +91,20 @@ export class ServiceBundlesService {
     });
     if (!bundle) throw new NotFoundException('Service bundle not found');
 
-    const services = await this.prisma.service.findMany({
-      where: { id: { in: bundle.serviceIds as string[] }, tenantId },
+    const serviceIds = bundle.serviceIds as string[];
+    const fetchedServices = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds }, tenantId },
       select: { id: true, name: true, price: true, durationMinutes: true },
     });
+    // Maintain the order defined in serviceIds
+    const serviceMap = new Map(fetchedServices.map((s) => [s.id, s]));
+    const services = serviceIds.map((id) => serviceMap.get(id)).filter(Boolean);
+
     const totalOriginalPrice = services.reduce(
-      (sum, s) => sum + Number(s.price),
+      (sum, s) => sum + Number(s!.price),
       0,
     );
-    const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const totalDuration = services.reduce((sum, s) => sum + s!.durationMinutes, 0);
     const savingsPercent =
       totalOriginalPrice > 0
         ? Math.round(
@@ -153,6 +163,7 @@ export class ServiceBundlesService {
         serviceIds: dto.serviceIds,
         totalDuration,
         savingsPercent,
+        flexibleOrder: dto.flexibleOrder ?? false,
         isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? 0,
         pointsReward: dto.pointsReward ?? null,
@@ -229,6 +240,7 @@ export class ServiceBundlesService {
         ...(dto.serviceIds !== undefined && { serviceIds: dto.serviceIds }),
         ...(totalDuration !== undefined && { totalDuration }),
         ...(savingsPercent !== undefined && { savingsPercent }),
+        ...(dto.flexibleOrder !== undefined && { flexibleOrder: dto.flexibleOrder }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
         ...(dto.pointsReward !== undefined && { pointsReward: dto.pointsReward }),

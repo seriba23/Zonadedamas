@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -26,6 +26,7 @@ interface Service {
   pointsRequired?: number | null;
   depositRequired?: boolean;
   depositPercent?: number | null;
+  _count?: { employeeServices: number };
 }
 
 interface ServiceForm {
@@ -73,6 +74,7 @@ export default function ServicesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState('');
+  const [expandAfterSwitch, setExpandAfterSwitch] = useState<string | null>(null);
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories].sort((a, b) => a.localeCompare(b, 'es'));
 
   const [autoPopulated, setAutoPopulated] = useState(false);
@@ -305,8 +307,11 @@ export default function ServicesPage() {
 
                     {/* Services list */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-50">
-                      {catServices.map((service) => (
-                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openEdit(service)}>
+                      {catServices.map((service) => {
+                        const employeeCount = service._count?.employeeServices ?? 0;
+                        return (
+                        <div key={service.id} className="flex flex-col">
+                          <div className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openEdit(service)}>
                           {/* Name + description */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900">{service.name}</p>
@@ -324,7 +329,7 @@ export default function ServicesPage() {
                           </div>
 
                           {/* Price */}
-                          <span className={`text-sm font-semibold flex-shrink-0 ${Number(service.price) === 0 ? 'text-amber-500' : 'text-gray-900'}`}>
+                          <span className={`text-sm font-semibold flex-shrink-0 ${Number(service.price) === 0 ? 'text-teal-600' : 'text-gray-900'}`}>
                             {Number(service.price) === 0 ? 'Sin precio' : formatCurrency(service.price, service.currency)}
                           </span>
 
@@ -340,8 +345,24 @@ export default function ServicesPage() {
                               </svg>
                             </button>
                           )}
+                          </div>
+                          {employeeCount === 0 && (
+                            <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
+                              <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              <span className="text-xs text-red-700">Sin empleados asignados — este servicio no aparecerá disponible para reservar. </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setViewTab('comisiones'); setComisionView('por-servicio'); setExpandAfterSwitch(service.id); }}
+                                className="text-xs font-medium text-red-700 underline hover:text-red-900 flex-shrink-0"
+                              >
+                                Asignar empleados
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -375,7 +396,7 @@ export default function ServicesPage() {
                 </button>
               </div>
             </div>
-            {comisionView === 'por-servicio' && <ServiceCommissionsView services={services} allEmployees={allEmployees} />}
+            {comisionView === 'por-servicio' && <ServiceCommissionsView services={services} allEmployees={allEmployees} autoExpandServiceId={expandAfterSwitch} onAutoExpanded={() => setExpandAfterSwitch(null)} />}
             {comisionView === 'por-empleado' && <EmployeeServicesView employees={allEmployees} allServices={services} />}
           </div>
         )}
@@ -602,7 +623,7 @@ export default function ServicesPage() {
 }
 
 /* ─── Service Commissions View — per service, expand to see employees ─── */
-function ServiceCommissionsView({ services, allEmployees }: { services: Service[]; allEmployees: any[] }) {
+function ServiceCommissionsView({ services, allEmployees, autoExpandServiceId, onAutoExpanded }: { services: Service[]; allEmployees: any[]; autoExpandServiceId?: string | null; onAutoExpanded?: () => void }) {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
@@ -610,6 +631,17 @@ function ServiceCommissionsView({ services, allEmployees }: { services: Service[
   const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
   const [savedSvcId, setSavedSvcId] = useState<string | null>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const svcRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (autoExpandServiceId) {
+      setExpandedSvcs((prev) => new Set(prev).add(autoExpandServiceId));
+      setTimeout(() => {
+        svcRefs.current.get(autoExpandServiceId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        onAutoExpanded?.();
+      }, 100);
+    }
+  }, [autoExpandServiceId]);
 
   function getEmployeesForService(svcId: string) {
     return allEmployees.map((emp: any) => {
@@ -716,7 +748,7 @@ function ServiceCommissionsView({ services, allEmployees }: { services: Service[
               const changed = hasSvcChanges(svc.id);
 
               return (
-                <div key={svc.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div key={svc.id} ref={(el) => { if (el) svcRefs.current.set(svc.id, el); }} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   {/* Header */}
                   <button
                     onClick={() => setExpandedSvcs((prev) => {

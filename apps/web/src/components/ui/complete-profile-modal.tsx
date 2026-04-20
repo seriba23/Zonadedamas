@@ -176,33 +176,35 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
 
         <div className="space-y-4">
 
-          {/* Phone */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Teléfono</label>
-            <div className="flex gap-2">
-              <select
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                className="px-2 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none bg-white"
-                style={{ '--tw-ring-color': TEAL } as any}
-              >
-                {COUNTRY_CODES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.code}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                placeholder="Número de teléfono"
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
-                style={{ '--tw-ring-color': TEAL } as any}
-              />
+          {/* Phone — only if not already provided */}
+          {!user.phone && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Teléfono</label>
+              <div className="flex gap-2">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="px-2 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none bg-white"
+                  style={{ '--tw-ring-color': TEAL } as any}
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.flag} {c.code}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                  placeholder="Número de teléfono"
+                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                  style={{ '--tw-ring-color': TEAL } as any}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Birth date */}
           <div>

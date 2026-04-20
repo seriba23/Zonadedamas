@@ -1,4 +1,5 @@
 import {
+  Allow,
   IsBoolean,
   IsEmail,
   IsOptional,
@@ -42,6 +43,9 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsUUID('4')
   userId?: string;
+
+  @Allow()
+  managerId?: string | null;
 }
 
 export class UpdateEmployeeDto {
@@ -76,4 +80,7 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsString()
   jobTitle?: string;
+
+  @Allow()
+  managerId?: string | null;
 }

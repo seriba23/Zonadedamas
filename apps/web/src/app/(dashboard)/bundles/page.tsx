@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
@@ -21,6 +21,8 @@ interface Bundle {
   description?: string;
   bundlePrice: number;
   isActive: boolean;
+  flexibleOrder?: boolean;
+  serviceIds?: string[];
   services: ServiceInBundle[];
   pointsReward?: number | null;
   redeemableWithPoints?: boolean;
@@ -32,6 +34,7 @@ interface BundleForm {
   description: string;
   bundlePrice: number | string;
   isActive: boolean;
+  flexibleOrder: boolean;
   serviceIds: string[];
   generatesPoints: boolean;
   pointsReward: number | string;
@@ -51,6 +54,7 @@ const defaultForm: BundleForm = {
   description: '',
   bundlePrice: '',
   isActive: true,
+  flexibleOrder: false,
   serviceIds: [],
   generatesPoints: false,
   pointsReward: '',
@@ -122,6 +126,7 @@ export default function BundlesPage() {
       description: bundle.description || '',
       bundlePrice: bundle.bundlePrice,
       isActive: bundle.isActive,
+      flexibleOrder: bundle.flexibleOrder || false,
       serviceIds: bundle.services.map((s) => s.id),
       generatesPoints: !!bundle.pointsReward && bundle.pointsReward > 0,
       pointsReward: bundle.pointsReward || '',
@@ -148,6 +153,45 @@ export default function BundlesPage() {
     }));
   }
 
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+
+  function moveService(index: number, direction: 'up' | 'down') {
+    setForm((f) => {
+      const ids = [...f.serviceIds];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= ids.length) return f;
+      [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+      return { ...f, serviceIds: ids };
+    });
+  }
+
+  function handleDragStart(index: number) {
+    dragItem.current = index;
+  }
+
+  function handleDragEnter(index: number) {
+    dragOverItem.current = index;
+  }
+
+  function handleDragEnd() {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    if (dragItem.current === dragOverItem.current) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+    setForm((f) => {
+      const ids = [...f.serviceIds];
+      const draggedId = ids[dragItem.current!];
+      ids.splice(dragItem.current!, 1);
+      ids.splice(dragOverItem.current!, 0, draggedId);
+      return { ...f, serviceIds: ids };
+    });
+    dragItem.current = null;
+    dragOverItem.current = null;
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -168,7 +212,8 @@ export default function BundlesPage() {
       description: form.description || undefined,
       bundlePrice: Number(form.bundlePrice),
       isActive: form.isActive,
-      serviceIds: form.serviceIds,
+      flexibleOrder: form.flexibleOrder,
+      serviceIds: form.serviceIds.filter((id): id is string => typeof id === 'string' && id.length > 0),
       pointsReward: form.generatesPoints && Number(form.pointsReward) > 0 ? Number(form.pointsReward) : null,
       redeemableWithPoints: form.redeemableWithPoints,
       pointsRequired: form.redeemableWithPoints && Number(form.pointsRequired) > 0 ? Number(form.pointsRequired) : null,
@@ -301,14 +346,23 @@ export default function BundlesPage() {
 
                     {/* Services list */}
                     <div className="space-y-1 mb-3">
-                      {bundle.services.map((svc) => (
+                      {bundle.services.map((svc, idx) => (
                         <div key={svc.id} className="flex items-center gap-2 text-xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0" />
+                          {!bundle.flexibleOrder ? (
+                            <span className="w-4 h-4 rounded-full bg-[#008080] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                              {idx + 1}
+                            </span>
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#008080] flex-shrink-0" />
+                          )}
                           <span className="text-gray-600 flex-1 truncate">{svc.name}</span>
                           <span className="text-gray-400">{formatCurrency(svc.price)}</span>
                         </div>
                       ))}
                     </div>
+                    {bundle.flexibleOrder && (
+                      <p className="text-[10px] text-gray-400 mb-2 italic">Orden flexible</p>
+                    )}
 
                     {/* Points badges */}
                     {((bundle as any).pointsReward > 0 || (bundle as any).redeemableWithPoints) && (
@@ -444,7 +498,7 @@ export default function BundlesPage() {
                       type="checkbox"
                       checked={form.serviceIds.includes(svc.id)}
                       onChange={() => toggleServiceId(svc.id)}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
                     />
                     <span className="text-sm text-gray-700 flex-1">{svc.name}</span>
                     <span className="text-xs text-gray-400">
@@ -457,33 +511,107 @@ export default function BundlesPage() {
                 )}
               </div>
               {form.serviceIds.length > 0 && (
-                <p className="text-xs text-primary-600 mt-1">
+                <p className="text-xs text-[#008080] mt-1">
                   {form.serviceIds.length} servicio{form.serviceIds.length !== 1 ? 's' : ''} seleccionado{form.serviceIds.length !== 1 ? 's' : ''}
                 </p>
               )}
             </div>
 
-            {/* Price */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Precio del paquete *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.bundlePrice}
-                  onChange={(e) => setForm((f) => ({ ...f, bundlePrice: e.target.value }))}
-                  className="input-field"
-                  placeholder="Ej: 50.00"
-                  required
-                />
-              </div>
+            {/* Service order */}
+            {form.serviceIds.length >= 2 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-                <select value={(form as any).currency || 'USD'} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value } as any))} className="input-field">
-                  <option value="USD">USD</option><option value="MXN">MXN</option><option value="DOP">DOP</option><option value="EUR">EUR</option><option value="COP">COP</option><option value="ARS">ARS</option><option value="CLP">CLP</option><option value="PEN">PEN</option><option value="BRL">BRL</option>
-                </select>
+                <label className="flex items-center justify-between cursor-pointer mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Los servicios no tienen un orden necesario</p>
+                    <p className="text-xs text-gray-400">Si se activa, el sistema puede reordenar para encontrar disponibilidad</p>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={form.flexibleOrder}
+                      onChange={(e) => setForm((f) => ({ ...f, flexibleOrder: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] peer-focus:ring-2 peer-focus:ring-teal-300 transition-colors" />
+                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                  </div>
+                </label>
+
+                {!form.flexibleOrder && (
+                  <>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Orden de atención</p>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      {form.serviceIds.map((id, index) => {
+                        const svc = services.find((s) => s.id === id);
+                        if (!svc) return null;
+                        return (
+                          <div
+                            key={id}
+                            draggable
+                            onDragStart={() => handleDragStart(index)}
+                            onDragEnter={() => handleDragEnter(index)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => e.preventDefault()}
+                            className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 last:border-b-0 bg-white hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none"
+                          >
+                            {/* Drag handle */}
+                            <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                              <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                              <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                              <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                            </svg>
+                            <span className="w-5 h-5 rounded-full bg-[#008080] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm text-gray-700 flex-1">{svc.name}</span>
+                            <span className="text-xs text-gray-400 flex-shrink-0">{svc.durationMinutes} min</span>
+                            <div className="flex flex-col flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => moveService(index, 'up')}
+                                disabled={index === 0}
+                                className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveService(index, 'down')}
+                                disabled={index === form.serviceIds.length - 1}
+                                className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1.5">
+                      Arrastra o usa las flechas para definir el orden de atención.
+                    </p>
+                  </>
+                )}
               </div>
+            )}
+
+            {/* Price */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio del paquete *</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.bundlePrice}
+                onChange={(e) => setForm((f) => ({ ...f, bundlePrice: e.target.value }))}
+                className="input-field"
+                placeholder="Ej: 50.00"
+                required
+              />
             </div>
 
             {/* Calculated summary */}

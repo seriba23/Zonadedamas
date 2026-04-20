@@ -57,15 +57,60 @@ export class AppointmentsService {
       throw new NotFoundException('Uno o más servicios no encontrados');
     }
 
-    // Fetch employee-specific pricing (customPrice, commission)
+    // Determine if this is a multi-employee bundle booking
+    const isMultiEmployee = dto.serviceAssignments && dto.serviceAssignments.length > 0;
+
+    // Build assignment map: serviceId -> employeeId
+    const assignmentMap = new Map<string, string>();
+    if (isMultiEmployee) {
+      for (const a of dto.serviceAssignments!) {
+        assignmentMap.set(a.serviceId, a.employeeId);
+      }
+    }
+
+    // Fetch employee-specific pricing for all involved employees
+    const involvedEmployeeIds = isMultiEmployee
+      ? [...new Set(dto.serviceAssignments!.map((a) => a.employeeId))]
+      : [dto.employeeId];
+
     const employeeServices = await this.prisma.employeeService.findMany({
       where: {
-        employeeId: dto.employeeId,
+        employeeId: { in: involvedEmployeeIds },
         serviceId: { in: dto.serviceIds },
       },
     });
+
+    // Validate: each service has an assigned employee that can do it
+    if (!isMultiEmployee) {
+      if (employeeServices.filter((es) => es.employeeId === dto.employeeId).length !== dto.serviceIds.length) {
+        const empES = employeeServices.filter((es) => es.employeeId === dto.employeeId);
+        const missing = dto.serviceIds.filter(
+          (id) => !empES.some((es) => es.serviceId === id),
+        );
+        const missingNames = services
+          .filter((s) => missing.includes(s.id))
+          .map((s) => s.name);
+        throw new NotFoundException(
+          `El empleado no tiene asignado(s): ${missingNames.join(', ')}`,
+        );
+      }
+    } else {
+      for (const a of dto.serviceAssignments!) {
+        const has = employeeServices.some(
+          (es) => es.employeeId === a.employeeId && es.serviceId === a.serviceId,
+        );
+        if (!has) {
+          const svc = services.find((s) => s.id === a.serviceId);
+          throw new NotFoundException(
+            `El empleado asignado no tiene el servicio: ${svc?.name || a.serviceId}`,
+          );
+        }
+      }
+    }
+
+    // Build empServiceMap keyed by `${employeeId}:${serviceId}`
     const empServiceMap = new Map(
-      employeeServices.map((es) => [es.serviceId, es]),
+      employeeServices.map((es) => [`${es.employeeId}:${es.serviceId}`, es]),
     );
 
     // Calculate total duration and end time
@@ -79,20 +124,48 @@ export class AppointmentsService {
     try {
       const result = await this.prisma.$transaction(
         async (tx) => {
-          // Check for overlapping appointments (double-booking prevention)
-          const overlap = await tx.appointment.findFirst({
-            where: {
-              employeeId: dto.employeeId,
-              tenantId,
-              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
-              startTime: { lt: endTime },
-              endTime: { gt: startTime },
-            },
-          });
-          if (overlap) {
-            throw new ConflictException(
-              'Este horario ya está reservado. Por favor selecciona otro horario.',
-            );
+          // Check for overlapping appointments for all involved employees
+          for (const empId of involvedEmployeeIds) {
+            // Determine the time window this employee is involved in
+            let empStart = startTime;
+            let empEnd = endTime;
+
+            if (isMultiEmployee) {
+              // Calculate exact window for this employee
+              let currentMs = startTime.getTime();
+              let first: number | null = null;
+              let last: number | null = null;
+              for (const service of services) {
+                const assignedEmp = assignmentMap.get(service.id) || dto.employeeId;
+                const itemEndMs = currentMs + service.durationMinutes * 60000;
+                if (assignedEmp === empId) {
+                  if (first === null) first = currentMs;
+                  last = itemEndMs;
+                }
+                currentMs = itemEndMs + service.bufferAfterMinutes * 60000;
+              }
+              if (first !== null && last !== null) {
+                empStart = new Date(first);
+                empEnd = new Date(last);
+              } else {
+                continue; // Employee not involved
+              }
+            }
+
+            const overlap = await tx.appointment.findFirst({
+              where: {
+                employeeId: empId,
+                tenantId,
+                status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+                startTime: { lt: empEnd },
+                endTime: { gt: empStart },
+              },
+            });
+            if (overlap) {
+              throw new ConflictException(
+                'Este horario ya está reservado. Por favor selecciona otro horario.',
+              );
+            }
           }
 
           // Create the appointment
@@ -102,6 +175,7 @@ export class AppointmentsService {
               locationId: dto.locationId,
               clientId: dto.clientId,
               employeeId: dto.employeeId,
+              bundleId: dto.bundleId || null,
               startTime,
               endTime,
               notes: dto.notes,
@@ -116,7 +190,8 @@ export class AppointmentsService {
           let currentStart = new Date(startTime);
           const items = [];
           for (const service of services) {
-            const empSvc = empServiceMap.get(service.id);
+            const itemEmployeeId = assignmentMap.get(service.id) || dto.employeeId;
+            const empSvc = empServiceMap.get(`${itemEmployeeId}:${service.id}`);
             const price = empSvc?.customPrice ?? service.price;
             const commission = empSvc?.commission ?? null;
             const itemEnd = new Date(
@@ -125,7 +200,7 @@ export class AppointmentsService {
             items.push({
               appointmentId: appointment.id,
               serviceId: service.id,
-              employeeId: dto.employeeId,
+              employeeId: itemEmployeeId,
               startTime: currentStart,
               endTime: itemEnd,
               priceSnapshot: price,
@@ -172,13 +247,16 @@ export class AppointmentsService {
         date: startTime.toISOString().split('T')[0],
       });
 
-      // Invalidate availability cache
-      await this.availabilityService.invalidateCache(
-        tenantId,
-        dto.locationId,
-        dto.employeeId,
-        startTime.toISOString().split('T')[0],
-      );
+      // Invalidate availability cache for all involved employees
+      const dateStr = startTime.toISOString().split('T')[0];
+      for (const empId of involvedEmployeeIds) {
+        await this.availabilityService.invalidateCache(
+          tenantId,
+          dto.locationId,
+          empId,
+          dateStr,
+        );
+      }
 
       return { data: result };
     } catch (error: any) {

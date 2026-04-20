@@ -31,6 +31,10 @@ export class UpdateServiceBundleDto {
 
   @IsOptional()
   @IsBoolean()
+  flexibleOrder?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
 
   @IsOptional()

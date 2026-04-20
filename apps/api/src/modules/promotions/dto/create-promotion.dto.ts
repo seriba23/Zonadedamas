@@ -53,5 +53,9 @@ export class CreatePromotionDto {
 
   @IsOptional()
   @IsBoolean()
+  allowPointPayment?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
 }

@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { BundleAvailabilityQueryDto } from './dto/bundle-availability-query.dto';
 import { CheckAfterDto } from './dto/check-after.dto';
 
 type TimeBlock = { start: Date; end: Date };
@@ -812,5 +813,308 @@ export class AvailabilityService {
     }
 
     return slots;
+  }
+
+  /**
+   * Multi-employee bundle availability.
+   * Finds time slots where each service in the bundle can be handled back-to-back
+   * by different employees (respecting the configured order).
+   */
+  async getBundleAvailability(
+    query: BundleAvailabilityQueryDto,
+    tenantId: string,
+  ) {
+    // 1. Fetch bundle
+    const bundle = await this.prisma.serviceBundle.findFirst({
+      where: { id: query.bundleId, tenantId, isActive: true },
+    });
+    if (!bundle) throw new NotFoundException('Paquete no encontrado');
+
+    const serviceIds = bundle.serviceIds as string[];
+    const flexibleOrder = bundle.flexibleOrder;
+
+    // 2. Fetch services in bundle order
+    const allServices = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds }, tenantId },
+    });
+    const serviceMap = new Map(allServices.map((s) => [s.id, s]));
+    const orderedServices = serviceIds.map((id) => serviceMap.get(id)).filter(Boolean) as any[];
+
+    if (orderedServices.length === 0) return { data: [] };
+
+    // 3. Fetch employees who can do each service
+    const employeeServices = await this.prisma.employeeService.findMany({
+      where: {
+        serviceId: { in: serviceIds },
+        employee: { tenantId, isActive: true, ...(query.locationId && { locationId: query.locationId }) },
+      },
+      include: { employee: true },
+    });
+
+    // Map: serviceId -> employee[]
+    const employeesByService = new Map<string, any[]>();
+    for (const es of employeeServices) {
+      const list = employeesByService.get(es.serviceId) || [];
+      list.push(es.employee);
+      employeesByService.set(es.serviceId, list);
+    }
+
+    // Check all services have at least one employee
+    for (const svc of orderedServices) {
+      if (!employeesByService.has(svc.id) || employeesByService.get(svc.id)!.length === 0) {
+        return { data: [] };
+      }
+    }
+
+    // 4. For each date in range, find valid combinations
+    const results: Array<{
+      date: string;
+      slots: Array<{
+        startTime: string;
+        endTime: string;
+        assignments: Array<{ serviceId: string; serviceName: string; employeeId: string; employeeName: string; startTime: string; endTime: string }>;
+      }>;
+    }> = [];
+
+    const startDate = new Date(query.startDate + 'T00:00:00Z');
+    const endDate = new Date(query.endDate + 'T00:00:00Z');
+    const granularity = 30;
+
+    // Get business hours and closures
+    const [businessHours, closures] = await Promise.all([
+      this.prisma.businessHours.findMany({ where: { tenantId } }),
+      this.prisma.businessClosure.findMany({
+        where: {
+          tenantId,
+          startDate: { lte: new Date(query.endDate + 'T23:59:59Z') },
+          endDate: { gte: new Date(query.startDate + 'T00:00:00Z') },
+        },
+      }),
+    ]);
+    const closedDays = new Set(businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek));
+
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const dateStr = date.toISOString().split('T')[0];
+      const dayOfWeek = this.getDayOfWeek(date);
+      if (closedDays.has(dayOfWeek)) continue;
+
+      const isClosed = closures.some((c) => {
+        const cStart = c.startDate.toISOString().split('T')[0];
+        const cEnd = c.endDate.toISOString().split('T')[0];
+        return dateStr >= cStart && dateStr <= cEnd;
+      });
+      if (isClosed) continue;
+
+      // Pre-load schedules and occupied blocks for all relevant employees
+      const allRelevantEmployees = new Map<string, any>();
+      for (const [, emps] of employeesByService) {
+        for (const emp of emps) {
+          allRelevantEmployees.set(emp.id, emp);
+        }
+      }
+
+      const employeeAvailability = new Map<string, { schedule: any; occupied: TimeBlock[] }>();
+
+      for (const [empId, emp] of allRelevantEmployees) {
+        const schedule = await this.prisma.employeeSchedule.findFirst({
+          where: {
+            employeeId: empId,
+            dayOfWeek,
+            isWorking: true,
+            effectiveFrom: { lte: date },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: date } }],
+          },
+        });
+        if (!schedule) continue;
+
+        const dayStart = new Date(`${dateStr}T00:00:00Z`);
+        const dayEnd = new Date(`${dateStr}T23:59:59Z`);
+
+        const [appointments, timeOffs] = await Promise.all([
+          this.prisma.appointment.findMany({
+            where: {
+              employeeId: empId,
+              tenantId,
+              startTime: { gte: dayStart, lt: dayEnd },
+              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+            },
+            orderBy: { startTime: 'asc' },
+          }),
+          this.prisma.employeeTimeOff.findMany({
+            where: { employeeId: empId, startDatetime: { lt: dayEnd }, endDatetime: { gt: dayStart } },
+          }),
+        ]);
+
+        const occupied: TimeBlock[] = [];
+        for (const appt of appointments) {
+          occupied.push({
+            start: new Date(appt.startTime.getTime() - emp.bufferBeforeMinutes * 60000),
+            end: new Date(appt.endTime.getTime() + emp.bufferAfterMinutes * 60000),
+          });
+        }
+        for (const to of timeOffs) {
+          occupied.push({ start: to.startDatetime, end: to.endDatetime });
+        }
+        occupied.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+        employeeAvailability.set(empId, { schedule, occupied: this.mergeBlocks(occupied) });
+      }
+
+      // Helper: check if employee is free in [start, end)
+      const isEmployeeFree = (empId: string, start: Date, end: Date): boolean => {
+        const avail = employeeAvailability.get(empId);
+        if (!avail) return false;
+        const schedStart = new Date(`${dateStr}T${avail.schedule.startTime}:00Z`);
+        const schedEnd = new Date(`${dateStr}T${avail.schedule.endTime}:00Z`);
+        if (start < schedStart || end > schedEnd) return false;
+        for (const block of avail.occupied) {
+          if (start < block.end && end > block.start) return false;
+        }
+        return true;
+      };
+
+      // Find earliest business hour start as window
+      let windowStart: Date | null = null;
+      let windowEnd: Date | null = null;
+      for (const [, avail] of employeeAvailability) {
+        const s = new Date(`${dateStr}T${avail.schedule.startTime}:00Z`);
+        const e = new Date(`${dateStr}T${avail.schedule.endTime}:00Z`);
+        if (!windowStart || s < windowStart) windowStart = s;
+        if (!windowEnd || e > windowEnd) windowEnd = e;
+      }
+      if (!windowStart || !windowEnd) continue;
+
+      const totalDuration = orderedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+      const daySlots: Array<{
+        startTime: string;
+        endTime: string;
+        assignments: Array<{ serviceId: string; serviceName: string; employeeId: string; employeeName: string; startTime: string; endTime: string }>;
+      }> = [];
+
+      let currentSlotStart = new Date(windowStart);
+
+      while (currentSlotStart.getTime() + totalDuration * 60000 <= windowEnd.getTime()) {
+        // Try to assign all services sequentially starting from currentSlotStart
+        const serviceOrder = flexibleOrder
+          ? this.findBestOrder(orderedServices, currentSlotStart, dateStr, employeesByService, isEmployeeFree)
+          : orderedServices;
+
+        const assignments = this.tryAssignSequential(
+          serviceOrder,
+          currentSlotStart,
+          dateStr,
+          employeesByService,
+          isEmployeeFree,
+        );
+
+        if (assignments) {
+          const slotEnd = new Date(currentSlotStart.getTime() + totalDuration * 60000);
+          daySlots.push({
+            startTime: currentSlotStart.toISOString().substring(11, 16),
+            endTime: slotEnd.toISOString().substring(11, 16),
+            assignments,
+          });
+        }
+
+        currentSlotStart = new Date(currentSlotStart.getTime() + granularity * 60000);
+      }
+
+      if (daySlots.length > 0) {
+        results.push({ date: dateStr, slots: daySlots });
+      }
+    }
+
+    return { data: results };
+  }
+
+  /**
+   * Try to assign each service sequentially to an available employee.
+   * Returns assignments array or null if no valid combination found.
+   */
+  private tryAssignSequential(
+    services: any[],
+    startTime: Date,
+    dateStr: string,
+    employeesByService: Map<string, any[]>,
+    isEmployeeFree: (empId: string, start: Date, end: Date) => boolean,
+  ): Array<{ serviceId: string; serviceName: string; employeeId: string; employeeName: string; startTime: string; endTime: string }> | null {
+    const assignments: Array<{ serviceId: string; serviceName: string; employeeId: string; employeeName: string; startTime: string; endTime: string }> = [];
+    let currentStart = new Date(startTime);
+    // Track which employee is busy in which time window (for same-slot double-assignment prevention)
+    const employeeBusy: Array<{ empId: string; start: Date; end: Date }> = [];
+
+    for (const svc of services) {
+      const svcEnd = new Date(currentStart.getTime() + svc.durationMinutes * 60000);
+      const candidates = employeesByService.get(svc.id) || [];
+      let assigned = false;
+
+      for (const emp of candidates) {
+        // Check employee is free in the real calendar
+        if (!isEmployeeFree(emp.id, currentStart, svcEnd)) continue;
+
+        // Check employee is not already assigned in an overlapping window within this same bundle slot
+        const doubleBooked = employeeBusy.some(
+          (b) => b.empId === emp.id && currentStart < b.end && svcEnd > b.start,
+        );
+        if (doubleBooked) continue;
+
+        assignments.push({
+          serviceId: svc.id,
+          serviceName: svc.name,
+          employeeId: emp.id,
+          employeeName: `${emp.firstName} ${emp.lastName}`,
+          startTime: currentStart.toISOString().substring(11, 16),
+          endTime: svcEnd.toISOString().substring(11, 16),
+        });
+        employeeBusy.push({ empId: emp.id, start: new Date(currentStart), end: new Date(svcEnd) });
+        assigned = true;
+        break;
+      }
+
+      if (!assigned) return null;
+      currentStart = new Date(svcEnd);
+    }
+
+    return assignments;
+  }
+
+  /**
+   * For flexible order bundles, try permutations to find one that works.
+   * Uses a greedy approach: try the default order first, then swap services that fail.
+   */
+  private findBestOrder(
+    services: any[],
+    startTime: Date,
+    dateStr: string,
+    employeesByService: Map<string, any[]>,
+    isEmployeeFree: (empId: string, start: Date, end: Date) => boolean,
+  ): any[] {
+    // Try original order first
+    const result = this.tryAssignSequential(services, startTime, dateStr, employeesByService, isEmployeeFree);
+    if (result) return services;
+
+    // For small bundles (<=5 services), try permutations with early exit
+    if (services.length <= 5) {
+      const permutations = this.getPermutations(services);
+      for (const perm of permutations) {
+        const attempt = this.tryAssignSequential(perm, startTime, dateStr, employeesByService, isEmployeeFree);
+        if (attempt) return perm;
+      }
+    }
+
+    return services;
+  }
+
+  private getPermutations<T>(arr: T[]): T[][] {
+    if (arr.length <= 1) return [arr];
+    const result: T[][] = [];
+    for (let i = 0; i < arr.length && result.length < 120; i++) {
+      const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+      for (const perm of this.getPermutations(rest)) {
+        result.push([arr[i], ...perm]);
+        if (result.length >= 120) break; // Cap permutations
+      }
+    }
+    return result;
   }
 }

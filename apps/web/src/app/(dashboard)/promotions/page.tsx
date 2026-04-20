@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 interface Promotion {
   id: string;
@@ -21,6 +21,7 @@ interface Promotion {
   usedCount: number;
   minAmount?: number;
   isActive: boolean;
+  allowPointPayment: boolean;
   serviceIds?: string[];
   services?: { id: string; name: string }[];
 }
@@ -36,6 +37,7 @@ interface PromotionForm {
   maxUses: number | string;
   minAmount: number | string;
   isActive: boolean;
+  allowPointPayment: boolean;
   serviceIds: string[];
 }
 
@@ -56,6 +58,7 @@ const defaultForm: PromotionForm = {
   maxUses: '',
   minAmount: '',
   isActive: true,
+  allowPointPayment: true,
   serviceIds: [],
 };
 
@@ -92,6 +95,7 @@ function formatDate(dateStr: string): string {
 
 export default function PromotionsPage() {
   const { hasPermission } = usePermissions();
+  const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
@@ -172,6 +176,7 @@ export default function PromotionsPage() {
       maxUses: promotion.maxUses ?? '',
       minAmount: promotion.minAmount ?? '',
       isActive: promotion.isActive,
+      allowPointPayment: promotion.allowPointPayment,
       serviceIds: promotion.serviceIds || promotion.services?.map((s) => s.id) || [],
     });
     setFormError(null);
@@ -220,6 +225,7 @@ export default function PromotionsPage() {
       maxUses: form.maxUses ? Number(form.maxUses) : null,
       minAmount: form.minAmount ? Number(form.minAmount) : null,
       isActive: form.isActive,
+      allowPointPayment: form.allowPointPayment,
       serviceIds: form.serviceIds.length > 0 ? form.serviceIds : undefined,
     };
 
@@ -587,7 +593,7 @@ export default function PromotionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className={`grid gap-4 ${form.type === 'TWO_FOR_ONE' ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Max. usos</label>
                 <input
@@ -600,24 +606,20 @@ export default function PromotionsPage() {
                   placeholder="Ilimitado"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monto mínimo</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.minAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, minAmount: e.target.value }))}
-                  className="input-field"
-                  placeholder="Sin mínimo"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-                <select value={(form as any).currency || 'USD'} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value } as any))} className="input-field">
-                  <option value="USD">USD</option><option value="MXN">MXN</option><option value="DOP">DOP</option><option value="EUR">EUR</option><option value="COP">COP</option><option value="ARS">ARS</option><option value="CLP">CLP</option><option value="PEN">PEN</option><option value="BRL">BRL</option>
-                </select>
-              </div>
+              {form.type !== 'TWO_FOR_ONE' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Monto mínimo</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.minAmount}
+                    onChange={(e) => setForm((f) => ({ ...f, minAmount: e.target.value }))}
+                    className="input-field"
+                    placeholder="Sin mínimo"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Service multi-select */}
@@ -655,19 +657,38 @@ export default function PromotionsPage() {
               )}
             </div>
 
-            <label className="flex items-center justify-between cursor-pointer">
-              <p className="text-sm font-medium text-gray-700">Activa</p>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-              </div>
-            </label>
+            <div className="space-y-3">
+              <label className="flex items-center justify-between cursor-pointer">
+                <p className="text-sm font-medium text-gray-700">Activa</p>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Permitir pago con puntos</p>
+                  <p className="text-[11px] text-gray-400">Si se desactiva, el cliente no podrá usar puntos al aplicar esta promoción</p>
+                </div>
+                <div className="relative flex-shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    checked={form.allowPointPayment}
+                    onChange={(e) => setForm((f) => ({ ...f, allowPointPayment: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
+            </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={closeModal} className="btn-secondary">
