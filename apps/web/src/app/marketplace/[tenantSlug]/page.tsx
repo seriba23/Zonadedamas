@@ -423,6 +423,7 @@ export default function BusinessDetailPage() {
       });
 
       // Also create product reservations if cart has items
+      const appointmentId = apptRes?.data?.data?.id || apptRes?.data?.id;
       if (bookingCart.length > 0) {
         try {
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -438,7 +439,10 @@ export default function BusinessDetailPage() {
               customerEmail: user?.email || undefined,
               fulfillmentType: 'PICKUP',
               preferredPaymentMethod: 'CASH',
-              notes: `Apartado junto con cita del ${selectedSlot?.startTime || ''}`,
+              appointmentId: appointmentId || undefined,
+              notes: appointmentId
+                ? `Apartado junto con cita del ${new Date(selectedSlot?.startTime || '').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                : undefined,
             }),
           });
         } catch (err) {

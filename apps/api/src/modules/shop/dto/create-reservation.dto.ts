@@ -57,6 +57,10 @@ export class CreateReservationDto {
 
   @IsOptional()
   @IsString()
+  appointmentId?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 }
 
@@ -88,6 +92,10 @@ export class CreateBatchReservationDto {
   @IsString()
   @MinLength(10)
   shippingAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  appointmentId?: string;
 
   @IsOptional()
   @IsString()

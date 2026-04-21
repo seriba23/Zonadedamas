@@ -48,11 +48,28 @@ export class ResourcesService {
     });
     if (!location) throw new NotFoundException('Ubicación no encontrada');
 
+    // Auto-calculate quantity from locationQuantities if provided
+    const locQty = dto.locationQuantities || null;
+    const quantity = locQty
+      ? Object.values(locQty).reduce((sum, q) => sum + q, 0)
+      : (dto.quantity ?? 1);
+
     return this.prisma.resource.create({
       data: {
         name: dto.name,
         description: dto.description,
+        notes: dto.notes,
         type: dto.type,
+        imageUrl: dto.imageUrl,
+        value: dto.value,
+        quantity,
+        locationQuantities: locQty,
+        serialNumber: dto.serialNumber,
+        brand: dto.brand,
+        condition: dto.condition || 'good',
+        assignedTo: dto.assignedTo || null,
+        assignedAt: dto.assignedTo ? new Date() : null,
+        purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate + 'T00:00:00Z') : null,
         locationId: dto.locationId,
         tenantId,
         isActive: dto.isActive ?? true,
@@ -61,10 +78,31 @@ export class ResourcesService {
   }
 
   async update(id: string, tenantId: string, dto: UpdateResourceDto) {
-    await this.findOne(id, tenantId);
+    const existing = await this.findOne(id, tenantId);
+
+    const data: any = { ...dto };
+
+    // Handle assignedTo change
+    if ('assignedTo' in dto) {
+      data.assignedTo = dto.assignedTo || null;
+      if (dto.assignedTo !== (existing as any).assignedTo) {
+        data.assignedAt = dto.assignedTo ? new Date() : null;
+      }
+    }
+
+    // Handle purchaseDate
+    if (dto.purchaseDate !== undefined) {
+      data.purchaseDate = dto.purchaseDate ? new Date(dto.purchaseDate + 'T00:00:00Z') : null;
+    }
+
+    // Auto-calculate quantity from locationQuantities
+    if (dto.locationQuantities) {
+      data.quantity = Object.values(dto.locationQuantities as Record<string, number>).reduce((sum, q) => sum + q, 0);
+    }
+
     return this.prisma.resource.update({
       where: { id },
-      data: dto,
+      data,
     });
   }
 

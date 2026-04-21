@@ -313,6 +313,9 @@ export class AppointmentsService {
         items: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
         payments: true,
+        productReservations: {
+          include: { product: { select: { id: true, name: true, imageUrl: true } } },
+        },
       },
     });
 

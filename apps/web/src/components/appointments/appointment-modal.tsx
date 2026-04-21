@@ -47,6 +47,16 @@ interface AppointmentPhoto {
   createdAt: string;
 }
 
+interface ProductReservation {
+  id: string;
+  product: { id: string; name: string; imageUrl?: string };
+  quantity: number;
+  unitPrice: number;
+  status: string;
+  fulfillmentType: string;
+  preferredPaymentMethod: string;
+}
+
 interface Appointment {
   id: string;
   clientId: string;
@@ -60,6 +70,7 @@ interface Appointment {
   internalNotes?: string;
   items?: AppointmentItem[];
   photos?: AppointmentPhoto[];
+  productReservations?: ProductReservation[];
 }
 
 interface CheckAfterResult {
@@ -531,6 +542,47 @@ export function AppointmentModal({
                       </span>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Product Reservations (Apartados) */}
+            {appointment.productReservations && appointment.productReservations.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Apartados
+                </p>
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  {appointment.productReservations.map((res) => {
+                    const statusLabels: Record<string, { label: string; color: string }> = {
+                      PENDING: { label: 'Pendiente', color: 'text-teal-700 bg-teal-50' },
+                      CONFIRMED: { label: 'Confirmado', color: 'text-blue-700 bg-blue-50' },
+                      READY: { label: 'Listo', color: 'text-green-700 bg-green-50' },
+                      DELIVERED: { label: 'Entregado', color: 'text-green-700 bg-green-50' },
+                      CANCELLED: { label: 'Cancelado', color: 'text-red-600 bg-red-50' },
+                    };
+                    const st = statusLabels[res.status] || { label: res.status, color: 'text-gray-600 bg-gray-100' };
+
+                    return (
+                      <div key={res.id} className="flex items-center gap-3">
+                        {res.product.imageUrl && (
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${res.product.imageUrl}`}
+                            alt=""
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-700">{res.product.name}</p>
+                          <p className="text-xs text-gray-400">{res.quantity} × {formatCurrency(Number(res.unitPrice))}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                          <span className="text-sm font-medium text-gray-900">{formatCurrency(Number(res.unitPrice) * res.quantity)}</span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

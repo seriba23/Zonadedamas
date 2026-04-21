@@ -47,7 +47,7 @@ export class UploadsService {
 
   async saveFile(
     file: MulterFile,
-    folder: 'avatars' | 'portfolio' | 'documents' | 'results' | 'products',
+    folder: 'avatars' | 'portfolio' | 'documents' | 'results' | 'products' | 'resources',
   ): Promise<string> {
     this.validateFile(file, folder);
 

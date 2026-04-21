@@ -52,17 +52,31 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
     }
   }, []);
 
-  // Auto-position dropdown: if near right edge, align right
-  const [dropdownPosition, setDropdownPosition] = useState<{ left?: number; right?: number }>({});
+  // Position dropdown using fixed positioning to avoid overflow clipping
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   useEffect(() => {
     if (!open || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const spaceRight = window.innerWidth - rect.right;
-    if (spaceRight < 290) {
-      setDropdownPosition({ right: 0 });
+    const spaceRight = window.innerWidth - rect.left;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const style: React.CSSProperties = {
+      position: 'fixed',
+      width: 280,
+      zIndex: 9999,
+    };
+    // Vertical: below or above
+    if (spaceBelow > 320) {
+      style.top = rect.bottom + 4;
     } else {
-      setDropdownPosition({ left: 0 });
+      style.bottom = window.innerHeight - rect.top + 4;
     }
+    // Horizontal: align left or right
+    if (spaceRight >= 290) {
+      style.left = rect.left;
+    } else {
+      style.right = window.innerWidth - rect.right;
+    }
+    setDropdownStyle(style);
   }, [open]);
 
   // Close on outside click
@@ -302,8 +316,8 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
       {open && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3"
-          style={{ width: 280, ...dropdownPosition }}
+          className="bg-white border border-gray-200 rounded-xl shadow-lg p-3"
+          style={dropdownStyle}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-2.5">

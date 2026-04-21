@@ -1,6 +1,8 @@
 import {
+  Allow,
   IsBoolean,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -19,11 +21,55 @@ export class CreateResourceDto {
 
   @IsOptional()
   @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
   type?: string;
 
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl2?: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl3?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  value?: number;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
-  quantity: number;
+  quantity?: number;
+
+  @Allow()
+  locationQuantities?: Record<string, number>;
+
+  @IsOptional()
+  @IsString()
+  serialNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  condition?: string;
+
+  @Allow()
+  assignedTo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  purchaseDate?: string;
 
   @IsUUID('4')
   locationId: string;
@@ -45,12 +91,59 @@ export class UpdateResourceDto {
 
   @IsOptional()
   @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
   type?: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl2?: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl3?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  value?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
   quantity?: number;
+
+  @Allow()
+  locationQuantities?: Record<string, number>;
+
+  @IsOptional()
+  @IsString()
+  serialNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  condition?: string;
+
+  @Allow()
+  assignedTo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  purchaseDate?: string;
+
+  @IsOptional()
+  @IsUUID('4')
+  locationId?: string;
 
   @IsOptional()
   @IsBoolean()
