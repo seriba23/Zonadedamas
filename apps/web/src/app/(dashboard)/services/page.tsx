@@ -66,8 +66,6 @@ export function ServicesContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const [viewTab, setViewTab] = useState<'servicios' | 'comisiones'>('servicios');
-  const [comisionView, setComisionView] = useState<'por-servicio' | 'por-empleado'>('por-servicio');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState<ServiceForm>(defaultForm);
@@ -110,12 +108,6 @@ export function ServicesContent() {
 
   const services = data?.data || [];
 
-  const { data: employeesData } = useQuery({
-    queryKey: ['employees-for-commissions'],
-    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100'),
-    enabled: viewTab !== 'servicios',
-  });
-  const allEmployees = (employeesData?.data || []).filter((e: any) => e.isActive);
 
   const saveMutation = useMutation({
     mutationFn: (payload: Record<string, any>) => {
@@ -204,26 +196,7 @@ export function ServicesContent() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* View tabs */}
-      <div className="border-b border-gray-200 px-6 flex items-center gap-6">
-        {(['servicios', 'comisiones'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setViewTab(tab)}
-            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-              viewTab === tab
-                ? 'border-[#008080] text-[#008080]'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab === 'servicios' ? 'Servicios' : 'Comisiones'}
-          </button>
-        ))}
-      </div>
-
       <div className="flex-1 overflow-y-auto p-6">
-        {viewTab === 'servicios' && (
-          <>
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">
             {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
@@ -351,7 +324,7 @@ export function ServicesContent() {
                               </svg>
                               <span className="text-xs text-red-700">Sin empleados asignados — este servicio no aparecerá disponible para reservar. </span>
                               <button
-                                onClick={(e) => { e.stopPropagation(); setViewTab('comisiones'); setComisionView('por-servicio'); setExpandAfterSwitch(service.id); }}
+                                onClick={(e) => { e.stopPropagation(); router.push('/staff?tab=comisiones'); }}
                                 className="text-xs font-medium text-red-700 underline hover:text-red-900 flex-shrink-0"
                               >
                                 Asignar empleados
@@ -366,36 +339,6 @@ export function ServicesContent() {
                 );
               });
             })()}
-          </div>
-        )}
-          </>
-        )}
-
-        {/* ─── Comisiones ─── */}
-        {viewTab === 'comisiones' && (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-                <button
-                  onClick={() => setComisionView('por-servicio')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 ${
-                    comisionView === 'por-servicio' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Por servicio
-                </button>
-                <button
-                  onClick={() => setComisionView('por-empleado')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    comisionView === 'por-empleado' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Por empleado
-                </button>
-              </div>
-            </div>
-            {comisionView === 'por-servicio' && <ServiceCommissionsView services={services} allEmployees={allEmployees} autoExpandServiceId={expandAfterSwitch} onAutoExpanded={() => setExpandAfterSwitch(null)} />}
-            {comisionView === 'por-empleado' && <EmployeeServicesView employees={allEmployees} allServices={services} />}
           </div>
         )}
       </div>

@@ -109,7 +109,6 @@ export function InventoryContent() {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
   // Inventory type tab: 'all' | 'consumable' | 'shop'
-  const [inventoryTab, setInventoryTab] = useState<'all' | 'consumable'>('all');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -135,14 +134,11 @@ export function InventoryContent() {
       ),
   });
 
-  const allProducts = data?.data || [];
-  const products = inventoryTab === 'all'
-    ? allProducts
-    : allProducts.filter((p) => !p.isShopListed);
+  const products = data?.data || [];
   const meta = data?.meta;
 
   // Derive categories from existing products + custom ones added in this session
-  const existingCategories = [...new Set(allProducts.map((p) => p.category).filter(Boolean))] as string[];
+  const existingCategories = [...new Set(products.map((p) => p.category).filter(Boolean))] as string[];
   const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...existingCategories, ...customCategories])];
 
   const { data: suppliersData } = useQuery({
@@ -327,28 +323,8 @@ export function InventoryContent() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Inventory type tabs + add button */}
         <div className="flex items-center justify-between mb-5">
-          <div className="border-b border-gray-200 overflow-x-auto">
-            <nav className="flex gap-1 -mb-px">
-              {([
-                { key: 'all', label: 'Todo' },
-                { key: 'consumable', label: 'Consumibles' },
-              ] as const).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => { setInventoryTab(tab.key); setPage(1); }}
-                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    inventoryTab === tab.key
-                      ? 'border-[#008080] text-[#008080]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
+          <p className="text-sm text-gray-500">{products.length} producto{products.length !== 1 ? 's' : ''}</p>
           {hasPermission('inventory.create') && (
             <button onClick={openCreate} className="btn-primary">
               + Agregar Producto

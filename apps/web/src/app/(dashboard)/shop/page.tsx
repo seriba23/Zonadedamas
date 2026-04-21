@@ -92,8 +92,8 @@ function ShopProductsTab() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : products.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -106,43 +106,49 @@ function ShopProductsTab() {
           <p className="text-xs text-gray-400">Marca productos como "Para venta en tienda" desde <Link href="/inventory" className="text-[#008080] hover:underline">Inventario</Link></p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map((product: any) => (
-            <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              {/* Image */}
-              <div className="h-36 bg-gray-100 flex items-center justify-center overflow-hidden">
-                {product.imageUrl ? (
-                  <img src={`${API_URL}${product.imageUrl}`} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                  </svg>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <h3 className="text-sm font-semibold text-gray-900 truncate">{product.name}</h3>
-                  <span className="text-sm font-bold text-gray-900 flex-shrink-0">{formatCurrency(Number(product.price))}</span>
-                </div>
-                {product.category && <p className="text-xs text-gray-400 mb-2">{product.category}</p>}
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs font-medium ${product.stock > product.minStock ? 'text-green-600' : product.stock > 0 ? 'text-teal-600' : 'text-red-600'}`}>
-                    {product.stock > 0 ? `${product.stock} en stock` : 'Agotado'}
-                  </span>
-                  {product.shippingEnabled && (
-                    <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
-                      </svg>
-                      Envío
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr className="text-xs text-gray-500 uppercase">
+                <th className="text-left px-4 py-3 font-semibold">Producto</th>
+                <th className="text-left px-4 py-3 font-semibold">Categoría</th>
+                <th className="text-center px-4 py-3 font-semibold">Precio</th>
+                <th className="text-center px-4 py-3 font-semibold">Stock</th>
+                <th className="text-center px-4 py-3 font-semibold">Envío</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product: any) => (
+                <tr key={product.id} className="border-t border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        {product.imageUrl ? (
+                          <img src={`${API_URL}${product.imageUrl}`} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{product.name}</p>
+                        {product.sku && <p className="text-[10px] text-gray-400">SKU: {product.sku}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{product.category || '—'}</td>
+                  <td className="px-4 py-3 text-center font-semibold text-gray-900">{formatCurrency(Number(product.price))}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-xs font-medium ${product.stock > product.minStock ? 'text-green-600' : product.stock > 0 ? 'text-teal-600' : 'text-red-600'}`}>
+                      {product.stock > 0 ? product.stock : 'Agotado'}
                     </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+                  </td>
+                  <td className="px-4 py-3 text-center text-xs text-gray-400">{product.shippingEnabled ? 'Sí' : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
