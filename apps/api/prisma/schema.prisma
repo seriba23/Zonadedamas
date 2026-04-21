@@ -274,6 +274,7 @@ model Tenant {
   promotionReferrals    PromotionReferral[]
   serviceBundles        ServiceBundle[]
   productReservations   ProductReservation[]
+  attendances           Attendance[]
 
   @@map("tenants")
 }
@@ -659,10 +660,46 @@ model Employee {
   documents        EmployeeDocument[]
   trainings              EmployeeTraining[]
   professionalFavorites  MarketplaceProfessionalFavorite[]
+  attendances            Attendance[]
 
   @@index([tenantId])
   @@index([tenantId, locationId])
   @@map("employees")
+}
+
+model Attendance {
+  id              String           @id @default(uuid())
+  tenantId        String           @map("tenant_id")
+  employeeId      String           @map("employee_id")
+  date            DateTime         @db.Date
+  checkInTime     DateTime?        @map("check_in_time")
+  checkInLat      Float?           @map("check_in_lat")
+  checkInLng      Float?           @map("check_in_lng")
+  checkInDistance Float?           @map("check_in_distance")
+  checkOutTime    DateTime?        @map("check_out_time")
+  checkOutLat     Float?           @map("check_out_lat")
+  checkOutLng     Float?           @map("check_out_lng")
+  checkOutDistance Float?          @map("check_out_distance")
+  status          AttendanceStatus @default(APPROVED)
+  reviewedBy      String?          @map("reviewed_by")
+  reviewedAt      DateTime?        @map("reviewed_at")
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+  @@map("attendances")
+}
+
+enum AttendanceStatus {
+  APPROVED
+  PENDING_REVIEW
+  REJECTED
 }
 
 model EmployeeService {

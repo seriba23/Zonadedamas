@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { label: 'Reseñas', href: '/employee/reviews', icon: '⭐' },
   { label: 'Comisiones', href: '/employee/commissions', icon: '💰' },
   { label: 'Galería', href: '/employee/gallery', icon: '📸' },
+  { label: 'Asistencia', href: '/employee/attendance', icon: '📍' },
   { label: 'Mi Horario', href: '/employee/schedule', icon: '🕐' },
   { label: 'Mi Perfil', href: '/employee/profile', icon: '👤' },
   { label: 'Formación', href: '/employee/training', icon: '📚' },

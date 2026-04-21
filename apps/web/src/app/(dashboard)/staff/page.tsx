@@ -6,6 +6,9 @@ import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
+import { DatePicker } from '@/components/ui/date-picker';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -31,7 +34,7 @@ interface Location {
   name: string;
 }
 
-type StaffTab = 'empleados' | 'permisos' | 'asistencias' | 'organigrama' | 'comisiones' | 'documentos' | 'formacion' | 'evaluaciones' | 'nomina' | 'horarios';
+type StaffTab = 'empleados' | 'permisos' | 'asistencias' | 'organigrama' | 'comisiones' | 'horarios';
 
 const TABS: { key: StaffTab; label: string }[] = [
   { key: 'empleados', label: 'Empleados' },
@@ -39,10 +42,6 @@ const TABS: { key: StaffTab; label: string }[] = [
   { key: 'asistencias', label: 'Asistencias' },
   { key: 'horarios', label: 'Horarios' },
   { key: 'comisiones', label: 'Comisiones' },
-  { key: 'evaluaciones', label: 'Evaluaciones' },
-  { key: 'formacion', label: 'Formación' },
-  { key: 'documentos', label: 'Documentos' },
-  { key: 'nomina', label: 'Nómina' },
 ];
 
 export default function StaffPage() {
@@ -301,73 +300,19 @@ export default function StaffPage() {
 
         {/* ─── Tab: Asistencias ─── */}
         {activeTab === 'asistencias' && (
-          <PlaceholderTab
-            icon="📋"
-            title="Registro de asistencias"
-            desc="Gestiona vacaciones, permisos, ausencias y días festivos de tu equipo."
-            hint="Selecciona un empleado de la lista para gestionar sus ausencias individualmente desde su perfil."
-          />
+          <AttendanceTab employees={(data?.data || []).filter((e: any) => e.isActive)} />
         )}
 
         {/* ─── Tab: Horarios ─── */}
         {activeTab === 'horarios' && (
-          <PlaceholderTab
-            icon="🕐"
-            title="Horarios del equipo"
-            desc="Vista general de los horarios de todos los empleados en una sola pantalla."
-            hint="Próximamente: grid semanal con los horarios de todo el equipo."
-          />
+          <EmployeeSchedulesTab employees={(data?.data || []).filter((e: any) => e.isActive)} />
         )}
 
         {/* ─── Tab: Comisiones ─── */}
         {activeTab === 'comisiones' && (
-          <PlaceholderTab
-            icon="💰"
-            title="Comisiones"
-            desc="Cálculo y seguimiento de comisiones por empleado y servicio."
-            hint="Próximamente: configuración de porcentajes por servicio y reportes de pago."
-          />
+          <StaffCommissionsTab />
         )}
 
-        {/* ─── Tab: Evaluaciones ─── */}
-        {activeTab === 'evaluaciones' && (
-          <PlaceholderTab
-            icon="⭐"
-            title="Evaluaciones de desempeño"
-            desc="Evaluaciones periódicas del rendimiento de tu equipo."
-            hint="Próximamente: calificaciones, objetivos y retroalimentación."
-          />
-        )}
-
-        {/* ─── Tab: Formacion ─── */}
-        {activeTab === 'formacion' && (
-          <PlaceholderTab
-            icon="🎓"
-            title="Formación y capacitación"
-            desc="Cursos, certificaciones y desarrollo profesional del equipo."
-            hint="Próximamente: registro de cursos completados y pendientes."
-          />
-        )}
-
-        {/* ─── Tab: Documentos ─── */}
-        {activeTab === 'documentos' && (
-          <PlaceholderTab
-            icon="📄"
-            title="Documentos"
-            desc="Contratos, identificaciones, certificados y archivos de cada empleado."
-            hint="Próximamente: repositorio centralizado de documentos del equipo."
-          />
-        )}
-
-        {/* ─── Tab: Nomina ─── */}
-        {activeTab === 'nomina' && (
-          <PlaceholderTab
-            icon="💵"
-            title="Nómina"
-            desc="Registro de pagos, adelantos y bonificaciones del equipo."
-            hint="Próximamente: historial de pagos y exportación para contabilidad."
-          />
-        )}
       </div>
     </div>
   );
@@ -645,6 +590,514 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Employee Schedules Tab ─── */
+function EmployeeSchedulesTab({ employees }: { employees: Employee[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (employees.length === 0) {
+    return <div className="text-center py-16 text-gray-400">No hay empleados activos.</div>;
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-gray-500 mb-4">Configura el horario laboral de cada empleado.</p>
+      <div className="space-y-3">
+        {employees.map((employee) => {
+          const isExpanded = expandedId === employee.id;
+          return (
+            <div key={employee.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setExpandedId(isExpanded ? null : employee.id)}
+                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden"
+                  style={{ backgroundColor: employee.color || '#008080' }}
+                >
+                  {employee.avatarUrl ? (
+                    <img src={`${API_URL}${employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <>{employee.firstName[0]}{employee.lastName[0]}</>
+                  )}
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-medium text-gray-900 text-sm">{employee.firstName} {employee.lastName}</p>
+                  <p className="text-xs text-gray-400">{employee.jobTitle || 'Sin puesto'}</p>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {isExpanded && (
+                <div className="border-t border-gray-100 p-4">
+                  <EmployeeScheduleEditor employeeId={employee.id} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Attendance Tab (admin view) ─── */
+function AttendanceTab({ employees }: { employees: Employee[] }) {
+  const queryClient = useQueryClient();
+  type RangeMode = 'day' | 'week' | 'month' | 'custom';
+  const [rangeMode, setRangeMode] = useState<RangeMode>('day');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [customStart, setCustomStart] = useState(() => new Date().toISOString().split('T')[0]);
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().split('T')[0]);
+
+  // Calculate date range based on mode
+  function getDateRange(): { startDate: string; endDate: string } {
+    const d = new Date(selectedDate + 'T00:00:00');
+    if (rangeMode === 'day') {
+      return { startDate: selectedDate, endDate: selectedDate };
+    } else if (rangeMode === 'week') {
+      const dayOfWeek = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - ((dayOfWeek + 6) % 7));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return { startDate: monday.toISOString().split('T')[0], endDate: sunday.toISOString().split('T')[0] };
+    } else if (rangeMode === 'month') {
+      const start = new Date(d.getFullYear(), d.getMonth(), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      return { startDate: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0] };
+    } else {
+      return { startDate: customStart, endDate: customEnd };
+    }
+  }
+
+  const { startDate, endDate } = getDateRange();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['attendance', startDate, endDate],
+    queryFn: () => api.get<{ data: any[] }>(`/api/attendance?startDate=${startDate}&endDate=${endDate}`),
+  });
+
+  const records = data?.data || [];
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) =>
+      api.put(`/api/attendance/${id}/review`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+  });
+
+  // Group records by date for multi-day views
+  const byDate = new Map<string, any[]>();
+  for (const r of records) {
+    const dateKey = new Date(r.date).toISOString().split('T')[0];
+    const list = byDate.get(dateKey) || [];
+    list.push(r);
+    byDate.set(dateKey, list);
+  }
+
+  const rangeModes: { key: RangeMode; label: string }[] = [
+    { key: 'day', label: 'Día' },
+    { key: 'week', label: 'Semana' },
+    { key: 'month', label: 'Mes' },
+    { key: 'custom', label: 'Personalizado' },
+  ];
+
+  function renderRecordRow(record: any) {
+    const emp = record.employee;
+    const checkIn = record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : null;
+    const checkOut = record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : null;
+    const totalMinutes = record.checkInTime && record.checkOutTime
+      ? Math.round((new Date(record.checkOutTime).getTime() - new Date(record.checkInTime).getTime()) / 60000)
+      : null;
+    const hours = totalMinutes != null
+      ? totalMinutes < 60
+        ? `${totalMinutes}min`
+        : `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, '0')}`
+      : null;
+
+    let statusInfo: { label: string; color: string; bg: string };
+    if (record.status === 'PENDING_REVIEW') {
+      statusInfo = { label: 'Pendiente', color: 'text-teal-700', bg: 'bg-teal-50' };
+    } else if (record.status === 'REJECTED') {
+      statusInfo = { label: 'Rechazado', color: 'text-red-600', bg: 'bg-red-50' };
+    } else if (record.checkOutTime) {
+      statusInfo = { label: 'Completado', color: 'text-green-600', bg: 'bg-green-50' };
+    } else {
+      statusInfo = { label: 'En turno', color: 'text-[#008080]', bg: 'bg-teal-50' };
+    }
+
+    return (
+      <tr key={record.id} className="border-t border-gray-100 hover:bg-gray-50">
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden"
+              style={{ backgroundColor: emp?.color || '#008080' }}
+            >
+              {emp?.avatarUrl ? (
+                <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <>{emp?.firstName?.[0]}{emp?.lastName?.[0]}</>
+              )}
+            </div>
+            <div>
+              <span className="text-gray-900 text-sm">{emp?.firstName} {emp?.lastName}</span>
+              {record.checkInDistance != null && record.checkInDistance > 50 && (
+                <p className="text-[10px] text-red-500">{record.checkInDistance}m de distancia</p>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3 text-center font-mono text-gray-700 text-sm">{checkIn || '—'}</td>
+        <td className="px-4 py-3 text-center font-mono text-gray-700 text-sm">{checkOut || '—'}</td>
+        <td className="px-4 py-3 text-center text-gray-600 text-sm font-mono">{hours || '—'}</td>
+        <td className="px-4 py-3 text-center">
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusInfo.color} ${statusInfo.bg}`}>
+            {statusInfo.label}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-center">
+          {record.status === 'PENDING_REVIEW' && (
+            <div className="flex items-center justify-center gap-1">
+              <button
+                onClick={() => reviewMutation.mutate({ id: record.id, status: 'APPROVED' })}
+                className="p-1 rounded hover:bg-green-50 text-green-600"
+                title="Aprobar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => reviewMutation.mutate({ id: record.id, status: 'REJECTED' })}
+                className="p-1 rounded hover:bg-red-50 text-red-500"
+                title="Rechazar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <div>
+      {/* Filters bar */}
+      <div className="space-y-3 mb-4">
+        <div className="flex items-center gap-3">
+          {/* Range mode pills */}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            {rangeModes.map((mode) => (
+              <button
+                key={mode.key}
+                onClick={() => setRangeMode(mode.key)}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  rangeMode === mode.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date picker */}
+          {rangeMode !== 'custom' && (
+            <div className="w-44">
+              <DatePicker value={selectedDate} onChange={(val) => setSelectedDate(val)} />
+            </div>
+          )}
+
+          {rangeMode === 'custom' && (
+            <div className="flex items-center gap-2">
+              <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} /></div>
+              <span className="text-xs text-gray-400">a</span>
+              <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} /></div>
+            </div>
+          )}
+
+          {/* Range label */}
+          <span className="text-xs text-gray-400 ml-auto">
+            {startDate === endDate
+              ? new Date(startDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
+              : `${new Date(startDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short' })} — ${new Date(endDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}`
+            }
+          </span>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}
+        </div>
+      ) : records.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <p>No hay registros de asistencia en este periodo.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {rangeMode === 'day' ? (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr className="text-xs text-gray-500 uppercase">
+                    <th className="text-left px-4 py-3 font-semibold">Empleado</th>
+                    <th className="text-center px-4 py-3 font-semibold">Entrada</th>
+                    <th className="text-center px-4 py-3 font-semibold">Salida</th>
+                    <th className="text-center px-4 py-3 font-semibold">Horas</th>
+                    <th className="text-center px-4 py-3 font-semibold">Estado</th>
+                    <th className="text-center px-4 py-3 font-semibold w-20"></th>
+                  </tr>
+                </thead>
+                <tbody>{records.map(renderRecordRow)}</tbody>
+              </table>
+            </div>
+          ) : (
+            // Multi-day: group by date
+            [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([dateKey, dayRecords]) => (
+              <div key={dateKey} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 capitalize">
+                    {new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </p>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50/50 border-b border-gray-100">
+                    <tr className="text-[10px] text-gray-400 uppercase">
+                      <th className="text-left px-4 py-2 font-semibold">Empleado</th>
+                      <th className="text-center px-4 py-2 font-semibold">Entrada</th>
+                      <th className="text-center px-4 py-2 font-semibold">Salida</th>
+                      <th className="text-center px-4 py-2 font-semibold">Horas</th>
+                      <th className="text-center px-4 py-2 font-semibold">Estado</th>
+                      <th className="text-center px-4 py-2 font-semibold w-20"></th>
+                    </tr>
+                  </thead>
+                  <tbody>{dayRecords.map(renderRecordRow)}</tbody>
+                </table>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Staff Commissions Tab (per-employee view) ─── */
+function StaffCommissionsTab() {
+  const { format: formatCurrency } = useCurrency();
+  const queryClient = useQueryClient();
+  const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
+  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
+  const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
+  const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
+
+  const { data: employeesData } = useQuery({
+    queryKey: ['staff-commissions-employees'],
+    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100'),
+  });
+  const { data: servicesData } = useQuery({
+    queryKey: ['staff-commissions-services'],
+    queryFn: () => api.get<{ data: any[] }>('/api/services?perPage=100'),
+  });
+
+  const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
+  const allServices = servicesData?.data || [];
+  const allServiceIds = new Set(allServices.map((s: any) => s.id));
+
+  function buildInitialMap(empServices: any[]) {
+    const m = new Map<string, { commission: number | null }>();
+    for (const es of empServices) {
+      const svcId = es.service?.id || es.serviceId;
+      if (allServiceIds.has(svcId)) {
+        m.set(svcId, { commission: es.commission != null ? Number(es.commission) : null });
+      }
+    }
+    return m;
+  }
+
+  function getConfigMap(empId: string, empServices: any[]) {
+    return configMaps.get(empId) || buildInitialMap(empServices);
+  }
+
+  function toggleService(empId: string, svcId: string, empServices: any[]) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const current = next.get(empId) || buildInitialMap(empServices);
+      const map = new Map(current);
+      if (map.has(svcId)) map.delete(svcId); else map.set(svcId, { commission: null });
+      next.set(empId, map);
+      return next;
+    });
+  }
+
+  function updateCommission(empId: string, svcId: string, value: string, empServices: any[]) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const current = next.get(empId) || buildInitialMap(empServices);
+      const map = new Map(current);
+      if (map.get(svcId)) map.set(svcId, { commission: value === '' ? null : parseFloat(value) });
+      next.set(empId, map);
+      return next;
+    });
+  }
+
+  function hasChanges(empId: string, empServices: any[]) {
+    const map = configMaps.get(empId);
+    if (!map) return false;
+    const currentIds = new Set(empServices.map((es: any) => es.service?.id || es.serviceId));
+    if (map.size !== currentIds.size) return true;
+    for (const [svcId, config] of map) {
+      if (!currentIds.has(svcId)) return true;
+      const es = empServices.find((e: any) => (e.service?.id || e.serviceId) === svcId);
+      if (!es) return true;
+      const oldComm = es.commission != null ? Number(es.commission) : null;
+      if ((config.commission ?? null) !== oldComm) return true;
+    }
+    return false;
+  }
+
+  async function saveChanges(empId: string, empServices: any[]) {
+    const map = getConfigMap(empId, empServices);
+    setSavingEmpId(empId);
+    try {
+      await api.put(`/api/employees/${empId}/services`, {
+        services: Array.from(map.entries()).map(([serviceId, config]) => ({ serviceId, commission: config.commission })),
+      });
+      queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees'] });
+      setConfigMaps((prev) => { const n = new Map(prev); n.delete(empId); return n; });
+      setSavedEmpId(empId);
+      setTimeout(() => setSavedEmpId(null), 2000);
+    } catch (err) { console.error(err); }
+    setSavingEmpId(null);
+  }
+
+  if (employees.length === 0) {
+    return <div className="text-center py-16 text-gray-400">No hay empleados activos.</div>;
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-gray-500 mb-4">Gestiona las comisiones de cada empleado por servicio.</p>
+      <div className="space-y-4">
+        {employees.map((emp: any) => {
+          const empServices = (emp.employeeServices || []) as any[];
+          const map = getConfigMap(emp.id, empServices);
+          const changed = hasChanges(emp.id, empServices);
+          const isExpanded = expandedEmps.has(emp.id);
+
+          return (
+            <div key={emp.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setExpandedEmps((prev) => { const n = new Set(prev); n.has(emp.id) ? n.delete(emp.id) : n.add(emp.id); return n; })}
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color || '#008080' }}>
+                    {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">{emp.firstName} {emp.lastName}</p>
+                    <p className="text-xs text-gray-400">{map.size} de {allServices.length} servicios</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
+                  {changed && <span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />}
+                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <>
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                        <tr className="text-xs text-gray-500 uppercase">
+                          <th className="w-8 px-2 py-2"></th>
+                          <th className="text-left px-2 py-2 font-semibold">Servicio</th>
+                          <th className="text-center px-2 py-2 font-semibold w-24">Precio</th>
+                          <th className="text-center px-2 py-2 font-semibold w-28">Comisión</th>
+                          <th className="text-center px-2 py-2 font-semibold w-24">Ganancia</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allServices.map((svc: any) => {
+                          const isSelected = map.has(svc.id);
+                          const config = map.get(svc.id);
+                          const price = Number(svc.price);
+                          const comm = config?.commission ?? 0;
+                          const profit = price - Number(comm);
+
+                          return (
+                            <tr key={svc.id} className={`border-t border-gray-100 ${isSelected ? 'bg-teal-50/30' : ''}`}>
+                              <td className="px-2 py-2 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleService(emp.id, svc.id, empServices)}
+                                  className="w-4 h-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
+                                />
+                              </td>
+                              <td className="px-2 py-2">
+                                <span className={isSelected ? 'text-gray-900' : 'text-gray-400'}>{svc.name}</span>
+                                <span className="text-xs text-gray-400 ml-1">({svc.durationMinutes}min)</span>
+                              </td>
+                              <td className="px-2 py-2 text-center text-gray-500 tabular-nums">{formatCurrency(price, svc.currency)}</td>
+                              <td className="px-2 py-2 text-center">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  disabled={!isSelected}
+                                  placeholder="0"
+                                  value={config?.commission ?? ''}
+                                  onChange={(e) => updateCommission(emp.id, svc.id, e.target.value, empServices)}
+                                  className="w-24 text-right text-sm border border-gray-200 rounded px-2 py-1 tabular-nums disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                                />
+                              </td>
+                              <td className="px-2 py-2 text-center tabular-nums">
+                                {isSelected && config?.commission != null ? (
+                                  <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit, svc.currency)}</span>
+                                ) : <span className="text-gray-300">--</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {changed && (
+                    <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-end">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); saveChanges(emp.id, empServices); }}
+                        disabled={savingEmpId === emp.id}
+                        className="text-xs font-medium text-white px-4 py-1.5 rounded-lg disabled:opacity-50"
+                        style={{ backgroundColor: '#008080' }}
+                      >
+                        {savingEmpId === emp.id ? 'Guardando...' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

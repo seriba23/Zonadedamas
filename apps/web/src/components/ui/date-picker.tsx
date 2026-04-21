@@ -52,6 +52,19 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
     }
   }, []);
 
+  // Auto-position dropdown: if near right edge, align right
+  const [dropdownPosition, setDropdownPosition] = useState<{ left?: number; right?: number }>({});
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceRight = window.innerWidth - rect.right;
+    if (spaceRight < 290) {
+      setDropdownPosition({ right: 0 });
+    } else {
+      setDropdownPosition({ left: 0 });
+    }
+  }, [open]);
+
   // Close on outside click
   useEffect(() => {
     if (!open) return;
@@ -290,7 +303,7 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
         <div
           ref={dropdownRef}
           className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3"
-          style={{ width: 280 }}
+          style={{ width: 280, ...dropdownPosition }}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-2.5">
