@@ -93,7 +93,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function PromotionsPage() {
+export function PromotionsContent({ embedded }: { embedded?: boolean } = {}) {
   const { hasPermission } = usePermissions();
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
@@ -239,8 +239,8 @@ export default function PromotionsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <Header title="Promociones" />
+    <div className={embedded ? '' : 'flex flex-col h-full'}>
+      {!embedded && <Header title="Promociones" />}
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
@@ -704,3 +704,5 @@ export default function PromotionsPage() {
     </div>
   );
 }
+
+export default function PromotionsPage() { return <PromotionsContent />; }

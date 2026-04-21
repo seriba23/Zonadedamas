@@ -56,7 +56,7 @@ const defaultForm: RewardForm = {
   validUntil: '',
 };
 
-export default function RewardsPage() {
+export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -203,8 +203,8 @@ export default function RewardsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <Header title="Cupones" />
+    <div className={embedded ? '' : 'flex flex-col h-full'}>
+      {!embedded && <Header title="Cupones" />}
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
@@ -789,3 +789,5 @@ function CouponAdminCard({
     </div>
   );
 }
+
+export default function RewardsPage() { return <RewardsContent />; }

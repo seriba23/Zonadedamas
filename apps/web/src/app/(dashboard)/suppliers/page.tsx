@@ -39,7 +39,7 @@ const defaultForm: SupplierForm = {
   isActive: true,
 };
 
-export default function SuppliersPage() {
+export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -135,8 +135,8 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <Header title="Proveedores" />
+    <div className={embedded ? '' : 'flex flex-col h-full'}>
+      {!embedded && <Header title="Proveedores" />}
 
       <div className="flex-1 overflow-y-auto p-6">
         {/* Header row */}
@@ -430,3 +430,5 @@ export default function SuppliersPage() {
     </div>
   );
 }
+
+export default function SuppliersPage() { return <SuppliersContent />; }

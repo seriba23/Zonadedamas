@@ -350,6 +350,7 @@ export class ProductsService {
         where,
         include: {
           product: { select: { id: true, name: true, imageUrl: true } },
+          appointment: { select: { id: true, startTime: true, status: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -365,6 +366,45 @@ export class ProductsService {
         page,
         perPage,
         totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async getSalesStats(tenantId: string) {
+    const now = new Date();
+    const todayStart = new Date(now.toISOString().split('T')[0] + 'T00:00:00Z');
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [totalSales, todaySales, monthSales, recentSales] = await Promise.all([
+      this.prisma.productReservation.aggregate({
+        where: { tenantId, status: 'DELIVERED' },
+        _sum: { unitPrice: true },
+        _count: true,
+      }),
+      this.prisma.productReservation.aggregate({
+        where: { tenantId, status: 'DELIVERED', updatedAt: { gte: todayStart } },
+        _sum: { unitPrice: true },
+        _count: true,
+      }),
+      this.prisma.productReservation.aggregate({
+        where: { tenantId, status: 'DELIVERED', updatedAt: { gte: monthStart } },
+        _sum: { unitPrice: true },
+        _count: true,
+      }),
+      this.prisma.productReservation.findMany({
+        where: { tenantId, status: 'DELIVERED' },
+        include: { product: { select: { id: true, name: true, imageUrl: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+
+    return {
+      data: {
+        total: { count: totalSales._count, revenue: Number(totalSales._sum.unitPrice || 0) },
+        today: { count: todaySales._count, revenue: Number(todaySales._sum.unitPrice || 0) },
+        month: { count: monthSales._count, revenue: Number(monthSales._sum.unitPrice || 0) },
+        recent: recentSales,
       },
     };
   }

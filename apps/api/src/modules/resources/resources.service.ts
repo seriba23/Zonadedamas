@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateResourceDto, UpdateResourceDto } from './dto/create-resource.dto';
 import { PaginationDto, buildPaginatedResponse } from '../../common/dto/pagination.dto';
@@ -63,7 +64,7 @@ export class ResourcesService {
         imageUrl: dto.imageUrl,
         value: dto.value,
         quantity,
-        locationQuantities: locQty,
+        locationQuantities: locQty ?? Prisma.JsonNull,
         serialNumber: dto.serialNumber,
         brand: dto.brand,
         condition: dto.condition || 'good',

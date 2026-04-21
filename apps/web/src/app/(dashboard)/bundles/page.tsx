@@ -62,7 +62,7 @@ const defaultForm: BundleForm = {
   pointsRequired: '',
 };
 
-export default function BundlesPage() {
+export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
   const { format: formatCurrency } = useCurrency();
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
@@ -246,8 +246,8 @@ export default function BundlesPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <Header title="Paquetes de Servicios" />
+    <div className={embedded ? '' : 'flex flex-col h-full'}>
+      {!embedded && <Header title="Paquetes de Servicios" />}
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
@@ -733,4 +733,8 @@ export default function BundlesPage() {
       )}
     </div>
   );
+}
+
+export default function BundlesPage() {
+  return <BundlesContent />;
 }

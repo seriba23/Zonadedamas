@@ -60,7 +60,7 @@ const defaultForm: ServiceForm = {
   pointsRequired: '',
 };
 
-export default function ServicesPage() {
+export function ServicesContent() {
   const { format: formatCurrency } = useCurrency();
   const { hasPermission } = usePermissions();
   const router = useRouter();
@@ -204,8 +204,6 @@ export default function ServicesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Servicios" />
-
       {/* View tabs */}
       <div className="border-b border-gray-200 px-6 flex items-center gap-6">
         {(['servicios', 'comisiones'] as const).map((tab) => (
@@ -1098,6 +1096,52 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
       {employees.length === 0 && (
         <div className="text-center py-12 text-gray-400">No hay empleados activos</div>
       )}
+    </div>
+  );
+}
+
+/* ─── Page wrapper with top-level tabs ─── */
+import { BundlesContent } from '../bundles/page';
+import { RewardsContent } from '../rewards/page';
+import { PromotionsContent } from '../promotions/page';
+
+type ServicePageTab = 'servicios' | 'paquetes' | 'cupones' | 'promociones';
+const SERVICE_PAGE_TABS: { key: ServicePageTab; label: string }[] = [
+  { key: 'servicios', label: 'Servicios' },
+  { key: 'paquetes', label: 'Paquetes' },
+  { key: 'cupones', label: 'Cupones' },
+  { key: 'promociones', label: 'Promociones' },
+];
+
+export default function ServicesPage() {
+  const [activeTab, setActiveTab] = useState<ServicePageTab>('servicios');
+
+  return (
+    <div className="flex flex-col h-full">
+      <Header title="Servicios" />
+
+      <div className="border-b border-gray-200 px-6 flex items-center gap-6">
+        {SERVICE_PAGE_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? 'border-[#008080] text-[#008080]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'servicios' && <ServicesContent />}
+        {activeTab === 'paquetes' && <BundlesContent embedded />}
+        {activeTab === 'cupones' && <RewardsContent embedded />}
+        {activeTab === 'promociones' && <PromotionsContent embedded />}
+      </div>
     </div>
   );
 }

@@ -73,7 +73,7 @@ const CONDITIONS = [
   { value: 'poor', label: 'Malo' },
 ];
 
-export default function ResourcesPage() {
+export function ResourcesContent({ embedded }: { embedded?: boolean } = {}) {
   const { hasPermission } = usePermissions();
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
@@ -240,8 +240,8 @@ export default function ResourcesPage() {
   const totalValue = filtered.reduce((sum, r) => sum + (Number(r.value) || 0) * (r.quantity || 1), 0);
 
   return (
-    <div className="flex flex-col h-full">
-      <Header title="Activos y Recursos" />
+    <div className={embedded ? '' : 'flex flex-col h-full'}>
+      {!embedded && <Header title="Activos y Recursos" />}
 
       <div className="flex-1 overflow-y-auto p-6">
         {/* Stats */}
@@ -588,3 +588,5 @@ export default function ResourcesPage() {
     </div>
   );
 }
+
+export default function ResourcesPage() { return <ResourcesContent />; }

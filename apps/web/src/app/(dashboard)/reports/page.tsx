@@ -667,6 +667,9 @@ export default function ReportsPage() {
           </div>
         </div>
 
+        {/* Product Sales */}
+        <SalesCard />
+
         {/* Client metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Retention + New vs Returning - INTERACTIVE */}
@@ -764,6 +767,77 @@ export default function ReportsPage() {
         <Modal title={getDetailTitle()} onClose={() => setDetail(null)} size="full">
           {renderDetailContent()}
         </Modal>
+      )}
+    </div>
+  );
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+function SalesCard() {
+  const { format: formatCurrency } = useCurrency();
+
+  const { data: salesData } = useQuery({
+    queryKey: ['sales-stats'],
+    queryFn: () => api.get<{ data: any }>('/api/products/sales-stats'),
+  });
+
+  const sales = salesData?.data || { today: { count: 0, revenue: 0 }, month: { count: 0, revenue: 0 }, total: { count: 0, revenue: 0 }, recent: [] };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900">Ventas de productos</h3>
+        <Link href="/reservations" className="text-xs text-[#008080] hover:underline">Ver apartados</Link>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-400 uppercase">Hoy</p>
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(sales.today.revenue)}</p>
+          <p className="text-xs text-gray-400">{sales.today.count} venta{sales.today.count !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-400 uppercase">Este mes</p>
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(sales.month.revenue)}</p>
+          <p className="text-xs text-gray-400">{sales.month.count} venta{sales.month.count !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-400 uppercase">Total</p>
+          <p className="text-xl font-bold text-gray-900">{formatCurrency(sales.total.revenue)}</p>
+          <p className="text-xs text-gray-400">{sales.total.count} venta{sales.total.count !== 1 ? 's' : ''}</p>
+        </div>
+      </div>
+
+      {sales.recent.length > 0 ? (
+        <div>
+          <p className="text-[10px] text-gray-400 uppercase mb-2">Ventas recientes</p>
+          <div className="space-y-2">
+            {sales.recent.map((sale: any) => (
+              <div key={sale.id} className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  {sale.product?.imageUrl ? (
+                    <img src={`${API_URL}${sale.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-700 truncate">{sale.product?.name}</p>
+                  <p className="text-[10px] text-gray-400">{sale.customerName}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold text-gray-900">{formatCurrency(Number(sale.unitPrice) * sale.quantity)}</p>
+                  <p className="text-[10px] text-gray-400">{new Date(sale.updatedAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400 text-center py-4">Aún no hay ventas concretadas</p>
       )}
     </div>
   );

@@ -63,7 +63,7 @@ export default function SuspendedPage() {
           </div>
 
           <button
-            onClick={() => router.push('/dashboard/settings/subscription')}
+            onClick={() => router.push('/settings/subscription')}
             className="w-full py-3 rounded-xl font-semibold text-white mb-3 transition-colors"
             style={{ backgroundColor: '#008080' }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}

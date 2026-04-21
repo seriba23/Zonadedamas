@@ -360,7 +360,7 @@ export default function RegisterPage() {
         businessPhone: form.businessPhone.trim() || undefined,
         acceptContract: form.acceptContract,
       });
-      router.push('/dashboard');
+      router.push('/home');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');

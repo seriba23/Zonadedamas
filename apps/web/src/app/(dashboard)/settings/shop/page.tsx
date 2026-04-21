@@ -19,7 +19,7 @@ interface ShopSettings {
   shopSpeiClabe: string;
 }
 
-export default function ShopSettingsPage() {
+export function ShopSettingsContent() {
   const [settings, setSettings] = useState<ShopSettings>({
     shopEnabled: false,
     shopPickupEnabled: true,
@@ -242,4 +242,8 @@ export default function ShopSettingsPage() {
       )}
     </div>
   );
+}
+
+export default function ShopSettingsPage() {
+  return <ShopSettingsContent />;
 }

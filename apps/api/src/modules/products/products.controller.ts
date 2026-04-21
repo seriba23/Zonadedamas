@@ -53,6 +53,12 @@ export class ProductsController {
     });
   }
 
+  @Get('sales-stats')
+  @RequirePermissions('inventory.read')
+  async salesStats(@Request() req: any) {
+    return this.productsService.getSalesStats(req.user.tenantId);
+  }
+
   @Put('reservations/:id/status')
   @RequirePermissions('inventory.update')
   updateReservationStatus(

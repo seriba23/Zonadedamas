@@ -35,7 +35,7 @@ export function SubscriptionBanner({ status, trialEndsAt }: SubscriptionBannerPr
             </p>
           </div>
           <button
-            onClick={() => router.push('/dashboard/settings/subscription')}
+            onClick={() => router.push('/settings/subscription')}
             className={`flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
               urgency
                 ? 'bg-red-600 text-white hover:bg-red-700'
