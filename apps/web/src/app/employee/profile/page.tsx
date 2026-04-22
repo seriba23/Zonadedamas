@@ -159,9 +159,7 @@ export default function EmployeeProfilePage() {
 
       {/* Tab content */}
       {activeTab === 'info' && employee && (
-        <div className="px-6 py-4">
-          <EmployeeSettingsContent embedded />
-        </div>
+        <InfoPersonalTab employee={employee} onSave={() => queryClient.invalidateQueries({ queryKey: ['employee-profile'] })} />
       )}
 
       {activeTab === 'public' && employee && tenantData?.slug && (
@@ -534,6 +532,132 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
           <button onClick={() => setLightboxImg(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const BLOOD_TYPES = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+const RELATIONS = ['Padre/Madre', 'Hermano/a', 'Esposo/a', 'Pareja', 'Hijo/a', 'Tío/a', 'Amigo/a', 'Otro'];
+
+function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    firstName: employee.firstName, lastName: employee.lastName,
+    email: employee.email || '', phone: employee.phone || '', bio: employee.bio || '',
+    bloodType: employee.bloodType || '', allergies: employee.allergies || '',
+    emergencyContactName: employee.emergencyContactName || '',
+    emergencyContactLastName: employee.emergencyContactLastName || '',
+    emergencyContactPhone: employee.emergencyContactPhone || '',
+    emergencyContactRelation: employee.emergencyContactRelation || '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await api.put('/api/employees/me', { firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, bio: form.bio });
+      await api.put('/api/employees/me/personal-info', { bloodType: form.bloodType, allergies: form.allergies, emergencyContactName: form.emergencyContactName, emergencyContactLastName: form.emergencyContactLastName, emergencyContactPhone: form.emergencyContactPhone, emergencyContactRelation: form.emergencyContactRelation });
+      onSave();
+      setEditing(false);
+    } catch {}
+    setSaving(false);
+  }
+
+  return (
+    <div className="px-6 py-4 max-w-2xl mx-auto space-y-4">
+      {/* Basic info */}
+      <div className={`bg-white rounded-xl border p-5 relative ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
+        {!editing ? (
+          <button onClick={() => setEditing(true)} className="absolute top-4 right-4 flex items-center gap-1.5 text-xs text-[#008080] hover:text-[#006666] font-medium">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+            </svg>
+            Editar
+          </button>
+        ) : null}
+
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold text-white flex-shrink-0" style={{ backgroundColor: employee.color || '#008080' }}>
+            {employee.avatarUrl ? <img src={`${API_URL}${employee.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{employee.firstName[0]}{employee.lastName[0]}</>}
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{employee.firstName} {employee.lastName}</p>
+            {employee.jobTitle && <p className="text-xs text-[#008080] font-medium">{employee.jobTitle}</p>}
+          </div>
+        </div>
+
+        {!editing ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><p className="text-xs text-gray-400 mb-0.5">Email</p><p className="text-sm text-gray-700">{employee.email || '—'}</p></div>
+              <div><p className="text-xs text-gray-400 mb-0.5">Teléfono</p><p className="text-sm text-gray-700">{employee.phone || '—'}</p></div>
+            </div>
+            {employee.bio && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-400 mb-0.5">Bio</p>
+                <p className="text-sm text-gray-700">{employee.bio}</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-3 pt-3 border-t border-gray-100">
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label><input type="text" value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))} className="input-field" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label><input type="text" value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} className="input-field" /></div>
+            </div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Bio</label><textarea value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} className="input-field resize-none" rows={3} /></div>
+          </div>
+        )}
+      </div>
+
+      {/* Medical info */}
+      <div className={`bg-white rounded-xl border p-5 ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Información médica</h3>
+        {!editing ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><p className="text-xs text-gray-400 mb-0.5">Tipo de sangre</p><p className="text-sm text-gray-700">{employee.bloodType || 'Sin especificar'}</p></div>
+            <div><p className="text-xs text-gray-400 mb-0.5">Alergias</p><p className="text-sm text-gray-700">{employee.allergies || 'Ninguna conocida'}</p></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Tipo de sangre</label><select value={form.bloodType} onChange={(e) => setForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field"><option value="">—</option>{BLOOD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Alergias</label><input type="text" value={form.allergies} onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))} className="input-field" /></div>
+          </div>
+        )}
+      </div>
+
+      {/* Emergency contact */}
+      <div className={`bg-white rounded-xl border p-5 ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Contacto de emergencia</h3>
+        {!editing ? (
+          employee.emergencyContactName || employee.emergencyContactPhone ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><p className="text-xs text-gray-400 mb-0.5">Nombre</p><p className="text-sm text-gray-700">{employee.emergencyContactName || '—'} {employee.emergencyContactLastName || ''}</p></div>
+              <div><p className="text-xs text-gray-400 mb-0.5">Teléfono</p><p className="text-sm text-gray-700">{employee.emergencyContactPhone || '—'}</p></div>
+              <div><p className="text-xs text-gray-400 mb-0.5">Relación</p><p className="text-sm text-gray-700">{employee.emergencyContactRelation || '—'}</p></div>
+            </div>
+          ) : <p className="text-sm text-gray-400">Sin contacto de emergencia registrado</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label><input type="text" value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label><input type="text" value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Relación</label><select value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field"><option value="">—</option>{RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
+          </div>
+        )}
+      </div>
+
+      {/* Save/Cancel buttons */}
+      {editing && (
+        <div className="flex gap-2">
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
+            {saving ? 'Guardando...' : 'Guardar'}
+          </button>
+          <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50">Cancelar</button>
         </div>
       )}
     </div>

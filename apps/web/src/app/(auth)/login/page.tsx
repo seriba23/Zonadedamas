@@ -90,8 +90,10 @@ export default function LoginPage() {
         api.setAccessToken(result.accessToken);
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
-        const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/home');
+        const isAdmin = result.user.permissions?.includes('employees.create');
+        const hasEmp = !!result.user.employeeId;
+        if (hasEmp) { setRoleChoice(result.user); return; }
+        router.push(isAdmin ? '/home' : '/employee');
       }
     } catch (err: any) {
       setApiError(err?.message || 'Error al iniciar sesión');
@@ -127,8 +129,10 @@ export default function LoginPage() {
         api.setAccessToken(result.accessToken);
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
-        const isEmployee = !result.user.permissions?.includes('employees.create');
-        router.push(isEmployee ? '/employee' : '/home');
+        const isAdmin = result.user.permissions?.includes('employees.create');
+        const hasEmp = !!result.user.employeeId;
+        if (hasEmp) { setRoleChoice(result.user); return; }
+        router.push(isAdmin ? '/home' : '/employee');
       }
     } catch (err: any) {
       setInviteError(err?.message || 'Código de invitación inválido');
@@ -152,6 +156,7 @@ export default function LoginPage() {
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
             <div className="space-y-3">
+              {roleChoice.permissions?.includes('employees.create') && (
               <button
                 onClick={() => router.push('/home')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
@@ -168,6 +173,7 @@ export default function LoginPage() {
                   </div>
                 </div>
               </button>
+              )}
 
               <button
                 onClick={() => router.push('/employee')}
