@@ -220,6 +220,7 @@ model Tenant {
   businessType         String?   @map("business_type")
   address              String?
   businessPhone        String?   @map("business_phone")
+  posWhatsappNumber    String?   @map("pos_whatsapp_number")
   description          String?   @db.Text
   coverImageUrl        String?   @map("cover_image_url")
   cardColor            String?   @map("card_color")

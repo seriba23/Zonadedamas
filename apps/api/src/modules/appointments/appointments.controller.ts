@@ -114,6 +114,16 @@ export class AppointmentsController {
     return this.appointmentsService.complete(id, tenantId, user.userId);
   }
 
+  @Post('from-pos')
+  @RequirePermissions('appointments.create')
+  async createFromPos(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Body() body: { clientId: string; locationId: string; serviceAssignments: Array<{ serviceId: string; employeeId: string }>; notes?: string },
+  ) {
+    return this.appointmentsService.createFromPos(tenantId, body, user.userId);
+  }
+
   @Post(':id/photo-consent')
   @RequirePermissions('appointments.complete')
   async setPhotoConsent(

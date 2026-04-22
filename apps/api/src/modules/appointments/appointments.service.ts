@@ -269,6 +269,104 @@ export class AppointmentsService {
     }
   }
 
+  /**
+   * Create appointment from POS sale. Calculates startTime = now - totalDuration.
+   * Skips overlap validation (POS exception). Links to payment.
+   */
+  async createFromPos(
+    tenantId: string,
+    data: {
+      clientId: string;
+      locationId: string;
+      serviceAssignments: Array<{ serviceId: string; employeeId: string }>;
+      notes?: string;
+    },
+    userId?: string,
+  ) {
+    const services = await this.prisma.service.findMany({
+      where: { id: { in: data.serviceAssignments.map((a) => a.serviceId) }, tenantId },
+    });
+
+    const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const now = new Date();
+    const startTime = new Date(now.getTime() - totalDuration * 60000);
+    const endTime = now;
+    const primaryEmployeeId = data.serviceAssignments[0]?.employeeId;
+
+    // Check if client already has a pending appointment today
+    const todayStart = new Date(now.toISOString().split('T')[0] + 'T00:00:00Z');
+    const todayEnd = new Date(now.toISOString().split('T')[0] + 'T23:59:59Z');
+    const existingAppointment = await this.prisma.appointment.findFirst({
+      where: {
+        clientId: data.clientId,
+        tenantId,
+        startTime: { gte: todayStart, lte: todayEnd },
+        status: { in: ['PENDING', 'CONFIRMED'] },
+      },
+    });
+
+    if (existingAppointment) {
+      // Complete the existing appointment instead of creating new
+      await this.prisma.appointment.update({
+        where: { id: existingAppointment.id },
+        data: { status: 'COMPLETED' },
+      });
+      return { data: existingAppointment };
+    }
+
+    // Create appointment without overlap check (POS exception)
+    const appointment = await this.prisma.appointment.create({
+      data: {
+        tenantId,
+        locationId: data.locationId,
+        clientId: data.clientId,
+        employeeId: primaryEmployeeId,
+        startTime,
+        endTime,
+        source: 'WALK_IN',
+        status: 'COMPLETED',
+        notes: data.notes || 'Venta desde Punto de Venta',
+        createdBy: userId,
+      },
+    });
+
+    // Create appointment items
+    let currentStart = new Date(startTime);
+    const items = [];
+    for (const assignment of data.serviceAssignments) {
+      const service = services.find((s) => s.id === assignment.serviceId);
+      if (!service) continue;
+
+      const employeeService = await this.prisma.employeeService.findFirst({
+        where: { employeeId: assignment.employeeId, serviceId: service.id },
+      });
+
+      const itemEnd = new Date(currentStart.getTime() + service.durationMinutes * 60000);
+      items.push({
+        appointmentId: appointment.id,
+        serviceId: service.id,
+        employeeId: assignment.employeeId,
+        startTime: currentStart,
+        endTime: itemEnd,
+        priceSnapshot: employeeService?.customPrice ?? service.price,
+        commissionSnapshot: employeeService?.commission ?? null,
+        durationSnapshot: service.durationMinutes,
+        serviceNameSnapshot: service.name,
+      });
+      currentStart = new Date(itemEnd.getTime() + service.bufferAfterMinutes * 60000);
+    }
+
+    if (items.length > 0) {
+      await this.prisma.appointmentItem.createMany({ data: items });
+    }
+
+    await this.prisma.appointmentStatusHistory.create({
+      data: { appointmentId: appointment.id, fromStatus: null, toStatus: 'COMPLETED', changedBy: userId },
+    });
+
+    return { data: appointment };
+  }
+
   async findAll(tenantId: string, filters: FilterAppointmentsDto) {
     const page = filters.page ?? 1;
     const perPage = filters.perPage ?? 20;
