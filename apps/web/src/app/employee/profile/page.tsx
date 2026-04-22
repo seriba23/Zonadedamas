@@ -123,90 +123,11 @@ export default function EmployeeProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto pb-24 lg:pb-6">
-      {/* Client-facing preview hero */}
-      <div className="relative rounded-b-2xl lg:rounded-2xl lg:mx-6 lg:mt-6 overflow-hidden mb-6" style={{ minHeight: 280 }}>
-        {/* Background */}
-        {employee?.coverImageUrl ? (
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${API_URL}${employee.coverImageUrl})` }}>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-          </div>
-        ) : employee?.avatarUrl ? (
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${API_URL}${employee.avatarUrl})` }}>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-          </div>
-        ) : (
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${employee?.color || '#008080'}dd 0%, ${employee?.color || '#008080'}44 50%, #1a1a2e 100%)` }} />
-        )}
-
-        {/* Change photo button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-medium hover:bg-white/30 transition-colors flex items-center gap-1.5"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-          </svg>
-          Cambiar foto
-        </button>
-        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-          onChange={(e) => { const file = e.target.files?.[0]; if (file) setCropFile(file); e.target.value = ''; }} />
-
-        {/* Rating badge */}
-        {stats?.averageRating && (
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md">
-            <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span className="text-sm font-bold text-white">{stats.averageRating}</span>
-          </div>
-        )}
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-end min-h-[280px] px-6 pb-6">
-          <h1 className="text-2xl font-bold text-white mb-0.5">{employee?.firstName} {employee?.lastName}</h1>
-          {employee?.jobTitle && <p className="text-sm text-white/80 font-medium">{employee.jobTitle}</p>}
-          {employee?.bio && <p className="text-xs text-white/60 mt-1 line-clamp-2 max-w-lg">{employee.bio}</p>}
-
-          {/* Stats pills */}
-          <div className="flex flex-wrap gap-2 mt-3">
-            {stats && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
-                <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <p className="text-sm font-bold text-white leading-none">{stats.completedAllTime}</p>
-                  <p className="text-[9px] text-white/60 uppercase">Trabajos</p>
-                </div>
-              </div>
-            )}
-            {specialty && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
-                <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25" />
-                </svg>
-                <div>
-                  <p className="text-sm font-bold text-white leading-none">{specialty}</p>
-                  <p className="text-[9px] text-white/60 uppercase">Especialidad</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* View as client link */}
-          {profileUrl && (
-            <Link href={profileUrl} target="_blank" className="mt-3 inline-flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-              Ver como lo ven los clientes
-            </Link>
-          )}
-        </div>
-      </div>
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+        onChange={(e) => { const file = e.target.files?.[0]; if (file) setCropFile(file); e.target.value = ''; }} />
 
       {avatarSuccess && (
-        <div className="mx-6 mb-4 p-2 rounded-lg bg-green-50 text-green-700 text-xs text-center">{avatarSuccess}</div>
+        <div className="mx-6 mt-4 mb-0 p-2 rounded-lg bg-green-50 text-green-700 text-xs text-center">{avatarSuccess}</div>
       )}
 
       {/* Tabs */}
