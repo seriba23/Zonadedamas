@@ -36,10 +36,10 @@ export function EmployeeSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const isAdmin = user?.permissions?.includes('employees.create');
   const moreItems = navItems.filter((item) => !item.mobileNav);
   const isMoreActive = moreItems.some((item) => pathname === item.href || pathname.startsWith(item.href));
+  const [moreOpen, setMoreOpen] = useState(isMoreActive);
 
   function NavIcon({ d, className }: { d: string; className?: string }) {
     return (
