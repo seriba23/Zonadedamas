@@ -59,12 +59,12 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
   const { data: productsData } = useQuery({ queryKey: ['pos-products'], queryFn: () => api.get<{ data: any[] }>('/api/products?perPage=100') });
   const { data: employeesData } = useQuery({ queryKey: ['pos-employees'], queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100') });
   const { data: locationsData } = useQuery({ queryKey: ['pos-locations'], queryFn: () => api.get<{ data: any[] }>('/api/locations') });
-  const { data: clientsData } = useQuery({ queryKey: ['pos-clients'], queryFn: () => api.get<{ data: any[] }>('/api/clients?perPage=200') });
+  const { data: clientsData } = useQuery({ queryKey: ['pos-clients'], queryFn: () => api.get<{ data: any[] }>('/api/clients?perPage=100') });
   const { data: tenantData } = useQuery({ queryKey: ['tenant-current'], queryFn: () => api.get<{ data: any }>('/api/tenants/current') });
 
-  const appointments = (appointmentsData?.data || []).filter((a: any) => a.status === 'CONFIRMED' || a.status === 'PENDING');
+  const appointments = (appointmentsData?.data || []).filter((a: any) => ['CONFIRMED', 'PENDING', 'IN_PROGRESS'].includes(a.status));
   const services = servicesData?.data || [];
-  const products = (productsData?.data || []).filter((p: any) => p.isActive && p.stock > 0);
+  const products = (productsData?.data || []).filter((p: any) => p.isActive && p.isShopListed && p.stock > 0);
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
   const locations = locationsData?.data || [];
   const clients = clientsData?.data || [];
@@ -366,7 +366,7 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
 
   // ─── STEP 3: Details ───
   if (step === 'details') {
-    const clientOptions = clients.map((c: any) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.phone || c.email, initials: `${c.firstName[0]}${c.lastName[0]}` }));
+    const clientOptions = clients.map((c: any) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.phone || c.email, initials: `${c.firstName[0]}${c.lastName[0]}`, avatarUrl: c.avatarUrl || null, color: '#008080' }));
     return (
       <div className="flex flex-col h-full">
         <div className="border-b border-gray-200 px-6 py-3 bg-white flex items-center gap-3">
@@ -376,7 +376,8 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
           <h3 className="text-sm font-semibold text-gray-900">Detalles del pedido</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-xl mx-auto space-y-4">
           {/* Services */}
           {serviceItems.length > 0 && (
             <div>
@@ -435,7 +436,7 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <label className="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
             <SearchableSelect value={selectedClientId} onChange={setSelectedClientId}
-              options={clientOptions} placeholder="Buscar cliente..." />
+              options={clientOptions} placeholder="Buscar cliente..." allLabel="Seleccionar cliente" />
             <button onClick={() => setShowNewClient(true)} className="text-xs text-[#008080] hover:underline mt-2">+ Registrar nuevo cliente</button>
           </div>
 
@@ -497,6 +498,7 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
             </div>
           </div>
         </div>
+        </div>
 
         {renderEmployeePicker()}
 
@@ -522,10 +524,12 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
         )}
 
         <div className="border-t border-gray-200 bg-white px-6 py-3">
-          <button onClick={() => setStep('pay')} disabled={items.length === 0}
-            className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
-            Continuar al pago
-          </button>
+          <div className="max-w-xl mx-auto">
+            <button onClick={() => setStep('pay')} disabled={items.length === 0}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
+              Continuar al pago
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -541,7 +545,8 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
         <h3 className="text-sm font-semibold text-gray-900">Pago</h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-xl mx-auto space-y-6">
         {/* Payment methods */}
         <div className="grid grid-cols-3 gap-3">
           {([
@@ -611,12 +616,15 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
 
         {error && <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
       </div>
+      </div>
 
       <div className="border-t border-gray-200 bg-white px-6 py-4">
-        <button onClick={handlePay} disabled={processPayment.isPending}
-          className="w-full py-4 rounded-xl text-base font-bold text-white transition-colors disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
-          {processPayment.isPending ? 'Procesando...' : `Cobrar ${formatCurrency(total)}`}
-        </button>
+        <div className="max-w-xl mx-auto">
+          <button onClick={handlePay} disabled={processPayment.isPending}
+            className="w-full py-4 rounded-xl text-base font-bold text-white transition-colors disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
+            {processPayment.isPending ? 'Procesando...' : `Cobrar ${formatCurrency(total)}`}
+          </button>
+        </div>
       </div>
     </div>
   );

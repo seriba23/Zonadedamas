@@ -104,11 +104,11 @@ const EVENT_VARIABLES: Record<string, string[]> = {
   ],
 };
 
-type TabId = 'templates' | 'logs';
+type TabId = 'logs' | 'templates';
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabId>('templates');
+  const [activeTab, setActiveTab] = useState<TabId>('logs');
   const [editTemplate, setEditTemplate] = useState<NotificationTemplate | null>(
     null,
   );
@@ -211,30 +211,26 @@ export default function NotificationsPage() {
     <div className="flex flex-col h-full">
       <Header title="Notificaciones" />
 
+      <div className="border-b border-gray-200 px-6 flex items-center gap-6">
+        {([
+          { key: 'logs' as TabId, label: 'Registros' },
+          { key: 'templates' as TabId, label: 'Ajustes' },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? 'border-[#008080] text-[#008080]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
-          <button
-            onClick={() => setActiveTab('templates')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'templates'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Plantillas
-          </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'logs'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Historial
-          </button>
-        </div>
 
         {/* Templates Tab */}
         {activeTab === 'templates' && (
