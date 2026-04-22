@@ -95,7 +95,7 @@ export default function EmployeeDashboard() {
               <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
             </div>
           ) : (
-            <div className="w-14 h-14 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-lg font-bold flex-shrink-0">
+            <div className="w-14 h-14 rounded-full bg-teal-50 text-[#008080] flex items-center justify-center text-lg font-bold flex-shrink-0">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </div>
           )}
@@ -127,7 +127,7 @@ export default function EmployeeDashboard() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-medium text-gray-500 mb-1">Ingresos generados</p>
-          <p className="text-2xl font-bold text-primary-700">
+          <p className="text-2xl font-bold text-[#008080]">
             {stats ? formatCurrency(stats.totalRevenue) : '...'}
           </p>
           <p className="text-xs text-gray-400">total</p>
@@ -148,50 +148,30 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <Link
-          href="/employee/appointments"
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
-        >
-          <span className="text-2xl mb-1 block">📅</span>
-          <p className="text-xs font-medium text-gray-700">Mis Citas</p>
-        </Link>
-        <Link
-          href="/employee/commissions"
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
-        >
-          <span className="text-2xl mb-1 block">💰</span>
-          <p className="text-xs font-medium text-gray-700">Comisiones</p>
-        </Link>
-        <Link
-          href="/employee/gallery"
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
-        >
-          <span className="text-2xl mb-1 block">📸</span>
-          <p className="text-xs font-medium text-gray-700">Galería</p>
-        </Link>
-        <Link
-          href="/employee/schedule"
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
-        >
-          <span className="text-2xl mb-1 block">🕐</span>
-          <p className="text-xs font-medium text-gray-700">Mi Horario</p>
-        </Link>
-        <Link
-          href="/employee/reviews"
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
-        >
-          <span className="text-2xl mb-1 block">⭐</span>
-          <p className="text-xs font-medium text-gray-700">Reseñas</p>
-        </Link>
-        <Link
-          href="/employee/profile"
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center hover:shadow-sm transition-shadow"
-        >
-          <span className="text-2xl mb-1 block">👤</span>
-          <p className="text-xs font-medium text-gray-700">Mi Perfil</p>
-        </Link>
+      {/* Quick actions — same style as admin */}
+      <div className="rounded-xl border border-gray-200 bg-white p-5 mb-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Acciones rápidas</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { label: 'Mis Citas', href: '/employee/appointments', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5' },
+            { label: 'Comisiones', href: '/employee/commissions', icon: 'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+            { label: 'Galería', href: '/employee/gallery', icon: 'M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z' },
+            { label: 'Mi Horario', href: '/employee/schedule', icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z' },
+            { label: 'Reseñas', href: '/employee/reviews', icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z' },
+            { label: 'Mi Perfil', href: '/employee/profile', icon: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z' },
+          ].map((action) => (
+            <Link
+              key={action.label}
+              href={action.href}
+              className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-[#e0f2f1] hover:border-[#008080]/20 text-gray-600 hover:text-[#008080] transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={action.icon} />
+              </svg>
+              <span className="text-xs font-medium">{action.label}</span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Commission highlight */}
@@ -199,7 +179,7 @@ export default function EmployeeDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-900">Comisiones</h2>
-            <Link href="/employee/commissions" className="text-xs text-primary-600 font-medium hover:underline">
+            <Link href="/employee/commissions" className="text-xs text-[#008080] font-medium hover:underline">
               Ver detalle
             </Link>
           </div>
@@ -210,7 +190,7 @@ export default function EmployeeDashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Este mes</p>
-              <p className="text-xl font-bold text-primary-700">{formatCurrency(stats.commissionsThisMonth)}</p>
+              <p className="text-xl font-bold text-[#008080]">{formatCurrency(stats.commissionsThisMonth)}</p>
             </div>
           </div>
         </div>
@@ -221,7 +201,7 @@ export default function EmployeeDashboard() {
         <div className="bg-primary-50 border border-primary-200 rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-primary-600 mb-1">Próxima cita</p>
+              <p className="text-xs font-medium text-[#008080] mb-1">Próxima cita</p>
               <p className="text-lg font-bold text-gray-900">
                 {dayjs(nextAppointment.startTime).format('h:mm A')}
               </p>
@@ -232,7 +212,7 @@ export default function EmployeeDashboard() {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-primary-700">
+              <p className="text-lg font-bold text-[#008080]">
                 {formatCurrency(nextAppointment.items.reduce((s, i) => s + Number(i.priceSnapshot), 0))}
               </p>
             </div>
@@ -244,7 +224,7 @@ export default function EmployeeDashboard() {
       <div className="bg-white rounded-xl border border-gray-200 mb-6">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">Citas del día</h2>
-          <Link href="/employee/appointments" className="text-xs text-primary-600 font-medium hover:underline">
+          <Link href="/employee/appointments" className="text-xs text-[#008080] font-medium hover:underline">
             Ver todas
           </Link>
         </div>

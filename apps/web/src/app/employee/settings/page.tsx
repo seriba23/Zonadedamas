@@ -193,7 +193,7 @@ export default function EmployeeSettingsPage() {
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Cuenta</p>
           <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-            <Link href="/employee/profile" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+            <Link href="/employee/profile?tab=info&edit=true" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
               <div>
                 <p className="text-sm text-gray-900">Editar perfil</p>
                 <p className="text-xs text-gray-400">Nombre, foto, contacto, contraseña</p>
@@ -207,15 +207,15 @@ export default function EmployeeSettingsPage() {
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ayuda y Legal</p>
           <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-            <Link href="/marketplace/help" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+            <Link href="/help" target="_blank" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
               <p className="text-sm text-gray-900">Centro de Ayuda</p>
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
             </Link>
-            <Link href="/marketplace/legal/privacy" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+            <Link href="/legal/privacy" target="_blank" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
               <p className="text-sm text-gray-900">Aviso de Privacidad</p>
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
             </Link>
-            <Link href="/marketplace/legal/terms" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+            <Link href="/legal/terms" target="_blank" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
               <p className="text-sm text-gray-900">Términos y Condiciones</p>
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
             </Link>
