@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
+import { EmployeeSettingsContent } from '../settings/page';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import Link from 'next/link';
 
@@ -156,36 +157,8 @@ export default function EmployeeProfilePage() {
 
       {/* Tab content */}
       {activeTab === 'info' && employee && (
-        <div className="space-y-6 px-6">
-          {/* Basic Data */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Datos Básicos</h3>
-              <Link
-                href="/employee/settings"
-                className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Editar
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InfoField label="Nombre completo" value={`${employee.firstName} ${employee.lastName}`} />
-              <InfoField label="Email" value={employee.email} />
-              <InfoField label="Teléfono" value={employee.phone} />
-            </div>
-            {employee.bio && (
-              <div className="mt-4">
-                <p className="text-xs text-gray-400 mb-1">Bio</p>
-                <p className="text-sm text-gray-700">{employee.bio}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Personal Info — editable */}
-          <PersonalInfoEditor employee={employee} onSave={() => queryClient.invalidateQueries({ queryKey: ['employee-profile'] })} />
+        <div className="px-6 py-4">
+          <EmployeeSettingsContent embedded />
         </div>
       )}
 

@@ -52,8 +52,14 @@ export default function LoginPage() {
       const isAdmin = user.permissions.includes('employees.create');
       const hasEmployeeProfile = !!user.employeeId;
 
-      // Admin that is also an employee → show role choice
+      // Show role choice if user has multiple roles
       if (isAdmin && hasEmployeeProfile) {
+        setRoleChoice(user);
+        return;
+      }
+
+      // Employee → always show choice (can be professional or client)
+      if (hasEmployeeProfile && !isAdmin) {
         setRoleChoice(user);
         return;
       }
@@ -174,8 +180,25 @@ export default function LoginPage() {
                     </svg>
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{roleChoice.jobTitle || 'Empleado'}</p>
+                    <p className="font-semibold text-gray-900">Profesional</p>
                     <p className="text-xs text-gray-500">Mi agenda, perfil y citas</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => router.push('/marketplace')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Cliente</p>
+                    <p className="text-xs text-gray-500">Explorar, reservar y comprar</p>
                   </div>
                 </div>
               </button>
