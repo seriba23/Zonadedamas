@@ -28,7 +28,7 @@ export default function PortalNav() {
               href={href}
               className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
                 isActive
-                  ? 'text-indigo-600'
+                  ? 'text-[#008080]'
                   : 'text-gray-400 hover:text-gray-600'
               }`}
             >

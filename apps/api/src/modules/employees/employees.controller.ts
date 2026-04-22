@@ -254,6 +254,29 @@ export class EmployeesController {
     return { data: employee };
   }
 
+  // Self-service: employee requests their own time off
+  @Get('me/time-off')
+  async getMyTimeOff(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const timeOff = await this.employeesService.getTimeOff(emp.id, tenantId);
+    return { data: timeOff };
+  }
+
+  @Post('me/time-off')
+  async requestTimeOff(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @Body() dto: CreateTimeOffDto,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    dto.status = 'PENDING'; // Always pending when self-requested
+    const timeOff = await this.employeesService.addTimeOff(emp.id, tenantId, dto);
+    return { data: timeOff };
+  }
+
   @Put(':id')
   @RequirePermissions('employees.update')
   async update(

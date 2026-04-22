@@ -8,6 +8,7 @@ export default function EmployeeAttendancePage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [outOfRangeInfo, setOutOfRangeInfo] = useState<{ distance: number; type: 'in' | 'out'; coords: { latitude: number; longitude: number } } | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -212,6 +213,68 @@ export default function EmployeeAttendancePage() {
       <p className="text-[10px] text-gray-300 mt-6 text-center max-w-xs">
         Tu ubicación se valida para confirmar que estás en el lugar de trabajo.
       </p>
+
+      {/* History toggle */}
+      <button
+        onClick={() => setShowHistory(!showHistory)}
+        className="mt-6 text-xs text-[#008080] hover:underline"
+      >
+        {showHistory ? 'Ocultar registros' : 'Ver registros'}
+      </button>
+
+      {/* History */}
+      {showHistory && <AttendanceHistory />}
+    </div>
+  );
+}
+
+function AttendanceHistory() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['my-attendance-history'],
+    queryFn: () => api.get<{ data: any[] }>('/api/attendance/me/history'),
+  });
+
+  const records = data?.data || [];
+
+  if (isLoading) return <div className="mt-4 text-xs text-gray-400 text-center">Cargando...</div>;
+  if (records.length === 0) return <div className="mt-4 text-xs text-gray-400 text-center">Sin registros anteriores</div>;
+
+  return (
+    <div className="w-full max-w-sm mt-4">
+      <p className="text-xs font-semibold text-gray-500 mb-2">Últimos registros</p>
+      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        {records.slice(0, 15).map((r: any) => {
+          const checkIn = r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '—';
+          const checkOut = r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '—';
+          const totalMin = r.checkInTime && r.checkOutTime ? Math.round((new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) / 60000) : null;
+          const duration = totalMin != null ? (totalMin < 60 ? `${totalMin}min` : `${Math.floor(totalMin / 60)}:${String(totalMin % 60).padStart(2, '0')}`) : '—';
+
+          const statusColors: Record<string, string> = {
+            APPROVED: 'text-green-600',
+            PENDING_REVIEW: 'text-teal-600',
+            REJECTED: 'text-red-600',
+          };
+
+          return (
+            <div key={r.id} className="flex items-center justify-between px-3 py-2.5">
+              <div>
+                <p className="text-xs font-medium text-gray-900">
+                  {new Date(r.date).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+                <p className="text-[10px] text-gray-400">{checkIn} — {checkOut}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-mono font-medium text-gray-700">{duration}</p>
+                {r.status !== 'APPROVED' && (
+                  <p className={`text-[10px] font-medium ${statusColors[r.status] || 'text-gray-400'}`}>
+                    {r.status === 'PENDING_REVIEW' ? 'En revisión' : r.status === 'REJECTED' ? 'Rechazado' : r.status}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -32,6 +32,24 @@ export class AttendanceController {
     return this.attendanceService.getPendingCount(tenantId);
   }
 
+  /** Employee: get my attendance history */
+  @Get('me/history')
+  async myHistory(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, user.sub);
+    const start = startDate || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const records = await this.prisma.attendance.findMany({
+      where: { employeeId: employee.id, tenantId, date: { gte: new Date(start + 'T00:00:00Z'), lte: new Date(end + 'T23:59:59Z') } },
+      orderBy: { date: 'desc' },
+    });
+    return { data: records };
+  }
+
   /** Employee: get my attendance today */
   @Get('me/today')
   async myToday(

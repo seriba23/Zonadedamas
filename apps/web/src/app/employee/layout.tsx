@@ -481,7 +481,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             </div>
           </div>
         )}
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">{children}</main>
       </div>
     </div>
   );
