@@ -112,35 +112,37 @@ export default function EmployeeAppointmentsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Mis Citas</h1>
-        <div className="flex bg-gray-100 rounded-lg p-1">
-          {([
-            { key: 'today' as RangeFilter, label: 'Hoy' },
-            { key: 'week' as RangeFilter, label: 'Semana' },
-            { key: 'month' as RangeFilter, label: 'Mes' },
-            { key: 'custom' as RangeFilter, label: 'Personalizado' },
-          ]).map((filter) => (
-            <button
-              key={filter.key}
-              onClick={() => setRange(filter.key)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                range === filter.key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-        {range === 'custom' && (
-          <div className="flex items-center gap-2 mt-3">
-            <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} maxDate={new Date(Date.now() + 365 * 86400000)} /></div>
-            <span className="text-xs text-gray-400">a</span>
-            <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} maxDate={new Date(Date.now() + 365 * 86400000)} /></div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Mis Citas</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            {([
+              { key: 'today' as RangeFilter, label: 'Día' },
+              { key: 'week' as RangeFilter, label: 'Semana' },
+              { key: 'month' as RangeFilter, label: 'Mes' },
+              { key: 'custom' as RangeFilter, label: 'Personalizado' },
+            ]).map((filter) => (
+              <button
+                key={filter.key}
+                onClick={() => setRange(filter.key)}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 last:border-r-0 ${
+                  range === filter.key
+                    ? 'bg-[#008080] text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
           </div>
-        )}
+          {range === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="input-field w-auto text-sm py-1.5" />
+              <span className="text-gray-500">-</span>
+              <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="input-field w-auto text-sm py-1.5" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Summary bar */}
