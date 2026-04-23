@@ -1147,9 +1147,16 @@ export default function BusinessDetailPage() {
                   className="border-b border-gray-50 last:border-b-0 pb-3 last:pb-0"
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900">
-                      {r.clientName}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0 overflow-hidden">
+                        {r.clientAvatarUrl ? (
+                          <img src={`${API_URL}${r.clientAvatarUrl}`} alt="" className="w-full h-full object-cover" />
+                        ) : r.clientName?.[0] || '?'}
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">
+                        {r.clientName}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <svg

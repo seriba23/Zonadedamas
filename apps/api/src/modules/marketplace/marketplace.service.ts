@@ -823,7 +823,7 @@ export class MarketplaceService {
     const reviews = await this.prisma.employeeReview.findMany({
       where: { tenantId: tenant.id, isVisible: true },
       include: {
-        client: { select: { firstName: true, lastName: true } },
+        client: { select: { firstName: true, lastName: true, avatarUrl: true } },
         employee: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -942,6 +942,7 @@ export class MarketplaceService {
           businessComment: r.businessComment,
           createdAt: r.createdAt,
           clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
+          clientAvatarUrl: (r.client as any).avatarUrl || null,
           employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
         })),
         businessHours,

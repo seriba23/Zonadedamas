@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import dayjs from 'dayjs';
+import { DatePicker } from '@/components/ui/date-picker';
 import { CloseAppointmentWizard } from './close-wizard';
 
 interface AppointmentItem {
@@ -25,7 +26,7 @@ interface Appointment {
   items: AppointmentItem[];
 }
 
-type RangeFilter = 'today' | 'week' | 'month';
+type RangeFilter = 'today' | 'week' | 'month' | 'custom';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
@@ -37,21 +38,17 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-800' },
 };
 
-function getDateRange(range: RangeFilter): { startDate: string; endDate: string } {
+function getDateRange(range: RangeFilter, customStart?: string, customEnd?: string): { startDate: string; endDate: string } {
   const today = dayjs();
   switch (range) {
     case 'today':
       return { startDate: today.format('YYYY-MM-DD'), endDate: today.format('YYYY-MM-DD') };
     case 'week':
-      return {
-        startDate: today.startOf('week').format('YYYY-MM-DD'),
-        endDate: today.endOf('week').format('YYYY-MM-DD'),
-      };
+      return { startDate: today.startOf('week').format('YYYY-MM-DD'), endDate: today.endOf('week').format('YYYY-MM-DD') };
     case 'month':
-      return {
-        startDate: today.startOf('month').format('YYYY-MM-DD'),
-        endDate: today.endOf('month').format('YYYY-MM-DD'),
-      };
+      return { startDate: today.startOf('month').format('YYYY-MM-DD'), endDate: today.endOf('month').format('YYYY-MM-DD') };
+    case 'custom':
+      return { startDate: customStart || today.format('YYYY-MM-DD'), endDate: customEnd || today.format('YYYY-MM-DD') };
   }
 }
 
@@ -59,13 +56,15 @@ export default function EmployeeAppointmentsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<RangeFilter>('today');
+  const [customStart, setCustomStart] = useState(dayjs().format('YYYY-MM-DD'));
+  const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [wizardApt, setWizardApt] = useState<Appointment | null>(null);
 
-  const { startDate, endDate } = getDateRange(range);
+  const { startDate, endDate } = getDateRange(range, customStart, customEnd);
 
   const { data: appointments, isLoading } = useQuery({
-    queryKey: ['employee-appointments', user?.employeeId, range],
+    queryKey: ['employee-appointments', user?.employeeId, startDate, endDate],
     queryFn: async () => {
       if (!user?.employeeId) return [];
       const res = await api.get<{ data: Appointment[] }>(
@@ -120,6 +119,7 @@ export default function EmployeeAppointmentsPage() {
             { key: 'today' as RangeFilter, label: 'Hoy' },
             { key: 'week' as RangeFilter, label: 'Semana' },
             { key: 'month' as RangeFilter, label: 'Mes' },
+            { key: 'custom' as RangeFilter, label: 'Personalizado' },
           ]).map((filter) => (
             <button
               key={filter.key}
@@ -134,6 +134,13 @@ export default function EmployeeAppointmentsPage() {
             </button>
           ))}
         </div>
+        {range === 'custom' && (
+          <div className="flex items-center gap-2 mt-3">
+            <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} /></div>
+            <span className="text-xs text-gray-400">a</span>
+            <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} /></div>
+          </div>
+        )}
       </div>
 
       {/* Summary bar */}
