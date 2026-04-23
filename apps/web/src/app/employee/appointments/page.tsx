@@ -136,9 +136,9 @@ export default function EmployeeAppointmentsPage() {
         </div>
         {range === 'custom' && (
           <div className="flex items-center gap-2 mt-3">
-            <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} /></div>
+            <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} maxDate={new Date(Date.now() + 365 * 86400000)} /></div>
             <span className="text-xs text-gray-400">a</span>
-            <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} /></div>
+            <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} maxDate={new Date(Date.now() + 365 * 86400000)} /></div>
           </div>
         )}
       </div>
