@@ -2505,7 +2505,7 @@ export default function BusinessDetailPage() {
                           </div>
                         </div>
                       </div>
-                    )}
+                    ) : null}
 
                     {/* Duration, Subtotal, Discount & Total */}
                     <div className="border-t border-gray-100 pt-4">
