@@ -31,12 +31,15 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
     queryKey: ['employee-settings', user?.employeeId],
     queryFn: () => api.get<{ data: any }>(`/api/employees/${user!.employeeId}`).then((r) => r.data),
     enabled: !!user?.employeeId,
-    onSuccess: (data: any) => {
-      if (!isEditing) return;
-      setEditForm({ firstName: data.firstName, lastName: data.lastName, email: data.email || '', phone: data.phone || '', bio: data.bio || '' });
-      setPersonalForm({ bloodType: data.bloodType || '', allergies: data.allergies || '', emergencyContactName: data.emergencyContactName || '', emergencyContactLastName: data.emergencyContactLastName || '', emergencyContactPhone: data.emergencyContactPhone || '', emergencyContactRelation: data.emergencyContactRelation || '' });
-    },
   });
+
+  // Fill form when data loads
+  const [formInitialized, setFormInitialized] = useState(false);
+  if (empData && !formInitialized) {
+    setEditForm({ firstName: empData.firstName, lastName: empData.lastName, email: empData.email || '', phone: empData.phone || '', bio: empData.bio || '' });
+    setPersonalForm({ bloodType: empData.bloodType || '', allergies: empData.allergies || '', emergencyContactName: empData.emergencyContactName || '', emergencyContactLastName: empData.emergencyContactLastName || '', emergencyContactPhone: empData.emergencyContactPhone || '', emergencyContactRelation: empData.emergencyContactRelation || '' });
+    setFormInitialized(true);
+  }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
