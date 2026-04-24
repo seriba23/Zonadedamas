@@ -558,12 +558,6 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
                             onDragOver={(e) => e.preventDefault()}
                             className={`flex items-center gap-2 px-3 py-2.5 bg-white hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none ${draggingIndex === index ? 'opacity-50' : ''}`}
                           >
-                            {/* Drag handle */}
-                            <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                              <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
-                              <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
-                              <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
-                            </svg>
                             <span className="w-5 h-5 rounded-full bg-[#008080] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                               {index + 1}
                             </span>

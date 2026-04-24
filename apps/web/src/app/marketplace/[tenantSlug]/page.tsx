@@ -240,6 +240,7 @@ export default function BusinessDetailPage() {
   const [earnedReferralCode, setEarnedReferralCode] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
   const [anyEmployee, setAnyEmployee] = useState(false);
+  const [serviceEmployeeMap, setServiceEmployeeMap] = useState<Record<string, string>>({});
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
@@ -619,6 +620,7 @@ export default function BusinessDetailPage() {
   const employeesWithAny = employees.filter((emp) =>
     selectedServiceIds.some((sid) => emp.employeeServices?.some((es) => es.serviceId === sid)),
   );
+  const isMultiEmployee = employeesWithAll.length === 0 && employeesWithAny.length > 0 && selectedServiceIds.length > 1;
   const availableEmployees = employeesWithAll.length > 0 ? employeesWithAll : employeesWithAny;
 
   // Calendar helpers
@@ -1790,41 +1792,76 @@ export default function BusinessDetailPage() {
               {bookingStep === 'employee' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    Selecciona el profesional
+                    {isMultiEmployee ? 'Asigna un profesional por servicio' : 'Selecciona el profesional'}
                   </h2>
-                  <div className="grid gap-3">
-                    {/* Any employee option */}
-                    <button
-                      onClick={() => {
-                        setSelectedEmployee(null);
-                        setAnyEmployee(true);
-                        setSelectedSlot(null);
-                        setBookingStep('datetime');
-                      }}
-                      className="w-full text-left p-4 rounded-xl border-2 transition-all"
-                      style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl flex-shrink-0">
-                          ✨
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            Cualquier profesional disponible
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Te asignaremos el mejor disponible
-                          </p>
-                        </div>
-                      </div>
-                    </button>
 
-                    {availableEmployees.map((emp) => (
+                  {isMultiEmployee ? (
+                    /* ─── Multi-employee: assign per service ─── */
+                    <div className="space-y-3">
+                      {selectedServiceIds.map((sid) => {
+                        const svc = services.find((s) => s.id === sid);
+                        if (!svc) return null;
+                        const canDo = employees.filter((emp) => emp.employeeServices?.some((es) => es.serviceId === sid));
+                        const assignedId = serviceEmployeeMap[sid] || (canDo.length === 1 ? canDo[0].id : '');
+                        const assigned = canDo.find((e) => e.id === assignedId);
+
+                        // Auto-assign if only one option
+                        if (canDo.length === 1 && !serviceEmployeeMap[sid]) {
+                          setTimeout(() => setServiceEmployeeMap((m) => ({ ...m, [sid]: canDo[0].id })), 0);
+                        }
+
+                        return (
+                          <div key={sid} className="bg-white rounded-xl border border-gray-200 p-4">
+                            <p className="text-sm font-medium text-gray-900 mb-2">{svc.name}</p>
+                            {canDo.length === 1 && assigned ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden" style={{ backgroundColor: assigned.color }}>
+                                  {assigned.avatarUrl ? <img src={`${API_URL}${assigned.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{assigned.firstName[0]}{assigned.lastName[0]}</>}
+                                </div>
+                                <span className="text-sm text-gray-700">{assigned.firstName} {assigned.lastName}</span>
+                              </div>
+                            ) : (
+                              <select
+                                value={assignedId}
+                                onChange={(e) => setServiceEmployeeMap((m) => ({ ...m, [sid]: e.target.value }))}
+                                className="input-field text-sm"
+                              >
+                                <option value="">Seleccionar profesional...</option>
+                                {canDo.map((emp) => (
+                                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        );
+                      })}
+
                       <button
-                        key={emp.id}
                         onClick={() => {
-                          setSelectedEmployee(emp);
+                          const allAssigned = selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
+                          if (!allAssigned) return;
+                          // Use the first employee as primary
+                          const primaryEmpId = serviceEmployeeMap[selectedServiceIds[0]];
+                          const primaryEmp = employees.find((e) => e.id === primaryEmpId) || null;
+                          setSelectedEmployee(primaryEmp);
                           setAnyEmployee(false);
+                          setSelectedSlot(null);
+                          setBookingStep('datetime');
+                        }}
+                        disabled={!selectedServiceIds.every((sid) => serviceEmployeeMap[sid])}
+                        className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+                        style={{ backgroundColor: '#008080' }}
+                      >
+                        Continuar
+                      </button>
+                    </div>
+                  ) : (
+                    /* ─── Single employee: pick one for all ─── */
+                    <div className="grid gap-3">
+                      <button
+                        onClick={() => {
+                          setSelectedEmployee(null);
+                          setAnyEmployee(true);
                           setSelectedSlot(null);
                           setBookingStep('datetime');
                         }}
@@ -1832,35 +1869,46 @@ export default function BusinessDetailPage() {
                         style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
                       >
                         <div className="flex items-center gap-3">
-                          <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden"
-                            style={{ backgroundColor: emp.color }}
-                          >
-                            {emp.avatarUrl ? (
-                              <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <>{emp.firstName[0]}{emp.lastName[0]}</>
-                            )}
+                          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+                            </svg>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900">
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            {emp.bio && (
-                              <p className="text-sm text-gray-500 line-clamp-1">{emp.bio}</p>
-                            )}
+                          <div>
+                            <p className="font-medium text-gray-900">Cualquier profesional disponible</p>
+                            <p className="text-sm text-gray-500">Te asignaremos el mejor disponible</p>
                           </div>
-                          <Link
-                            href={`/marketplace/${tenantSlug}/professional/${emp.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] text-[#008080] font-medium hover:underline flex-shrink-0"
-                          >
-                            Ver perfil
-                          </Link>
                         </div>
                       </button>
-                    ))}
-                  </div>
+
+                      {availableEmployees.map((emp) => (
+                        <button
+                          key={emp.id}
+                          onClick={() => {
+                            setSelectedEmployee(emp);
+                            setAnyEmployee(false);
+                            setSelectedSlot(null);
+                            setBookingStep('datetime');
+                          }}
+                          className="w-full text-left p-4 rounded-xl border-2 transition-all"
+                          style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color }}>
+                              {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900">{emp.firstName} {emp.lastName}</p>
+                              {emp.bio && <p className="text-sm text-gray-500 line-clamp-1">{emp.bio}</p>}
+                            </div>
+                            <Link href={`/marketplace/${tenantSlug}/professional/${emp.id}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-[#008080] font-medium hover:underline flex-shrink-0">
+                              Ver perfil
+                            </Link>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
