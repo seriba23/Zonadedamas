@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 const TEAL = '#008080';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -38,6 +38,7 @@ export function CloseAppointmentWizard({
   onDone: () => void;
   onClose: () => void;
 }) {
+  const { format: formatCurrency } = useCurrency();
   const [step, setStep] = useState<Step>('consent');
   const [photoConsent, setPhotoConsent] = useState<boolean | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);

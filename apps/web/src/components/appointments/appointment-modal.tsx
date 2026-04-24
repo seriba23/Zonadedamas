@@ -68,6 +68,8 @@ interface Appointment {
   status: string;
   notes?: string;
   internalNotes?: string;
+  discountAmount?: number;
+  redemptionId?: string;
   items?: AppointmentItem[];
   photos?: AppointmentPhoto[];
   productReservations?: ProductReservation[];
@@ -532,15 +534,29 @@ export function AppointmentModal({
                       </span>
                     </div>
                   ))}
-                  {appointment.items.length > 1 && (
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                      <span className="text-sm font-semibold text-gray-800">
-                        Total ({totalDuration} min)
-                      </span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {formatCurrency(totalPrice)}
-                      </span>
-                    </div>
+                  {(appointment.items.length > 1 || Number(appointment.discountAmount) > 0) && (
+                    <>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                        <span className="text-sm font-semibold text-gray-800">
+                          {Number(appointment.discountAmount) > 0 ? 'Subtotal' : 'Total'} ({totalDuration} min)
+                        </span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {formatCurrency(totalPrice)}
+                        </span>
+                      </div>
+                      {Number(appointment.discountAmount) > 0 && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-green-600">Descuento aplicado</span>
+                            <span className="text-sm font-medium text-green-600">-{formatCurrency(Number(appointment.discountAmount))}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-gray-900">Total</span>
+                            <span className="text-sm font-bold text-[#008080]">{formatCurrency(totalPrice - Number(appointment.discountAmount))}</span>
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

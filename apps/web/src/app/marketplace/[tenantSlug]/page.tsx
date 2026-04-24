@@ -612,12 +612,14 @@ export default function BusinessDetailPage() {
   })();
   const totalPrice = basePrice - promoDiscount;
 
-  // Filter employees by selected services
-  const availableEmployees = employees.filter((emp) =>
-    selectedServiceIds.every((sid) =>
-      emp.employeeServices?.some((es) => es.serviceId === sid),
-    ),
+  // Filter employees: show those who can do ALL services, OR at least ONE if multi-employee needed
+  const employeesWithAll = employees.filter((emp) =>
+    selectedServiceIds.every((sid) => emp.employeeServices?.some((es) => es.serviceId === sid)),
   );
+  const employeesWithAny = employees.filter((emp) =>
+    selectedServiceIds.some((sid) => emp.employeeServices?.some((es) => es.serviceId === sid)),
+  );
+  const availableEmployees = employeesWithAll.length > 0 ? employeesWithAll : employeesWithAny;
 
   // Calendar helpers
   const startOfMonth = selectedDate.startOf('month');
@@ -1528,7 +1530,7 @@ export default function BusinessDetailPage() {
                   {(bizBundles.length > 0 || bizPromotions.length > 0) && (
                     <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
                       <button
-                        onClick={() => setServiceTab('servicios')}
+                        onClick={() => { setServiceTab('servicios'); if (selectedBundle) { setSelectedBundle(null); setSelectedServiceIds([]); } }}
                         className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                           serviceTab === 'servicios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
@@ -1564,7 +1566,7 @@ export default function BusinessDetailPage() {
                       {bizBundles.map((bundle: any) => {
                         const bundleServiceIds: string[] = Array.isArray(bundle.serviceIds) ? bundle.serviceIds : [];
                         const isSelected = bundleServiceIds.length > 0 && bundleServiceIds.every((id: string) => selectedServiceIds.includes(id));
-                        const bundleServices = services.filter((s) => bundleServiceIds.includes(s.id));
+                        const bundleServices = bundleServiceIds.map((id: string) => services.find((s) => s.id === id)).filter(Boolean) as any[];
                         const originalPrice = bundleServices.reduce((sum, s) => sum + Number(s.price), 0);
 
                         return (

@@ -166,8 +166,11 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
     });
   }
 
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+
   function handleDragStart(index: number) {
     dragItem.current = index;
+    setDraggingIndex(index);
   }
 
   function handleDragEnter(index: number) {
@@ -175,6 +178,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
   }
 
   function handleDragEnd() {
+    setDraggingIndex(null);
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) {
       dragItem.current = null;
@@ -552,7 +556,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
                             onDragEnter={() => handleDragEnter(index)}
                             onDragEnd={handleDragEnd}
                             onDragOver={(e) => e.preventDefault()}
-                            className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 last:border-b-0 bg-white hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none"
+                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 last:border-b-0 bg-white hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none ${draggingIndex === index ? 'opacity-50' : ''}`}
                           >
                             {/* Drag handle */}
                             <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">

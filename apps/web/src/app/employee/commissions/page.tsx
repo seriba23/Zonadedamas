@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 
 interface AppointmentItem {
@@ -26,6 +26,7 @@ type PeriodType = 'this_month' | 'last_month' | 'custom';
 
 export default function EmployeeCommissionsPage() {
   const { user } = useAuth();
+  const { format: formatCurrency } = useCurrency();
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');

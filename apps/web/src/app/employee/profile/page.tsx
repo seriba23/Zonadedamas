@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
 import { EmployeeSettingsContent } from '../settings/page';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
@@ -47,6 +47,7 @@ type Tab = 'info' | 'public' | 'portfolio' | 'stats';
 
 export default function EmployeeProfilePage() {
   const { user } = useAuth();
+  const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'info');
