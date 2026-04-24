@@ -2001,23 +2001,62 @@ export default function BusinessDetailPage() {
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Selecciona fecha y hora</h2>
 
                   {/* Employee info */}
-                  <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                    {anyEmployee ? (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xl flex-shrink-0">✨</div>
-                    ) : selectedEmployee ? (
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: selectedEmployee.color }}>
-                        {selectedEmployee.avatarUrl
-                          ? <img src={`${API_URL}${selectedEmployee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                          : <>{selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}</>}
+                  {Object.keys(serviceEmployeeMap).length > 1 ? (
+                    /* Multi-employee: show each service with its employee */
+                    <div className="mb-4 bg-gray-50 rounded-xl border border-gray-100 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Tu equipo para esta cita</p>
+                      {selectedServiceIds.map((sid, idx) => {
+                        const svc = services.find((s) => s.id === sid);
+                        const empId = serviceEmployeeMap[sid];
+                        const emp = employees.find((e) => e.id === empId);
+                        if (!svc || !emp) return null;
+                        // Calculate start offset
+                        let offset = 0;
+                        for (let i = 0; i < idx; i++) {
+                          const prevSvc = services.find((s) => s.id === selectedServiceIds[i]);
+                          offset += prevSvc?.durationMinutes || 0;
+                        }
+                        return (
+                          <div key={sid} className="flex items-center gap-3">
+                            <div className="flex flex-col items-center w-5 flex-shrink-0">
+                              <div className="w-2 h-2 rounded-full bg-[#008080]" />
+                              {idx < selectedServiceIds.length - 1 && <div className="w-px h-6 bg-gray-300" />}
+                            </div>
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color }}>
+                              {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{svc.name}</p>
+                              <p className="text-[11px] text-gray-400">{emp.firstName} {emp.lastName} · {svc.durationMinutes} min</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-1 border-t border-gray-200 mt-1">
+                        <p className="text-xs text-gray-500">Total: {totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}</p>
                       </div>
-                    ) : null}
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {anyEmployee ? 'Cualquier profesional disponible' : selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : ''}
-                      </p>
-                      <p className="text-xs text-gray-400">{totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}</p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      {anyEmployee ? (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" /></svg>
+                        </div>
+                      ) : selectedEmployee ? (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: selectedEmployee.color }}>
+                          {selectedEmployee.avatarUrl
+                            ? <img src={`${API_URL}${selectedEmployee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            : <>{selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}</>}
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {anyEmployee ? 'Cualquier profesional disponible' : selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-400">{totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Date selector + Calendar + Preferred time — unified row */}
                   <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 mb-4">
@@ -2352,17 +2391,23 @@ export default function BusinessDetailPage() {
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                         Servicios
                       </p>
-                      {selectedServices.map((s) => (
-                        <div
-                          key={s.id}
-                          className="flex justify-between text-sm py-0.5"
-                        >
-                          <span className="text-gray-700">{s.name}</span>
-                          <span className="font-medium">
-                            {formatCurrency(Number(s.price), s.currency)}
-                          </span>
-                        </div>
-                      ))}
+                      {selectedServices.map((s) => {
+                        const empId = serviceEmployeeMap[s.id];
+                        const emp = empId ? employees.find((e) => e.id === empId) : null;
+                        return (
+                          <div key={s.id} className="flex justify-between text-sm py-0.5">
+                            <span className="text-gray-700">
+                              {s.name}
+                              {emp && Object.keys(serviceEmployeeMap).length > 1 && (
+                                <span className="text-[10px] text-gray-400 ml-1">({emp.firstName})</span>
+                              )}
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(Number(s.price), s.currency)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Products */}
@@ -2394,8 +2439,49 @@ export default function BusinessDetailPage() {
                       </p>
                     </div>
 
-                    {/* Professional */}
-                    {!anyEmployee && selectedEmployee && (
+                    {/* Professional(s) */}
+                    {Object.keys(serviceEmployeeMap).length > 1 ? (
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                          Profesionales
+                        </p>
+                        <div className="space-y-2">
+                          {selectedServiceIds.map((sid, idx) => {
+                            const svc = services.find((s) => s.id === sid);
+                            const empId = serviceEmployeeMap[sid];
+                            const emp = employees.find((e) => e.id === empId);
+                            if (!svc || !emp) return null;
+                            // Calculate time for this service
+                            let offsetMin = 0;
+                            for (let i = 0; i < idx; i++) {
+                              const ps = services.find((s) => s.id === selectedServiceIds[i]);
+                              offsetMin += ps?.durationMinutes || 0;
+                            }
+                            const slotStartMin = selectedSlot ? parseInt(selectedSlot.startTime.substring(11, 13)) * 60 + parseInt(selectedSlot.startTime.substring(14, 16)) : 0;
+                            const svcStartMin = slotStartMin + offsetMin;
+                            const svcEndMin = svcStartMin + (svc.durationMinutes || 0);
+                            const startStr = `${String(Math.floor(svcStartMin / 60)).padStart(2, '0')}:${String(svcStartMin % 60).padStart(2, '0')}`;
+                            const endStr = `${String(Math.floor(svcEndMin / 60)).padStart(2, '0')}:${String(svcEndMin % 60).padStart(2, '0')}`;
+
+                            return (
+                              <div key={sid} className="flex items-center gap-3">
+                                <div className="flex flex-col items-center w-5 flex-shrink-0">
+                                  <div className="w-2 h-2 rounded-full bg-[#008080]" />
+                                  {idx < selectedServiceIds.length - 1 && <div className="w-px h-8 bg-gray-300" />}
+                                </div>
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color }}>
+                                  {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900">{svc.name}</p>
+                                  <p className="text-[11px] text-gray-400">{emp.firstName} {emp.lastName} · {formatTime(startStr)} - {formatTime(endStr)}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : !anyEmployee && selectedEmployee ? (
                       <div className="border-t border-gray-100 pt-4">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                           Profesional
