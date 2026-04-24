@@ -127,7 +127,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
       bundlePrice: bundle.bundlePrice,
       isActive: bundle.isActive,
       flexibleOrder: bundle.flexibleOrder || false,
-      serviceIds: bundle.services.map((s) => s.id),
+      serviceIds: bundle.services.map((s) => s.id).filter((id) => services.some((s) => s.id === id)),
       generatesPoints: !!bundle.pointsReward && bundle.pointsReward > 0,
       pointsReward: bundle.pointsReward || '',
       redeemableWithPoints: bundle.redeemableWithPoints || false,
@@ -545,8 +545,9 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
                   <>
                     <p className="text-xs font-medium text-gray-500 mb-2">Orden de atención</p>
                     <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-visible">
-                      {form.serviceIds.filter((id) => services.some((s) => s.id === id)).map((id, index) => {
-                        const svc = services.find((s) => s.id === id)!;
+                      {form.serviceIds.map((id, index) => {
+                        const svc = services.find((s) => s.id === id);
+                        if (!svc) return null;
                         return (
                           <div
                             key={`order-${index}-${id}`}
