@@ -174,26 +174,26 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
   }
 
   function handleDragEnter(index: number) {
-    dragOverItem.current = index;
+    if (index >= 0 && index < form.serviceIds.length) {
+      dragOverItem.current = index;
+    }
   }
 
   function handleDragEnd() {
     setDraggingIndex(null);
-    if (dragItem.current === null || dragOverItem.current === null) return;
-    if (dragItem.current === dragOverItem.current) {
-      dragItem.current = null;
-      dragOverItem.current = null;
-      return;
-    }
-    setForm((f) => {
-      const ids = [...f.serviceIds];
-      const draggedId = ids[dragItem.current!];
-      ids.splice(dragItem.current!, 1);
-      ids.splice(dragOverItem.current!, 0, draggedId);
-      return { ...f, serviceIds: ids };
-    });
+    const from = dragItem.current;
+    const to = dragOverItem.current;
     dragItem.current = null;
     dragOverItem.current = null;
+    if (from === null || to === null || from === to) return;
+    setForm((f) => {
+      const ids = [...f.serviceIds];
+      if (from < 0 || from >= ids.length || to < 0 || to >= ids.length) return f;
+      const [moved] = ids.splice(from, 1);
+      if (!moved) return f;
+      ids.splice(to, 0, moved);
+      return { ...f, serviceIds: ids };
+    });
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -544,7 +544,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
                 {!form.flexibleOrder && (
                   <>
                     <p className="text-xs font-medium text-gray-500 mb-2">Orden de atención</p>
-                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-visible">
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100" onDragOver={(e) => e.preventDefault()}>
                       {form.serviceIds.map((id, index) => {
                         const svc = services.find((s) => s.id === id);
                         if (!svc) return null;
