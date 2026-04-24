@@ -26,7 +26,8 @@ type PeriodType = 'this_month' | 'last_month' | 'custom';
 
 export default function EmployeeCommissionsPage() {
   const { user } = useAuth();
-  const { format: formatCurrency } = useCurrency();
+  const currency = useCurrency();
+  const formatCurrency = currency.format || ((v: number) => `$${Number(v).toFixed(2)}`);
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');

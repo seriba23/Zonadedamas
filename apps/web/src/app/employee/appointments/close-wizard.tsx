@@ -38,7 +38,8 @@ export function CloseAppointmentWizard({
   onDone: () => void;
   onClose: () => void;
 }) {
-  const { format: formatCurrency } = useCurrency();
+  const currency = useCurrency();
+  const formatCurrency = currency.format || ((v: number) => `$${Number(v).toFixed(2)}`);
   const [step, setStep] = useState<Step>('consent');
   const [photoConsent, setPhotoConsent] = useState<boolean | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
