@@ -84,7 +84,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
 
   const { data: servicesData } = useQuery({
     queryKey: ['services-for-bundles'],
-    queryFn: () => api.get<{ data: ServiceOption[] }>('/api/services'),
+    queryFn: () => api.get<{ data: ServiceOption[] }>('/api/services?perPage=100'),
   });
 
   const services = servicesData?.data || [];
@@ -544,10 +544,9 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
                 {!form.flexibleOrder && (
                   <>
                     <p className="text-xs font-medium text-gray-500 mb-2">Orden de atención</p>
-                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-                      {form.serviceIds.map((id, index) => {
-                        const svc = services.find((s) => s.id === id);
-                        if (!svc) return null;
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-visible">
+                      {form.serviceIds.filter((id) => services.some((s) => s.id === id)).map((id, index) => {
+                        const svc = services.find((s) => s.id === id)!;
                         return (
                           <div
                             key={`order-${index}-${id}`}
