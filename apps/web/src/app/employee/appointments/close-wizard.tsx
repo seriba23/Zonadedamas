@@ -38,8 +38,8 @@ export function CloseAppointmentWizard({
   onDone: () => void;
   onClose: () => void;
 }) {
-  const currency = useCurrency();
-  const formatCurrency = currency.format || ((v: number) => `$${Number(v).toFixed(2)}`);
+  const { format: fmt } = useCurrency();
+  const formatCurrency = (v: number) => { try { return fmt(v); } catch { return `$${Number(v || 0).toFixed(2)}`; } };
   const [step, setStep] = useState<Step>('consent');
   const [photoConsent, setPhotoConsent] = useState<boolean | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);

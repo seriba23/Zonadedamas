@@ -53,8 +53,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function EmployeeDashboard() {
   const { user } = useAuth();
-  const currency = useCurrency();
-  const formatCurrency = currency.format || ((v: number) => `$${Number(v).toFixed(2)}`);
+  const { format: fmt } = useCurrency();
+  const formatCurrency = (v: number) => { try { return fmt(v); } catch { return `$${Number(v || 0).toFixed(2)}`; } };
   const today = dayjs().format('YYYY-MM-DD');
 
   const { data: appointments, isLoading } = useQuery({

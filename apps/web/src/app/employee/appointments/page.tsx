@@ -54,8 +54,8 @@ function getDateRange(range: RangeFilter, customStart?: string, customEnd?: stri
 
 export default function EmployeeAppointmentsPage() {
   const { user } = useAuth();
-  const currency = useCurrency();
-  const formatCurrency = currency.format || ((v: number) => `$${Number(v).toFixed(2)}`);
+  const { format: fmt } = useCurrency();
+  const formatCurrency = (v: number) => { try { return fmt(v); } catch { return `$${Number(v || 0).toFixed(2)}`; } };
   const queryClient = useQueryClient();
   const [range, setRange] = useState<RangeFilter>('today');
   const [customStart, setCustomStart] = useState(dayjs().format('YYYY-MM-DD'));
