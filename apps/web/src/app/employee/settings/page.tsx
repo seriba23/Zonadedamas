@@ -20,7 +20,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
-  const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true');
+  const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true' || searchParams.get('section') === 'profile' || embedded === true);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '' });
   const [personalForm, setPersonalForm] = useState({ bloodType: '', allergies: '', emergencyContactName: '', emergencyContactLastName: '', emergencyContactPhone: '', emergencyContactRelation: '' });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
