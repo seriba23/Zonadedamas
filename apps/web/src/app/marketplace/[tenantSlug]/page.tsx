@@ -289,12 +289,12 @@ export default function BusinessDetailPage() {
       selectedDate.format('YYYY-MM-DD'),
       selectedServiceIds,
       selectedEmployee?.id,
-      isMultiEmployee ? JSON.stringify(serviceEmployeeMap) : null,
+      Object.keys(serviceEmployeeMap).length > 0 ? JSON.stringify(serviceEmployeeMap) : null,
     ],
     queryFn: async () => {
       const dateStr = selectedDate.format('YYYY-MM-DD');
 
-      if (isMultiEmployee && Object.keys(serviceEmployeeMap).length > 0) {
+      if (Object.keys(serviceEmployeeMap).length > 1) {
         // Multi-employee: query each employee's availability separately, then intersect
         const uniqueEmpIds = [...new Set(Object.values(serviceEmployeeMap))];
         const empServiceMap: Record<string, string[]> = {};
@@ -490,7 +490,7 @@ export default function BusinessDetailPage() {
   // Booking mutation
   const bookMutation = useMutation({
     mutationFn: async () => {
-      const assignments = isMultiEmployee && Object.keys(serviceEmployeeMap).length > 0
+      const assignments = Object.keys(serviceEmployeeMap).length > 1
         ? selectedServiceIds.map((sid) => ({ serviceId: sid, employeeId: serviceEmployeeMap[sid] })).filter((a) => a.employeeId)
         : undefined;
 
