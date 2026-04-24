@@ -544,19 +544,19 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
                 {!form.flexibleOrder && (
                   <>
                     <p className="text-xs font-medium text-gray-500 mb-2">Orden de atención</p>
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                       {form.serviceIds.map((id, index) => {
                         const svc = services.find((s) => s.id === id);
                         if (!svc) return null;
                         return (
                           <div
-                            key={id}
+                            key={`order-${index}-${id}`}
                             draggable
                             onDragStart={() => handleDragStart(index)}
                             onDragEnter={() => handleDragEnter(index)}
                             onDragEnd={handleDragEnd}
                             onDragOver={(e) => e.preventDefault()}
-                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 last:border-b-0 bg-white hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none ${draggingIndex === index ? 'opacity-50' : ''}`}
+                            className={`flex items-center gap-2 px-3 py-2.5 bg-white hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none ${draggingIndex === index ? 'opacity-50' : ''}`}
                           >
                             {/* Drag handle */}
                             <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
