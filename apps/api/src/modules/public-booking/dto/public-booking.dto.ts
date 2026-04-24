@@ -1,4 +1,5 @@
 import {
+  Allow,
   IsArray,
   IsDateString,
   IsEmail,
@@ -62,4 +63,8 @@ export class PublicBookDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @Allow()
+  serviceAssignments?: Array<{ serviceId: string; employeeId: string }>;
 }

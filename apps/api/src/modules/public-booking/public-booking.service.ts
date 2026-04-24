@@ -112,6 +112,7 @@ export class PublicBookingService {
         startTime: dto.startTime,
         notes: dto.notes,
         source: 'ONLINE',
+        serviceAssignments: dto.serviceAssignments,
       },
       tenantId,
     );
