@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -54,8 +55,8 @@ function getDateRange(range: RangeFilter, customStart?: string, customEnd?: stri
 
 export default function EmployeeAppointmentsPage() {
   const { user } = useAuth();
-  const { format: fmt } = useCurrency();
-  const formatCurrency = (v: number) => { try { return fmt(v); } catch { return `$${Number(v || 0).toFixed(2)}`; } };
+  const currencyHook = useCurrency();
+  const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
   const queryClient = useQueryClient();
   const [range, setRange] = useState<RangeFilter>('today');
   const [customStart, setCustomStart] = useState(dayjs().format('YYYY-MM-DD'));

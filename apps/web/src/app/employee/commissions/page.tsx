@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 
@@ -26,8 +27,8 @@ type PeriodType = 'this_month' | 'last_month' | 'custom';
 
 export default function EmployeeCommissionsPage() {
   const { user } = useAuth();
-  const { format: fmt } = useCurrency();
-  const formatCurrency = (v: number) => { try { return fmt(v); } catch { return `$${Number(v || 0).toFixed(2)}`; } };
+  const currencyHook = useCurrency();
+  const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
