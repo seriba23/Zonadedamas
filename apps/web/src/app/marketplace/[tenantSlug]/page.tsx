@@ -2553,9 +2553,14 @@ export default function BusinessDetailPage() {
                         return (
                           <>
                             {disc > 0 && !payWithPoints && (
-                              <div className="flex justify-between text-sm mb-1">
-                                <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
-                                <span className="text-green-600 font-medium">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
+                              <div className="flex justify-between items-center text-sm mb-1 bg-green-50 -mx-4 px-4 py-1.5 rounded-lg">
+                                <span className="text-green-700 font-medium flex items-center gap-1.5">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                                  </svg>
+                                  Cupón aplicado: {selectedCoupon.reward?.name}
+                                </span>
+                                <span className="text-green-700 font-bold">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
                               </div>
                             )}
                             {payWithPoints && (
@@ -2604,82 +2609,67 @@ export default function BusinessDetailPage() {
                   )}
 
                   {/* Referral code input (from 2x1 promotions) */}
-                  {!selectedCoupon && !selectedPromotion && !payWithPoints && (
-                    <div className="border border-gray-200 rounded-xl p-3 mb-4">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">¿Tienes un código de referido?</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={referralCodeInput}
-                          onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono tracking-wider text-center uppercase"
-                          placeholder="XXXXXXXX"
-                          maxLength={12}
-                        />
-                        {referralCodeInput.trim() && (
-                          <button
-                            onClick={() => setReferralCodeInput('')}
-                            className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg"
-                          >
-                            Quitar
-                          </button>
-                        )}
-                      </div>
-                      {referralCodeInput.trim() && (
-                        <p className="text-[11px] mt-1.5" style={{ color: TEAL }}>
-                          El código se validará al confirmar la reserva
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  {/* Applicable coupons — auto-detected */}
+                  {(() => {
+                    const applicableCoupons = userCoupons.filter((r: any) => {
+                      const reward = r.reward;
+                      if (!reward) return false;
+                      if (reward.type === 'DESCUENTO') return true;
+                      if (reward.type === 'SERVICIO' && reward.service?.id) return selectedServiceIds.includes(reward.service.id);
+                      return false;
+                    });
 
-                  {/* Coupon selector - max 1 per booking */}
-                  {userCoupons.length > 0 && (
-                    <div className={`border rounded-xl p-3 mb-4 relative ${selectedPromotion ? 'border-gray-100' : 'border-gray-200'}`}>
-                      {selectedPromotion ? (
-                        <p className="text-xs font-semibold text-gray-400 mb-2">Cupones no disponibles al usar una oferta</p>
-                      ) : (
-                        <p className="text-xs font-semibold text-gray-700 mb-2">Tienes cupones disponibles</p>
-                      )}
-                      <div className="space-y-2">
-                        {userCoupons.map((r: any) => {
-                          const reward = r.reward;
-                          const isSelected = selectedCoupon?.id === r.id;
-                          const isCompatible = reward?.type === 'DESCUENTO' || (reward?.type === 'SERVICIO' && reward?.service?.id && selectedServiceIds.includes(reward.service.id));
-                          if (!isCompatible) return null;
-                          const label = reward?.type === 'DESCUENTO'
-                            ? (reward.discountMode === 'PERCENTAGE' ? `${Number(reward.discountAmount)}% de descuento` : `$${reward.discountAmount} de descuento`)
-                            : (reward?.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis');
-                          return (
-                            <button
-                              key={r.id}
-                              disabled={!!selectedPromotion}
-                              onClick={() => { setSelectedCoupon(isSelected ? null : r); if (!isSelected) setSelectedPromotion(null); }}
-                              className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors ${
-                                isSelected
-                                  ? 'border-[#008080] bg-teal-50'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              } ${selectedPromotion ? 'opacity-40 cursor-not-allowed' : ''}`}
-                            >
-                              <div className="min-w-0">
-                                <p className={`text-sm font-medium ${isSelected ? 'text-[#008080]' : 'text-gray-900'}`}>{reward?.name}</p>
-                                <p className="text-[11px] text-gray-500">{label}</p>
+                    if (applicableCoupons.length === 0 || selectedPromotion || payWithPoints) return null;
+
+                    return (
+                      <div className="border border-[#008080]/30 bg-teal-50/50 rounded-xl p-4 mb-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                          </svg>
+                          <p className="text-sm font-semibold text-[#008080]">
+                            {selectedCoupon ? 'Cupón aplicado' : `Tienes ${applicableCoupons.length} cupón${applicableCoupons.length !== 1 ? 'es' : ''} disponible${applicableCoupons.length !== 1 ? 's' : ''}`}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          {applicableCoupons.map((r: any) => {
+                            const reward = r.reward;
+                            const isSelected = selectedCoupon?.id === r.id;
+                            const label = reward?.type === 'DESCUENTO'
+                              ? (reward.discountMode === 'PERCENTAGE' ? `${Number(reward.discountAmount)}% de descuento` : `${formatCurrency(Number(reward.discountAmount), selectedServices[0]?.currency)} de descuento`)
+                              : (reward?.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis');
+
+                            return (
+                              <div
+                                key={r.id}
+                                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                                  isSelected ? 'border-[#008080] bg-white' : 'border-gray-200 bg-white'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-sm font-medium ${isSelected ? 'text-[#008080]' : 'text-gray-900'}`}>{reward?.name}</p>
+                                  <p className="text-[11px] text-gray-500">{label}</p>
+                                  {isSelected && (
+                                    <p className="text-[11px] text-[#008080] font-medium mt-0.5">Código: {r.code}</p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => { setSelectedCoupon(isSelected ? null : r); if (!isSelected) { setSelectedPromotion(null); setPayWithPoints(false); } }}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
+                                    isSelected
+                                      ? 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                      : 'bg-[#008080] text-white hover:bg-[#006666]'
+                                  }`}
+                                >
+                                  {isSelected ? 'Quitar' : 'Canjear'}
+                                </button>
                               </div>
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                isSelected ? 'border-[#008080] bg-[#008080]' : 'border-gray-300'
-                              }`}>
-                                {isSelected && (
-                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Pay with points option */}
                   {(() => {
