@@ -83,6 +83,12 @@ export default function CalendarPage() {
     if (aptId) {
       setSelectedAppointmentId(aptId);
       setIsModalOpen(true);
+      return;
+    }
+    // ?new=1 → open modal directly in create mode (used from "Nueva cita" shortcut)
+    if (searchParams.get('new') === '1') {
+      setSelectedAppointmentId(null);
+      setIsModalOpen(true);
     }
   }, [searchParams]);
 
@@ -352,6 +358,10 @@ export default function CalendarPage() {
     setSelectedAppointmentId(null);
     setPrefillClientId(undefined);
     setPrefillEmployeeId(undefined);
+    // Clean query params so the modal does not reopen on refresh / back navigation.
+    if (searchParams.get('new') === '1' || searchParams.get('appointmentId')) {
+      window.history.replaceState({}, '', '/calendar');
+    }
   }
 
   function handleModalSave() {
@@ -397,7 +407,7 @@ export default function CalendarPage() {
                 mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'calendario' ? 'Calendario' : 'Registro de citas'}
+              {tab === 'calendario' ? 'Citas' : 'Registro de citas'}
             </button>
           ))}
         </div>
