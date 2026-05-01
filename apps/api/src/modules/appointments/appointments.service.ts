@@ -414,6 +414,14 @@ export class AppointmentsService {
         productReservations: {
           include: { product: { select: { id: true, name: true, imageUrl: true } } },
         },
+        redemption: {
+          select: {
+            id: true,
+            code: true,
+            pointsSpent: true,
+            reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
+          },
+        },
       },
     });
 

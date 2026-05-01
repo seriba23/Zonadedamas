@@ -70,6 +70,13 @@ interface Appointment {
   internalNotes?: string;
   discountAmount?: number;
   redemptionId?: string;
+  pointsSpent?: number;
+  redemption?: {
+    id: string;
+    code: string;
+    pointsSpent: number;
+    reward: { name: string; type: string; discountAmount?: number | null; discountMode?: string | null };
+  } | null;
   items?: AppointmentItem[];
   photos?: AppointmentPhoto[];
   productReservations?: ProductReservation[];
@@ -412,6 +419,12 @@ export function AppointmentModal({
     appointment &&
     ['confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
 
+  const reservationsTotal = appointment?.productReservations?.reduce(
+    (sum, res) =>
+      res.status === 'CANCELLED' ? sum : sum + Number(res.unitPrice || 0) * (res.quantity || 1),
+    0,
+  ) ?? 0;
+
   const totalPrice = appointment?.items?.reduce(
     (sum, item) => sum + Number(item.priceSnapshot || 0),
     0,
@@ -421,6 +434,17 @@ export function AppointmentModal({
     (sum, item) => sum + Number(item.durationSnapshot || 0),
     0,
   ) ?? 0;
+
+  const discount = Number(appointment?.discountAmount || 0);
+  const pointsSpent = Number(appointment?.pointsSpent || 0);
+  const paidWithPoints = pointsSpent > 0;
+  const subtotalServicios = totalPrice;
+  const subtotalApartados = reservationsTotal;
+  const subtotal = subtotalServicios + subtotalApartados;
+  // Si pagó con puntos, los servicios cuestan 0; los apartados se mantienen en efectivo.
+  const finalTotal = paidWithPoints
+    ? Math.max(0, subtotalApartados)
+    : Math.max(0, subtotal - discount);
 
   // Get the display name for pre-filled client
   const getPrefilledClientName = () => {
@@ -534,30 +558,46 @@ export function AppointmentModal({
                       </span>
                     </div>
                   ))}
-                  {(appointment.items.length > 1 || Number(appointment.discountAmount) > 0) && (
-                    <>
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                        <span className="text-sm font-semibold text-gray-800">
-                          {Number(appointment.discountAmount) > 0 ? 'Subtotal' : 'Total'} ({totalDuration} min)
-                        </span>
-                        <span className="text-sm font-bold text-gray-900">
-                          {formatCurrency(totalPrice)}
-                        </span>
-                      </div>
-                      {Number(appointment.discountAmount) > 0 && (
-                        <>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-green-600">Descuento aplicado</span>
-                            <span className="text-sm font-medium text-green-600">-{formatCurrency(Number(appointment.discountAmount))}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-bold text-gray-900">Total</span>
-                            <span className="text-sm font-bold text-[#008080]">{formatCurrency(totalPrice - Number(appointment.discountAmount))}</span>
-                          </div>
-                        </>
-                      )}
-                    </>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                    <span className="text-sm font-semibold text-gray-800">
+                      Subtotal servicios ({totalDuration} min)
+                    </span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {formatCurrency(subtotalServicios)}
+                    </span>
+                  </div>
+                  {subtotalApartados > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-700">Apartados (productos)</span>
+                      <span className="text-sm font-medium text-gray-900">{formatCurrency(subtotalApartados)}</span>
+                    </div>
                   )}
+                  {appointment.redemption && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-teal-700">
+                        Cupón <span className="font-mono">{appointment.redemption.code}</span> · {appointment.redemption.reward.name}
+                      </span>
+                      {discount > 0 && (
+                        <span className="text-sm font-medium text-teal-700">-{formatCurrency(discount)}</span>
+                      )}
+                    </div>
+                  )}
+                  {discount > 0 && !appointment.redemption && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-600">Descuento aplicado</span>
+                      <span className="text-sm font-medium text-green-600">-{formatCurrency(discount)}</span>
+                    </div>
+                  )}
+                  {paidWithPoints && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-teal-700">Pagado con puntos</span>
+                      <span className="text-sm font-medium text-teal-700">{pointsSpent} pts</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                    <span className="text-sm font-bold text-gray-900">Total a cobrar</span>
+                    <span className="text-base font-bold text-[#008080]">{formatCurrency(finalTotal)}</span>
+                  </div>
                 </div>
               </div>
             )}
