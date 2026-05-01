@@ -401,13 +401,26 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
+      // Re-verify invite code right before submit so límite de usos / expiración / desactivación
+      // se detecten ANTES de procesar el formulario completo.
+      const code = form.inviteCode.trim();
+      const previewRes = await fetch(`${API_URL_REG}/api/auth/invite-preview/${code}`, { cache: 'no-store' });
+      if (!previewRes.ok) {
+        const errJson = await previewRes.json().catch(() => ({}));
+        const msg = (Array.isArray(errJson?.message) ? errJson.message[0] : errJson?.message) || 'Código inválido o expirado';
+        setErrors((e2) => ({ ...e2, inviteCode: msg }));
+        setInvitePreview(null);
+        setIsLoading(false);
+        return;
+      }
+
       await register({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email,
         password: form.password,
         phone: form.phone.trim(),
-        inviteCode: form.inviteCode.trim(),
+        inviteCode: code,
       });
       router.push('/employee');
     } catch (err: unknown) {
@@ -482,7 +495,9 @@ export default function RegisterPage() {
     try {
       const res = await fetch(`${API_URL_REG}/api/auth/invite-preview/${code}`);
       if (!res.ok) {
-        setErrors((e) => ({ ...e, inviteCode: 'Código inválido o expirado' }));
+        const errJson = await res.json().catch(() => ({}));
+        const msg = (Array.isArray(errJson?.message) ? errJson.message[0] : errJson?.message) || 'Código inválido o expirado';
+        setErrors((e) => ({ ...e, inviteCode: msg }));
         setInvitePreview(null);
         return;
       }

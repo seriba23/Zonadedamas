@@ -24,6 +24,11 @@ class MarketplaceApiClient {
     this.accessToken = token;
   }
 
+  setSession(accessToken: string, refreshToken: string) {
+    this.accessToken = accessToken;
+    this.setRefreshToken(refreshToken);
+  }
+
   getAccessToken(): string | null {
     return this.accessToken;
   }

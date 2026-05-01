@@ -29,6 +29,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
   const [roleChoice, setRoleChoice] = useState<AuthUser | null>(null);
+  const [availableProfiles, setAvailableProfiles] = useState<string[]>([]);
 
   function validate(): boolean {
     const e: Record<string, string> = {};
@@ -46,17 +47,36 @@ export default function HomePage() {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      const user = await login(form.email, form.password);
-      const isAdmin = user.permissions.includes('employees.create');
-      const hasEmployeeProfile = !!user.employeeId;
+      const result = await login(form.email, form.password);
+      const profiles = result.profiles || [];
+      const businessUser = result.business?.user || result.user;
 
-      if (isAdmin && hasEmployeeProfile) {
-        setRoleChoice(user);
+      // Multiple profiles → show selector
+      if (profiles.length > 1) {
+        if (businessUser) {
+          setAvailableProfiles(profiles);
+          setRoleChoice(businessUser);
+        } else {
+          router.push('/marketplace');
+        }
         setIsLoading(false);
         return;
       }
 
-      router.push(isAdmin ? '/home' : '/employee');
+      // Client-only
+      if (profiles.includes('client') && !businessUser) {
+        router.push('/marketplace');
+        return;
+      }
+
+      if (businessUser) {
+        const perms = businessUser.permissions ?? [];
+        const isAdmin = (businessUser as any).isAdmin === true || perms.includes('employees.create');
+        router.push(isAdmin ? '/home' : '/employee');
+        return;
+      }
+
+      router.push('/');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas');
     } finally {
@@ -124,6 +144,7 @@ export default function HomePage() {
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
             <div className="space-y-3">
+              {availableProfiles.includes('admin') && (
               <button
                 onClick={() => router.push('/home')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
@@ -140,7 +161,9 @@ export default function HomePage() {
                   </div>
                 </div>
               </button>
+              )}
 
+              {availableProfiles.includes('professional') && (
               <button
                 onClick={() => router.push('/employee')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
@@ -157,6 +180,26 @@ export default function HomePage() {
                   </div>
                 </div>
               </button>
+              )}
+
+              {availableProfiles.includes('client') && (
+              <button
+                onClick={() => router.push('/marketplace')}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Cliente</p>
+                    <p className="text-xs text-gray-500">Explorar, reservar y comprar</p>
+                  </div>
+                </div>
+              </button>
+              )}
             </div>
           </div>
         </div>

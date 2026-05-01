@@ -54,7 +54,7 @@ export class ClientJwtStrategy extends PassportStrategy(Strategy, 'client-jwt') 
         isActive: true,
         OR: [
           { passwordHash: { not: null } },
-          { marketplaceUserId: { not: null } },
+          { userId: { not: null } },
         ],
       },
     });

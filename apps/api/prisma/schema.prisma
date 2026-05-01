@@ -153,58 +153,6 @@ model PlatformRefreshToken {
 
 // ─── MARKETPLACE USERS (Global Client Identity) ────
 
-model MarketplaceUser {
-  id           String    @id @default(uuid())
-  email          String    @unique
-  phone          String?   @unique
-  passwordHash   String?   @map("password_hash")
-  socialProvider String?   @map("social_provider") @db.VarChar(20) // google, facebook
-  socialId       String?   @map("social_id") @db.VarChar(255)
-  firstName      String    @map("first_name")
-  lastName       String    @map("last_name")
-  avatarUrl      String?   @map("avatar_url")
-  birthDate    DateTime? @map("birth_date") @db.Date
-  gender       String?   @db.VarChar(20) // MALE, FEMALE, NON_BINARY, PREFER_NOT_SAY
-  allergies    String?   @db.Text // Free-text medical notes / allergies
-  address      String?   @db.Text
-  country      String?   @db.VarChar(2) // ISO 3166-1 alpha-2 (MX, US, CO, etc.)
-  language     String    @default("es") @db.VarChar(5) // es, en, pt
-  currency     String    @default("LOCAL") @db.VarChar(10) // LOCAL or USD
-  searchRadius Int       @default(25) @map("search_radius") // Default km for discover
-  notifAppointments Boolean @default(true) @map("notif_appointments")
-  notifPromotions   Boolean @default(true) @map("notif_promotions")
-  notifRewards      Boolean @default(true) @map("notif_rewards")
-  notifMessages     Boolean @default(true) @map("notif_messages")
-  isActive       Boolean   @default(true) @map("is_active")
-  suspendedAt    DateTime? @map("suspended_at")
-  suspendedUntil DateTime? @map("suspended_until")
-  lastLoginAt    DateTime? @map("last_login_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  refreshTokens MarketplaceRefreshToken[]
-  clients       Client[]
-  favorites              MarketplaceFavorite[]
-  professionalFavorites  MarketplaceProfessionalFavorite[]
-
-  @@map("marketplace_users")
-}
-
-model MarketplaceRefreshToken {
-  id                String    @id @default(uuid())
-  marketplaceUserId String    @map("marketplace_user_id")
-  tokenHash         String    @map("token_hash")
-  tokenHint         String    @default("") @map("token_hint") @db.VarChar(8)
-  expiresAt         DateTime  @map("expires_at")
-  revokedAt         DateTime? @map("revoked_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-
-  user MarketplaceUser @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
-
-  @@index([marketplaceUserId])
-  @@map("marketplace_refresh_tokens")
-}
-
 // ─── TENANTS ────────────────────────────────────────
 
 model Tenant {
@@ -375,28 +323,52 @@ model Location {
 
 model User {
   id              String    @id @default(uuid())
-  tenantId        String    @map("tenant_id")
-  email           String
-  passwordHash    String    @map("password_hash")
+  tenantId        String?   @map("tenant_id")
+  email           String    @unique
+  phone           String?   @unique
+  passwordHash    String?   @map("password_hash")
   firstName       String    @map("first_name")
   lastName        String    @map("last_name")
-  phone           String?
   avatarUrl       String?   @map("avatar_url")
   isActive        Boolean   @default(true) @map("is_active")
   emailVerifiedAt DateTime? @map("email_verified_at")
   lastLoginAt     DateTime? @map("last_login_at")
+
+  // ─── Cliente / marketplace profile ──────────────────────
+  isClient          Boolean   @default(false) @map("is_client")
+  socialProvider    String?   @map("social_provider") @db.VarChar(20)
+  socialId          String?   @map("social_id") @db.VarChar(255)
+  birthDate         DateTime? @map("birth_date") @db.Date
+  gender            String?   @db.VarChar(20)
+  allergies         String?   @db.Text
+  address           String?   @db.Text
+  country           String?   @db.VarChar(2)
+  language          String    @default("es") @db.VarChar(5)
+  currency          String    @default("LOCAL") @db.VarChar(10)
+  searchRadius      Int       @default(25) @map("search_radius")
+  notifAppointments Boolean   @default(true) @map("notif_appointments")
+  notifPromotions   Boolean   @default(true) @map("notif_promotions")
+  notifRewards      Boolean   @default(true) @map("notif_rewards")
+  notifMessages     Boolean   @default(true) @map("notif_messages")
+  suspendedAt       DateTime? @map("suspended_at")
+  suspendedUntil    DateTime? @map("suspended_until")
+
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee       Employee?
-  refreshTokens  RefreshToken[]
-  userRoles      UserRole[]
-  auditLogs      AuditLog[]
-  uploadedPhotos AppointmentPhoto[]
+  tenant                Tenant?                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee              Employee?
+  refreshTokens         RefreshToken[]
+  userRoles             UserRole[]
+  auditLogs             AuditLog[]
+  uploadedPhotos        AppointmentPhoto[]
+  clients               Client[]
+  favorites             MarketplaceFavorite[]
+  professionalFavorites MarketplaceProfessionalFavorite[]
+  productReservations   ProductReservation[]
 
-  @@unique([tenantId, email])
   @@index([tenantId])
+  @@index([isClient])
   @@map("users")
 }
 
@@ -405,6 +377,7 @@ model RefreshToken {
   userId    String    @map("user_id")
   tokenHash String    @map("token_hash")
   tokenHint String    @default("") @map("token_hint")
+  scope     String    @default("business") @db.VarChar(20) // business | client
   expiresAt DateTime  @map("expires_at")
   revokedAt DateTime? @map("revoked_at")
   createdAt DateTime  @default(now()) @map("created_at")
@@ -413,6 +386,7 @@ model RefreshToken {
 
   @@index([tokenHint])
   @@index([userId])
+  @@index([scope])
   @@map("refresh_tokens")
 }
 
@@ -497,24 +471,24 @@ model Client {
   passwordHash       String?   @map("password_hash")
   portalRegisteredAt DateTime? @map("portal_registered_at")
   lastLoginAt        DateTime? @map("last_login_at")
-  marketplaceUserId  String?   @map("marketplace_user_id")
+  userId             String?   @map("user_id")
   loyaltyPoints      Int       @default(0) @map("loyalty_points")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  marketplaceUser MarketplaceUser?    @relation(fields: [marketplaceUserId], references: [id], onDelete: SetNull)
-  appointments    Appointment[]
-  payments        Payment[]
-  tags            ClientTagMap[]
-  reviews            EmployeeReview[]
-  refreshTokens      ClientRefreshToken[]
-  rewardRedemptions  RewardRedemption[]
+  tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  appointments      Appointment[]
+  payments          Payment[]
+  tags              ClientTagMap[]
+  reviews           EmployeeReview[]
+  refreshTokens     ClientRefreshToken[]
+  rewardRedemptions RewardRedemption[]
 
   @@index([tenantId])
   @@index([tenantId, email])
   @@index([tenantId, phone])
-  @@index([marketplaceUserId])
+  @@index([userId])
   @@map("clients")
 }
 
@@ -823,6 +797,7 @@ model Appointment {
   bundleId           String?           @map("bundle_id")
   redemptionId       String?           @unique @map("redemption_id")
   discountAmount     Decimal?          @map("discount_amount") @db.Decimal(10, 2)
+  pointsSpent        Int               @default(0) @map("points_spent")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -1286,30 +1261,30 @@ model RewardRedemption {
 // ─── MARKETPLACE FAVORITES ────────────────────────
 
 model MarketplaceFavorite {
-  id                String   @id @default(cuid())
-  marketplaceUserId String   @map("marketplace_user_id")
-  tenantId          String   @map("tenant_id")
-  createdAt         DateTime @default(now()) @map("created_at")
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tenantId  String   @map("tenant_id")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  marketplaceUser MarketplaceUser @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([marketplaceUserId, tenantId])
-  @@index([marketplaceUserId])
+  @@unique([userId, tenantId])
+  @@index([userId])
   @@map("marketplace_favorites")
 }
 
 model MarketplaceProfessionalFavorite {
-  id                String   @id @default(cuid())
-  marketplaceUserId String   @map("marketplace_user_id")
-  employeeId        String   @map("employee_id")
-  createdAt         DateTime @default(now()) @map("created_at")
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  employeeId String   @map("employee_id")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  marketplaceUser MarketplaceUser @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
-  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@unique([marketplaceUserId, employeeId])
-  @@index([marketplaceUserId])
+  @@unique([userId, employeeId])
+  @@index([userId])
   @@map("marketplace_professional_favorites")
 }
 
@@ -1443,18 +1418,20 @@ model ProductReservation {
   status                 ReservationStatus @default(PENDING)
   shippingAddress        String?           @map("shipping_address") @db.Text
   notes                  String?           @db.Text
-  marketplaceUserId      String?           @map("marketplace_user_id")
+  userId                 String?           @map("user_id")
   createdAt              DateTime          @default(now()) @map("created_at")
   updatedAt              DateTime          @updatedAt @map("updated_at")
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([productId])
   @@index([appointmentId])
+  @@index([userId])
   @@map("product_reservations")
 }
 

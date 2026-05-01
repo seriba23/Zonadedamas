@@ -41,8 +41,8 @@ export class MarketplaceJwtStrategy extends PassportStrategy(Strategy, 'marketpl
       throw new UnauthorizedException('Token no válido para marketplace');
     }
 
-    const user = await this.prisma.marketplaceUser.findFirst({
-      where: { id: payload.sub, isActive: true },
+    const user = await this.prisma.user.findFirst({
+      where: { id: payload.sub, isActive: true, isClient: true },
     });
 
     if (!user) {

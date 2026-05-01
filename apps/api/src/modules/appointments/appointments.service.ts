@@ -602,13 +602,33 @@ export class AppointmentsService {
       );
     }
 
-    const updated = await this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status: 'CANCELLED',
-        cancellationReason: dto.reason,
-        cancelledBy: userId,
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const cancelled = await tx.appointment.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: dto.reason,
+          cancelledBy: userId,
+        },
+      });
+
+      // Refund loyalty points spent on this booking
+      if (appointment.pointsSpent > 0 && appointment.clientId) {
+        await tx.client.update({
+          where: { id: appointment.clientId },
+          data: { loyaltyPoints: { increment: appointment.pointsSpent } },
+        });
+      }
+
+      // Revert reward redemption (coupon) back to ACTIVE so the client can reuse it
+      if (appointment.redemptionId) {
+        await tx.rewardRedemption.update({
+          where: { id: appointment.redemptionId },
+          data: { status: 'ACTIVE', usedAt: null },
+        });
+      }
+
+      return cancelled;
     });
 
     await this.prisma.appointmentStatusHistory.create({

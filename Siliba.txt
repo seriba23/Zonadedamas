@@ -203,9 +203,54 @@ Si algo sale mal, restauramos con:
 
 
 ahora quiero que las compras se generen como notificacion dentro del portal de administrador,
-  ysando el mismo estilo de notificaciones que el que tenemos cuando un empleado se une a la
+  usando el mismo estilo de notificaciones que el que tenemos cuando un empleado se une a la
   empresa. ademas añade una seccion de "Ventas" en la configuracion 
 
+
+en la seccion de inicio tenemos "Nueva cita" al ingresar entra a http://localhost:3000/calendar primero, quiero que Calendario se llame Citas. Tambien quiero que al hacer click en el inicio en nueva cita entre directamente al 
+
+
+
+
+
+
+
+A la hora de crear a un nuevo empleado me pide codigo de invitacion, si coloco uno que ya haya sido utilizado me deja ver de donde era el codigo y lo que ofrecia con el mensaje "Código verificado: Barberia Continental · Barbero/a " y una vez que quiero Crear cuenta el mensaje es "El código de invitación ha alcanzado el límite de usos" esta bien, solo que el mensaje de codigo verificado no deberia existir en ese caso, entonces no esperes al envoi de informacion para comparar el codigo de verificacion para que el mensaje de limite de usos sea mas oportuno. 
+
+
+
+
+
+
+
+los puntos al canjearlos por un servicio no se descuentan en la seccion de puntos del cliente, deben de descontarse en automatico. si la cita es cancelada los puntos se devuelven al cliente.  
+
+
+
+
+
+
+
+
+
+
+Necesitamos hacer algunos ajustes con l reporte de servicio tecnico, primero te dare un ejemplo de un reporte con datos para que lo analices y hagas un primer ajuste.
+
+
+
+
+
+Quiero que en la seccion de compras se puedan crear compras nuevas que puedan no estan enlazadas a una solicitud, para poder estar abasteciendo articulos o  incrementar el inventario.  
+ademas la seccion de compras colcoala en el menu principal del andministrador entre pagos y bitacoras, de hecho meiebe bitacos debajo de equipos el orden seria: equipo, bitacoras, compras, pagos, clientes. 
+
+
+
+
+
+
+Falta actualizar los precios en: 
+
+detalle de citas del calendario.
 
 
 

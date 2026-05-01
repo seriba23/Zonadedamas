@@ -15,13 +15,13 @@ import {
   register as authRegister,
   getMe,
 } from '../auth';
-import type { AuthUser, RegisterParams } from '../auth';
+import type { AuthUser, RegisterParams, UnifiedLoginResult } from '../auth';
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (email: string, password: string) => Promise<UnifiedLoginResult>;
   register: (params: RegisterParams) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -60,11 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
-    await authLogin(email, password);
-    const me = await getMe();
-    setUser(me.data);
-    return me.data;
+  const login = useCallback(async (email: string, password: string): Promise<UnifiedLoginResult> => {
+    const result = await authLogin(email, password);
+    if (result.accessToken) {
+      const me = await getMe();
+      setUser(me.data);
+    } else {
+      setUser(null);
+    }
+    return result;
   }, []);
 
   const register = useCallback(async (params: RegisterParams): Promise<AuthUser> => {

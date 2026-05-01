@@ -221,7 +221,7 @@ export class ShopService {
             shippingAddress: dto.shippingAddress,
             appointmentId: dto.appointmentId || null,
             notes: dto.notes,
-            marketplaceUserId,
+            userId: marketplaceUserId,
           },
           include: {
             product: { select: { id: true, name: true } },
@@ -294,7 +294,7 @@ export class ShopService {
               shippingAddress: dto.shippingAddress,
               appointmentId: dto.appointmentId || null,
               notes: dto.notes,
-              marketplaceUserId,
+              userId: marketplaceUserId,
             },
             include: {
               product: { select: { id: true, name: true } },

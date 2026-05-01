@@ -537,7 +537,7 @@ async function main() {
   const passwordHash = await bcrypt.hash('Admin123!', 12);
 
   const ownerUser = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@siliba.com' } },
+    where: { email: 'admin@siliba.com' },
     update: {},
     create: {
       tenantId: tenant.id,
@@ -823,7 +823,7 @@ async function main() {
     if (employee.userId) continue;
 
     const existingUser = await prisma.user.findUnique({
-      where: { tenantId_email: { tenantId: tenant.id, email: empData.email } },
+      where: { email: empData.email },
     });
 
     if (!existingUser) {
@@ -1475,19 +1475,20 @@ async function main() {
     data: { latitude: 40.7580, longitude: -73.9855 },
   });
 
-  // Create demo marketplace user
+  // Create demo marketplace user (now in unified users table)
   const mktPasswordHash = await bcrypt.hash('Cliente123!', 12);
-  const existingMktUser = await prisma.marketplaceUser.findUnique({
+  const existingMktUser = await prisma.user.findUnique({
     where: { email: 'cliente@siliba.com' },
   });
   if (!existingMktUser) {
-    await prisma.marketplaceUser.create({
+    await prisma.user.create({
       data: {
         email: 'cliente@siliba.com',
         passwordHash: mktPasswordHash,
         firstName: 'Maria',
         lastName: 'Garcia',
         phone: '+1-555-0200',
+        isClient: true,
       },
     });
     console.log('  Marketplace user created.');
@@ -1497,18 +1498,19 @@ async function main() {
 
   // Create Alfredo marketplace user
   const alfredoMktHash = await bcrypt.hash('Cliente123!', 12);
-  const existingAlfredo = await prisma.marketplaceUser.findUnique({
+  const existingAlfredo = await prisma.user.findUnique({
     where: { email: 'alfredo@siliba.com' },
   });
   let alfredoMktUser = existingAlfredo;
   if (!existingAlfredo) {
-    alfredoMktUser = await prisma.marketplaceUser.create({
+    alfredoMktUser = await prisma.user.create({
       data: {
         email: 'alfredo@siliba.com',
         passwordHash: alfredoMktHash,
         firstName: 'Alfredo',
         lastName: 'Rodriguez',
         phone: '+1-555-0201',
+        isClient: true,
       },
     });
     console.log('  Alfredo marketplace user created.');
@@ -1523,16 +1525,16 @@ async function main() {
     });
 
     if (alfredoClient) {
-      // Link to marketplace user and give loyalty points
+      // Link to user and give loyalty points
       await prisma.client.update({
         where: { id: alfredoClient.id },
-        data: { marketplaceUserId: alfredoMktUser.id, loyaltyPoints: 600 },
+        data: { userId: alfredoMktUser.id, loyaltyPoints: 600 },
       });
     } else {
       alfredoClient = await prisma.client.create({
         data: {
           tenantId: tenant.id,
-          marketplaceUserId: alfredoMktUser.id,
+          userId: alfredoMktUser.id,
           firstName: 'Alfredo',
           lastName: 'Rodriguez',
           email: 'alfredo@siliba.com',

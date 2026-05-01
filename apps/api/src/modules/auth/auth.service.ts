@@ -24,62 +24,128 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string) {
-    const users = await this.prisma.user.findMany({
-      where: { email, isActive: true },
-      include: { tenant: true },
-    });
-
-    if (!users.length) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    let matchedUser: (typeof users)[0] | null = null;
-    for (const user of users) {
-      const isMatch = await bcrypt.compare(password, user.passwordHash);
-      if (isMatch) {
-        matchedUser = user;
-        break;
-      }
-    }
-
-    if (!matchedUser) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    // Check subscription status — auto-expire trial if needed
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { tenantId: matchedUser.tenantId },
-      select: { status: true, trialEndsAt: true },
-    });
-
-    if (subscription) {
-      const now = new Date();
-      if (subscription.status === 'TRIAL' && subscription.trialEndsAt && now > subscription.trialEndsAt) {
-        // Auto-suspend expired trial
-        await this.prisma.subscription.update({
-          where: { tenantId: matchedUser.tenantId },
-          data: { status: 'SUSPENDED' },
-        });
-        await this.prisma.tenant.update({
-          where: { id: matchedUser.tenantId },
-          data: { subscriptionStatus: 'SUSPENDED' },
-        });
-      }
-    }
-
-    const tokens = await this.generateTokens(matchedUser);
-
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: matchedUser.id,
-        email: matchedUser.email,
-        firstName: matchedUser.firstName,
-        lastName: matchedUser.lastName,
-        tenantId: matchedUser.tenantId,
-        permissions: tokens.permissions,
+    // Unified login: matches users with business profile, client profile, or both.
+    const matchedUser = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        tenant: true,
+        employee: { select: { id: true } },
+        userRoles: { select: { role: { select: { slug: true } } } },
       },
+    });
+
+    if (!matchedUser || !matchedUser.isActive) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+    if (!matchedUser.passwordHash) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+    const valid = await bcrypt.compare(password, matchedUser.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const hasBusiness = !!matchedUser.tenantId;
+    // Any authenticated user can act as a marketplace client.
+    // Auto-activate isClient on first login so the flag becomes persistent.
+    let hasClient = matchedUser.isClient;
+    if (!hasClient) {
+      await this.prisma.user.update({
+        where: { id: matchedUser.id },
+        data: { isClient: true },
+      });
+      hasClient = true;
+    }
+
+    if (!hasBusiness && !hasClient) {
+      throw new UnauthorizedException('Esta cuenta no tiene perfiles activos');
+    }
+
+    let business: any = null;
+    let client: any = null;
+    const profiles: string[] = [];
+
+    if (hasBusiness) {
+      const tenantId = matchedUser.tenantId!;
+
+      // Auto-expire trial if needed
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { tenantId },
+        select: { status: true, trialEndsAt: true },
+      });
+      if (subscription) {
+        const now = new Date();
+        if (subscription.status === 'TRIAL' && subscription.trialEndsAt && now > subscription.trialEndsAt) {
+          await this.prisma.subscription.update({
+            where: { tenantId },
+            data: { status: 'SUSPENDED' },
+          });
+          await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { subscriptionStatus: 'SUSPENDED' },
+          });
+        }
+      }
+
+      // Admin = el user tiene asignado un rol con acceso administrativo.
+      // owner: dueño del negocio. admin: rol clásico admin. helper: empleado
+      // promovido vía "Convertir en administrador" (UI de Permisos).
+      const ADMIN_ROLE_SLUGS = ['owner', 'admin', 'helper'];
+      const hasAdminRole = (matchedUser.userRoles || []).some((ur) =>
+        ADMIN_ROLE_SLUGS.includes(ur.role.slug),
+      );
+
+      const tokens = await this.generateTokens(matchedUser);
+      business = {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: {
+          id: matchedUser.id,
+          email: matchedUser.email,
+          firstName: matchedUser.firstName,
+          lastName: matchedUser.lastName,
+          tenantId: matchedUser.tenantId,
+          tenantName: matchedUser.tenant?.name ?? null,
+          employeeId: matchedUser.employee?.id ?? null,
+          avatarUrl: matchedUser.avatarUrl,
+          permissions: tokens.permissions,
+          isAdmin: hasAdminRole,
+        },
+      };
+
+      if (hasAdminRole) profiles.push('admin');
+      if (matchedUser.employee) profiles.push('professional');
+    }
+
+    if (hasClient) {
+      const tokens = await this.generateClientTokens(matchedUser);
+      client = {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: {
+          id: matchedUser.id,
+          email: matchedUser.email,
+          firstName: matchedUser.firstName,
+          lastName: matchedUser.lastName,
+          phone: matchedUser.phone,
+          gender: matchedUser.gender,
+          avatarUrl: matchedUser.avatarUrl,
+          socialProvider: matchedUser.socialProvider,
+        },
+      };
+      profiles.push('client');
+    }
+
+    // Backwards-compatible flat fields for existing /login frontend (admin/employee).
+    return {
+      // legacy flat shape (business). null if user is client-only.
+      accessToken: business?.accessToken ?? null,
+      refreshToken: business?.refreshToken ?? null,
+      user: business?.user ?? null,
+      // new unified fields
+      business,
+      client,
+      profiles,
     };
   }
 
@@ -159,14 +225,12 @@ export class AuthService {
       );
     }
 
-    // Check if email already exists in this tenant
+    // Check if email already exists (now globally unique)
     const existingUser = await this.prisma.user.findUnique({
-      where: {
-        tenantId_email: { tenantId: invite.tenantId, email: dto.email },
-      },
+      where: { email: dto.email },
     });
     if (existingUser) {
-      throw new ConflictException('Ya existe una cuenta con este correo en este negocio');
+      throw new ConflictException('Ya existe una cuenta con este correo');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -699,12 +763,12 @@ export class AuthService {
       throw new BadRequestException('El codigo de invitacion ha alcanzado el limite de usos');
     }
 
-    // Check duplicate
+    // Check duplicate (email is now globally unique)
     const existingInTenant = await this.prisma.user.findUnique({
-      where: { tenantId_email: { tenantId: invite.tenantId, email: profile.email } },
+      where: { email: profile.email },
     });
     if (existingInTenant) {
-      throw new ConflictException('Ya existe una cuenta con este correo en este negocio');
+      throw new ConflictException('Ya existe una cuenta con este correo');
     }
 
     const location = await this.prisma.location.findFirst({
@@ -849,7 +913,7 @@ export class AuthService {
     // Use tokenHint (first 8 chars) to narrow candidates before bcrypt
     const tokenHint = refreshToken.substring(0, 8);
     const candidates = await this.prisma.refreshToken.findMany({
-      where: { tokenHint, revokedAt: null },
+      where: { tokenHint, revokedAt: null, scope: 'business' },
       include: { user: true },
     });
 
@@ -880,9 +944,9 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    // Clean up expired tokens in the background
+    // Clean up expired business tokens in the background
     this.prisma.refreshToken.deleteMany({
-      where: { expiresAt: { lt: new Date() } },
+      where: { scope: 'business', expiresAt: { lt: new Date() } },
     }).catch(() => {});
 
     const tokens = await this.generateTokens(matched.user);
@@ -920,6 +984,7 @@ export class AuthService {
         isActive: true,
         createdAt: true,
         avatarUrl: true,
+        userRoles: { select: { role: { select: { slug: true } } } },
       },
     });
 
@@ -948,10 +1013,17 @@ export class AuthService {
       }),
     ]);
 
+    const ADMIN_ROLE_SLUGS = ['owner', 'admin', 'helper'];
+    const isAdmin = (user.userRoles || []).some((ur) =>
+      ADMIN_ROLE_SLUGS.includes(ur.role.slug),
+    );
+    const { userRoles: _ur, ...userClean } = user;
+
     return {
-      ...user,
+      ...userClean,
       avatarUrl: employee?.avatarUrl || user.avatarUrl || null,
       permissions,
+      isAdmin,
       employeeId: employee?.id || null,
       isEmployeeActive: employee ? employee.isActive : true,
       jobTitle: employee?.jobTitle || null,
@@ -971,6 +1043,9 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
+    if (!user.passwordHash) {
+      throw new UnauthorizedException('Esta cuenta no tiene contraseña configurada (login social)');
+    }
 
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!valid) {
@@ -984,7 +1059,11 @@ export class AuthService {
     });
   }
 
-  private async generateTokens(user: { id: string; tenantId: string; email: string }) {
+  private async generateTokens(user: { id: string; tenantId: string | null; email: string }) {
+    if (!user.tenantId) {
+      throw new UnauthorizedException('Esta cuenta no tiene un perfil de negocio asociado');
+    }
+
     // Fetch permissions once and embed in JWT
     const permissions = await this.rbacService.getUserPermissions(user.id, user.tenantId);
 
@@ -1011,10 +1090,42 @@ export class AuthService {
         tokenHash,
         tokenHint,
         userId: user.id,
+        scope: 'business',
         expiresAt,
       },
     });
 
     return { accessToken, refreshToken, permissions };
+  }
+
+  private async generateClientTokens(user: { id: string; email: string }) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      type: 'marketplace' as const,
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: process.env.JWT_CLIENT_ACCESS_EXPIRY || '15m',
+      issuer: 'siliba-marketplace',
+    });
+
+    const refreshToken = uuidv4();
+    const tokenHash = await bcrypt.hash(refreshToken, 10);
+    const tokenHint = refreshToken.substring(0, 8);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash,
+        tokenHint,
+        userId: user.id,
+        scope: 'client',
+        expiresAt,
+      },
+    });
+
+    return { accessToken, refreshToken };
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
@@ -18,6 +18,8 @@ interface SocialProfile {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectAfterLogin = searchParams.get('redirect');
   const { login } = useAuth();
 
   const [form, setForm] = useState({ email: '', password: '' });
@@ -25,6 +27,7 @@ export default function LoginPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [roleChoice, setRoleChoice] = useState<AuthUser | null>(null);
+  const [availableProfiles, setAvailableProfiles] = useState<string[]>([]);
 
   // Social login: invite code step
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
@@ -48,23 +51,45 @@ export default function LoginPage() {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      const user = await login(form.email, form.password);
-      const isAdmin = user.permissions.includes('employees.create');
-      const hasEmployeeProfile = !!user.employeeId;
+      const result = await login(form.email, form.password);
+      const profiles = result.profiles || [];
+      const businessUser = result.business?.user || result.user;
 
-      // Show role choice if user has multiple roles
-      if (isAdmin && hasEmployeeProfile) {
-        setRoleChoice(user);
+      // Multiple profiles → show selector
+      if (profiles.length > 1) {
+        if (businessUser) {
+          setAvailableProfiles(profiles);
+          setRoleChoice(businessUser);
+        } else {
+          router.push('/marketplace');
+        }
         return;
       }
 
-      // Employee → always show choice (can be professional or client)
-      if (hasEmployeeProfile && !isAdmin) {
-        setRoleChoice(user);
+      // Single profile — route directly. Respect redirect only when the
+      // saved target matches the profile the user actually has (otherwise
+      // it would loop the user back to a section they can't access).
+      const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
+      const wantsBusiness =
+        redirectAfterLogin && !redirectAfterLogin.startsWith('/marketplace');
+
+      if (profiles.includes('client') && !businessUser) {
+        const target = wantsMarketplace ? redirectAfterLogin! : '/marketplace';
+        router.push(target);
         return;
       }
 
-      router.push(isAdmin ? '/home' : '/employee');
+      if (businessUser) {
+        const perms = businessUser.permissions ?? [];
+        const isAdmin = (businessUser as any).isAdmin === true || perms.includes('employees.create');
+        const fallback = isAdmin ? '/home' : '/employee';
+        const target = wantsBusiness ? redirectAfterLogin! : fallback;
+        router.push(target);
+        return;
+      }
+
+      // Fallback
+      router.push('/');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
@@ -156,7 +181,7 @@ export default function LoginPage() {
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
             <div className="space-y-3">
-              {roleChoice.permissions?.includes('employees.create') && (
+              {availableProfiles.includes('admin') && (
               <button
                 onClick={() => router.push('/home')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
@@ -175,6 +200,7 @@ export default function LoginPage() {
               </button>
               )}
 
+              {availableProfiles.includes('professional') && (
               <button
                 onClick={() => router.push('/employee')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
@@ -191,7 +217,9 @@ export default function LoginPage() {
                   </div>
                 </div>
               </button>
+              )}
 
+              {availableProfiles.includes('client') && (
               <button
                 onClick={() => router.push('/marketplace')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
@@ -208,6 +236,7 @@ export default function LoginPage() {
                   </div>
                 </div>
               </button>
+              )}
             </div>
           </div>
         </div>

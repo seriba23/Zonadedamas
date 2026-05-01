@@ -36,7 +36,7 @@ export function EmployeeSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isAdmin = user?.permissions?.includes('employees.create');
+  const isAdmin = user?.isAdmin === true || user?.permissions?.includes('employees.create') || false;
   const moreItems = navItems.filter((item) => !item.mobileNav);
   const isMoreActive = moreItems.some((item) => pathname === item.href || pathname.startsWith(item.href));
   const [moreOpen, setMoreOpen] = useState(isMoreActive);

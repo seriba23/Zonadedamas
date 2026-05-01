@@ -37,7 +37,7 @@ export class MarketplaceService {
   // ─── OTP ─────────────────────────────────────────────
 
   async sendOtp(marketplaceUserId: string) {
-    const user = await this.prisma.marketplaceUser.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
       select: { phone: true },
     });
@@ -67,7 +67,7 @@ export class MarketplaceService {
   }
 
   async sendOtpEmail(marketplaceUserId: string) {
-    const user = await this.prisma.marketplaceUser.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
       select: { email: true },
     });
@@ -98,7 +98,7 @@ export class MarketplaceService {
   // ─── AUTH ────────────────────────────────────────────
 
   async register(dto: MarketplaceRegisterDto) {
-    const existing = await this.prisma.marketplaceUser.findFirst({
+    const existing = await this.prisma.user.findFirst({
       where: { email: dto.email },
     });
 
@@ -108,20 +108,21 @@ export class MarketplaceService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const user = await this.prisma.marketplaceUser.create({
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         firstName: dto.firstName,
         lastName: dto.lastName,
         phone: dto.phone || null,
         passwordHash,
+        isClient: true,
       },
     });
 
     // Link any existing Client records with this email
     await this.prisma.client.updateMany({
-      where: { email: dto.email, marketplaceUserId: null },
-      data: { marketplaceUserId: user.id },
+      where: { email: dto.email, userId: null },
+      data: { userId: user.id },
     });
 
     const tokens = await this.generateTokens(user);
@@ -144,7 +145,7 @@ export class MarketplaceService {
     // Also find suspended users so we can reactivate on voluntary login
     // identifier can be email or phone number
     const isPhone = /^\+?[\d\s\-()]{7,15}$/.test(dto.identifier) && !dto.identifier.includes('@');
-    const user = await this.prisma.marketplaceUser.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: isPhone ? { phone: dto.identifier } : { email: dto.identifier },
     });
 
@@ -166,7 +167,7 @@ export class MarketplaceService {
     // If user is suspended, reactivate on voluntary login (they chose to come back)
     let reactivated = false;
     if (!user.isActive && user.suspendedUntil) {
-      await this.prisma.marketplaceUser.update({
+      await this.prisma.user.update({
         where: { id: user.id },
         data: { isActive: true, suspendedAt: null, suspendedUntil: null },
       });
@@ -178,7 +179,7 @@ export class MarketplaceService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    await this.prisma.marketplaceUser.update({
+    await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
@@ -208,7 +209,7 @@ export class MarketplaceService {
       : await this.verifyFacebookToken(dto.token);
 
     // Find existing user by email
-    let user = await this.prisma.marketplaceUser.findFirst({
+    let user = await this.prisma.user.findFirst({
       where: { email: profile.email },
     });
 
@@ -217,7 +218,7 @@ export class MarketplaceService {
     if (user) {
       // Reactivate if suspended
       if (!user.isActive && user.suspendedUntil) {
-        await this.prisma.marketplaceUser.update({
+        await this.prisma.user.update({
           where: { id: user.id },
           data: { isActive: true, suspendedAt: null, suspendedUntil: null },
         });
@@ -236,13 +237,13 @@ export class MarketplaceService {
       if (!user.avatarUrl && profile.avatarUrl) {
         updateData.avatarUrl = profile.avatarUrl;
       }
-      user = await this.prisma.marketplaceUser.update({
+      user = await this.prisma.user.update({
         where: { id: user.id },
         data: updateData,
       });
     } else {
       // Create new user (no password needed)
-      user = await this.prisma.marketplaceUser.create({
+      user = await this.prisma.user.create({
         data: {
           email: profile.email,
           firstName: profile.firstName,
@@ -250,14 +251,15 @@ export class MarketplaceService {
           avatarUrl: profile.avatarUrl || null,
           socialProvider: dto.provider,
           socialId: profile.socialId,
+          isClient: true,
         },
       });
       isNewUser = true;
 
       // Link existing Client records
       await this.prisma.client.updateMany({
-        where: { email: profile.email, marketplaceUserId: null },
-        data: { marketplaceUserId: user.id },
+        where: { email: profile.email, userId: null },
+        data: { userId: user.id },
       });
     }
 
@@ -348,8 +350,8 @@ export class MarketplaceService {
 
   async refresh(refreshToken: string) {
     const tokenHint = refreshToken.substring(0, 8);
-    const candidates = await this.prisma.marketplaceRefreshToken.findMany({
-      where: { tokenHint, revokedAt: null },
+    const candidates = await this.prisma.refreshToken.findMany({
+      where: { tokenHint, revokedAt: null, scope: 'client' },
       include: { user: true },
     });
 
@@ -367,7 +369,7 @@ export class MarketplaceService {
     }
 
     if (new Date() > matched.expiresAt) {
-      await this.prisma.marketplaceRefreshToken.update({
+      await this.prisma.refreshToken.update({
         where: { id: matched.id },
         data: { revokedAt: new Date() },
       });
@@ -375,14 +377,14 @@ export class MarketplaceService {
     }
 
     // Revoke old (rotation)
-    await this.prisma.marketplaceRefreshToken.update({
+    await this.prisma.refreshToken.update({
       where: { id: matched.id },
       data: { revokedAt: new Date() },
     });
 
-    // Cleanup expired
-    this.prisma.marketplaceRefreshToken
-      .deleteMany({ where: { expiresAt: { lt: new Date() } } })
+    // Cleanup expired client tokens
+    this.prisma.refreshToken
+      .deleteMany({ where: { scope: 'client', expiresAt: { lt: new Date() } } })
       .catch(() => {});
 
     const tokens = await this.generateTokens(matched.user);
@@ -391,14 +393,14 @@ export class MarketplaceService {
 
   async logout(refreshToken: string) {
     const tokenHint = refreshToken.substring(0, 8);
-    const candidates = await this.prisma.marketplaceRefreshToken.findMany({
-      where: { tokenHint, revokedAt: null },
+    const candidates = await this.prisma.refreshToken.findMany({
+      where: { tokenHint, revokedAt: null, scope: 'client' },
     });
 
     for (const stored of candidates) {
       const isMatch = await bcrypt.compare(refreshToken, stored.tokenHash);
       if (isMatch) {
-        await this.prisma.marketplaceRefreshToken.update({
+        await this.prisma.refreshToken.update({
           where: { id: stored.id },
           data: { revokedAt: new Date() },
         });
@@ -408,7 +410,7 @@ export class MarketplaceService {
   }
 
   async getMe(marketplaceUserId: string) {
-    const user = await this.prisma.marketplaceUser.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
       select: {
         id: true,
@@ -442,7 +444,7 @@ export class MarketplaceService {
 
     // Auto-reactivate if suspension period ended
     if (user.suspendedUntil && new Date() >= user.suspendedUntil) {
-      await this.prisma.marketplaceUser.update({
+      await this.prisma.user.update({
         where: { id: marketplaceUserId },
         data: { suspendedAt: null, suspendedUntil: null, isActive: true },
       });
@@ -673,8 +675,8 @@ export class MarketplaceService {
 
     const existing = await this.prisma.marketplaceFavorite.findUnique({
       where: {
-        marketplaceUserId_tenantId: {
-          marketplaceUserId,
+        userId_tenantId: {
+          userId: marketplaceUserId,
           tenantId: tenant.id,
         },
       },
@@ -689,7 +691,7 @@ export class MarketplaceService {
 
     await this.prisma.marketplaceFavorite.create({
       data: {
-        marketplaceUserId,
+        userId: marketplaceUserId,
         tenantId: tenant.id,
       },
     });
@@ -698,7 +700,7 @@ export class MarketplaceService {
 
   async getMyFavorites(marketplaceUserId: string) {
     const favorites = await this.prisma.marketplaceFavorite.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       include: {
         tenant: {
           select: {
@@ -908,8 +910,8 @@ export class MarketplaceService {
     if (marketplaceUserId) {
       const fav = await this.prisma.marketplaceFavorite.findUnique({
         where: {
-          marketplaceUserId_tenantId: {
-            marketplaceUserId,
+          userId_tenantId: {
+            userId: marketplaceUserId,
             tenantId: tenant.id,
           },
         },
@@ -986,7 +988,7 @@ export class MarketplaceService {
 
   async toggleProfessionalFavorite(marketplaceUserId: string, employeeId: string) {
     const existing = await this.prisma.marketplaceProfessionalFavorite.findUnique({
-      where: { marketplaceUserId_employeeId: { marketplaceUserId, employeeId } },
+      where: { userId_employeeId: { userId: marketplaceUserId, employeeId } },
     });
 
     if (existing) {
@@ -995,14 +997,14 @@ export class MarketplaceService {
     }
 
     await this.prisma.marketplaceProfessionalFavorite.create({
-      data: { marketplaceUserId, employeeId },
+      data: { userId: marketplaceUserId, employeeId },
     });
     return { data: { favorited: true } };
   }
 
   async getMyProfessionalFavorites(marketplaceUserId: string) {
     const favorites = await this.prisma.marketplaceProfessionalFavorite.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       include: {
         employee: {
           select: {
@@ -1236,7 +1238,7 @@ export class MarketplaceService {
 
   async enterBusiness(marketplaceUserId: string, tenantSlug: string) {
     const tenant = await this.tenantsService.findBySlug(tenantSlug);
-    const mktUser = await this.prisma.marketplaceUser.findUnique({
+    const mktUser = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
 
@@ -1246,7 +1248,7 @@ export class MarketplaceService {
 
     // Find existing Client linked to this marketplace user
     let client = await this.prisma.client.findFirst({
-      where: { tenantId: tenant.id, marketplaceUserId },
+      where: { tenantId: tenant.id, userId: marketplaceUserId },
     });
 
     if (!client && mktUser.email) {
@@ -1257,7 +1259,7 @@ export class MarketplaceService {
       if (client) {
         await this.prisma.client.update({
           where: { id: client.id },
-          data: { marketplaceUserId },
+          data: { userId: marketplaceUserId },
         });
       }
     }
@@ -1267,7 +1269,7 @@ export class MarketplaceService {
       client = await this.prisma.client.create({
         data: {
           tenantId: tenant.id,
-          marketplaceUserId,
+          userId: marketplaceUserId,
           firstName: mktUser.firstName,
           lastName: mktUser.lastName,
           email: mktUser.email,
@@ -1365,7 +1367,7 @@ export class MarketplaceService {
   // ─── PROFILE ────────────────────────────────────────
 
   async updateProfile(marketplaceUserId: string, dto: UpdateMarketplaceProfileDto) {
-    const current = await this.prisma.marketplaceUser.findUnique({
+    const current = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
     if (!current) {
@@ -1381,7 +1383,7 @@ export class MarketplaceService {
     if (dto.address !== undefined) updateData.address = dto.address || null;
     if (dto.phone !== undefined) updateData.phone = dto.phone || null;
 
-    const user = await this.prisma.marketplaceUser.update({
+    const user = await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: updateData,
       select: {
@@ -1406,7 +1408,7 @@ export class MarketplaceService {
 
     if (Object.keys(clientUpdate).length > 0) {
       await this.prisma.client.updateMany({
-        where: { marketplaceUserId },
+        where: { userId: marketplaceUserId },
         data: clientUpdate,
       });
     }
@@ -1415,7 +1417,7 @@ export class MarketplaceService {
   }
 
   async updateSettings(marketplaceUserId: string, dto: UpdateMarketplaceSettingsDto) {
-    const current = await this.prisma.marketplaceUser.findUnique({
+    const current = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
     if (!current) {
@@ -1432,7 +1434,7 @@ export class MarketplaceService {
     if (dto.notifRewards !== undefined) updateData.notifRewards = dto.notifRewards;
     if (dto.notifMessages !== undefined) updateData.notifMessages = dto.notifMessages;
 
-    const user = await this.prisma.marketplaceUser.update({
+    const user = await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: updateData,
       select: {
@@ -1458,7 +1460,7 @@ export class MarketplaceService {
     const suspendedUntil = new Date();
     suspendedUntil.setDate(suspendedUntil.getDate() + days);
 
-    await this.prisma.marketplaceUser.update({
+    await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: {
         isActive: false,
@@ -1471,7 +1473,7 @@ export class MarketplaceService {
   }
 
   async deleteAccount(marketplaceUserId: string, password: string) {
-    const user = await this.prisma.marketplaceUser.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
     if (!user) {
@@ -1500,7 +1502,7 @@ export class MarketplaceService {
     }
 
     // Cascade: deletes refresh tokens + favorites. Clients get marketplaceUserId = null.
-    await this.prisma.marketplaceUser.delete({
+    await this.prisma.user.delete({
       where: { id: marketplaceUserId },
     });
 
@@ -1508,7 +1510,7 @@ export class MarketplaceService {
   }
 
   async reactivateAccount(marketplaceUserId: string) {
-    await this.prisma.marketplaceUser.update({
+    await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: {
         isActive: true,
@@ -1524,7 +1526,7 @@ export class MarketplaceService {
     marketplaceUserId: string,
     dto: { email?: string; phone?: string; currentPassword?: string; otpCode?: string },
   ) {
-    const current = await this.prisma.marketplaceUser.findUnique({
+    const current = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
     if (!current) {
@@ -1554,7 +1556,7 @@ export class MarketplaceService {
 
     // Check email uniqueness
     if (dto.email && dto.email !== current.email) {
-      const existing = await this.prisma.marketplaceUser.findFirst({
+      const existing = await this.prisma.user.findFirst({
         where: { email: dto.email, id: { not: marketplaceUserId } },
       });
       if (existing) {
@@ -1567,7 +1569,7 @@ export class MarketplaceService {
     // Check phone uniqueness
     if (dto.phone !== undefined && dto.phone !== current.phone) {
       if (dto.phone) {
-        const existing = await this.prisma.marketplaceUser.findFirst({
+        const existing = await this.prisma.user.findFirst({
           where: { phone: dto.phone, id: { not: marketplaceUserId } },
         });
         if (existing) {
@@ -1582,7 +1584,7 @@ export class MarketplaceService {
       throw new ConflictException('No hay cambios que aplicar');
     }
 
-    const user = await this.prisma.marketplaceUser.update({
+    const user = await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: updateData,
       select: {
@@ -1598,7 +1600,7 @@ export class MarketplaceService {
 
     if (Object.keys(clientUpdate).length > 0) {
       await this.prisma.client.updateMany({
-        where: { marketplaceUserId },
+        where: { userId: marketplaceUserId },
         data: clientUpdate,
       });
     }
@@ -1607,13 +1609,13 @@ export class MarketplaceService {
   }
 
   async updateAvatar(marketplaceUserId: string, avatarUrl: string): Promise<string | null> {
-    const current = await this.prisma.marketplaceUser.findUnique({
+    const current = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
       select: { avatarUrl: true },
     });
     const oldUrl = current?.avatarUrl || null;
 
-    await this.prisma.marketplaceUser.update({
+    await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: { avatarUrl },
     });
@@ -1622,7 +1624,7 @@ export class MarketplaceService {
   }
 
   async changePassword(marketplaceUserId: string, dto: ChangeMarketplacePasswordDto) {
-    const user = await this.prisma.marketplaceUser.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
     if (!user) {
@@ -1647,7 +1649,7 @@ export class MarketplaceService {
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
-    await this.prisma.marketplaceUser.update({
+    await this.prisma.user.update({
       where: { id: marketplaceUserId },
       data: { passwordHash },
     });
@@ -1662,7 +1664,7 @@ export class MarketplaceService {
     perPage: number,
   ) {
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);
@@ -1752,7 +1754,7 @@ export class MarketplaceService {
   async getMyPurchases(marketplaceUserId: string, page: number, perPage: number) {
     const skip = (page - 1) * perPage;
 
-    const where: any = { marketplaceUserId };
+    const where: any = { userId: marketplaceUserId };
 
     const [data, total] = await Promise.all([
       this.prisma.productReservation.findMany({
@@ -1795,7 +1797,7 @@ export class MarketplaceService {
 
   async getMyStats(marketplaceUserId: string) {
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true, tenantId: true, loyaltyPoints: true, tenant: { select: { name: true, slug: true, logoUrl: true } } },
     });
     const clientIds = clients.map((c) => c.id);
@@ -1834,7 +1836,7 @@ export class MarketplaceService {
 
   async getMyGallery(marketplaceUserId: string) {
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);
@@ -1914,7 +1916,7 @@ export class MarketplaceService {
     status?: 'COMPLETED' | 'PENDING' | 'REFUNDED',
   ) {
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);
@@ -1990,11 +1992,12 @@ export class MarketplaceService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    await this.prisma.marketplaceRefreshToken.create({
+    await this.prisma.refreshToken.create({
       data: {
         tokenHash,
         tokenHint,
-        marketplaceUserId: user.id,
+        userId: user.id,
+        scope: 'client',
         expiresAt,
       },
     });
@@ -2043,7 +2046,7 @@ export class MarketplaceService {
 
   async getMyRewards(marketplaceUserId: string) {
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);
@@ -2119,7 +2122,7 @@ export class MarketplaceService {
 
   async getMyReferrals(marketplaceUserId: string) {
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);
@@ -2165,7 +2168,7 @@ export class MarketplaceService {
 
     // Find client for this tenant
     const client = await this.prisma.client.findFirst({
-      where: { tenantId: tenant.id, marketplaceUserId },
+      where: { tenantId: tenant.id, userId: marketplaceUserId },
     });
     if (!client) {
       throw new NotFoundException(
@@ -2280,7 +2283,7 @@ export class MarketplaceService {
     dto: MarketplaceBookDto,
   ) {
     const tenant = await this.tenantsService.findBySlug(tenantSlug);
-    const mktUser = await this.prisma.marketplaceUser.findUnique({
+    const mktUser = await this.prisma.user.findUnique({
       where: { id: marketplaceUserId },
     });
 
@@ -2290,7 +2293,7 @@ export class MarketplaceService {
 
     // Find or create client linked to marketplace user (same logic as enterBusiness)
     let client = await this.prisma.client.findFirst({
-      where: { tenantId: tenant.id, marketplaceUserId },
+      where: { tenantId: tenant.id, userId: marketplaceUserId },
     });
 
     if (!client && mktUser.email) {
@@ -2300,7 +2303,7 @@ export class MarketplaceService {
       if (client) {
         await this.prisma.client.update({
           where: { id: client.id },
-          data: { marketplaceUserId },
+          data: { userId: marketplaceUserId },
         });
       }
     }
@@ -2309,7 +2312,7 @@ export class MarketplaceService {
       client = await this.prisma.client.create({
         data: {
           tenantId: tenant.id,
-          marketplaceUserId,
+          userId: marketplaceUserId,
           firstName: mktUser.firstName,
           lastName: mktUser.lastName,
           email: mktUser.email,
@@ -2529,7 +2532,10 @@ export class MarketplaceService {
         }),
         this.prisma.appointment.update({
           where: { id: appointment.data.id },
-          data: { notes: `${appointment.data.notes || ''}\n[Pagado con ${pointsSpent} puntos]`.trim() },
+          data: {
+            pointsSpent,
+            notes: `${appointment.data.notes || ''}\n[Pagado con ${pointsSpent} puntos]`.trim(),
+          },
         }),
       );
     }
@@ -2652,12 +2658,12 @@ export class MarketplaceService {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id: appointmentId, tenantId: tenant.id },
       include: {
-        client: { select: { marketplaceUserId: true, id: true } },
+        client: { select: { userId: true, id: true } },
         items: true,
       },
     });
 
-    if (!appointment || appointment.client?.marketplaceUserId !== marketplaceUserId) {
+    if (!appointment || appointment.client?.userId !== marketplaceUserId) {
       throw new NotFoundException('Cita no encontrada');
     }
 
@@ -2689,7 +2695,7 @@ export class MarketplaceService {
   async getAvailableRewards(marketplaceUserId: string) {
     // All client records for this marketplace user
     const clients = await this.prisma.client.findMany({
-      where: { marketplaceUserId },
+      where: { userId: marketplaceUserId },
       select: { id: true, tenantId: true, loyaltyPoints: true },
     });
     if (clients.length === 0) return { data: [] };

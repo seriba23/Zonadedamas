@@ -339,7 +339,7 @@ async function createBusiness(
 
   // 4. Create admin user
   const adminUser = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: biz.admin.email } },
+    where: { email: biz.admin.email },
     update: {},
     create: {
       tenantId: tenant.id,

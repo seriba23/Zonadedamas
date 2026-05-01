@@ -51,3 +51,6 @@ apps/api/jest.config.js.map
 
 # Claude Code
 .claude/
+
+# Database backups (local snapshots, not for source control)
+backup_*.sql

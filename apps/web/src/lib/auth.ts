@@ -1,4 +1,5 @@
 import { api } from './api';
+import { marketplaceApi } from './marketplace-api';
 
 export interface AuthUser {
   id: string;
@@ -8,6 +9,7 @@ export interface AuthUser {
   lastName: string;
   avatarUrl?: string | null;
   permissions: string[];
+  isAdmin?: boolean;
   employeeId?: string | null;
   isEmployeeActive?: boolean;
   jobTitle?: string | null;
@@ -24,17 +26,39 @@ export interface AuthTokens {
   user: AuthUser;
 }
 
+export interface UnifiedLoginResult {
+  // legacy flat (business). null if user is client-only.
+  accessToken: string | null;
+  refreshToken: string | null;
+  user: AuthUser | null;
+  // unified
+  business: { accessToken: string; refreshToken: string; user: AuthUser } | null;
+  client: { accessToken: string; refreshToken: string; user: any } | null;
+  profiles: Array<'admin' | 'professional' | 'client'>;
+}
+
 export async function login(
   email: string,
   password: string,
-): Promise<AuthTokens> {
-  const res = await api.post<{ data: AuthTokens }>('/api/auth/login', {
+): Promise<UnifiedLoginResult> {
+  const res = await api.post<{ data: UnifiedLoginResult }>('/api/auth/login', {
     email,
     password,
   });
-  api.setAccessToken(res.data.accessToken);
-  localStorage.setItem('refreshToken', res.data.refreshToken);
-  return res.data;
+  const data = res.data;
+
+  // Persist business session (legacy flat fields)
+  if (data.accessToken && data.refreshToken) {
+    api.setAccessToken(data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+  }
+
+  // Persist client session if user has client profile
+  if (data.client?.accessToken && data.client?.refreshToken) {
+    marketplaceApi.setSession(data.client.accessToken, data.client.refreshToken);
+  }
+
+  return data;
 }
 
 export interface RegisterParams {
