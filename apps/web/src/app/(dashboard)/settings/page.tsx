@@ -11,8 +11,12 @@ const CurrencyContent = dynamic(() => import('./currency/page'), { ssr: false })
 const SubscriptionContent = dynamic(() => import('./subscription/page'), { ssr: false });
 const InviteCodesContent = dynamic(() => import('./invite-codes/page'), { ssr: false });
 const QRContent = dynamic(() => import('./qr/page'), { ssr: false });
+const ShopContent = dynamic(
+  () => import('./shop/page').then((mod) => ({ default: mod.ShopSettingsContent })),
+  { ssr: false },
+);
 
-type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'moneda' | 'suscripcion' | 'invitaciones' | 'qr';
+type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'ventas' | 'moneda' | 'suscripcion' | 'invitaciones' | 'qr';
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'negocio', label: 'Mi Negocio' },
@@ -20,6 +24,7 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'horarios', label: 'Horarios' },
   { key: 'invitaciones', label: 'Invitaciones' },
   { key: 'qr', label: 'Código QR' },
+  { key: 'ventas', label: 'Ventas' },
   { key: 'moneda', label: 'Moneda' },
   { key: 'suscripcion', label: 'Suscripción' },
 ];
@@ -51,6 +56,7 @@ export default function SettingsPage() {
         {activeTab === 'negocio' && <BusinessContent />}
         {activeTab === 'sucursales' && <LocationsContent />}
         {activeTab === 'horarios' && <HoursContent />}
+        {activeTab === 'ventas' && <ShopContent />}
         {activeTab === 'moneda' && <CurrencyContent />}
         {activeTab === 'suscripcion' && <SubscriptionContent />}
         {activeTab === 'invitaciones' && <InviteCodesContent />}

@@ -5,7 +5,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { SubscriptionBanner } from '@/components/subscription-banner';
-import { useWebSocket, EmployeeJoinedEvent } from '@/lib/hooks/use-websocket';
+import { useWebSocket, EmployeeJoinedEvent, PurchaseCreatedEvent } from '@/lib/hooks/use-websocket';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 function EmployeeJoinedNotification({
   employee,
@@ -56,6 +57,77 @@ function EmployeeJoinedNotification({
   );
 }
 
+function PurchaseCreatedNotification({
+  purchase,
+  onDismiss,
+}: {
+  purchase: PurchaseCreatedEvent;
+  onDismiss: () => void;
+}) {
+  const { format: formatCurrency } = useCurrency();
+  const itemCount = purchase.items.reduce((sum, it) => sum + it.quantity, 0);
+  const fulfillmentLabel = purchase.fulfillmentType === 'SHIPPING' ? 'Envío' : 'Recoger en tienda';
+  const paymentLabel =
+    purchase.paymentMethod === 'CASH' ? 'Efectivo' :
+    purchase.paymentMethod === 'SPEI' ? 'SPEI' :
+    purchase.paymentMethod === 'CARD' ? 'Tarjeta' : purchase.paymentMethod;
+  return (
+    <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-right w-96 max-w-[calc(100vw-2rem)]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        <div className="bg-[#008080] px-5 py-3 flex items-center gap-2">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <span className="text-white font-semibold text-sm">Nueva compra recibida</span>
+        </div>
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="font-semibold text-gray-900">{purchase.customerName}</p>
+              <p className="text-xs text-gray-500">{purchase.customerEmail || purchase.customerPhone}</p>
+            </div>
+            <p className="text-base font-bold text-[#008080]">{formatCurrency(purchase.total)}</p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 mb-3">
+            {purchase.items.slice(0, 3).map((it) => (
+              <div key={it.productId} className="flex items-center justify-between text-xs">
+                <span className="text-gray-700 truncate flex-1">{it.productName}</span>
+                <span className="text-gray-500 ml-2 flex-shrink-0">×{it.quantity}</span>
+              </div>
+            ))}
+            {purchase.items.length > 3 && (
+              <p className="text-[10px] text-gray-400">+{purchase.items.length - 3} producto(s) más</p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <span className="text-[10px] font-semibold text-[#008080] bg-teal-50 border border-teal-100 rounded-full px-2 py-0.5">
+              {itemCount} artículo{itemCount !== 1 ? 's' : ''}
+            </span>
+            <span className="text-[10px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
+              {fulfillmentLabel}
+            </span>
+            <span className="text-[10px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
+              {paymentLabel}
+            </span>
+          </div>
+
+          <button
+            onClick={onDismiss}
+            className="w-full mt-1 py-2 rounded-xl text-sm font-medium text-white transition-colors"
+            style={{ backgroundColor: '#008080' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
+          >
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -64,7 +136,7 @@ export default function DashboardLayout({
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const { notifications, dismissNotification } = useWebSocket();
+  const { notifications, dismissNotification, purchases, dismissPurchase } = useWebSocket();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -128,6 +200,12 @@ export default function DashboardLayout({
         <EmployeeJoinedNotification
           employee={notifications[0]}
           onDismiss={() => dismissNotification(notifications[0].id)}
+        />
+      )}
+      {purchases.length > 0 && notifications.length === 0 && (
+        <PurchaseCreatedNotification
+          purchase={purchases[0]}
+          onDismiss={() => dismissPurchase(purchases[0].id)}
         />
       )}
     </div>

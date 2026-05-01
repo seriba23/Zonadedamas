@@ -15,13 +15,36 @@ export interface EmployeeJoinedEvent {
   services: string[];
 }
 
+export interface PurchaseCreatedEvent {
+  id: string;
+  customerName: string;
+  customerEmail?: string | null;
+  customerPhone: string;
+  fulfillmentType: string;
+  paymentMethod: string;
+  items: Array<{
+    productId: string;
+    productName: string;
+    productImage: string | null;
+    quantity: number;
+    unitPrice: number;
+  }>;
+  total: number;
+  createdAt: string;
+}
+
 export function useWebSocket() {
   const { user, isAuthenticated } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const [notifications, setNotifications] = useState<EmployeeJoinedEvent[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseCreatedEvent[]>([]);
 
   const dismissNotification = useCallback((employeeId: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== employeeId));
+  }, []);
+
+  const dismissPurchase = useCallback((purchaseId: string) => {
+    setPurchases((prev) => prev.filter((p) => p.id !== purchaseId));
   }, []);
 
   useEffect(() => {
@@ -36,6 +59,10 @@ export function useWebSocket() {
       setNotifications((prev) => [...prev, data]);
     });
 
+    socket.on('purchase:created', (data: PurchaseCreatedEvent) => {
+      setPurchases((prev) => [...prev, data]);
+    });
+
     socketRef.current = socket;
 
     return () => {
@@ -44,5 +71,5 @@ export function useWebSocket() {
     };
   }, [isAuthenticated, user?.tenantId]);
 
-  return { notifications, dismissNotification };
+  return { notifications, dismissNotification, purchases, dismissPurchase };
 }

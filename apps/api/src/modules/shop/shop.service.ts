@@ -3,12 +3,16 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto, CreateBatchReservationDto } from './dto/create-reservation.dto';
 
 @Injectable()
 export class ShopService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async resolveTenant(slug: string) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -224,12 +228,37 @@ export class ShopService {
             userId: marketplaceUserId,
           },
           include: {
-            product: { select: { id: true, name: true } },
+            product: { select: { id: true, name: true, imageUrl: true } },
           },
         });
       },
       { isolationLevel: 'Serializable' },
     );
+
+    this.eventEmitter.emit('purchase.created', {
+      tenantId: tenant.id,
+      purchase: {
+        id: reservation.id,
+        customerName: reservation.customerName,
+        customerEmail: reservation.customerEmail,
+        customerPhone: reservation.customerPhone,
+        fulfillmentType: reservation.fulfillmentType,
+        paymentMethod: reservation.preferredPaymentMethod,
+        items: [
+          {
+            productId: reservation.product.id,
+            productName: reservation.product.name,
+            productImage: reservation.product.imageUrl ?? null,
+            quantity: reservation.quantity,
+            unitPrice: Number(reservation.unitPrice),
+          },
+        ],
+        total:
+          Number(reservation.unitPrice) * reservation.quantity +
+          Number(reservation.shippingCost || 0),
+        createdAt: reservation.createdAt,
+      },
+    });
 
     return { data: reservation };
   }
@@ -297,7 +326,7 @@ export class ShopService {
               userId: marketplaceUserId,
             },
             include: {
-              product: { select: { id: true, name: true } },
+              product: { select: { id: true, name: true, imageUrl: true } },
             },
           });
           results.push(reservation);
@@ -307,6 +336,34 @@ export class ShopService {
       },
       { isolationLevel: 'Serializable' },
     );
+
+    if (reservations.length > 0) {
+      const first = reservations[0];
+      const total = reservations.reduce(
+        (sum, r) => sum + Number(r.unitPrice) * r.quantity + Number(r.shippingCost || 0),
+        0,
+      );
+      this.eventEmitter.emit('purchase.created', {
+        tenantId: tenant.id,
+        purchase: {
+          id: first.id,
+          customerName: first.customerName,
+          customerEmail: first.customerEmail,
+          customerPhone: first.customerPhone,
+          fulfillmentType: first.fulfillmentType,
+          paymentMethod: first.preferredPaymentMethod,
+          items: reservations.map((r) => ({
+            productId: r.product.id,
+            productName: r.product.name,
+            productImage: r.product.imageUrl ?? null,
+            quantity: r.quantity,
+            unitPrice: Number(r.unitPrice),
+          })),
+          total,
+          createdAt: first.createdAt,
+        },
+      });
+    }
 
     return { data: reservations };
   }

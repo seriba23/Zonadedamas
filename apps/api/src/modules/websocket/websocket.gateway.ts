@@ -64,4 +64,30 @@ export class AppWebSocketGateway
       .to(`tenant:${payload.tenantId}`)
       .emit('employee:joined', payload.employee);
   }
+
+  @OnEvent('purchase.created')
+  handlePurchaseCreated(payload: {
+    tenantId: string;
+    purchase: {
+      id: string;
+      customerName: string;
+      customerEmail?: string | null;
+      customerPhone: string;
+      fulfillmentType: string;
+      paymentMethod: string;
+      items: Array<{
+        productId: string;
+        productName: string;
+        productImage: string | null;
+        quantity: number;
+        unitPrice: number;
+      }>;
+      total: number;
+      createdAt: Date;
+    };
+  }) {
+    this.server
+      .to(`tenant:${payload.tenantId}`)
+      .emit('purchase:created', payload.purchase);
+  }
 }
