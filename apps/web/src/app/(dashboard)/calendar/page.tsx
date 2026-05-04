@@ -36,6 +36,7 @@ interface EmployeeSummary {
   firstName: string;
   lastName: string;
   color?: string;
+  avatarUrl?: string | null;
   isActive: boolean;
 }
 
