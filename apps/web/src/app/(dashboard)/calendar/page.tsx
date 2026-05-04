@@ -685,7 +685,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={apt.id}
-                      onClick={() => handleAppointmentClick(apt.id)}
+                      onClick={() => handleAppointmentClick(apt)}
                       className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
                       style={{ borderLeft: `3px solid ${apt.employee?.color || '#008080'}` }}
                     >
