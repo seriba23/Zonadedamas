@@ -12,7 +12,7 @@ const SubscriptionContent = dynamic(() => import('./subscription/page'), { ssr: 
 const InviteCodesContent = dynamic(() => import('./invite-codes/page'), { ssr: false });
 const QRContent = dynamic(() => import('./qr/page'), { ssr: false });
 const ShopContent = dynamic(
-  () => import('./shop/page').then((mod) => ({ default: mod.ShopSettingsContent })),
+  () => import('./shop/shop-content').then((mod) => ({ default: mod.ShopSettingsContent })),
   { ssr: false },
 );
 

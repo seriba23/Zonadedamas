@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
-import { EmployeeSettingsContent } from '../settings/page';
+import { EmployeeSettingsContent } from '../settings/settings-content';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import Link from 'next/link';
 

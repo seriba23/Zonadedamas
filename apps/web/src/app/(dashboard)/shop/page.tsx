@@ -5,8 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Header } from '@/components/layout/header';
 import { useCurrency } from '@/lib/hooks/use-currency';
-import { ReservationsContent } from '../reservations/page';
-import { ShopSettingsContent } from '../settings/shop/page';
+import { ReservationsContent } from '../reservations/reservations-content';
+import { ShopSettingsContent } from '../settings/shop/shop-content';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
