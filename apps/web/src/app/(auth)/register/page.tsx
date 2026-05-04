@@ -1,7 +1,6 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { Suspense, useState, useEffect, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -151,7 +150,7 @@ const BUSINESS_FEATURES = [
   'Galería y fotos de resultados',
 ];
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register } = useAuth();
@@ -1294,5 +1293,13 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }

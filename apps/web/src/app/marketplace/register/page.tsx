@@ -1,7 +1,6 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
@@ -76,7 +75,7 @@ function PhoneInput({
   );
 }
 
-export default function MarketplaceRegisterPage() {
+function MarketplaceRegisterPageInner() {
   const { register, socialLogin } = useMarketplaceAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -278,5 +277,13 @@ export default function MarketplaceRegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function MarketplaceRegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <MarketplaceRegisterPageInner />
+    </Suspense>
   );
 }

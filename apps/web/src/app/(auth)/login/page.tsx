@@ -1,7 +1,6 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
-import { useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -17,7 +16,7 @@ interface SocialProfile {
   provider: string;
 }
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectAfterLogin = searchParams.get('redirect');
@@ -400,5 +399,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   );
 }

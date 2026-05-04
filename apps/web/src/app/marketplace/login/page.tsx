@@ -1,10 +1,9 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function MarketplaceLoginPage() {
+function MarketplaceLoginRedirect() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
@@ -21,5 +20,13 @@ export default function MarketplaceLoginPage() {
         <p className="mt-3 text-sm text-gray-500">Redirigiendo al inicio de sesión…</p>
       </div>
     </div>
+  );
+}
+
+export default function MarketplaceLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <MarketplaceLoginRedirect />
+    </Suspense>
   );
 }
