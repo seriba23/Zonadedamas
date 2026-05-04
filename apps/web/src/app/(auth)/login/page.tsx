@@ -169,14 +169,14 @@ function LoginPageInner() {
   // Role choice screen — admin that is also employee
   if (roleChoice) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-[#008080]">Siliba</h1>
             <p className="mt-2 text-gray-500 text-sm">Hola, {roleChoice.firstName}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">¿Como deseas ingresar?</h2>
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
@@ -247,14 +247,14 @@ function LoginPageInner() {
   // If social login returned needsProfile — show invite code form
   if (socialProfile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
             <p className="mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8">
             {/* Social profile preview */}
             <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
               {socialProfile.avatarUrl ? (
@@ -324,14 +324,14 @@ function LoginPageInner() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
-          <p className="mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
+        <div className="text-center mb-5 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary-600">Siliba</h1>
+          <p className="mt-1 text-gray-500 text-xs sm:text-sm">Tu confianza, en manos de profesionales</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Iniciar sesión</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8">
+          <h2 className="text-base sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Iniciar sesión</h2>
 
           {/* Social Login */}
           <SocialLoginButtons onSocialLogin={handleSocialLogin} disabled={isLoading} />
@@ -346,7 +346,7 @@ function LoginPageInner() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
               <input
