@@ -1509,7 +1509,7 @@ async function main() {
         passwordHash: alfredoMktHash,
         firstName: 'Alfredo',
         lastName: 'Rodriguez',
-        phone: '+1-555-0201',
+        phone: '+1-555-0301',
         isClient: true,
       },
     });
