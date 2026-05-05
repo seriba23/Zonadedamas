@@ -175,12 +175,12 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
   }, [loading, disabled, isNative, onSocialLogin]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 sm:space-y-3">
       <button
         type="button"
         onClick={handleGoogle}
         disabled={disabled || loading !== null}
-        className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        className="w-full flex items-center justify-center gap-3 px-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
       >
         {loading === 'google' ? (
           <svg className="animate-spin h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24">
@@ -202,7 +202,7 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
         type="button"
         onClick={handleFacebook}
         disabled={disabled || loading !== null}
-        className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-[#1877F2] border border-[#1877F2] rounded-lg text-sm font-medium text-white hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
+        className="w-full flex items-center justify-center gap-3 px-4 py-2 sm:py-2.5 bg-[#1877F2] border border-[#1877F2] rounded-lg text-sm font-medium text-white hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
       >
         {loading === 'facebook' ? (
           <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
@@ -224,7 +224,7 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
       {/* Hidden fallback container for Google button (web only) */}
       {!isNative && <div id="google-signin-fallback" className="hidden" />}
 
-      <div className="relative my-4">
+      <div className="relative my-3 sm:my-4">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-gray-200" />
         </div>

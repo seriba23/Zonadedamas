@@ -169,14 +169,14 @@ function LoginPageInner() {
   // Role choice screen — admin that is also employee
   if (roleChoice) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-6">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 sm:py-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-[#008080]">Siliba</h1>
             <p className="mt-2 text-gray-500 text-sm">Hola, {roleChoice.firstName}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">¿Como deseas ingresar?</h2>
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
@@ -247,14 +247,14 @@ function LoginPageInner() {
   // If social login returned needsProfile — show invite code form
   if (socialProfile) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-6">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 sm:py-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
             <p className="mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
             {/* Social profile preview */}
             <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
               {socialProfile.avatarUrl ? (
@@ -324,13 +324,13 @@ function LoginPageInner() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-5 sm:mb-8">
+        <div className="text-center mb-3 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-primary-600">Siliba</h1>
           <p className="mt-1 text-gray-500 text-xs sm:text-sm">Tu confianza, en manos de profesionales</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
           <h2 className="text-base sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Iniciar sesión</h2>
 
           {/* Social Login */}
@@ -346,7 +346,7 @@ function LoginPageInner() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
               <input
@@ -377,7 +377,7 @@ function LoginPageInner() {
               </Link>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-2.5">
+            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-2 sm:py-2.5">
               {isLoading && (
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -389,12 +389,12 @@ function LoginPageInner() {
           </form>
         </div>
 
-        <p className="text-center mt-6 text-sm text-gray-500">
+        <p className="text-center mt-3 text-xs sm:mt-6 sm:text-sm text-gray-500">
           ¿No tienes cuenta?{' '}
           <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Crear cuenta</Link>
         </p>
 
-        <p className="text-center mt-4 text-xs text-gray-400">
+        <p className="text-center mt-2 text-[10px] sm:mt-4 sm:text-xs text-gray-400">
           &copy; {new Date().getFullYear()} Siliba. Todos los derechos reservados.
         </p>
       </div>
