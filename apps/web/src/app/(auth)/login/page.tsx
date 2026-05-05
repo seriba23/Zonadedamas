@@ -325,13 +325,13 @@ function LoginPageInner() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-3 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary-600">Siliba</h1>
-          <p className="mt-1 text-gray-500 text-xs sm:text-sm">Tu confianza, en manos de profesionales</p>
+          <h1 className="text-lg sm:text-3xl font-bold text-primary-600">Siliba</h1>
+          <p className="mt-0.5 text-gray-500 text-[11px] sm:text-sm">Tu confianza, en manos de profesionales</p>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
-          <h2 className="text-base sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Iniciar sesión</h2>
+          <h2 className="text-sm sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-6">Iniciar sesión</h2>
 
           {/* Social Login */}
           <SocialLoginButtons onSocialLogin={handleSocialLogin} disabled={isLoading} />
@@ -348,36 +348,36 @@ function LoginPageInner() {
 
           <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
+              <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Correo electrónico</label>
               <input
                 id="email" type="email" autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className={`input-field ${errors.email ? 'border-red-400' : ''}`}
+                className={`input-field text-sm py-1.5 sm:py-2 ${errors.email ? 'border-red-400' : ''}`}
                 placeholder="correo@ejemplo.com"
               />
               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
+              <label htmlFor="password" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5">Contraseña</label>
               <input
                 id="password" type="password" autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                className={`input-field ${errors.password ? 'border-red-400' : ''}`}
+                className={`input-field text-sm py-1.5 sm:py-2 ${errors.password ? 'border-red-400' : ''}`}
                 placeholder="••••••••"
               />
               {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
             </div>
 
             <div className="text-center">
-              <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+              <Link href="/forgot-password" className="text-xs sm:text-sm text-primary-600 hover:text-primary-700 font-medium">
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-2 sm:py-2.5">
+            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-1.5 sm:py-2.5 text-sm sm:text-base">
               {isLoading && (
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
