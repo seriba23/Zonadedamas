@@ -169,14 +169,14 @@ function LoginPageInner() {
   // Role choice screen — admin that is also employee
   if (roleChoice) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 sm:py-6">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-[#008080]">Siliba</h1>
             <p className="mt-2 text-gray-500 text-sm">Hola, {roleChoice.firstName}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">¿Como deseas ingresar?</h2>
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
@@ -247,14 +247,14 @@ function LoginPageInner() {
   // If social login returned needsProfile — show invite code form
   if (socialProfile) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 sm:py-6">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
             <p className="mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
             {/* Social profile preview */}
             <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
               {socialProfile.avatarUrl ? (
@@ -321,17 +321,17 @@ function LoginPageInner() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 sm:py-6">
-      <div className="w-full max-w-[300px] sm:max-w-md">
+    <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
+      <div className="w-full max-w-[300px] md:max-w-md">
         {/* Logo */}
-        <div className="text-center mb-2 sm:mb-8">
-          <h1 className="text-base sm:text-3xl font-bold text-primary-600">Siliba</h1>
-          <p className="hidden sm:block mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
+        <div className="text-center mb-2 md:mb-8">
+          <h1 className="text-base md:text-3xl font-bold text-primary-600">Siliba</h1>
+          <p className="hidden md:block mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-8">
-          <h2 className="hidden sm:block text-xl font-semibold text-gray-900 mb-6">Iniciar sesión</h2>
+        <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-200 p-3 md:p-8">
+          <h2 className="hidden md:block text-xl font-semibold text-gray-900 mb-6">Iniciar sesión</h2>
 
           {/* Social Login */}
           <SocialLoginButtons onSocialLogin={handleSocialLogin} disabled={isLoading} />
@@ -346,38 +346,38 @@ function LoginPageInner() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-2 md:space-y-5">
             <div>
-              <label htmlFor="email" className="block text-[10px] sm:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1.5">Correo electrónico</label>
+              <label htmlFor="email" className="block text-[10px] md:text-sm font-medium text-gray-700 mb-0.5 md:mb-1.5">Correo electrónico</label>
               <input
                 id="email" type="email" autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className={`input-field text-xs sm:text-base py-1 sm:py-2 ${errors.email ? 'border-red-400' : ''}`}
+                className={`input-field text-xs md:text-base py-1 md:py-2 ${errors.email ? 'border-red-400' : ''}`}
                 placeholder="correo@ejemplo.com"
               />
-              {errors.email && <p className="mt-0.5 text-[10px] sm:text-xs text-red-600">{errors.email}</p>}
+              {errors.email && <p className="mt-0.5 text-[10px] md:text-xs text-red-600">{errors.email}</p>}
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-[10px] sm:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1.5">Contraseña</label>
+              <label htmlFor="password" className="block text-[10px] md:text-sm font-medium text-gray-700 mb-0.5 md:mb-1.5">Contraseña</label>
               <input
                 id="password" type="password" autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                className={`input-field text-xs sm:text-base py-1 sm:py-2 ${errors.password ? 'border-red-400' : ''}`}
+                className={`input-field text-xs md:text-base py-1 md:py-2 ${errors.password ? 'border-red-400' : ''}`}
                 placeholder="••••••••"
               />
-              {errors.password && <p className="mt-0.5 text-[10px] sm:text-xs text-red-600">{errors.password}</p>}
+              {errors.password && <p className="mt-0.5 text-[10px] md:text-xs text-red-600">{errors.password}</p>}
             </div>
 
             <div className="text-center">
-              <Link href="/forgot-password" className="text-[10px] sm:text-sm text-primary-600 hover:text-primary-700 font-medium">
+              <Link href="/forgot-password" className="text-[10px] md:text-sm text-primary-600 hover:text-primary-700 font-medium">
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-1 sm:py-2.5 text-xs sm:text-base">
+            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-1 md:py-2.5 text-xs md:text-base">
               {isLoading && (
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -389,12 +389,12 @@ function LoginPageInner() {
           </form>
         </div>
 
-        <p className="text-center mt-2 text-[10px] sm:mt-6 sm:text-sm text-gray-500">
+        <p className="text-center mt-2 text-[10px] md:mt-6 md:text-sm text-gray-500">
           ¿No tienes cuenta?{' '}
           <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Crear cuenta</Link>
         </p>
 
-        <p className="text-center mt-1 text-[9px] sm:mt-4 sm:text-xs text-gray-400">
+        <p className="text-center mt-1 text-[9px] md:mt-4 md:text-xs text-gray-400">
           &copy; {new Date().getFullYear()} Siliba. Todos los derechos reservados.
         </p>
       </div>
