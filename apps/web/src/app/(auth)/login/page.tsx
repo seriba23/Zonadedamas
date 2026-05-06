@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -20,7 +20,16 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectAfterLogin = searchParams.get('redirect');
-  const { login } = useAuth();
+  const { login, user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Si ya hay sesion activa, redirigir al destino apropiado.
+  useEffect(() => {
+    if (authLoading) return;
+    if (isAuthenticated && user) {
+      const isAdmin = user.isAdmin === true || user.permissions?.includes('employees.create');
+      router.replace(redirectAfterLogin || (isAdmin ? '/home' : '/employee'));
+    }
+  }, [authLoading, isAuthenticated, user, redirectAfterLogin, router]);
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
