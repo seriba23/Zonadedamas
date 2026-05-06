@@ -13,6 +13,21 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // No cachear HTML para que cada deploy se refleje al instante.
+  // Los chunks JS/CSS de _next/static tienen hash en el nombre, esos sí se cachean.
+  async headers() {
+    return [
+      {
+        // Match HTML pages: cualquier ruta que NO empiece con _next/, /icons/, ni tenga extensión.
+        source: '/((?!_next/|icons/|favicon|manifest|sw\\.js).*)',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, max-age=0' },
+          { key: 'Pragma', value: 'no-cache' },
+          { key: 'Expires', value: '0' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
