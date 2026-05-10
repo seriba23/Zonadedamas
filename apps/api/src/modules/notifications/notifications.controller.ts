@@ -2,15 +2,18 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Param,
   Query,
   Body,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { UpdateTemplateDto } from './dto/update-template.dto';
 import { FilterTemplatesDto } from './dto/filter-templates.dto';
 import { FilterLogsDto } from './dto/filter-logs.dto';
+import { EmailChannel } from './channels/email.channel';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -23,7 +26,25 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
+    private readonly emailChannel: EmailChannel,
   ) {}
+
+  @Post('test-email')
+  async testEmail(
+    @Body() body: { to?: string; subject?: string; body?: string },
+  ) {
+    if (!body?.to) {
+      throw new BadRequestException('Falta el campo "to" (destinatario).');
+    }
+    const result = await this.emailChannel.send({
+      to: body.to,
+      subject: body.subject || 'Prueba Resend - Siliba',
+      body:
+        body.body ||
+        'Si recibes este correo, Resend esta correctamente configurado en el VPS.',
+    });
+    return { data: result };
+  }
 
   @Get('templates')
   async findAllTemplates(
