@@ -234,21 +234,20 @@ export default function DashboardLayout({
     <div className="flex h-[100dvh] bg-gray-50">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
-        {/* Topbar (mobile + desktop) — muestra el titulo de la seccion. */}
-        <header className="sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3 bg-white border-b border-gray-200">
+        {/* Topbar (mobile + desktop) — titulo centrado a TODO el viewport en mobile. */}
+        <header className="relative sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3 bg-white border-b border-gray-200">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="md:hidden p-2 -ml-2 mr-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            className="md:hidden relative z-10 p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
             aria-label="Abrir menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="flex-1 md:flex-none text-center md:text-left text-base md:text-xl font-semibold text-gray-900 truncate">
-            {sectionTitle}
+          <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center text-base font-semibold text-gray-900 truncate px-12 md:relative md:px-0 md:inset-auto md:flex-1 md:justify-start md:text-xl md:pointer-events-auto">
+            <span className="truncate">{sectionTitle}</span>
           </h1>
-          <div className="md:hidden w-9" aria-hidden="true" />
         </header>
 
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
