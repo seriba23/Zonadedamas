@@ -16,6 +16,7 @@
     "db:seed-marketplace": "ts-node prisma/seed-marketplace.ts",
     "db:seed-photos": "ts-node prisma/seed-photos.ts",
     "db:seed-demo": "ts-node prisma/seed-demo.ts",
+    "db:seed-products": "ts-node prisma/seed-products.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate"
   },
