@@ -432,6 +432,7 @@ export class MarketplaceService {
         notifRewards: true,
         notifMessages: true,
         socialProvider: true,
+        passwordHash: true,
         suspendedAt: true,
         suspendedUntil: true,
         createdAt: true,
@@ -452,7 +453,9 @@ export class MarketplaceService {
       (user as any).suspendedUntil = null;
     }
 
-    return user;
+    // Exponer "hasPassword" sin enviar el hash al cliente.
+    const { passwordHash, ...rest } = user;
+    return { ...rest, hasPassword: !!passwordHash };
   }
 
   // ─── DISCOVERY ───────────────────────────────────────

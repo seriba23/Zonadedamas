@@ -16,6 +16,7 @@ interface MarketplaceUser {
   allergies?: string | null;
   address?: string | null;
   socialProvider?: string | null;
+  hasPassword?: boolean;
 }
 
 /** Returns gendered suffix: "o" (male), "a" (female), "@" (neutral/unknown) */

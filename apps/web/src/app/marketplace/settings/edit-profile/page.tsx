@@ -250,11 +250,24 @@ export default function EditProfilePage() {
     onError: (err: any) => setPwdOtpError(err.message || 'Código incorrecto'),
   });
   const passwordMutation = useMutation({
-    mutationFn: () => marketplaceApi.put('/auth/profile/password', {
-      ...(pwdStep === 'verified' ? { otpCode: pwdOtp } : { currentPassword: passwordForm.currentPassword }),
-      newPassword: passwordForm.newPassword,
-    }),
-    onSuccess: () => { closeModal(); setSuccessPopup({ title: 'Contraseña actualizada' }); },
+    mutationFn: () => {
+      const hasPassword = !!(user as any)?.hasPassword;
+      const body: Record<string, string> =
+        pwdStep === 'verified'
+          ? { otpCode: pwdOtp }
+          : hasPassword
+            ? { currentPassword: passwordForm.currentPassword }
+            : {}; // set-first-password: no se requiere prueba previa
+      body.newPassword = passwordForm.newPassword;
+      return marketplaceApi.put('/auth/profile/password', body);
+    },
+    onSuccess: () => {
+      refreshUser();
+      closeModal();
+      setSuccessPopup({
+        title: (user as any)?.hasPassword ? 'Contraseña actualizada' : 'Contraseña establecida',
+      });
+    },
     onError: (err: any) => setPasswordError(err.message || 'Error al cambiar contraseña'),
   });
 
@@ -463,21 +476,31 @@ export default function EditProfilePage() {
           </div>
 
           {/* Password row */}
-          {!(user as any).socialProvider && (
-            <div className="px-4 py-4 flex items-center justify-between">
-              <div className="min-w-0 flex-1 mr-3">
-                <p className="text-xs font-medium text-gray-500 mb-0.5">Contraseña</p>
+          <div className="px-4 py-4 flex items-center justify-between">
+            <div className="min-w-0 flex-1 mr-3">
+              <p className="text-xs font-medium text-gray-500 mb-0.5">Contraseña</p>
+              {(user as any).hasPassword ? (
                 <p className="text-sm text-gray-400">••••••••</p>
-              </div>
-              <button
-                onClick={() => { resetPasswordModal(); setActiveModal('password'); }}
-                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
-                style={{ color: TEAL, backgroundColor: TEAL_LIGHT }}
-              >
-                Cambiar
-              </button>
+              ) : (
+                <p className="text-xs text-gray-500 leading-snug">
+                  Aún no tienes contraseña. Añade una para iniciar sesión también con tu correo
+                  {(user as any).socialProvider
+                    ? ` (sigues pudiendo entrar con ${
+                        (user as any).socialProvider === 'google' ? 'Google' :
+                        (user as any).socialProvider === 'facebook' ? 'Facebook' : 'tu red social'
+                      }).`
+                    : '.'}
+                </p>
+              )}
             </div>
-          )}
+            <button
+              onClick={() => { resetPasswordModal(); setActiveModal('password'); }}
+              className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+              style={{ color: TEAL, backgroundColor: TEAL_LIGHT }}
+            >
+              {(user as any).hasPassword ? 'Cambiar' : 'Establecer'}
+            </button>
+          </div>
         </div>
 
         {formError && <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">{formError}</p>}
@@ -620,28 +643,34 @@ export default function EditProfilePage() {
         </Modal>
       )}
 
-      {/* ── Modal: Cambiar contraseña ── */}
+      {/* ── Modal: Cambiar/Establecer contraseña ── */}
       {activeModal === 'password' && (
-        <Modal title="Cambiar contraseña" onClose={closeModal}>
+        <Modal title={(user as any).hasPassword ? 'Cambiar contraseña' : 'Establecer contraseña'} onClose={closeModal}>
           {pwdStep === 'form' && (
             <>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Contraseña actual</label>
-                <input type="password" value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                  autoFocus
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
-                  style={{ '--tw-ring-color': TEAL } as any} />
-                <button type="button"
-                  onClick={() => { setPwdOtpError(''); pwdOtpSendMutation.mutate(); }}
-                  disabled={pwdOtpSendMutation.isPending}
-                  className="mt-2 text-xs font-medium disabled:opacity-50"
-                  style={{ color: TEAL }}
-                >
-                  {pwdOtpSendMutation.isPending ? 'Enviando...' : '¿Olvidaste tu contraseña? Recuperar por SMS'}
-                </button>
-                {pwdOtpError && <p className="mt-1 text-xs text-red-600">{pwdOtpError}</p>}
-              </div>
+              {(user as any).hasPassword ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">Contraseña actual</label>
+                  <input type="password" value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                    autoFocus
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
+                    style={{ '--tw-ring-color': TEAL } as any} />
+                  <button type="button"
+                    onClick={() => { setPwdOtpError(''); pwdOtpSendMutation.mutate(); }}
+                    disabled={pwdOtpSendMutation.isPending}
+                    className="mt-2 text-xs font-medium disabled:opacity-50"
+                    style={{ color: TEAL }}
+                  >
+                    {pwdOtpSendMutation.isPending ? 'Enviando...' : '¿Olvidaste tu contraseña? Recuperar por SMS'}
+                  </button>
+                  {pwdOtpError && <p className="mt-1 text-xs text-red-600">{pwdOtpError}</p>}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 leading-relaxed bg-gray-50 px-3 py-2.5 rounded-xl">
+                  Tu cuenta fue creada con {(user as any).socialProvider === 'google' ? 'Google' : (user as any).socialProvider === 'facebook' ? 'Facebook' : 'una red social'}. Define una contraseña para poder iniciar sesión también con tu correo. Seguirás pudiendo entrar con {(user as any).socialProvider === 'google' ? 'Google' : (user as any).socialProvider === 'facebook' ? 'Facebook' : 'tu red social'} normalmente.
+                </p>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Nueva contraseña</label>
                 <input type="password" value={passwordForm.newPassword}
@@ -663,7 +692,9 @@ export default function EditProfilePage() {
                 style={{ backgroundColor: TEAL }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}>
-                {passwordMutation.isPending ? 'Guardando...' : 'Cambiar contraseña'}
+                {passwordMutation.isPending
+                  ? 'Guardando...'
+                  : (user as any).hasPassword ? 'Cambiar contraseña' : 'Establecer contraseña'}
               </button>
             </>
           )}

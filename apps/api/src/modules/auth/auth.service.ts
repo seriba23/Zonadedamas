@@ -14,6 +14,10 @@ import { RbacService } from '../rbac/rbac.service';
 import { RegisterDto } from './dto/register.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
 import { EmailChannel } from '../notifications/channels/email.channel';
+import {
+  renderPasswordResetEmail,
+  renderPasswordSetOAuthEmail,
+} from './email-templates/password-reset.template';
 
 @Injectable()
 export class AuthService {
@@ -1247,42 +1251,20 @@ export class AuthService {
     });
 
     const isOAuthOnly = !user.passwordHash;
-    const providerLabel =
-      user.socialProvider === 'google'
-        ? 'Google'
-        : user.socialProvider === 'facebook'
-          ? 'Facebook'
-          : 'una red social';
-
     const subject = isOAuthOnly
-      ? 'Establece tu contrasena de Siliba'
-      : 'Codigo para restablecer tu contrasena - Siliba';
+      ? 'Establece tu contraseña - Siliba'
+      : 'Restablece tu contraseña - Siliba';
 
     const body = isOAuthOnly
-      ? [
-          `Hola ${user.firstName},`,
-          '',
-          `Tu cuenta de Siliba fue creada con ${providerLabel}. Usa este codigo para establecer una contrasena y poder iniciar sesion tambien con tu correo:`,
-          '',
-          `Codigo: ${code}`,
-          '',
-          'Este codigo expira en 15 minutos.',
-          `Despues de establecerla podras seguir usando ${providerLabel} normalmente.`,
-          '',
-          'Si no solicitaste este cambio, ignora este mensaje.',
-          '',
-          '— Siliba',
-        ].join('\n')
-      : [
-          `Hola ${user.firstName},`,
-          '',
-          `Tu codigo para restablecer la contrasena es: ${code}`,
-          '',
-          'Este codigo expira en 15 minutos.',
-          'Si no solicitaste este cambio, ignora este mensaje.',
-          '',
-          '— Siliba',
-        ].join('\n');
+      ? renderPasswordSetOAuthEmail({
+          firstName: user.firstName,
+          code,
+          provider: user.socialProvider,
+        })
+      : renderPasswordResetEmail({
+          firstName: user.firstName,
+          code,
+        });
 
     await this.emailChannel.send({ to: user.email, subject, body });
   }
