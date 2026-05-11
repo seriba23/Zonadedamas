@@ -1210,11 +1210,21 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, firstName: true, passwordHash: true, isActive: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        passwordHash: true,
+        socialProvider: true,
+        isActive: true,
+      },
     });
 
-    // Respuesta silenciosa si no existe / no tiene password / inactivo (no revelar).
-    if (!user || !user.passwordHash || !user.isActive) {
+    // Respuesta silenciosa si no existe / inactivo (no revelar). Las cuentas
+    // sin passwordHash (creadas via OAuth) SI reciben el codigo: el reset
+    // funciona como "establecer contrasena por primera vez", lo que les
+    // permite tambien iniciar sesion con email/password ademas de Google.
+    if (!user || !user.isActive) {
       return;
     }
 
@@ -1236,17 +1246,43 @@ export class AuthService {
       data: { userId: user.id, codeHash, expiresAt, method: 'EMAIL' },
     });
 
-    const subject = 'Codigo para restablecer tu contrasena - Siliba';
-    const body = [
-      `Hola ${user.firstName},`,
-      '',
-      `Tu codigo para restablecer la contrasena es: ${code}`,
-      '',
-      'Este codigo expira en 15 minutos.',
-      'Si no solicitaste este cambio, ignora este mensaje.',
-      '',
-      '— Siliba',
-    ].join('\n');
+    const isOAuthOnly = !user.passwordHash;
+    const providerLabel =
+      user.socialProvider === 'google'
+        ? 'Google'
+        : user.socialProvider === 'facebook'
+          ? 'Facebook'
+          : 'una red social';
+
+    const subject = isOAuthOnly
+      ? 'Establece tu contrasena de Siliba'
+      : 'Codigo para restablecer tu contrasena - Siliba';
+
+    const body = isOAuthOnly
+      ? [
+          `Hola ${user.firstName},`,
+          '',
+          `Tu cuenta de Siliba fue creada con ${providerLabel}. Usa este codigo para establecer una contrasena y poder iniciar sesion tambien con tu correo:`,
+          '',
+          `Codigo: ${code}`,
+          '',
+          'Este codigo expira en 15 minutos.',
+          `Despues de establecerla podras seguir usando ${providerLabel} normalmente.`,
+          '',
+          'Si no solicitaste este cambio, ignora este mensaje.',
+          '',
+          '— Siliba',
+        ].join('\n')
+      : [
+          `Hola ${user.firstName},`,
+          '',
+          `Tu codigo para restablecer la contrasena es: ${code}`,
+          '',
+          'Este codigo expira en 15 minutos.',
+          'Si no solicitaste este cambio, ignora este mensaje.',
+          '',
+          '— Siliba',
+        ].join('\n');
 
     await this.emailChannel.send({ to: user.email, subject, body });
   }
