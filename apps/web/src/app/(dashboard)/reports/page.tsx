@@ -451,40 +451,40 @@ export default function ReportsPage() {
         </div>
 
         {/* KPI cards - INTERACTIVE */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-8">
           {/* Ingresos */}
           <div
             onClick={() => setDetail('revenue')}
-            className={`bg-white rounded-xl border border-gray-200 p-5 ${clickableCard}`}
+            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
           >
-            <div className="inline-flex p-2 rounded-lg mb-3 text-green-700 bg-green-50">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-green-700 bg-green-50">
+              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{isLoading ? <span className="inline-block h-7 w-24 bg-gray-200 rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}</p>
-            <p className="text-sm text-gray-500 mt-1">Ingresos totales</p>
-            <p className="text-xs text-primary-600 mt-2 font-medium">Ver detalle &rarr;</p>
+            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}</p>
+            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Ingresos totales</p>
+            <p className="text-[10px] md:text-xs text-primary-600 mt-1 md:mt-2 font-medium">Ver detalle &rarr;</p>
           </div>
 
           {/* Citas totales */}
           <div
             onClick={() => setDetail('appointments')}
-            className={`bg-white rounded-xl border border-gray-200 p-5 ${clickableCard}`}
+            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
           >
-            <div className="inline-flex p-2 rounded-lg mb-3 text-blue-700 bg-blue-50">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-blue-700 bg-blue-50">
+              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{isLoading ? <span className="inline-block h-7 w-24 bg-gray-200 rounded animate-pulse" /> : stats.kpis.totalAppointments}</p>
-            <p className="text-sm text-gray-500 mt-1">Citas totales</p>
-            <div className="flex gap-3 mt-2">
-              <button onClick={(e) => { e.stopPropagation(); setDetail('cancelled'); }} className="text-xs text-red-600 font-medium hover:underline">
-                {stats.kpis.cancelledAppointments} canceladas
+            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : stats.kpis.totalAppointments}</p>
+            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Citas totales</p>
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 md:mt-2">
+              <button onClick={(e) => { e.stopPropagation(); setDetail('cancelled'); }} className="text-[10px] md:text-xs text-red-600 font-medium hover:underline">
+                {stats.kpis.cancelledAppointments} canc.
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setDetail('noshow'); }} className="text-xs text-gray-600 font-medium hover:underline">
-                {stats.kpis.noShowCount} ausencia{stats.kpis.noShowCount !== 1 ? 's' : ''}
+              <button onClick={(e) => { e.stopPropagation(); setDetail('noshow'); }} className="text-[10px] md:text-xs text-gray-600 font-medium hover:underline">
+                {stats.kpis.noShowCount} aus.
               </button>
             </div>
           </div>
@@ -492,39 +492,39 @@ export default function ReportsPage() {
           {/* Ticket promedio */}
           <div
             onClick={() => setDetail('revenue')}
-            className={`bg-white rounded-xl border border-gray-200 p-5 ${clickableCard}`}
+            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
           >
-            <div className="inline-flex p-2 rounded-lg mb-3 text-purple-700 bg-purple-50">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-purple-700 bg-purple-50">
+              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
               </svg>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{isLoading ? <span className="inline-block h-7 w-24 bg-gray-200 rounded animate-pulse" /> : formatCurrency(stats.kpis.averageTicket)}</p>
-            <p className="text-sm text-gray-500 mt-1">Ticket promedio</p>
-            <p className="text-xs text-primary-600 mt-2 font-medium">Ver pagos &rarr;</p>
+            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : formatCurrency(stats.kpis.averageTicket)}</p>
+            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Ticket promedio</p>
+            <p className="text-[10px] md:text-xs text-primary-600 mt-1 md:mt-2 font-medium">Ver pagos &rarr;</p>
           </div>
 
           {/* Ausencias */}
           <div
             onClick={() => setDetail('noshow')}
-            className={`bg-white rounded-xl border border-gray-200 p-5 ${clickableCard}`}
+            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
           >
-            <div className="inline-flex p-2 rounded-lg mb-3 text-red-700 bg-red-50">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-red-700 bg-red-50">
+              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
               </svg>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{isLoading ? <span className="inline-block h-7 w-24 bg-gray-200 rounded animate-pulse" /> : `${stats.kpis.noShowRate.toFixed(1)}%`}</p>
-            <p className="text-sm text-gray-500 mt-1">Tasa de ausencias</p>
-            <p className="text-xs text-red-600 mt-2 font-medium">{stats.kpis.noShowCount} cita{stats.kpis.noShowCount !== 1 ? 's' : ''} &rarr;</p>
+            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : `${stats.kpis.noShowRate.toFixed(1)}%`}</p>
+            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Tasa de ausencias</p>
+            <p className="text-[10px] md:text-xs text-red-600 mt-1 md:mt-2 font-medium">{stats.kpis.noShowCount} cita{stats.kpis.noShowCount !== 1 ? 's' : ''} &rarr;</p>
           </div>
         </div>
 
         {/* Revenue chart + Top services */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6 mb-3 md:mb-6">
           {/* Revenue chart */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Ingresos por día</h3>
+          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Ingresos por día</h3>
             {isLoading ? (
               <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
             ) : stats.revenueByDay.length === 0 ? (
@@ -554,8 +554,8 @@ export default function ReportsPage() {
           </div>
 
           {/* Top services - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Servicios más populares</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Servicios más populares</h3>
             {isLoading ? (
               <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
             ) : stats.topServices.length === 0 ? (
@@ -583,10 +583,10 @@ export default function ReportsPage() {
         </div>
 
         {/* Top employees + Payment methods */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6 mb-3 md:mb-6">
           {/* Top employees - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Empleados destacados</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Empleados destacados</h3>
             {isLoading ? (
               <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
             ) : stats.topEmployees.length === 0 ? (
@@ -624,8 +624,8 @@ export default function ReportsPage() {
           </div>
 
           {/* Payment methods - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Métodos de pago</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Métodos de pago</h3>
             {isLoading ? (
               <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
             ) : paymentEntries.length === 0 ? (
@@ -673,8 +673,8 @@ export default function ReportsPage() {
         {/* Client metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Retention + New vs Returning - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Clientes</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Clientes</h3>
             {isLoading ? (
               <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
             ) : (
@@ -707,8 +707,8 @@ export default function ReportsPage() {
           </div>
 
           {/* Top clients - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Mejores clientes</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Mejores clientes</h3>
             {isLoading ? (
               <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
             ) : stats.clientMetrics.topClients.length === 0 ? (
@@ -735,8 +735,8 @@ export default function ReportsPage() {
           </div>
 
           {/* Client source breakdown */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Origen de clientes</h3>
+          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Origen de clientes</h3>
             {isLoading ? (
               <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
             ) : sourceEntries.length === 0 ? (
@@ -785,7 +785,7 @@ function SalesCard() {
   const sales = salesData?.data || { today: { count: 0, revenue: 0 }, month: { count: 0, revenue: 0 }, total: { count: 0, revenue: 0 }, recent: [] };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5 mb-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900">Ventas de productos</h3>
         <Link href="/reservations" className="text-xs text-[#008080] hover:underline">Ver apartados</Link>
