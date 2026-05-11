@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
-import { formatDate } from '@/lib/utils';
+import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 import Link from 'next/link';
@@ -38,14 +38,14 @@ interface DashboardData {
   };
   revenueByDay: Array<{ date: string; revenue: number; count: number }>;
   topServices: Array<{ name: string; count: number; revenue: number }>;
-  topEmployees: Array<{ id: string; name: string; appointments: number; revenue: number }>;
+  topEmployees: Array<{ id: string; name: string; avatarUrl: string | null; color: string | null; appointments: number; revenue: number }>;
   paymentMethods: Record<string, { count: number; total: number }>;
   clientMetrics: {
     totalClients: number;
     newClients: number;
     returningClients: number;
     retentionRate: number;
-    topClients: Array<{ id: string; name: string; visits: number; spent: number }>;
+    topClients: Array<{ id: string; name: string; avatarUrl: string | null; visits: number; spent: number }>;
     bySource: Record<string, number>;
   };
 }
@@ -271,7 +271,53 @@ export default function ReportsPage() {
           <span className="text-sm font-bold text-green-700">Total: {formatCurrency(totalRevenue)}</span>
         </div>
         <div className="max-h-[70vh] overflow-y-auto">
-          <table className="w-full">
+          {/* Mobile: card list */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {apts.map((apt) => {
+              const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
+              const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+              return (
+                <div
+                  key={apt.id}
+                  className="p-3 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}
+                >
+                  <div className="flex items-start justify-between mb-1.5">
+                    <p className="text-sm font-semibold text-gray-900">{dayjs(apt.startTime).format('DD/MM/YYYY')} · {dayjs(apt.startTime).format('HH:mm')}</p>
+                    <span className="text-sm font-semibold text-gray-900 flex-shrink-0 ml-2">{formatCurrency(total)}</span>
+                  </div>
+                  <dl className="space-y-1 text-xs">
+                    <div className="flex">
+                      <dt className="w-20 text-gray-500 flex-shrink-0">Cliente</dt>
+                      <dd className="text-gray-800 font-medium flex-1 min-w-0 truncate">{apt.client.firstName} {apt.client.lastName}</dd>
+                    </div>
+                    <div className="flex items-center">
+                      <dt className="w-20 text-gray-500 flex-shrink-0">Empleado</dt>
+                      <dd className="text-gray-700 flex-1 min-w-0 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
+                        <span className="truncate">{apt.employee.firstName} {apt.employee.lastName}</span>
+                      </dd>
+                    </div>
+                    <div className="flex">
+                      <dt className="w-20 text-gray-500 flex-shrink-0">Servicios</dt>
+                      <dd className="text-gray-700 flex-1 min-w-0">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</dd>
+                    </div>
+                    {!revenueOnly && (
+                      <div className="flex items-center pt-0.5">
+                        <dt className="w-20 text-gray-500 flex-shrink-0">Estado</dt>
+                        <dd>
+                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${status.color}`}>{status.label}</span>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: tabla */}
+          <table className="hidden md:table w-full">
             <thead className="sticky top-0 bg-white border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
@@ -600,34 +646,43 @@ export default function ReportsPage() {
             ) : stats.topEmployees.length === 0 ? (
               <p className="text-sm text-gray-400">No hay datos disponibles</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left py-2 text-gray-500 font-medium">#</th>
-                      <th className="text-left py-2 text-gray-500 font-medium">Empleado</th>
-                      <th className="text-right py-2 text-gray-500 font-medium">Citas</th>
-                      <th className="text-right py-2 text-gray-500 font-medium">Ingresos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.topEmployees.slice(0, 8).map((emp, idx) => (
-                      <tr
-                        key={emp.id}
-                        onClick={() => setDetail({ type: 'employee', id: emp.id, name: emp.name })}
-                        className="border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors"
+              <>
+                {/* Header columnas */}
+                <div className="flex items-center gap-2 px-2 pb-1.5 border-b border-gray-100 text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <span className="w-5 flex-shrink-0">#</span>
+                  <span className="w-8 flex-shrink-0" aria-hidden="true" />
+                  <span className="flex-1 min-w-0">Empleado</span>
+                  <span className="w-12 text-right flex-shrink-0">Citas</span>
+                  <span className="w-20 text-right flex-shrink-0">Ingresos</span>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {stats.topEmployees.slice(0, 8).map((emp, idx) => (
+                    <div
+                      key={emp.id}
+                      onClick={() => setDetail({ type: 'employee', id: emp.id, name: emp.name })}
+                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="w-5 text-gray-400 font-medium text-xs md:text-sm flex-shrink-0">{idx + 1}</span>
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-xs font-semibold"
+                        style={{
+                          backgroundColor: `${emp.color || '#008080'}20`,
+                          color: emp.color || '#008080',
+                        }}
                       >
-                        <td className="py-2.5 text-gray-400 font-medium w-6">{idx + 1}</td>
-                        <td className="py-2.5 text-gray-900 font-medium">
-                          <span className="hover:text-primary-700">{emp.name}</span>
-                        </td>
-                        <td className="py-2.5 text-right text-gray-600">{emp.appointments}</td>
-                        <td className="py-2.5 text-right font-semibold text-gray-700">{formatCurrency(emp.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        {emp.avatarUrl ? (
+                          <img src={resolveImageUrl(emp.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          emp.name.split(' ').map((n) => n[0]).slice(0, 2).join('')
+                        )}
+                      </div>
+                      <span className="flex-1 min-w-0 truncate text-xs md:text-sm font-medium text-gray-900">{emp.name}</span>
+                      <span className="w-12 text-right text-xs md:text-sm text-gray-600 flex-shrink-0">{emp.appointments}</span>
+                      <span className="w-20 text-right text-xs md:text-sm font-semibold text-gray-700 flex-shrink-0">{formatCurrency(emp.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
@@ -722,23 +777,37 @@ export default function ReportsPage() {
             ) : stats.clientMetrics.topClients.length === 0 ? (
               <p className="text-sm text-gray-400">No hay datos disponibles</p>
             ) : (
-              <div className="space-y-2">
-                {stats.clientMetrics.topClients.slice(0, 8).map((client, idx) => (
-                  <div
-                    key={client.id}
-                    onClick={() => setDetail({ type: 'client', id: client.id, name: client.name })}
-                    className="flex items-center gap-3 p-2 -mx-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="text-sm font-medium text-gray-500 w-5">{idx + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{client.name}</p>
-                      <p className="text-xs text-gray-500">{client.visits} visita{client.visits !== 1 ? 's' : ''}</p>
+              <>
+                {/* Header columnas */}
+                <div className="flex items-center gap-2 px-2 pb-1.5 border-b border-gray-100 text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <span className="w-5 flex-shrink-0">#</span>
+                  <span className="w-8 flex-shrink-0" aria-hidden="true" />
+                  <span className="flex-1 min-w-0">Cliente</span>
+                  <span className="w-12 text-right flex-shrink-0">Visitas</span>
+                  <span className="w-20 text-right flex-shrink-0">Gastado</span>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {stats.clientMetrics.topClients.slice(0, 8).map((client, idx) => (
+                    <div
+                      key={client.id}
+                      onClick={() => setDetail({ type: 'client', id: client.id, name: client.name })}
+                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="w-5 text-gray-400 font-medium text-xs md:text-sm flex-shrink-0">{idx + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center overflow-hidden flex-shrink-0 text-xs font-semibold">
+                        {client.avatarUrl ? (
+                          <img src={resolveImageUrl(client.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          client.name.split(' ').map((n) => n[0]).slice(0, 2).join('')
+                        )}
+                      </div>
+                      <span className="flex-1 min-w-0 truncate text-xs md:text-sm font-medium text-gray-900">{client.name}</span>
+                      <span className="w-12 text-right text-xs md:text-sm text-gray-600 flex-shrink-0">{client.visits}</span>
+                      <span className="w-20 text-right text-xs md:text-sm font-semibold text-gray-700 flex-shrink-0">{formatCurrency(client.spent)}</span>
                     </div>
-                    <span className="text-sm font-semibold text-gray-700">{formatCurrency(client.spent)}</span>
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 

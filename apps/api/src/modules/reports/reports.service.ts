@@ -24,8 +24,8 @@ export class ReportsService {
         },
         include: {
           items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
-          employee: { select: { id: true, firstName: true, lastName: true } },
-          client: { select: { id: true, firstName: true, lastName: true, source: true } },
+          employee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true } },
+          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, source: true } },
           payments: { select: { status: true, totalAmount: true, paymentMethod: true } },
         },
       }),
@@ -99,11 +99,18 @@ export class ReportsService {
       .slice(0, 10);
 
     // ─── Top employees ──────────────────────────────
-    const empMap: Record<string, { id: string; name: string; appointments: number; revenue: number }> = {};
+    const empMap: Record<string, { id: string; name: string; avatarUrl: string | null; color: string | null; appointments: number; revenue: number }> = {};
     for (const apt of appointments.filter((a) => a.status === 'COMPLETED')) {
       const emp = apt.employee;
       if (!emp) continue;
-      if (!empMap[emp.id]) empMap[emp.id] = { id: emp.id, name: `${emp.firstName} ${emp.lastName}`, appointments: 0, revenue: 0 };
+      if (!empMap[emp.id]) empMap[emp.id] = {
+        id: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        avatarUrl: emp.avatarUrl ?? null,
+        color: emp.color ?? null,
+        appointments: 0,
+        revenue: 0,
+      };
       empMap[emp.id].appointments += 1;
       empMap[emp.id].revenue += apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
     }
@@ -136,11 +143,17 @@ export class ReportsService {
     const retentionRate = clientIds.size > 0 ? Math.round((returningClients / clientIds.size) * 1000) / 10 : 0;
 
     // Top clients by spend
-    const clientSpend: Record<string, { id: string; name: string; visits: number; spent: number }> = {};
+    const clientSpend: Record<string, { id: string; name: string; avatarUrl: string | null; visits: number; spent: number }> = {};
     for (const apt of appointments.filter((a) => a.status === 'COMPLETED')) {
       const c = apt.client;
       if (!c) continue;
-      if (!clientSpend[c.id]) clientSpend[c.id] = { id: c.id, name: `${c.firstName} ${c.lastName}`, visits: 0, spent: 0 };
+      if (!clientSpend[c.id]) clientSpend[c.id] = {
+        id: c.id,
+        name: `${c.firstName} ${c.lastName}`,
+        avatarUrl: c.avatarUrl ?? null,
+        visits: 0,
+        spent: 0,
+      };
       clientSpend[c.id].visits += 1;
       clientSpend[c.id].spent += apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
     }
