@@ -398,13 +398,13 @@ export default function CalendarPage() {
       <Header title="Citas" />
 
       {/* Main view tabs */}
-      <div className="border-b border-gray-200 px-6 bg-white">
+      <div className="border-b border-gray-200 px-3 md:px-6 bg-white">
         <div className="flex gap-1">
           {(['calendario', 'registro'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setMainView(tab)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium border-b-2 transition-colors ${
                 mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -415,7 +415,7 @@ export default function CalendarPage() {
       </div>
 
       {mainView === 'calendario' && (<>
-      <div className="px-6 py-4 bg-white border-b border-gray-200">
+      <div className="px-3 md:px-6 py-2.5 md:py-4 bg-white border-b border-gray-200">
         {/* View mode selector — same style as Reports date range */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -487,7 +487,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Employee pills filter */}
-      <div className="flex items-center gap-2 px-6 py-3 bg-gray-50 border-b border-gray-200 flex-wrap">
+      <div className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 flex-wrap">
         <button
           onClick={() => setFilterEmployeeId('')}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${
@@ -578,22 +578,22 @@ export default function CalendarPage() {
       </div>
 
       {/* Quick stats row — all views */}
-      <div className="grid grid-cols-4 gap-4 px-6 py-3 border-b border-gray-200 bg-gray-50">
-        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-3 md:px-6 py-2 md:py-3 border-b border-gray-200 bg-gray-50">
+        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
           <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Total citas</p>
-          <p className="text-xl font-bold text-gray-900">{viewStats.total}</p>
+          <p className="text-base md:text-xl font-bold text-gray-900">{viewStats.total}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
           <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Completadas</p>
-          <p className="text-xl font-bold text-green-600">{viewStats.completed}</p>
+          <p className="text-base md:text-xl font-bold text-green-600">{viewStats.completed}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
           <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Canceladas</p>
-          <p className="text-xl font-bold text-red-500">{viewStats.cancelled}</p>
+          <p className="text-base md:text-xl font-bold text-red-500">{viewStats.cancelled}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 px-4 py-2.5">
+        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
           <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Ingresos</p>
-          <p className="text-xl font-bold text-primary-600">{formatCurrency(viewStats.revenue)}</p>
+          <p className="text-base md:text-xl font-bold text-primary-600">{formatCurrency(viewStats.revenue)}</p>
         </div>
       </div>
 
@@ -676,7 +676,7 @@ export default function CalendarPage() {
             </div>
           </div>
         ) : viewMode === 'custom' ? (
-          <div className="h-full overflow-auto p-6 bg-white">
+          <div className="h-full overflow-auto p-3 md:p-6 bg-white">
             {appointments.length === 0 ? (
               <div className="text-center py-16 text-gray-400">No hay citas en este período</div>
             ) : (
@@ -734,7 +734,7 @@ export default function CalendarPage() {
       {mainView === 'registro' && (
         <div className="flex-1 overflow-y-auto">
           {/* Filters */}
-          <div className="px-6 py-4 bg-white border-b border-gray-200">
+          <div className="px-3 md:px-6 py-3 md:py-4 bg-white border-b border-gray-200">
             <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="text"
@@ -776,7 +776,7 @@ export default function CalendarPage() {
           </div>
 
           {/* Summary */}
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
             <span className="text-sm text-gray-600">{regAppointments.length} cita{regAppointments.length !== 1 ? 's' : ''}</span>
             <span className="text-sm font-bold text-green-700">
               Total: {formatCurrency(regAppointments.reduce((s, a) => s + (a.items || []).reduce((is, i) => is + Number(i.priceSnapshot || 0), 0), 0))}
