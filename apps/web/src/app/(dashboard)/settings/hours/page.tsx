@@ -166,7 +166,7 @@ export default function BusinessHoursPage() {
     <div className="flex flex-col h-full">
       <Header title="Horarios del Negocio" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="max-w-2xl mx-auto">
           <p className="text-sm text-gray-500 mb-6">
             Configura los horarios de apertura y cierre de tu negocio para cada día de la semana.

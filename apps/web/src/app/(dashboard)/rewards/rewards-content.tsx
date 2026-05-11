@@ -206,7 +206,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
       {!embedded && <Header title="Cupones" />}
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">
             Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.

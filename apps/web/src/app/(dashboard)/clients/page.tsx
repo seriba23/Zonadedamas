@@ -76,9 +76,9 @@ export default function ClientsPage() {
     <div className="flex flex-col h-full">
       <Header title="Clientes" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Top bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-3 md:mb-6 flex-wrap gap-2">
           <div className="relative w-80">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"

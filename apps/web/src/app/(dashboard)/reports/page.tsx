@@ -425,9 +425,9 @@ export default function ReportsPage() {
     <div className="flex flex-col h-full">
       <Header title="Reportes" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Date range selector */}
-        <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6 flex-wrap">
           <div className="flex rounded-lg border border-gray-300 overflow-hidden">
             {rangeOptions.map((r) => (
               <button

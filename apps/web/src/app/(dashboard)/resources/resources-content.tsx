@@ -243,7 +243,7 @@ export function ResourcesContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
       {!embedded && <Header title="Activos y Recursos" />}
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-white rounded-xl border border-gray-200 p-4">

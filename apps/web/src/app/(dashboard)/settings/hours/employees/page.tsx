@@ -39,7 +39,7 @@ export default function EmployeeHoursPage() {
     <div className="flex flex-col h-full">
       <Header title="Horarios de Empleados" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <p className="text-sm text-gray-500 mb-6">
           Configura el horario laboral de cada empleado.
         </p>

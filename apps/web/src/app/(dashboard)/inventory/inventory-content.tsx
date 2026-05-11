@@ -322,7 +322,7 @@ export function InventoryContent() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="flex items-center justify-between mb-5">
           <p className="text-sm text-gray-500">{products.length} producto{products.length !== 1 ? 's' : ''}</p>
           {hasPermission('inventory.create') && (

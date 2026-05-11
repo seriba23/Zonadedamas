@@ -116,7 +116,7 @@ export default function RolesPage() {
         </div>
 
         {/* Permissions matrix - right panel */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 md:p-6">
           {!selectedRoleId ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-gray-400">

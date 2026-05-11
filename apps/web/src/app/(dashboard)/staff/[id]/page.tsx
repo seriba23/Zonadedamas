@@ -413,7 +413,7 @@ export default function EmployeeProfilePage() {
     <div className="flex flex-col h-full">
       <Header title="Perfil de Empleado" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Back + Edit */}
         <div className="flex items-center justify-between mb-4">
           <button

@@ -138,7 +138,7 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
       {!embedded && <Header title="Proveedores" />}
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Header row */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">

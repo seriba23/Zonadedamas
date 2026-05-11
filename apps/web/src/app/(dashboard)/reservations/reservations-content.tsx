@@ -88,7 +88,7 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
       {!embedded && <Header title="Apartados" />}
 
-      <div className={embedded ? 'p-6' : 'flex-1 overflow-y-auto p-6'}>
+      <div className={embedded ? 'p-6' : 'flex-1 overflow-y-auto p-3 md:p-6'}>
         <p className="text-sm text-gray-500 mb-4">
           Gestiona los productos que tus clientes han apartado.
         </p>

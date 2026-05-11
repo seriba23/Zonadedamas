@@ -100,13 +100,13 @@ export default function StaffPage() {
       <Header title="Personal" />
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 px-6 overflow-x-auto">
+      <div className="border-b border-gray-200 px-3 md:px-6 overflow-x-auto">
         <nav className="flex gap-1 -mb-px">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? 'border-[#008080] text-[#008080]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -118,7 +118,7 @@ export default function StaffPage() {
         </nav>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
 
         {/* ─── Tab: Empleados ─── */}
         {activeTab === 'empleados' && (

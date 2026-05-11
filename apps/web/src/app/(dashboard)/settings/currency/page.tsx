@@ -58,7 +58,7 @@ export default function CurrencySettingsPage() {
     <div className="flex flex-col h-full">
       <Header title="Moneda" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="max-w-2xl mx-auto">
           <div className="mb-6">
             <h2 className="text-lg font-bold text-gray-900">Moneda del negocio</h2>

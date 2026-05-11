@@ -196,8 +196,8 @@ export function ServicesContent() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6">
+        <div className="flex items-center justify-between mb-3 md:mb-6 flex-wrap gap-2">
           <p className="text-sm text-gray-500">
             {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
             configurado{services.length !== 1 ? 's' : ''}
