@@ -431,7 +431,7 @@ export default function ReportsPage() {
               <button
                 key={r.key}
                 onClick={() => setDateRange(r.key)}
-                className={`flex-1 md:flex-none px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
+                className={`${r.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
                   dateRange === r.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
