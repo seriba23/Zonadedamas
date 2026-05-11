@@ -13,6 +13,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RbacService } from '../rbac/rbac.service';
 import { RegisterDto } from './dto/register.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
+import { EmailChannel } from '../notifications/channels/email.channel';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly rbacService: RbacService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly emailChannel: EmailChannel,
   ) {}
 
   async login(email: string, password: string) {
@@ -1127,5 +1129,139 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  // ───────────────────────── Password reset ─────────────────────────
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, firstName: true, passwordHash: true, isActive: true },
+    });
+
+    // Respuesta silenciosa si no existe / no tiene password / inactivo (no revelar).
+    if (!user || !user.passwordHash || !user.isActive) {
+      return;
+    }
+
+    // Invalidar tokens activos previos del mismo usuario.
+    await this.prisma.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: { usedAt: new Date() },
+    });
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+    await this.prisma.passwordResetToken.create({
+      data: { userId: user.id, codeHash, expiresAt, method: 'EMAIL' },
+    });
+
+    const subject = 'Codigo para restablecer tu contrasena - Siliba';
+    const body = [
+      `Hola ${user.firstName},`,
+      '',
+      `Tu codigo para restablecer la contrasena es: ${code}`,
+      '',
+      'Este codigo expira en 15 minutos.',
+      'Si no solicitaste este cambio, ignora este mensaje.',
+      '',
+      '— Siliba',
+    ].join('\n');
+
+    await this.emailChannel.send({ to: user.email, subject, body });
+  }
+
+  async verifyResetCode(email: string, code: string): Promise<{ resetToken: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (!user) throw new BadRequestException('Codigo invalido o expirado');
+
+    const token = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        verifiedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!token) throw new BadRequestException('Codigo invalido o expirado');
+
+    if (token.attempts >= 5) {
+      await this.prisma.passwordResetToken.update({
+        where: { id: token.id },
+        data: { usedAt: new Date() },
+      });
+      throw new BadRequestException('Demasiados intentos. Solicita un nuevo codigo.');
+    }
+
+    const ok = await bcrypt.compare(code, token.codeHash);
+    if (!ok) {
+      await this.prisma.passwordResetToken.update({
+        where: { id: token.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException('Codigo invalido o expirado');
+    }
+
+    const secret = uuidv4();
+    const tokenHash = await bcrypt.hash(secret, 10);
+    await this.prisma.passwordResetToken.update({
+      where: { id: token.id },
+      data: {
+        verifiedAt: new Date(),
+        tokenHash,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      },
+    });
+
+    return { resetToken: `${token.id}.${secret}` };
+  }
+
+  async resetPassword(resetToken: string, newPassword: string): Promise<void> {
+    const [id, secret] = (resetToken || '').split('.');
+    if (!id || !secret) {
+      throw new BadRequestException('Sesion de recuperacion invalida o expirada');
+    }
+
+    const token = await this.prisma.passwordResetToken.findUnique({ where: { id } });
+    if (
+      !token ||
+      token.usedAt ||
+      !token.verifiedAt ||
+      !token.tokenHash ||
+      token.expiresAt < new Date()
+    ) {
+      throw new BadRequestException('Sesion de recuperacion invalida o expirada');
+    }
+
+    const ok = await bcrypt.compare(secret, token.tokenHash);
+    if (!ok) {
+      throw new BadRequestException('Sesion de recuperacion invalida o expirada');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: token.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: token.id },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId: token.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
   }
 }

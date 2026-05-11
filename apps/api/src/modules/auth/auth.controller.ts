@@ -15,6 +15,11 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
+import {
+  ForgotPasswordDto,
+  VerifyResetCodeDto,
+  ResetPasswordDto,
+} from './dto/forgot-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
@@ -73,6 +78,32 @@ export class AuthController {
   async refresh(@Body() dto: RefreshDto) {
     const result = await this.authService.refresh(dto.refreshToken);
     return { data: result };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
+    return {
+      data: {
+        message:
+          'Si existe una cuenta con ese correo, recibiras un codigo para restablecer tu contrasena.',
+      },
+    };
+  }
+
+  @Public()
+  @Post('verify-reset-code')
+  async verifyResetCode(@Body() dto: VerifyResetCodeDto) {
+    const result = await this.authService.verifyResetCode(dto.email, dto.code);
+    return { data: result };
+  }
+
+  @Public()
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.resetToken, dto.newPassword);
+    return { data: { message: 'Contrasena actualizada' } };
   }
 
   @UseGuards(JwtAuthGuard)

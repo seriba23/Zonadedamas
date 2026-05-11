@@ -15,6 +15,6 @@ import { WhatsAppChannel } from './channels/whatsapp.channel';
     EmailChannel,
     WhatsAppChannel,
   ],
-  exports: [NotificationsService, NotificationSenderService],
+  exports: [NotificationsService, NotificationSenderService, EmailChannel],
 })
 export class NotificationsModule {}

@@ -359,6 +359,7 @@ model User {
   tenant                Tenant?                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee              Employee?
   refreshTokens         RefreshToken[]
+  passwordResetTokens   PasswordResetToken[]
   userRoles             UserRole[]
   auditLogs             AuditLog[]
   uploadedPhotos        AppointmentPhoto[]
@@ -388,6 +389,25 @@ model RefreshToken {
   @@index([userId])
   @@index([scope])
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  codeHash   String    @map("code_hash")
+  tokenHash  String?   @map("token_hash")
+  method     String    @default("EMAIL") @db.VarChar(20)
+  attempts   Int       @default(0)
+  verifiedAt DateTime? @map("verified_at")
+  usedAt     DateTime? @map("used_at")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 // ─── RBAC ───────────────────────────────────────────
