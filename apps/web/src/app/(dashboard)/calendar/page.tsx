@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
 import { formatDate } from '@/lib/utils';
@@ -395,7 +394,6 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Citas" />
 
       {/* Main view tabs */}
       <div className="border-b border-gray-200 px-3 md:px-6 bg-white">

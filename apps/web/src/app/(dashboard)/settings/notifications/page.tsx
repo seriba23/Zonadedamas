@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { Modal } from '@/components/ui/modal';
 
 interface NotificationTemplate {
@@ -209,7 +208,6 @@ export default function NotificationsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Notificaciones" />
 
       <div className="border-b border-gray-200 px-6 flex items-center gap-6">
         {([

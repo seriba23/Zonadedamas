@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Header } from '@/components/layout/header';
 import { InventoryContent } from './inventory-content';
 import { SuppliersContent } from '../suppliers/suppliers-content';
 import { ResourcesContent } from '../resources/resources-content';
@@ -19,7 +18,6 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Inventario" />
 
       <div className="border-b border-gray-200 px-6 flex items-center gap-6">
         {INVENTORY_PAGE_TABS.map((tab) => (

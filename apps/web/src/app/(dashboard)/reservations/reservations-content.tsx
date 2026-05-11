@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import Link from 'next/link';
 
@@ -86,7 +85,6 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <div className={embedded ? '' : 'flex flex-col h-full'}>
-      {!embedded && <Header title="Apartados" />}
 
       <div className={embedded ? 'p-6' : 'flex-1 overflow-y-auto p-3 md:p-6'}>
         <p className="text-sm text-gray-500 mb-4">

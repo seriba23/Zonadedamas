@@ -128,6 +128,41 @@ function PurchaseCreatedNotification({
   );
 }
 
+function getSectionTitle(pathname: string): string {
+  if (pathname.startsWith('/home')) return 'Inicio';
+  if (pathname.startsWith('/calendar')) return 'Citas';
+  if (pathname.startsWith('/clients')) return 'Clientes';
+  if (pathname.startsWith('/staff')) return 'Personal';
+  if (pathname.startsWith('/services/')) return 'Detalle del servicio';
+  if (pathname === '/services') return 'Servicios';
+  if (pathname.startsWith('/bundles')) return 'Paquetes';
+  if (pathname.startsWith('/promotions')) return 'Promociones';
+  if (pathname.startsWith('/rewards')) return 'Cupones';
+  if (pathname.startsWith('/inventory')) return 'Inventario';
+  if (pathname.startsWith('/suppliers')) return 'Proveedores';
+  if (pathname.startsWith('/resources')) return 'Activos y Recursos';
+  if (pathname.startsWith('/shop')) return 'Tienda';
+  if (pathname.startsWith('/reservations')) return 'Apartados';
+  if (pathname.startsWith('/reports')) return 'Reportes';
+  if (pathname.startsWith('/payments')) return 'Pagos';
+  if (pathname.startsWith('/pos')) return 'Punto de Venta';
+  if (pathname.startsWith('/settings/notifications')) return 'Notificaciones';
+  if (pathname.startsWith('/settings/business')) return 'Negocio';
+  if (pathname.startsWith('/settings/locations')) return 'Ubicaciones';
+  if (pathname.startsWith('/settings/hours/employees')) return 'Horarios de Empleados';
+  if (pathname.startsWith('/settings/hours')) return 'Horarios del Negocio';
+  if (pathname.startsWith('/settings/currency')) return 'Moneda';
+  if (pathname.startsWith('/settings/payments')) return 'Pagos';
+  if (pathname.startsWith('/settings/qr')) return 'QR';
+  if (pathname.startsWith('/settings/invite-codes')) return 'Códigos de invitación';
+  if (pathname.startsWith('/settings/subscription')) return 'Suscripción';
+  if (pathname.startsWith('/settings/shop')) return 'Tienda';
+  if (pathname.startsWith('/settings/roles')) return 'Roles y Permisos';
+  if (pathname.startsWith('/settings')) return 'Configuración';
+  if (pathname.startsWith('/dashboard')) return 'Inicio';
+  return 'Siliba';
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -193,23 +228,27 @@ export default function DashboardLayout({
     return null;
   }
 
+  const sectionTitle = getSectionTitle(pathname);
+
   return (
     <div className="flex h-[100dvh] bg-gray-50">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
-        {/* Topbar mobile */}
-        <header className="md:hidden sticky top-0 z-20 flex items-center justify-between px-3 py-2.5 bg-white border-b border-gray-200">
+        {/* Topbar (mobile + desktop) — muestra el titulo de la seccion. */}
+        <header className="sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3 bg-white border-b border-gray-200">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            className="md:hidden p-2 -ml-2 mr-2 rounded-lg text-gray-700 hover:bg-gray-100"
             aria-label="Abrir menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-base font-bold text-[#008080]">Siliba</span>
-          <div className="w-10" aria-hidden="true" />
+          <h1 className="flex-1 md:flex-none text-center md:text-left text-base md:text-xl font-semibold text-gray-900 truncate">
+            {sectionTitle}
+          </h1>
+          <div className="md:hidden w-9" aria-hidden="true" />
         </header>
 
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { formatCurrency } from '@/lib/utils';
 
@@ -56,7 +55,6 @@ export default function CurrencySettingsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Moneda" />
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="max-w-2xl mx-auto">

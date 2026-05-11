@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -240,7 +239,6 @@ export function PromotionsContent({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <div className={embedded ? '' : 'flex flex-col h-full'}>
-      {!embedded && <Header title="Promociones" />}
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="flex items-center justify-between mb-6">

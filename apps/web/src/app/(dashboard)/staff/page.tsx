@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
@@ -97,7 +96,6 @@ export default function StaffPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Personal" />
 
       {/* Tabs */}
       <div className="border-b border-gray-200 px-3 md:px-6 overflow-x-auto">

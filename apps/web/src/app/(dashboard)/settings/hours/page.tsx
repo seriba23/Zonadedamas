@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 
 interface BusinessHour {
   id: string | null;
@@ -164,7 +163,6 @@ export default function BusinessHoursPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Horarios del Negocio" />
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="max-w-2xl mx-auto">

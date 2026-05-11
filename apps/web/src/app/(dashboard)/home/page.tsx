@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '@/lib/hooks/use-auth';
-import { Header } from '@/components/layout/header';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -13,7 +12,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Inicio" />
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Welcome */}

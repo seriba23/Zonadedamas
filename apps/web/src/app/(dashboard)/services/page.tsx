@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Header } from '@/components/layout/header';
 import { ServicesContent } from './services-content';
 import { BundlesContent } from '../bundles/bundles-content';
 import { RewardsContent } from '../rewards/rewards-content';
@@ -21,7 +20,6 @@ export default function ServicesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Servicios" />
 
       <div className="border-b border-gray-200 px-6 flex items-center gap-6">
         {SERVICE_PAGE_TABS.map((tab) => (

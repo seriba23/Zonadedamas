@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Header } from '@/components/layout/header';
 import { PosCheckout } from '@/components/pos/pos-checkout';
 
 export default function PosPage() {
@@ -10,7 +9,6 @@ export default function PosPage() {
   if (checkoutComplete) {
     return (
       <div className="flex flex-col h-full">
-        <Header title="Punto de Venta" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -35,7 +33,6 @@ export default function PosPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Punto de Venta" />
       <div className="flex-1 bg-gray-50 overflow-hidden">
         <PosCheckout onComplete={() => setCheckoutComplete(true)} />
       </div>

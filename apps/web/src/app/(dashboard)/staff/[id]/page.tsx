@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { Modal } from '@/components/ui/modal';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { StarRating } from '@/components/staff/star-rating';
@@ -363,7 +362,6 @@ export default function EmployeeProfilePage() {
   if (loadingEmployee) {
     return (
       <div className="flex flex-col h-full">
-        <Header title="Perfil de Empleado" />
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
         </div>
@@ -374,7 +372,6 @@ export default function EmployeeProfilePage() {
   if (!employee) {
     return (
       <div className="flex flex-col h-full">
-        <Header title="Empleado no encontrado" />
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <p className="text-gray-500">No se encontró el empleado solicitado.</p>
           <button onClick={() => router.push('/staff')} className="btn-primary">
@@ -411,7 +408,6 @@ export default function EmployeeProfilePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Perfil de Empleado" />
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Back + Edit */}

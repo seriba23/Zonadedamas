@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { Modal } from '@/components/ui/modal';
 import { formatDate } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -423,17 +422,16 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Reportes" />
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Date range selector */}
-        <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6 flex-wrap">
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+        <div className="mb-4 md:mb-6 space-y-2">
+          <div className="w-1/2 md:w-auto flex rounded-lg border border-gray-300 overflow-hidden md:inline-flex">
             {rangeOptions.map((r) => (
               <button
                 key={r.key}
                 onClick={() => setDateRange(r.key)}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 last:border-r-0 ${
+                className={`flex-1 md:flex-none px-1.5 md:px-4 py-1 md:py-2 text-[10px] md:text-sm font-medium transition-colors border-r border-gray-300 last:border-r-0 ${
                   dateRange === r.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -442,10 +440,20 @@ export default function ReportsPage() {
             ))}
           </div>
           {dateRange === 'custom' && (
-            <div className="flex items-center gap-2">
-              <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="input-field w-auto" />
-              <span className="text-gray-500">-</span>
-              <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="input-field w-auto" />
+            <div className="w-1/2 md:w-auto flex items-center gap-1.5 md:gap-2 md:inline-flex">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="flex-1 md:flex-none w-full md:w-auto px-1.5 md:px-3 py-1 md:py-2 text-[10px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+              />
+              <span className="text-gray-500 text-[10px] md:text-sm">-</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="flex-1 md:flex-none w-full md:w-auto px-1.5 md:px-3 py-1 md:py-2 text-[10px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+              />
             </div>
           )}
         </div>

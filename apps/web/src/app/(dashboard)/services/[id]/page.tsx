@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import Link from 'next/link';
 
@@ -75,7 +74,6 @@ export default function ServiceDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-full">
-        <Header title="Servicio" />
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin h-8 w-8 border-4 border-gray-200 border-t-[#008080] rounded-full" />
         </div>
@@ -86,7 +84,6 @@ export default function ServiceDetailPage() {
   if (!service) {
     return (
       <div className="flex flex-col h-full">
-        <Header title="Servicio" />
         <div className="flex-1 flex items-center justify-center text-gray-400">Servicio no encontrado</div>
       </div>
     );
@@ -113,7 +110,6 @@ export default function ServiceDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Detalle del servicio" />
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         <div className="max-w-4xl mx-auto">

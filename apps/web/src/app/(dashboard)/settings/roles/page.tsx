@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { RolePermissionMatrix } from '@/components/rbac/role-permission-matrix';
@@ -50,7 +49,6 @@ export default function RolesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Roles y Permisos" />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Roles list - left panel */}

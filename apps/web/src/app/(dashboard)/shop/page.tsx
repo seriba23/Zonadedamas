@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Header } from '@/components/layout/header';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { ReservationsContent } from '../reservations/reservations-content';
 import { ShopSettingsContent } from '../settings/shop/shop-content';
@@ -24,7 +23,6 @@ export default function ShopPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Tienda" />
 
       {/* Tabs */}
       <div className="border-b border-gray-200 px-6 flex items-center gap-6">

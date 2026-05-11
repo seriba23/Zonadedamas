@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Header } from '@/components/layout/header';
 import dynamic from 'next/dynamic';
 
 const BusinessContent = dynamic(() => import('./business/page'), { ssr: false });
@@ -34,7 +33,6 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Configuración" />
 
       <div className="border-b border-gray-200 px-6 flex items-center gap-6 overflow-x-auto">
         {TABS.map((tab) => (
