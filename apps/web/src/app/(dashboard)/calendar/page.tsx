@@ -406,82 +406,130 @@ export default function CalendarPage() {
                 mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'calendario' ? 'Citas' : 'Registro de citas'}
+              {tab === 'calendario' ? 'Citas' : (
+                <>
+                  <span className="md:hidden">Registro</span>
+                  <span className="hidden md:inline">Registro de citas</span>
+                </>
+              )}
             </button>
           ))}
         </div>
       </div>
 
       {mainView === 'calendario' && (<>
-      <div className="px-3 md:px-6 py-2.5 md:py-4 bg-white border-b border-gray-200">
-        {/* View mode selector — same style as Reports date range */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-              {([
-                { key: 'day' as ViewMode, label: 'Día' },
-                { key: 'week' as ViewMode, label: 'Semana' },
-                { key: 'month' as ViewMode, label: 'Mes' },
-                { key: 'custom' as ViewMode, label: 'Personalizado' },
-              ]).map((v) => (
-                <button
-                  key={v.key}
-                  onClick={() => setViewMode(v.key)}
-                  className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 last:border-r-0 ${
-                    viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-            {viewMode === 'custom' && (
-              <div className="flex items-center gap-2">
-                <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="input-field w-auto text-sm py-1.5" />
-                <span className="text-gray-500">-</span>
-                <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="input-field w-auto text-sm py-1.5" />
-              </div>
-            )}
-
-            {/* Date navigation — hidden in custom mode */}
-            {viewMode !== 'custom' && (
-              <>
-                <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Anterior">
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
-                  Hoy
-                </button>
-                <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Siguiente">
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </>
-            )}
-
-            {viewMode !== 'custom' && <span className="text-base font-medium text-gray-900 capitalize">
-              {viewMode === 'month'
-                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
-                : viewMode === 'day'
-                  ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
-                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
-            </span>}
+      <div className="px-3 md:px-6 py-2.5 md:py-4 bg-white border-b border-gray-200 space-y-2 md:space-y-0">
+        {/* Mode selector — full width en mobile, inline-flex en desktop */}
+        <div className="flex md:items-center md:justify-between md:gap-3">
+          <div className="flex w-full md:w-auto rounded-lg border border-gray-300 overflow-hidden md:inline-flex">
+            {([
+              { key: 'day' as ViewMode, label: 'Día' },
+              { key: 'week' as ViewMode, label: 'Semana' },
+              { key: 'month' as ViewMode, label: 'Mes' },
+              { key: 'custom' as ViewMode, label: 'Personalizado' },
+            ]).map((v) => (
+              <button
+                key={v.key}
+                onClick={() => setViewMode(v.key)}
+                className={`${v.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
+                  viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
           </div>
 
+          {/* Boton "+ Nueva cita" — solo desktop en esta fila */}
           <button
             onClick={() => {
               setSelectedSlot(currentDate.format('YYYY-MM-DD') + 'T09:00:00');
               setSelectedAppointmentId(null);
               setIsModalOpen(true);
             }}
-            className="btn-primary text-sm"
+            className="hidden md:inline-block btn-primary text-sm"
           >
             + Nueva cita
           </button>
         </div>
+
+        {/* Segunda fila: custom dates O navegacion + display + boton (mobile) */}
+        {viewMode === 'custom' ? (
+          <div className="w-full md:w-auto flex items-center gap-1.5 md:gap-2 md:inline-flex">
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+            />
+            <span className="text-gray-500 text-[11px] md:text-sm flex-shrink-0">-</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 md:gap-2 md:hidden">
+            <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0" aria-label="Anterior">
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button onClick={goToToday} className="px-2.5 py-1 text-[11px] font-medium rounded-lg border border-gray-300 bg-white text-gray-700 flex-shrink-0">
+              Hoy
+            </button>
+            <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0" aria-label="Siguiente">
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <span className="flex-1 text-[11px] font-medium text-gray-900 capitalize truncate">
+              {viewMode === 'month'
+                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
+                : viewMode === 'day'
+                  ? formatDate(currentDate.toDate(), 'D MMM YYYY')
+                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM')}`}
+            </span>
+            <button
+              onClick={() => {
+                setSelectedSlot(currentDate.format('YYYY-MM-DD') + 'T09:00:00');
+                setSelectedAppointmentId(null);
+                setIsModalOpen(true);
+              }}
+              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-[#008080] text-white flex-shrink-0"
+            >
+              + Nueva
+            </button>
+          </div>
+        )}
+
+        {/* Desktop only: navegacion + display en mismo bloque */}
+        {viewMode !== 'custom' && (
+          <div className="hidden md:flex items-center gap-3 md:mt-3">
+            <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Anterior">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+              Hoy
+            </button>
+            <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Siguiente">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <span className="text-base font-medium text-gray-900 capitalize">
+              {viewMode === 'month'
+                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
+                : viewMode === 'day'
+                  ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
+                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Employee pills filter */}
