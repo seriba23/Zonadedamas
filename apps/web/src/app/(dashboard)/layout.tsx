@@ -137,6 +137,12 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { notifications, dismissNotification, purchases, dismissPurchase } = useWebSocket();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Cerrar drawer al navegar entre paginas (mobile).
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -188,9 +194,24 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col ml-64 min-w-0">
+    <div className="flex h-[100dvh] bg-gray-50">
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col md:ml-64 min-w-0">
+        {/* Topbar mobile */}
+        <header className="md:hidden sticky top-0 z-20 flex items-center justify-between px-3 py-2.5 bg-white border-b border-gray-200">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            aria-label="Abrir menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <span className="text-base font-bold text-[#008080]">Siliba</span>
+          <div className="w-10" aria-hidden="true" />
+        </header>
+
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
