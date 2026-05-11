@@ -709,29 +709,103 @@ export class AuthService {
     });
 
     if (existingUsers.length > 0) {
-      // Login to the first matching user account
-      const user = existingUsers[0];
-      // Update avatar if not set
-      if (!user.avatarUrl && profile.avatarUrl) {
+      // Update avatar on first social login if missing.
+      const first = existingUsers[0];
+      if (!first.avatarUrl && profile.avatarUrl) {
         await this.prisma.user.update({
-          where: { id: user.id },
+          where: { id: first.id },
           data: { avatarUrl: profile.avatarUrl },
         });
       }
-      const tokens = await this.generateTokens(user);
+
+      // Re-fetch with relations needed for the unified response (mirror of `login`).
+      const matchedUser = await this.prisma.user.findUnique({
+        where: { id: first.id },
+        include: {
+          tenant: true,
+          employee: { select: { id: true } },
+          userRoles: { select: { role: { select: { slug: true } } } },
+        },
+      });
+      if (!matchedUser || !matchedUser.isActive) {
+        throw new UnauthorizedException('Credenciales invalidas');
+      }
+
+      const hasBusiness = !!matchedUser.tenantId;
+      let hasClient = matchedUser.isClient;
+      if (!hasClient) {
+        await this.prisma.user.update({
+          where: { id: matchedUser.id },
+          data: { isClient: true },
+        });
+        hasClient = true;
+      }
+
+      if (!hasBusiness && !hasClient) {
+        throw new UnauthorizedException('Esta cuenta no tiene perfiles activos');
+      }
+
+      let business: any = null;
+      let client: any = null;
+      const profiles: string[] = [];
+
+      if (hasBusiness) {
+        const ADMIN_ROLE_SLUGS = ['owner', 'admin', 'helper'];
+        const hasAdminRole = (matchedUser.userRoles || []).some((ur) =>
+          ADMIN_ROLE_SLUGS.includes(ur.role.slug),
+        );
+        const tokens = await this.generateTokens(matchedUser);
+        business = {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: {
+            id: matchedUser.id,
+            email: matchedUser.email,
+            firstName: matchedUser.firstName,
+            lastName: matchedUser.lastName,
+            tenantId: matchedUser.tenantId,
+            tenantName: matchedUser.tenant?.name ?? null,
+            employeeId: matchedUser.employee?.id ?? null,
+            avatarUrl: matchedUser.avatarUrl,
+            permissions: tokens.permissions,
+            isAdmin: hasAdminRole,
+          },
+        };
+        if (hasAdminRole) profiles.push('admin');
+        if (matchedUser.employee) profiles.push('professional');
+      }
+
+      if (hasClient) {
+        const tokens = await this.generateClientTokens(matchedUser);
+        client = {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: {
+            id: matchedUser.id,
+            email: matchedUser.email,
+            firstName: matchedUser.firstName,
+            lastName: matchedUser.lastName,
+            phone: matchedUser.phone,
+            gender: matchedUser.gender,
+            avatarUrl: matchedUser.avatarUrl,
+            socialProvider: matchedUser.socialProvider,
+          },
+        };
+        profiles.push('client');
+      }
+
       return {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
+        // Legacy flat fields — business tokens if available, else client (so the
+        // social-login frontend always receives a usable token).
+        accessToken: business?.accessToken ?? client?.accessToken ?? null,
+        refreshToken: business?.refreshToken ?? client?.refreshToken ?? null,
+        user: business?.user ?? client?.user ?? null,
         isNewUser: false,
         needsProfile: false,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          tenantId: user.tenantId,
-          permissions: tokens.permissions,
-        },
+        // Unified dual-profile fields.
+        business,
+        client,
+        profiles,
       };
     }
 

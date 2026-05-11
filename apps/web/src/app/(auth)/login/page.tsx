@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import { api } from '@/lib/api';
+import { marketplaceApi } from '@/lib/marketplace-api';
 import type { AuthUser } from '@/lib/auth';
 
 interface SocialProfile {
@@ -120,15 +121,54 @@ function LoginPageInner() {
         return;
       }
 
-      if (result.accessToken && result.user) {
+      const profiles: string[] = result.profiles || [];
+      const businessUser = result.business?.user || (result.user?.tenantId ? result.user : null);
+      const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
+      const wantsBusiness =
+        redirectAfterLogin && !redirectAfterLogin.startsWith('/marketplace');
+
+      // Persist business session if present.
+      if (result.business?.accessToken) {
+        api.setAccessToken(result.business.accessToken);
+        localStorage.setItem('refreshToken', result.business.refreshToken);
+        localStorage.setItem('user', JSON.stringify(result.business.user));
+      } else if (result.accessToken && businessUser) {
+        // Legacy fallback (older API response shape)
         api.setAccessToken(result.accessToken);
         localStorage.setItem('refreshToken', result.refreshToken);
         localStorage.setItem('user', JSON.stringify(result.user));
-        const isAdmin = result.user.permissions?.includes('employees.create');
-        const hasEmp = !!result.user.employeeId;
-        if (hasEmp) { setRoleChoice(result.user); return; }
-        router.push(isAdmin ? '/home' : '/employee');
       }
+
+      // Persist client session if present (used by marketplace).
+      if (result.client?.accessToken && result.client?.refreshToken) {
+        marketplaceApi.setSession(result.client.accessToken, result.client.refreshToken);
+      }
+
+      // Multiple profiles → show selector when there is a business profile.
+      if (profiles.length > 1 && businessUser) {
+        setAvailableProfiles(profiles);
+        setRoleChoice(businessUser);
+        return;
+      }
+
+      // Client-only account: redirect to marketplace.
+      if (profiles.includes('client') && !businessUser) {
+        router.push(wantsMarketplace ? redirectAfterLogin! : '/marketplace');
+        return;
+      }
+
+      if (businessUser) {
+        const perms = businessUser.permissions ?? [];
+        const isAdmin = businessUser.isAdmin === true || perms.includes('employees.create');
+        const hasEmp = !!businessUser.employeeId;
+        if (hasEmp && profiles.length > 1) { setRoleChoice(businessUser); return; }
+        const fallback = isAdmin ? '/home' : '/employee';
+        router.push(wantsBusiness ? redirectAfterLogin! : fallback);
+        return;
+      }
+
+      // Should not happen but keep a safe fallback.
+      setApiError('No se pudo iniciar sesión con esta cuenta.');
     } catch (err: any) {
       setApiError(err?.message || 'Error al iniciar sesión');
     } finally {
