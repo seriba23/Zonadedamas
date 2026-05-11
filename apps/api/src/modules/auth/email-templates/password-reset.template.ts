@@ -99,15 +99,8 @@ export function renderPasswordResetEmail(params: {
   const safeName = escapeHtml(params.firstName || 'Hola');
   const body = `
   <tr>
-    <td align="center" style="padding:32px 32px 0 32px;">
-      <div style="width:64px;height:64px;border-radius:50%;background-color:${BRAND_TEAL_LIGHT};display:inline-block;line-height:64px;text-align:center;">
-        <span style="font-size:28px;line-height:64px;vertical-align:middle;">🔐</span>
-      </div>
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:24px 32px 8px 32px;text-align:center;">
-      <h1 style="margin:0 0 8px 0;font-size:22px;line-height:1.3;color:${TEXT_DARK};font-weight:700;letter-spacing:-0.01em;">Restablece tu contraseña</h1>
+    <td style="padding:40px 32px 8px 32px;text-align:center;">
+      <h1 style="margin:0 0 10px 0;font-size:22px;line-height:1.3;color:${TEXT_DARK};font-weight:700;letter-spacing:-0.01em;">Restablece tu contraseña</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:${TEXT_MUTED};">
         Hola <strong style="color:${TEXT_DARK};">${safeName}</strong>,<br>
         Usa el siguiente código para continuar con el proceso. Expira en 15 minutos.
@@ -146,15 +139,8 @@ export function renderPasswordSetOAuthEmail(params: {
 
   const body = `
   <tr>
-    <td align="center" style="padding:32px 32px 0 32px;">
-      <div style="width:64px;height:64px;border-radius:50%;background-color:${BRAND_TEAL_LIGHT};display:inline-block;line-height:64px;text-align:center;">
-        <span style="font-size:28px;line-height:64px;vertical-align:middle;">🔑</span>
-      </div>
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:24px 32px 8px 32px;text-align:center;">
-      <h1 style="margin:0 0 8px 0;font-size:22px;line-height:1.3;color:${TEXT_DARK};font-weight:700;letter-spacing:-0.01em;">Establece tu contraseña</h1>
+    <td style="padding:40px 32px 8px 32px;text-align:center;">
+      <h1 style="margin:0 0 10px 0;font-size:22px;line-height:1.3;color:${TEXT_DARK};font-weight:700;letter-spacing:-0.01em;">Establece tu contraseña</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:${TEXT_MUTED};">
         Hola <strong style="color:${TEXT_DARK};">${safeName}</strong>,<br>
         Tu cuenta de Siliba fue creada con <strong style="color:${TEXT_DARK};">${providerLabel}</strong>. Usa este código para establecer una contraseña y poder iniciar sesión también con tu correo.
