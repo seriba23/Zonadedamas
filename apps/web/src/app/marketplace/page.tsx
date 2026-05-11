@@ -319,10 +319,10 @@ export default function MarketplacePage() {
       <div>
 
         {/* ── Header ── */}
-        <div className="bg-gray-50 px-4 pt-4 pb-2 safe-top">
+        <div className="bg-gray-50 px-4 pt-5 pb-2 safe-top">
           <div className="max-w-2xl mx-auto">
             {/* Search */}
-            <div className="relative mb-3">
+            <div className="relative mb-2.5">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -331,7 +331,7 @@ export default function MarketplacePage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar negocio o servicio..."
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
                 style={{ ['--tw-ring-color' as any]: '#008080' }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
@@ -339,10 +339,10 @@ export default function MarketplacePage() {
             </div>
 
             {/* Tabs: Negocios | Profesionales */}
-            <div className="flex border-b border-gray-200 mb-3">
+            <div className="flex border-b border-gray-200 mb-2.5">
               <button
                 onClick={() => { setViewTab('negocios'); }}
-                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex-1 pb-1.5 text-[13px] font-medium border-b-2 transition-colors ${
                   viewTab === 'negocios' ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500'
                 }`}
               >
@@ -350,7 +350,7 @@ export default function MarketplacePage() {
               </button>
               <button
                 onClick={() => { setViewTab('profesionales'); router.push('/marketplace/professionals'); }}
-                className="flex-1 pb-2 text-sm font-medium border-b-2 border-transparent text-gray-500"
+                className="flex-1 pb-1.5 text-[13px] font-medium border-b-2 border-transparent text-gray-500"
               >
                 Profesionales
               </button>
