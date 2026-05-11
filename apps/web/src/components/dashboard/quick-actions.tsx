@@ -41,17 +41,17 @@ const actions = [
 
 export function QuickActions() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">Acciones rápidas</h2>
-      <div className="grid grid-cols-2 gap-3">
+    <div className="rounded-xl border border-gray-200 bg-white p-3 md:p-5">
+      <h2 className="text-xs md:text-sm font-semibold text-gray-700 mb-3 md:mb-4">Acciones rápidas</h2>
+      <div className="grid grid-cols-2 gap-2 md:gap-3">
         {actions.map((action) => (
           <Link
             key={action.label}
             href={action.href}
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-[#e0f2f1] hover:border-[#008080]/20 text-gray-600 hover:text-[#008080] transition-colors"
+            className="flex flex-col items-center justify-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-[#e0f2f1] hover:border-[#008080]/20 text-gray-600 hover:text-[#008080] transition-colors [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6"
           >
             {action.icon}
-            <span className="text-xs font-medium">{action.label}</span>
+            <span className="text-[11px] md:text-xs font-medium">{action.label}</span>
           </Link>
         ))}
       </div>
