@@ -37,6 +37,22 @@
   animation: bounce-in 0.6s ease-out;
 }
 
+/* Calendar navigation slide */
+@keyframes cal-slide-from-right {
+  0% { transform: translateX(40px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes cal-slide-from-left {
+  0% { transform: translateX(-40px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.animate-cal-slide-forward {
+  animation: cal-slide-from-right 260ms ease-out;
+}
+.animate-cal-slide-back {
+  animation: cal-slide-from-left 260ms ease-out;
+}
+
 @layer components {
   .btn-primary {
     @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed;

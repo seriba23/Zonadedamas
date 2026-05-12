@@ -360,17 +360,29 @@ export default function CalendarPage() {
     );
   }
 
+  // Animacion de slide al navegar. navCounter cambia el key del wrapper para
+  // re-disparar la animacion CSS; navDir decide direccion (forward/back).
+  const [navDir, setNavDir] = useState<'forward' | 'back'>('forward');
+  const [navCounter, setNavCounter] = useState(0);
+
   function goToToday() {
-    setCurrentDate(dayjs());
+    const today = dayjs();
+    setNavDir(today.isAfter(currentDate) ? 'forward' : 'back');
+    setNavCounter((c) => c + 1);
+    setCurrentDate(today);
   }
 
   function goBack() {
+    setNavDir('back');
+    setNavCounter((c) => c + 1);
     setCurrentDate((d) =>
       viewMode === 'month' ? d.subtract(1, 'month') : viewMode === 'week' ? d.subtract(1, 'week') : d.subtract(1, 'day'),
     );
   }
 
   function goForward() {
+    setNavDir('forward');
+    setNavCounter((c) => c + 1);
     setCurrentDate((d) =>
       viewMode === 'month' ? d.add(1, 'month') : viewMode === 'week' ? d.add(1, 'week') : d.add(1, 'day'),
     );
@@ -794,6 +806,10 @@ export default function CalendarPage() {
             </button>
           </>
         )}
+        <div
+          key={navCounter}
+          className={`h-full ${navDir === 'forward' ? 'animate-cal-slide-forward' : 'animate-cal-slide-back'}`}
+        >
         {viewMode === 'month' ? (
           <div className="h-full flex flex-col overflow-auto bg-white">
 
@@ -923,6 +939,7 @@ export default function CalendarPage() {
             businessHours={businessHoursData?.data || []}
           />
         )}
+        </div>
       </div>
       </>)}
 
