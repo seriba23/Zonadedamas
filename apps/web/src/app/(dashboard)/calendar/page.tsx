@@ -646,22 +646,28 @@ export default function CalendarPage() {
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
-        {/* Flechas absolutas para anterior/siguiente (hidden en custom) */}
+        {/* Flechas absolutas para anterior/siguiente (hidden en custom).
+            z-30 garantiza que queden por encima de las citas (z-10/20).
+            stopPropagation + onMouseDown/onTouchStart blockean el click de la cita. */}
         {viewMode !== 'custom' && (
           <>
             <button
-              onClick={goBack}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); goBack(); }}
               aria-label="Anterior"
-              className="absolute left-1 md:left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-gray-600 hover:bg-white hover:shadow transition-all"
+              className="absolute left-1 md:left-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/95 border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-white hover:shadow-lg transition-all"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <button
-              onClick={goForward}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); goForward(); }}
               aria-label="Siguiente"
-              className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-gray-600 hover:bg-white hover:shadow transition-all"
+              className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/95 border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-white hover:shadow-lg transition-all"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
