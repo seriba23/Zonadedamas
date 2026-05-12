@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -23,9 +23,15 @@ function LoginPageInner() {
   const redirectAfterLogin = searchParams.get('redirect');
   const { login, user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Si ya hay sesion activa, redirigir al destino apropiado.
+  // Se setea a true durante el flujo de login en curso para que el useEffect
+  // de auto-redirect no se dispare antes de que handleSubmit decida si mostrar
+  // el selector de perfiles (admin/empleado/cliente) o redirigir directo.
+  const skipAutoRedirect = useRef(false);
+
+  // Si ya hay sesion activa (entro a /login estando logueado), redirigir.
   useEffect(() => {
     if (authLoading) return;
+    if (skipAutoRedirect.current) return;
     if (isAuthenticated && user) {
       const isAdmin = user.isAdmin === true || user.permissions?.includes('employees.create');
       router.replace(redirectAfterLogin || (isAdmin ? '/home' : '/employee'));
@@ -60,6 +66,8 @@ function LoginPageInner() {
     setApiError(null);
     if (!validate()) return;
     setIsLoading(true);
+    // Bloquea el auto-redirect del useEffect mientras procesamos el resultado.
+    skipAutoRedirect.current = true;
     try {
       const result = await login(form.email, form.password);
       const profiles = result.profiles || [];
@@ -110,6 +118,7 @@ function LoginPageInner() {
   async function handleSocialLogin(provider: 'google' | 'facebook', token: string) {
     setApiError(null);
     setIsLoading(true);
+    skipAutoRedirect.current = true;
     try {
       const res = await api.post<{ data: any }>('/api/auth/social', { provider, token });
       const result = res.data;
