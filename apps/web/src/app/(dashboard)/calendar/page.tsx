@@ -68,6 +68,7 @@ export default function CalendarPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showRegistroFilters, setShowRegistroFilters] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
 
@@ -950,47 +951,141 @@ export default function CalendarPage() {
       {/* ─── Registro de citas ─── */}
       {mainView === 'registro' && (
         <div className="flex-1 overflow-y-auto">
-          {/* Filters */}
-          <div className="px-3 md:px-6 py-3 md:py-4 bg-white border-b border-gray-200">
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="text"
-                value={regSearch}
-                onChange={(e) => setRegSearch(e.target.value)}
-                placeholder="Buscar cliente, empleado, servicio..."
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] w-56"
-              />
-              <input type="date" value={regDateFrom} onChange={(e) => setRegDateFrom(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
-              <span className="text-gray-400">-</span>
-              <input type="date" value={regDateTo} onChange={(e) => setRegDateTo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white" />
-              <SearchableSelect
-                value={regEmployee}
-                onChange={setRegEmployee}
-                placeholder="Buscar empleado..."
-                allLabel="Todos los empleados"
-                options={[...employees].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((e) => ({
-                  id: e.id, label: `${e.firstName} ${e.lastName}`, avatarUrl: e.avatarUrl, color: e.color,
-                }))}
-              />
-              <SearchableSelect
-                value={regClient}
-                onChange={setRegClient}
-                placeholder="Buscar cliente..."
-                allLabel="Todos los clientes"
-                options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
-                  id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.email || c.phone || undefined, avatarUrl: (c as any).avatarUrl,
-                }))}
-              />
-              <select value={regStatus} onChange={(e) => setRegStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]">
-                <option value="">Todos los estados</option>
-                <option value="CONFIRMED">Confirmada</option>
-                <option value="COMPLETED">Completada</option>
-                <option value="CANCELLED">Cancelada</option>
-                <option value="NO_SHOW">Ausente</option>
-                <option value="IN_PROGRESS">En curso</option>
-              </select>
-            </div>
+          {/* Filters: solo busqueda + icono de filtros (el resto vive en un modal) */}
+          <div className="px-3 md:px-6 py-2 md:py-3 bg-white border-b border-gray-200 flex items-center gap-2">
+            <input
+              type="text"
+              value={regSearch}
+              onChange={(e) => setRegSearch(e.target.value)}
+              placeholder="Buscar cliente, empleado, servicio..."
+              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+            />
+            <button
+              onClick={() => setShowRegistroFilters(true)}
+              aria-label="Filtros"
+              className={`relative flex-shrink-0 p-2 rounded-lg border transition-colors ${
+                showRegistroFilters
+                  ? 'bg-[#008080] border-[#008080] text-white'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+              title="Filtros"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              {(regEmployee || regClient || regStatus) && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#008080] border-2 border-white" />
+              )}
+            </button>
           </div>
+
+          {/* Modal de filtros del Registro */}
+          {showRegistroFilters && (
+            <Modal title="Filtros" onClose={() => setShowRegistroFilters(false)} size="md">
+              <div className="space-y-5">
+                {/* Rango de fechas */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                    Rango de fechas
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={regDateFrom}
+                      onChange={(e) => setRegDateFrom(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white"
+                    />
+                    <span className="text-gray-400 flex-shrink-0">–</span>
+                    <input
+                      type="date"
+                      value={regDateTo}
+                      onChange={(e) => setRegDateTo(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Empleado */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                    Empleado
+                  </label>
+                  <SearchableSelect
+                    value={regEmployee}
+                    onChange={setRegEmployee}
+                    placeholder="Buscar empleado..."
+                    allLabel="Todos los empleados"
+                    options={[...employees].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((e) => ({
+                      id: e.id, label: `${e.firstName} ${e.lastName}`, avatarUrl: e.avatarUrl, color: e.color,
+                    }))}
+                  />
+                </div>
+
+                {/* Cliente */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                    Cliente
+                  </label>
+                  <SearchableSelect
+                    value={regClient}
+                    onChange={setRegClient}
+                    placeholder="Buscar cliente..."
+                    allLabel="Todos los clientes"
+                    options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
+                      id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.email || c.phone || undefined, avatarUrl: (c as any).avatarUrl,
+                    }))}
+                  />
+                </div>
+
+                {/* Estado */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                    Estado
+                  </label>
+                  <select
+                    value={regStatus}
+                    onChange={(e) => setRegStatus(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]"
+                  >
+                    <option value="">Todos los estados</option>
+                    <option value="CONFIRMED">Confirmada</option>
+                    <option value="COMPLETED">Completada</option>
+                    <option value="CANCELLED">Cancelada</option>
+                    <option value="NO_SHOW">Ausente</option>
+                    <option value="IN_PROGRESS">En curso</option>
+                  </select>
+                </div>
+
+                {/* Acciones */}
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => {
+                      setRegEmployee('');
+                      setRegClient('');
+                      setRegStatus('');
+                    }}
+                    disabled={!regEmployee && !regClient && !regStatus}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                      regEmployee || regClient || regStatus
+                        ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                        : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Limpiar filtros
+                  </button>
+                  <button
+                    onClick={() => setShowRegistroFilters(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            </Modal>
+          )}
 
           {/* Summary */}
           <div className="px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
