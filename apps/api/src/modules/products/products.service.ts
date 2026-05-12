@@ -233,23 +233,32 @@ export class ProductsService {
   async remove(tenantId: string, id: string, userId?: string) {
     const existing = await this.prisma.product.findFirst({
       where: { id, tenantId },
+      include: { images: { select: { imageUrl: true } } },
     });
     if (!existing) throw new NotFoundException('Product not found');
 
-    await this.prisma.product.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    // Borrar archivos fisicos asociados antes del delete cascade.
+    if (existing.imageUrl) {
+      await this.uploads.deleteFile(existing.imageUrl).catch(() => {});
+    }
+    for (const img of existing.images) {
+      await this.uploads.deleteFile(img.imageUrl).catch(() => {});
+    }
+
+    // Hard delete. ProductImage y ProductReservation tienen onDelete: Cascade
+    // en el schema, asi que se eliminan automaticamente.
+    await this.prisma.product.delete({ where: { id } });
 
     await this.audit.log({
       tenantId,
       userId,
-      action: 'product.deactivated',
+      action: 'product.deleted',
       entityType: 'Product',
       entityId: id,
+      oldValues: { name: existing.name, sku: existing.sku },
     });
 
-    return { data: { message: 'Product deactivated' } };
+    return { data: { message: 'Product deleted' } };
   }
 
   // ─── Image Management ────────────────────────────
