@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
 import { formatDate, formatTime, resolveImageUrl } from '@/lib/utils';
+import dayjs from 'dayjs';
 import { useCurrency } from '@/lib/hooks/use-currency';
 
 interface Service {
@@ -950,8 +951,12 @@ export function AppointmentModal({
                   }
                   employeeId={appointment.employeeId}
                   onSelect={(empId, start, end) => {
-                    setNewStartTime(start);
-                    setNewEndTime(end);
+                    // El availability endpoint devuelve "YYYY-MM-DDTHH:mm:00"
+                    // sin timezone. Lo parseamos como hora local y convertimos
+                    // a ISO con Z antes de guardar, para que el backend no lo
+                    // confunda con UTC y guarde la hora con offset equivocado.
+                    setNewStartTime(dayjs(start).toISOString());
+                    setNewEndTime(dayjs(end).toISOString());
                   }}
                 />
                 {newStartTime && (
@@ -1213,8 +1218,9 @@ export function AppointmentModal({
                 initialDateTime={initialStartTime}
                 onSelect={(empId, start, end) => {
                   setSelectedEmployeeId(empId);
-                  setSelectedStartTime(start);
-                  setSelectedEndTime(end);
+                  // Parsea hora local y convierte a ISO con Z (ver nota en reschedule).
+                  setSelectedStartTime(dayjs(start).toISOString());
+                  setSelectedEndTime(dayjs(end).toISOString());
                 }}
                 onDateChange={(dateStr) => {
                   setActiveDate(dateStr);
