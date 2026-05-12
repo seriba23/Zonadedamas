@@ -254,7 +254,9 @@ export default function CalendarPage() {
   const employees = employeesData?.data || [];
   const clients = clientsData?.data || [];
   const services = servicesData?.data || [];
-  const activeEmployees = employees.filter((e) => e.isActive);
+  const activeEmployees = employees
+    .filter((e) => e.isActive)
+    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es'));
   const closures = closuresData?.data || [];
   const employeeTimeOffs = timeOffsData?.data || [];
 
