@@ -12,6 +12,7 @@ import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 
 dayjs.extend(isoWeek);
@@ -500,111 +501,147 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {showFilters && (<>
-      {/* Employee pills filter — scroll horizontal en una sola fila */}
-      <div className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 overflow-x-auto whitespace-nowrap" style={{ scrollbarWidth: 'thin' }}>
-        <button
-          onClick={() => setFilterEmployeeId('')}
-          className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold border transition-all ${
-            filterEmployeeId === ''
-              ? 'bg-gray-900 text-white border-gray-900'
-              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-          }`}
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
-          Todos
-        </button>
-        {activeEmployees.map((emp) => (
-          <button
-            key={emp.id}
-            onClick={() => setFilterEmployeeId(filterEmployeeId === emp.id ? '' : emp.id)}
-            className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-xs md:text-sm font-semibold border transition-all ${
-              filterEmployeeId === emp.id
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <span
-              className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden text-[10px] font-bold flex-shrink-0"
-              style={{
-                backgroundColor: `${emp.color || '#008080'}25`,
-                color: emp.color || '#008080',
-              }}
-            >
-              {emp.avatarUrl ? (
-                <img src={resolveImageUrl(emp.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
-              ) : (
-                `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`
-              )}
-            </span>
-            {emp.firstName}
-          </button>
-        ))}
-      </div>
-
-      {/* Secondary filters: client + services + clear */}
-      <div className="flex items-center gap-2 px-3 md:px-6 py-2 bg-gray-50 border-b border-gray-200 flex-wrap">
-        <SearchableSelect
-          value={filterClientId}
-          onChange={setFilterClientId}
-          placeholder="Buscar cliente..."
-          allLabel="Todos los clientes"
-          options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
-            id: c.id,
-            label: `${c.firstName} ${c.lastName}`,
-            sublabel: c.email || c.phone || undefined,
-            avatarUrl: (c as any).avatarUrl,
-          }))}
-        />
-
-        <div className="relative" ref={serviceDropdownRef}>
-          <button
-            type="button"
-            onClick={() => setServiceDropdownOpen((v) => !v)}
-            className="input-field text-sm py-1.5 w-48 text-left flex items-center justify-between"
-          >
-            <span className="truncate">
-              {filterServiceNames.length === 0
-                ? 'Todos los servicios'
-                : `${filterServiceNames.length} servicio${filterServiceNames.length > 1 ? 's' : ''}`}
-            </span>
-            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {serviceDropdownOpen && (
-            <div className="absolute z-50 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {services.map((s) => (
-                <label
-                  key={s.id}
-                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+      {showFilters && (
+        <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
+          <div className="space-y-5">
+            {/* Empleados */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                Empleado
+              </label>
+              <div
+                className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                <button
+                  onClick={() => setFilterEmployeeId('')}
+                  className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold border transition-all ${
+                    filterEmployeeId === ''
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={filterServiceNames.includes(s.name)}
-                    onChange={() => toggleServiceFilter(s.name)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="truncate">{s.name}</span>
-                </label>
-              ))}
-              {services.length === 0 && (
-                <p className="px-3 py-2 text-sm text-gray-400">Sin servicios</p>
-              )}
+                  <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+                  Todos
+                </button>
+                {activeEmployees.map((emp) => (
+                  <button
+                    key={emp.id}
+                    onClick={() => setFilterEmployeeId(filterEmployeeId === emp.id ? '' : emp.id)}
+                    className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-xs md:text-sm font-semibold border transition-all ${
+                      filterEmployeeId === emp.id
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden text-[10px] font-bold flex-shrink-0"
+                      style={{
+                        backgroundColor: `${emp.color || '#008080'}25`,
+                        color: emp.color || '#008080',
+                      }}
+                    >
+                      {emp.avatarUrl ? (
+                        <img src={resolveImageUrl(emp.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`
+                      )}
+                    </span>
+                    {emp.firstName}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
 
-        {hasFilters && (
-          <button
-            onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
-          >
-            Limpiar filtros
-          </button>
-        )}
-      </div>
-      </>)}
+            {/* Cliente */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                Cliente
+              </label>
+              <SearchableSelect
+                value={filterClientId}
+                onChange={setFilterClientId}
+                placeholder="Buscar cliente..."
+                allLabel="Todos los clientes"
+                options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
+                  id: c.id,
+                  label: `${c.firstName} ${c.lastName}`,
+                  sublabel: c.email || c.phone || undefined,
+                  avatarUrl: (c as any).avatarUrl,
+                }))}
+              />
+            </div>
+
+            {/* Servicios */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                Servicios
+              </label>
+              <div className="relative" ref={serviceDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setServiceDropdownOpen((v) => !v)}
+                  className="input-field text-sm py-2 w-full text-left flex items-center justify-between"
+                >
+                  <span className="truncate">
+                    {filterServiceNames.length === 0
+                      ? 'Todos los servicios'
+                      : `${filterServiceNames.length} servicio${filterServiceNames.length > 1 ? 's' : ''}`}
+                  </span>
+                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {serviceDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {services.map((s) => (
+                      <label
+                        key={s.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filterServiceNames.includes(s.name)}
+                          onChange={() => toggleServiceFilter(s.name)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="truncate">{s.name}</span>
+                      </label>
+                    ))}
+                    {services.length === 0 && (
+                      <p className="px-3 py-2 text-sm text-gray-400">Sin servicios</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+              <button
+                onClick={clearFilters}
+                disabled={!hasFilters}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                  hasFilters
+                    ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                    : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Limpiar filtros
+              </button>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showStats && (
       /* Quick stats row — all views */
