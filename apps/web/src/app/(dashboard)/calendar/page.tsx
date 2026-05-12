@@ -8,7 +8,7 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import { api } from '@/lib/api';
 import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
-import { formatDate } from '@/lib/utils';
+import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -532,11 +532,11 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Employee pills filter */}
-      <div className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 flex-wrap">
+      {/* Employee pills filter — scroll horizontal en una sola fila */}
+      <div className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 overflow-x-auto whitespace-nowrap" style={{ scrollbarWidth: 'thin' }}>
         <button
           onClick={() => setFilterEmployeeId('')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+          className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold border transition-all ${
             filterEmployeeId === ''
               ? 'bg-gray-900 text-white border-gray-900'
               : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
@@ -549,31 +549,44 @@ export default function CalendarPage() {
           <button
             key={emp.id}
             onClick={() => setFilterEmployeeId(filterEmployeeId === emp.id ? '' : emp.id)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+            className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-xs md:text-sm font-semibold border transition-all ${
               filterEmployeeId === emp.id
                 ? 'bg-gray-900 text-white border-gray-900'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
           >
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: emp.color || '#008080' }} />
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden text-[10px] font-bold flex-shrink-0"
+              style={{
+                backgroundColor: `${emp.color || '#008080'}25`,
+                color: emp.color || '#008080',
+              }}
+            >
+              {emp.avatarUrl ? (
+                <img src={resolveImageUrl(emp.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
+              ) : (
+                `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`
+              )}
+            </span>
             {emp.firstName}
           </button>
         ))}
+      </div>
 
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        <select
+      {/* Secondary filters: client + services + clear */}
+      <div className="flex items-center gap-2 px-3 md:px-6 py-2 bg-gray-50 border-b border-gray-200 flex-wrap">
+        <SearchableSelect
           value={filterClientId}
-          onChange={(e) => setFilterClientId(e.target.value)}
-          className="input-field text-sm py-1.5 w-44"
-        >
-          <option value="">Todos los clientes</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.firstName} {c.lastName}
-            </option>
-          ))}
-        </select>
+          onChange={setFilterClientId}
+          placeholder="Buscar cliente..."
+          allLabel="Todos los clientes"
+          options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
+            id: c.id,
+            label: `${c.firstName} ${c.lastName}`,
+            sublabel: c.email || c.phone || undefined,
+            avatarUrl: (c as any).avatarUrl,
+          }))}
+        />
 
         <div className="relative" ref={serviceDropdownRef}>
           <button
