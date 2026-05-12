@@ -15,6 +15,7 @@ const SUCURSALES = [
   {
     name: 'Guadalajara',
     address: 'C. Manuel de Gorostiza 3665, Jardines de San Francisco, 44790 Guadalajara, Jal.',
+    phone: '3334405600',
     timezone: 'America/Mexico_City',
     lat: 20.6324,
     lng: -103.4170,
@@ -22,6 +23,7 @@ const SUCURSALES = [
   {
     name: 'San Pedro Garza García',
     address: 'Río Moctezuma 303, Del Valle, 66220 San Pedro Garza García, N.L.',
+    phone: '3334405000',
     timezone: 'America/Monterrey',
     lat: 25.6498,
     lng: -100.4042,
@@ -62,6 +64,7 @@ async function main() {
         data: {
           name: sucursal.name,
           address: sucursal.address,
+          phone: sucursal.phone,
           timezone: sucursal.timezone,
           latitude: sucursal.lat,
           longitude: sucursal.lng,
@@ -75,6 +78,7 @@ async function main() {
           tenantId: tenant.id,
           name: sucursal.name,
           address: sucursal.address,
+          phone: sucursal.phone,
           timezone: sucursal.timezone,
           latitude: sucursal.lat,
           longitude: sucursal.lng,
@@ -84,6 +88,7 @@ async function main() {
       console.log(`✓ Location #${i + 1} creada → ${sucursal.name}`);
     }
     console.log(`  Address:  ${sucursal.address}`);
+    console.log(`  Phone:    ${sucursal.phone}`);
     console.log(`  Timezone: ${sucursal.timezone}`);
     console.log(`  Lat/Lng:  ${sucursal.lat}, ${sucursal.lng}\n`);
   }
