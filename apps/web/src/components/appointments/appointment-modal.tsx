@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
 import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
-import { formatDate, formatTime } from '@/lib/utils';
+import { formatDate, formatTime, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 
 interface Service {
@@ -507,29 +507,57 @@ export function AppointmentModal({
             {/* Client & Employee */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
                   Cliente
                 </p>
-                <p className="text-sm font-medium text-gray-900">
-                  {appointment.client
-                    ? `${appointment.client.firstName} ${appointment.client.lastName}`
-                    : '-'}
-                </p>
-                {appointment.client?.email && (
-                  <p className="text-xs text-gray-500">
-                    {appointment.client.email}
-                  </p>
+                {appointment.client ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center overflow-hidden text-xs font-semibold flex-shrink-0">
+                      {(appointment.client as any).avatarUrl ? (
+                        <img src={resolveImageUrl((appointment.client as any).avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        `${appointment.client.firstName?.[0] ?? ''}${appointment.client.lastName?.[0] ?? ''}`
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {appointment.client.firstName} {appointment.client.lastName}
+                      </p>
+                      {appointment.client.email && (
+                        <p className="text-xs text-gray-500 truncate">{appointment.client.email}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-gray-900">-</p>
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
                   Profesional
                 </p>
-                <p className="text-sm font-medium text-gray-900">
-                  {appointment.employee
-                    ? `${appointment.employee.firstName} ${appointment.employee.lastName}`
-                    : '-'}
-                </p>
+                {appointment.employee ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden text-xs font-semibold flex-shrink-0"
+                      style={{
+                        backgroundColor: `${(appointment.employee as any).color || '#008080'}25`,
+                        color: (appointment.employee as any).color || '#008080',
+                      }}
+                    >
+                      {(appointment.employee as any).avatarUrl ? (
+                        <img src={resolveImageUrl((appointment.employee as any).avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        `${appointment.employee.firstName?.[0] ?? ''}${appointment.employee.lastName?.[0] ?? ''}`
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 truncate flex-1 min-w-0">
+                      {appointment.employee.firstName} {appointment.employee.lastName}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-gray-900">-</p>
+                )}
               </div>
             </div>
 
