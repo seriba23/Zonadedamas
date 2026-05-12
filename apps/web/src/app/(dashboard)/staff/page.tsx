@@ -1055,7 +1055,7 @@ function StaffCommissionsTab() {
                                 <span className={isSelected ? 'text-gray-900' : 'text-gray-400'}>{svc.name}</span>
                                 <span className="text-xs text-gray-400 ml-1">({svc.durationMinutes}min)</span>
                               </td>
-                              <td className="px-2 py-2 text-center text-gray-500 tabular-nums">{formatCurrency(price)}</td>
+                              <td className="px-2 py-2 text-center text-gray-500 tabular-nums">{formatCurrency(price, svc.currency)}</td>
                               <td className="px-2 py-2 text-center">
                                 <input
                                   type="number"
@@ -1070,7 +1070,7 @@ function StaffCommissionsTab() {
                               </td>
                               <td className="px-2 py-2 text-center tabular-nums">
                                 {isSelected && config?.commission != null ? (
-                                  <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit)}</span>
+                                  <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit, svc.currency)}</span>
                                 ) : <span className="text-gray-300">--</span>}
                               </td>
                             </tr>

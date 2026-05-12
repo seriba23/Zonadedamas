@@ -12,6 +12,21 @@ interface ExchangeRates {
   date: string;
 }
 
+// Fallback usado mientras se cargan las tasas reales del backend. Evita que el
+// frontend muestre valores sin convertir (p.ej. "MXN 40" cuando el dato esta
+// en USD). Se sincroniza con el fallback en exchange-rates.service.ts.
+const FALLBACK_RATES: Record<string, number> = {
+  USD: 1,
+  MXN: 17.5,
+  DOP: 58.5,
+  EUR: 0.92,
+  COP: 4200,
+  ARS: 900,
+  CLP: 950,
+  PEN: 3.75,
+  BRL: 5.1,
+};
+
 export function useCurrency() {
   const { user } = useAuth();
   const tenantCurrency = (user as any)?.tenantCurrency || 'USD';
@@ -27,7 +42,10 @@ export function useCurrency() {
     refetchOnWindowFocus: false,
   });
 
-  const rates = data?.rates || {};
+  // Si la query todavia no termino, usa el fallback hardcoded para que
+  // formatCurrency(40, 'USD') siempre devuelva un valor convertido decente
+  // en lugar de mostrar 40 como si estuviera en la moneda del tenant.
+  const rates = data?.rates ?? FALLBACK_RATES;
   const rateDate = data?.date || '';
 
   function convert(amount: number, fromCurrency = 'USD'): number {
@@ -65,7 +83,7 @@ export function useMarketplaceCurrency() {
     refetchOnWindowFocus: false,
   });
 
-  const rates = data?.rates || {};
+  const rates = data?.rates ?? FALLBACK_RATES;
 
   // Default to USD, marketplace pages can override with user preference
   function format(amount: number, fromCurrency = 'USD', toCurrency = 'USD'): string {
