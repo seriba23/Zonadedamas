@@ -19,6 +19,7 @@
     "db:seed-products": "ts-node prisma/seed-products.ts",
     "db:seed-barberia": "ts-node prisma/seed-barberia-products.ts",
     "db:seed-fix-avatars": "ts-node prisma/seed-fix-avatars.ts",
+    "db:seed-tenant-location": "ts-node prisma/seed-tenant-location.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate"
   },
