@@ -380,8 +380,18 @@ export class AppointmentsService {
 
     if (filters.startDate || filters.endDate) {
       where.startTime = {};
-      if (filters.startDate) where.startTime.gte = new Date(filters.startDate);
-      if (filters.endDate) where.startTime.lte = new Date(filters.endDate + 'T23:59:59Z');
+      // Aceptamos ISO completo ("2026-06-12T00:00:00.000-06:00") o YYYY-MM-DD.
+      // Si es solo fecha, se agrega T00:00:00Z (start) o T23:59:59Z (end).
+      if (filters.startDate) {
+        where.startTime.gte = filters.startDate.includes('T')
+          ? new Date(filters.startDate)
+          : new Date(filters.startDate);
+      }
+      if (filters.endDate) {
+        where.startTime.lte = filters.endDate.includes('T')
+          ? new Date(filters.endDate)
+          : new Date(filters.endDate + 'T23:59:59Z');
+      }
     }
 
     const [data, total] = await Promise.all([

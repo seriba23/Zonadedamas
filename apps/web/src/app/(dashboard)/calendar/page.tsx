@@ -145,20 +145,24 @@ export default function CalendarPage() {
     };
   }, [serviceDropdownOpen]);
 
+  // Rangos en ISO con timezone local para que el backend pueda incluir citas
+  // que estan en el "dia local" del usuario aunque su startTime UTC caiga en
+  // un dia UTC distinto. Antes mandabamos YYYY-MM-DD y el backend lo
+  // interpretaba como UTC midnight, perdiendo las horas nocturnas locales.
   const startDate = viewMode === 'custom'
-    ? customStart
+    ? dayjs(customStart).startOf('day').toISOString()
     : viewMode === 'month'
-      ? currentDate.startOf('month').startOf('isoWeek').format('YYYY-MM-DD')
+      ? currentDate.startOf('month').startOf('isoWeek').toISOString()
       : viewMode === 'week'
-        ? currentDate.startOf('week').format('YYYY-MM-DD')
-        : currentDate.format('YYYY-MM-DD');
+        ? currentDate.startOf('week').toISOString()
+        : currentDate.startOf('day').toISOString();
   const endDate = viewMode === 'custom'
-    ? customEnd
+    ? dayjs(customEnd).endOf('day').toISOString()
     : viewMode === 'month'
-      ? currentDate.endOf('month').endOf('isoWeek').format('YYYY-MM-DD')
+      ? currentDate.endOf('month').endOf('isoWeek').toISOString()
       : viewMode === 'week'
-        ? currentDate.endOf('week').format('YYYY-MM-DD')
-        : currentDate.format('YYYY-MM-DD');
+        ? currentDate.endOf('week').toISOString()
+        : currentDate.endOf('day').toISOString();
 
   // Build query params - month view needs more results
   const queryParams = new URLSearchParams({
