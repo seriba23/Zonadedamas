@@ -14,6 +14,7 @@ import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { createPortal } from 'react-dom';
 
 dayjs.extend(isoWeek);
 
@@ -101,18 +102,47 @@ export default function CalendarPage() {
   const [filterClientId, setFilterClientId] = useState('');
   const [filterServiceNames, setFilterServiceNames] = useState<string[]>([]);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
-  const serviceDropdownRef = useRef<HTMLDivElement>(null);
+  const serviceButtonRef = useRef<HTMLButtonElement>(null);
+  const servicePanelRef = useRef<HTMLDivElement>(null);
+  const [serviceCoords, setServiceCoords] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target as Node)) {
-        setServiceDropdownOpen(false);
-      }
+      if (serviceButtonRef.current?.contains(e.target as Node)) return;
+      if (servicePanelRef.current?.contains(e.target as Node)) return;
+      setServiceDropdownOpen(false);
     }
     if (serviceDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+  }, [serviceDropdownOpen]);
+
+  // Coords del dropdown de servicios (portal a body)
+  useEffect(() => {
+    if (!serviceDropdownOpen || !serviceButtonRef.current) {
+      setServiceCoords(null);
+      return;
+    }
+    function update() {
+      if (!serviceButtonRef.current) return;
+      const rect = serviceButtonRef.current.getBoundingClientRect();
+      const dropdownH = 240;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < dropdownH && rect.top > dropdownH;
+      setServiceCoords({
+        top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
   }, [serviceDropdownOpen]);
 
   const startDate = viewMode === 'custom'
@@ -577,8 +607,9 @@ export default function CalendarPage() {
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
                 Servicios
               </label>
-              <div className="relative" ref={serviceDropdownRef}>
+              <div className="relative">
                 <button
+                  ref={serviceButtonRef}
                   type="button"
                   onClick={() => setServiceDropdownOpen((v) => !v)}
                   className="input-field text-sm py-2 w-full text-left flex items-center justify-between"
@@ -592,8 +623,12 @@ export default function CalendarPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                {serviceDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {serviceDropdownOpen && serviceCoords && typeof document !== 'undefined' && createPortal(
+                  <div
+                    ref={servicePanelRef}
+                    style={{ position: 'fixed', top: serviceCoords.top, left: serviceCoords.left, width: serviceCoords.width, zIndex: 100 }}
+                    className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                  >
                     {services.map((s) => (
                       <label
                         key={s.id}
@@ -611,7 +646,8 @@ export default function CalendarPage() {
                     {services.length === 0 && (
                       <p className="px-3 py-2 text-sm text-gray-400">Sin servicios</p>
                     )}
-                  </div>
+                  </div>,
+                  document.body,
                 )}
               </div>
             </div>

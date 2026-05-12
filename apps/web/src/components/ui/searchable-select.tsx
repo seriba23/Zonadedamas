@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -24,11 +25,44 @@ interface SearchableSelectProps {
 export function SearchableSelect({ value, onChange, options, placeholder = 'Buscar...', allLabel = 'Todos' }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Calcula coords cuando abre. Si no hay espacio abajo, abre hacia arriba.
+  useEffect(() => {
+    if (!open || !buttonRef.current) {
+      setCoords(null);
+      return;
+    }
+    function update() {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      const dropdownH = 320;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < dropdownH && rect.top > dropdownH;
+      setCoords({
+        top: openUp ? rect.top - dropdownH - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 240),
+        openUp,
+      });
+    }
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open]);
+
+  // Click fuera: cerrar (chequea button Y dropdown porque ya no son padre/hijo).
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (buttonRef.current?.contains(e.target as Node)) return;
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
     }
     if (open) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -38,11 +72,12 @@ export function SearchableSelect({ value, onChange, options, placeholder = 'Busc
   const filtered = options.filter((o) => !search || o.label.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative inline-block w-full md:w-auto">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => { setOpen(!open); setSearch(''); }}
-        className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 transition-colors min-w-[180px] text-left"
+        className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 transition-colors w-full md:min-w-[180px] text-left"
       >
         {selected ? (
           <>
@@ -57,8 +92,12 @@ export function SearchableSelect({ value, onChange, options, placeholder = 'Busc
         </svg>
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+      {open && coords && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width, zIndex: 100 }}
+          className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+        >
           <div className="p-2 border-b border-gray-100">
             <input
               type="text"
@@ -93,7 +132,8 @@ export function SearchableSelect({ value, onChange, options, placeholder = 'Busc
               <p className="text-xs text-gray-400 text-center py-3">Sin resultados</p>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
