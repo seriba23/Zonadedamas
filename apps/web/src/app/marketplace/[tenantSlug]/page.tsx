@@ -845,21 +845,25 @@ export default function BusinessDetailPage() {
                 <div className="space-y-2">
                   {(() => {
                     // Calculate distance for each location if user GPS available
-                    const locsWithDist = biz.locations.map((loc: any) => {
-                      let distKm: number | null = null;
-                      if (userGps && loc.latitude && loc.longitude) {
-                        const R = 6371;
-                        const dLat = ((loc.latitude - userGps.lat) * Math.PI) / 180;
-                        const dLng = ((loc.longitude - userGps.lng) * Math.PI) / 180;
-                        const a =
-                          Math.sin(dLat / 2) ** 2 +
-                          Math.cos((userGps.lat * Math.PI) / 180) *
-                            Math.cos((loc.latitude * Math.PI) / 180) *
-                            Math.sin(dLng / 2) ** 2;
-                        distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                      }
-                      return { ...loc, distKm };
-                    });
+                    // y ordenar de la mas cercana a la mas lejana (sin GPS o
+                    // sin coords -> al final, preservando orden original).
+                    const locsWithDist = biz.locations
+                      .map((loc: any) => {
+                        let distKm: number | null = null;
+                        if (userGps && loc.latitude && loc.longitude) {
+                          const R = 6371;
+                          const dLat = ((loc.latitude - userGps.lat) * Math.PI) / 180;
+                          const dLng = ((loc.longitude - userGps.lng) * Math.PI) / 180;
+                          const a =
+                            Math.sin(dLat / 2) ** 2 +
+                            Math.cos((userGps.lat * Math.PI) / 180) *
+                              Math.cos((loc.latitude * Math.PI) / 180) *
+                              Math.sin(dLng / 2) ** 2;
+                          distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        }
+                        return { ...loc, distKm };
+                      })
+                      .sort((a: any, b: any) => (a.distKm ?? Infinity) - (b.distKm ?? Infinity));
 
                     const nearestId =
                       locsWithDist.filter((l: any) => l.distKm !== null).length > 0
