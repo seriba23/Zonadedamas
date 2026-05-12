@@ -64,6 +64,8 @@ export default function CalendarPage() {
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
 
@@ -498,6 +500,7 @@ export default function CalendarPage() {
         )}
       </div>
 
+      {showFilters && (<>
       {/* Employee pills filter — scroll horizontal en una sola fila */}
       <div className="flex items-center gap-2 px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 overflow-x-auto whitespace-nowrap" style={{ scrollbarWidth: 'thin' }}>
         <button
@@ -601,8 +604,10 @@ export default function CalendarPage() {
           </button>
         )}
       </div>
+      </>)}
 
-      {/* Quick stats row — all views */}
+      {showStats && (
+      /* Quick stats row — all views */
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-3 md:px-6 py-2 md:py-3 border-b border-gray-200 bg-gray-50">
         <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
           <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Total citas</p>
@@ -621,25 +626,64 @@ export default function CalendarPage() {
           <p className="text-base md:text-xl font-bold text-primary-600">{formatCurrency(viewStats.revenue)}</p>
         </div>
       </div>
-
-      {/* Cabecera con [Hoy] + fecha actual capitalizada */}
-      {viewMode !== 'custom' && (
-        <div className="flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 bg-white border-b border-gray-200">
-          <button
-            onClick={goToToday}
-            className="px-2.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex-shrink-0"
-          >
-            Hoy
-          </button>
-          <span className="text-sm md:text-base font-medium text-gray-900 capitalize truncate">
-            {viewMode === 'month'
-              ? formatDate(currentDate.toDate(), 'MMMM YYYY')
-              : viewMode === 'day'
-                ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
-                : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
-          </span>
-        </div>
       )}
+
+      {/* Cabecera: [Hoy] + fecha + toggles de filtros/stats a la derecha */}
+      <div className="flex items-center gap-2 px-3 md:px-6 py-2 bg-white border-b border-gray-200">
+        {viewMode !== 'custom' && (
+          <>
+            <button
+              onClick={goToToday}
+              className="px-2.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex-shrink-0"
+            >
+              Hoy
+            </button>
+            <span className="text-sm md:text-base font-medium text-gray-900 capitalize truncate flex-1 min-w-0">
+              {viewMode === 'month'
+                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
+                : viewMode === 'day'
+                  ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
+                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
+            </span>
+          </>
+        )}
+        {viewMode === 'custom' && <div className="flex-1" />}
+
+        {/* Toggle: Filtros */}
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          aria-label="Mostrar/ocultar filtros"
+          className={`relative flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+            showFilters
+              ? 'bg-[#008080] border-[#008080] text-white'
+              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Filtros"
+        >
+          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          {hasFilters && !showFilters && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#008080] border-2 border-white" />
+          )}
+        </button>
+
+        {/* Toggle: Stats (icono de reportes) */}
+        <button
+          onClick={() => setShowStats((v) => !v)}
+          aria-label="Mostrar/ocultar estadísticas"
+          className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+            showStats
+              ? 'bg-[#008080] border-[#008080] text-white'
+              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+          title="Estadísticas"
+        >
+          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+          </svg>
+        </button>
+      </div>
 
       <div
         className="relative flex-1 overflow-hidden"
