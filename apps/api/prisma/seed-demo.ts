@@ -866,14 +866,23 @@ async function main() {
   if (employeesWithServices.length === 0 || allClientsCurrent.length === 0) {
     console.log('  ! No hay empleados con servicios o clientes; saltando appointments.');
   } else {
-    // Tag para identificar nuestras citas demo y no duplicar
-    const DEMO_NOTE_PREFIX = '[demo-seed]';
+    // Limpieza retroactiva: vaciar el viejo marcador "[demo-seed] idx=N" que
+    // se mostraba al usuario en las notas internas.
+    const cleaned = await prisma.appointment.updateMany({
+      where: { tenantId: tenant.id, internalNotes: { startsWith: '[demo-seed]' } },
+      data: { internalNotes: null },
+    });
+    if (cleaned.count > 0) {
+      console.log(`  ↻ ${cleaned.count} notas internas con marcador antiguo limpiadas.`);
+    }
+
+    // Idempotencia: si el tenant ya tiene >= 40 appointments, no creamos mas.
     const existingDemoApts = await prisma.appointment.count({
-      where: { tenantId: tenant.id, internalNotes: { startsWith: DEMO_NOTE_PREFIX } },
+      where: { tenantId: tenant.id },
     });
 
     if (existingDemoApts >= 40) {
-      console.log(`  → ${existingDemoApts} appointments demo ya existen; saltando creación.`);
+      console.log(`  → ${existingDemoApts} appointments ya existen; saltando creación.`);
     } else {
       // Distribución:
       // - 20 COMPLETED (últimos 60 días)
@@ -954,7 +963,7 @@ async function main() {
             status: plan.status,
             startTime,
             endTime,
-            internalNotes: `${DEMO_NOTE_PREFIX} idx=${aptIdx}`,
+            internalNotes: null,
             notes:
               plan.status === 'PENDING'
                 ? 'Cita por confirmar'
@@ -1080,7 +1089,6 @@ async function main() {
       tenantId: tenant.id,
       status: 'COMPLETED',
       review: null,
-      internalNotes: { startsWith: '[demo-seed]' },
     },
     take: 15,
   });
