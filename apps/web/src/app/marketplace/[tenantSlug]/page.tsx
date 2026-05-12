@@ -1055,7 +1055,7 @@ export default function BusinessDetailPage() {
                               <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
                             </div>
                             <span className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(Number(s.price), s.currency)}
+                              {formatCurrency(Number(s.price), bizCurrency)}
                             </span>
                           </div>
                         ))}
@@ -1072,7 +1072,7 @@ export default function BusinessDetailPage() {
                         <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
                       </div>
                       <span className="text-sm font-semibold text-gray-900">
-                        {formatCurrency(Number(s.price), s.currency)}
+                        {formatCurrency(Number(s.price), bizCurrency)}
                       </span>
                     </div>
                   ))}
@@ -1590,7 +1590,7 @@ export default function BusinessDetailPage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="font-semibold text-gray-900">
-                            {formatCurrency(Number(service.price), (service as any).currency)}
+                            {formatCurrency(Number(service.price), bizCurrency)}
                           </p>
                           <p className="text-xs text-gray-500">
                             {service.durationMinutes} min
@@ -1679,11 +1679,11 @@ export default function BusinessDetailPage() {
                               <div className="text-right">
                                 {originalPrice > Number(bundle.bundlePrice) && (
                                   <span className="text-xs text-gray-400 line-through mr-2">
-                                    {formatCurrency(originalPrice, bundleServices[0]?.currency)}
+                                    {formatCurrency(originalPrice, bizCurrency)}
                                   </span>
                                 )}
                                 <span className="font-bold" style={{ color: TEAL }}>
-                                  {formatCurrency(Number(bundle.bundlePrice), bundleServices[0]?.currency)}
+                                  {formatCurrency(Number(bundle.bundlePrice), bizCurrency)}
                                 </span>
                               </div>
                             </div>
@@ -1781,7 +1781,7 @@ export default function BusinessDetailPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                       </svg>
                                       <span className="text-sm text-gray-700">{s.name}</span>
-                                      <span className="text-xs text-gray-400 ml-auto">{formatCurrency(Number(s.price), s.currency)}</span>
+                                      <span className="text-xs text-gray-400 ml-auto">{formatCurrency(Number(s.price), bizCurrency)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1839,7 +1839,7 @@ export default function BusinessDetailPage() {
                           {selectedServiceIds.length !== 1 ? 's' : ''}
                         </span>
                         <span className="text-sm font-semibold">
-                          {totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}
+                          {totalDuration} min · {formatCurrency(totalPrice, bizCurrency)}
                         </span>
                       </div>
                       {promoDiscount > 0 && selectedPromotion && (
@@ -1851,7 +1851,7 @@ export default function BusinessDetailPage() {
                             {selectedPromotion.name}
                           </span>
                           <span className="text-xs font-semibold text-green-600">
-                            -{formatCurrency(promoDiscount, selectedServices[0]?.currency)}
+                            -{formatCurrency(promoDiscount, bizCurrency)}
                           </span>
                         </div>
                       )}
@@ -2037,7 +2037,7 @@ export default function BusinessDetailPage() {
                         );
                       })}
                       <div className="pt-1 border-t border-gray-200 mt-1">
-                        <p className="text-xs text-gray-500">Total: {totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}</p>
+                        <p className="text-xs text-gray-500">Total: {totalDuration} min · {formatCurrency(totalPrice, bizCurrency)}</p>
                       </div>
                     </div>
                   ) : (
@@ -2057,7 +2057,7 @@ export default function BusinessDetailPage() {
                         <p className="text-sm font-medium text-gray-900">
                           {anyEmployee ? 'Cualquier profesional disponible' : selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : ''}
                         </p>
-                        <p className="text-xs text-gray-400">{totalDuration} min · {formatCurrency(totalPrice, selectedServices[0]?.currency)}</p>
+                        <p className="text-xs text-gray-400">{totalDuration} min · {formatCurrency(totalPrice, bizCurrency)}</p>
                       </div>
                     </div>
                   )}
@@ -2328,7 +2328,7 @@ export default function BusinessDetailPage() {
                             </div>
                             <div className="p-2.5">
                               <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-tight">{product.name}</p>
-                              <p className="text-xs font-bold mt-1" style={{ color: TEAL }}>{formatCurrency(Number(product.price), product.currency || 'MXN')}</p>
+                              <p className="text-xs font-bold mt-1" style={{ color: TEAL }}>{formatCurrency(Number(product.price), bizCurrency)}</p>
                               <div className="mt-2">
                                 {inCart ? (
                                   <div className="flex items-center justify-between">
@@ -2344,7 +2344,7 @@ export default function BusinessDetailPage() {
                                     <button onClick={() => setBookingCart((c) => c.filter((i) => i.id !== product.id))} className="text-[9px] text-red-500">Quitar</button>
                                   </div>
                                 ) : (
-                                  <button onClick={() => setBookingCart((c) => [...c, { id: product.id, name: product.name, price: Number(product.price), currency: product.currency || 'MXN', imageUrl: product.imageUrl, quantity: 1 }])}
+                                  <button onClick={() => setBookingCart((c) => [...c, { id: product.id, name: product.name, price: Number(product.price), currency: bizCurrency, imageUrl: product.imageUrl, quantity: 1 }])}
                                     className="w-full py-1.5 text-[10px] font-medium rounded-lg text-white" style={{ backgroundColor: TEAL }}>
                                     Agregar
                                   </button>
@@ -2364,12 +2364,12 @@ export default function BusinessDetailPage() {
                       {bookingCart.map((item) => (
                         <div key={item.id} className="flex justify-between text-xs py-1">
                           <span className="text-gray-700">{item.quantity}x {item.name}</span>
-                          <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, item.currency)}</span>
+                          <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, bizCurrency)}</span>
                         </div>
                       ))}
                       <div className="border-t border-gray-100 mt-2 pt-2 flex justify-between text-sm font-semibold">
                         <span>Subtotal productos</span>
-                        <span style={{ color: TEAL }}>{formatCurrency(bookingCartTotal, bookingCart[0]?.currency || 'MXN')}</span>
+                        <span style={{ color: TEAL }}>{formatCurrency(bookingCartTotal, bizCurrency)}</span>
                       </div>
                     </div>
                   )}
@@ -2407,7 +2407,7 @@ export default function BusinessDetailPage() {
                               )}
                             </span>
                             <span className="font-medium">
-                              {formatCurrency(Number(s.price), s.currency)}
+                              {formatCurrency(Number(s.price), bizCurrency)}
                             </span>
                           </div>
                         );
@@ -2423,7 +2423,7 @@ export default function BusinessDetailPage() {
                         {bookingCart.map((item) => (
                           <div key={item.id} className="flex justify-between text-sm py-0.5">
                             <span className="text-gray-700">{item.quantity}x {item.name}</span>
-                            <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, item.currency)}</span>
+                            <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, bizCurrency)}</span>
                           </div>
                         ))}
                       </div>
@@ -2519,7 +2519,7 @@ export default function BusinessDetailPage() {
                       </div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-500">Subtotal servicios</span>
-                        <span className="font-medium text-gray-900">{formatCurrency(basePrice, selectedServices[0]?.currency)}</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(basePrice, bizCurrency)}</span>
                       </div>
                       {promoDiscount > 0 && selectedPromotion && (
                         <div className="flex justify-between text-sm mb-1">
@@ -2529,13 +2529,13 @@ export default function BusinessDetailPage() {
                             </svg>
                             Oferta: {selectedPromotion.name}
                           </span>
-                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, selectedServices[0]?.currency)}</span>
+                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, bizCurrency)}</span>
                         </div>
                       )}
                       {bookingCart.length > 0 && (
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-500">Productos</span>
-                          <span className="font-medium text-gray-900">{formatCurrency(bookingCartTotal, bookingCart[0]?.currency || 'MXN')}</span>
+                          <span className="font-medium text-gray-900">{formatCurrency(bookingCartTotal, bizCurrency)}</span>
                         </div>
                       )}
                       {(() => {
@@ -2564,7 +2564,7 @@ export default function BusinessDetailPage() {
                                   </svg>
                                   Cupón aplicado: {selectedCoupon.reward?.name}
                                 </span>
-                                <span className="text-green-700 font-bold">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
+                                <span className="text-green-700 font-bold">-{formatCurrency(disc, bizCurrency)}</span>
                               </div>
                             )}
                             {payWithPoints && (
@@ -2577,10 +2577,10 @@ export default function BusinessDetailPage() {
                               <span className="font-semibold text-gray-900">Total a pagar</span>
                               <div className="text-right">
                                 {hasDiscount && (
-                                  <span className="text-sm text-gray-400 line-through mr-2">{formatCurrency(basePrice + bookingCartTotal, selectedServices[0]?.currency)}</span>
+                                  <span className="text-sm text-gray-400 line-through mr-2">{formatCurrency(basePrice + bookingCartTotal, bizCurrency)}</span>
                                 )}
                                 <span className="font-bold text-lg" style={{ color: TEAL }}>
-                                  {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, selectedServices[0]?.currency)}
+                                  {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, bizCurrency)}
                                 </span>
                               </div>
                             </div>
@@ -2640,7 +2640,7 @@ export default function BusinessDetailPage() {
                             const reward = r.reward;
                             const isSelected = selectedCoupon?.id === r.id;
                             const label = reward?.type === 'DESCUENTO'
-                              ? (reward.discountMode === 'PERCENTAGE' ? `${Number(reward.discountAmount)}% de descuento` : `${formatCurrency(Number(reward.discountAmount), selectedServices[0]?.currency)} de descuento`)
+                              ? (reward.discountMode === 'PERCENTAGE' ? `${Number(reward.discountAmount)}% de descuento` : `${formatCurrency(Number(reward.discountAmount), bizCurrency)} de descuento`)
                               : (reward?.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis');
 
                             return (
@@ -2875,19 +2875,19 @@ export default function BusinessDetailPage() {
                       {hasAnyDiscount && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">Subtotal:</span>
-                          <span className="text-gray-500">{formatCurrency(basePrice, selectedServices[0]?.currency)}</span>
+                          <span className="text-gray-500">{formatCurrency(basePrice, bizCurrency)}</span>
                         </div>
                       )}
                       {promoDiscount > 0 && selectedPromotion && (
                         <div className="flex justify-between text-sm">
                           <span className="text-green-600 font-medium">Oferta: {selectedPromotion.name}</span>
-                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, selectedServices[0]?.currency)}</span>
+                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, bizCurrency)}</span>
                         </div>
                       )}
                       {disc > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
-                          <span className="text-green-600 font-medium">-{formatCurrency(disc, selectedServices[0]?.currency)}</span>
+                          <span className="text-green-600 font-medium">-{formatCurrency(disc, bizCurrency)}</span>
                         </div>
                       )}
                       {payWithPoints && (
@@ -2899,7 +2899,7 @@ export default function BusinessDetailPage() {
                       <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
                         <span className="font-semibold text-gray-900">Total:</span>
                         <span className="font-bold" style={{ color: TEAL }}>
-                          {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, selectedServices[0]?.currency)}
+                          {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, bizCurrency)}
                         </span>
                       </div>
                     </>
