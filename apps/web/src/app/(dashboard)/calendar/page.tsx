@@ -12,6 +12,7 @@ import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 
 dayjs.extend(isoWeek);
 
@@ -340,6 +341,44 @@ export default function CalendarPage() {
     );
   }
 
+  function openNewAppointment() {
+    setSelectedSlot(currentDate.format('YYYY-MM-DD') + 'T09:00:00');
+    setSelectedAppointmentId(null);
+    setIsModalOpen(true);
+  }
+
+  // Registrar boton "+ Nueva cita" en el topbar global (solo en vista calendario).
+  useRegisterTopbarAction(
+    mainView === 'calendario' ? (
+      <button
+        onClick={openNewAppointment}
+        className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        + Nueva
+      </button>
+    ) : null,
+    [mainView, currentDate, viewMode],
+  );
+
+  // Swipe horizontal sobre el calendario: misma accion que las flechas.
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  function onSwipeStart(e: React.TouchEvent | React.PointerEvent) {
+    if (viewMode === 'custom') return;
+    const point = 'touches' in e ? e.touches[0] : e;
+    swipeStartRef.current = { x: point.clientX, y: point.clientY };
+  }
+  function onSwipeEnd(e: React.TouchEvent | React.PointerEvent) {
+    if (viewMode === 'custom' || !swipeStartRef.current) return;
+    const point = 'changedTouches' in e ? e.changedTouches[0] : e;
+    const dx = point.clientX - swipeStartRef.current.x;
+    const dy = Math.abs(point.clientY - swipeStartRef.current.y);
+    swipeStartRef.current = null;
+    // Threshold de 60px horizontal y que sea claramente mas horizontal que vertical
+    if (Math.abs(dx) > 60 && Math.abs(dx) > dy * 1.5) {
+      if (dx > 0) goBack(); else goForward();
+    }
+  }
+
   function handleSlotClick(time: string) {
     setSelectedSlot(time);
     setSelectedAppointmentId(null);
@@ -418,44 +457,30 @@ export default function CalendarPage() {
       </div>
 
       {mainView === 'calendario' && (<>
-      <div className="px-3 md:px-6 py-2.5 md:py-4 bg-white border-b border-gray-200 space-y-2 md:space-y-0">
-        {/* Mode selector — full width en mobile, inline-flex en desktop */}
-        <div className="flex md:items-center md:justify-between md:gap-3">
-          <div className="flex w-full md:w-auto rounded-lg border border-gray-300 overflow-hidden md:inline-flex">
-            {([
-              { key: 'day' as ViewMode, label: 'Día' },
-              { key: 'week' as ViewMode, label: 'Semana' },
-              { key: 'month' as ViewMode, label: 'Mes' },
-              { key: 'custom' as ViewMode, label: 'Personalizado' },
-            ]).map((v) => (
-              <button
-                key={v.key}
-                onClick={() => setViewMode(v.key)}
-                className={`${v.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
-                  viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Boton "+ Nueva cita" — solo desktop en esta fila */}
-          <button
-            onClick={() => {
-              setSelectedSlot(currentDate.format('YYYY-MM-DD') + 'T09:00:00');
-              setSelectedAppointmentId(null);
-              setIsModalOpen(true);
-            }}
-            className="hidden md:inline-block btn-primary text-sm"
-          >
-            + Nueva cita
-          </button>
+      <div className="px-3 md:px-6 py-2 md:py-3 bg-white border-b border-gray-200">
+        {/* Mode selector */}
+        <div className="flex w-full md:w-auto rounded-lg border border-gray-300 overflow-hidden md:inline-flex">
+          {([
+            { key: 'day' as ViewMode, label: 'Día' },
+            { key: 'week' as ViewMode, label: 'Semana' },
+            { key: 'month' as ViewMode, label: 'Mes' },
+            { key: 'custom' as ViewMode, label: 'Personalizado' },
+          ]).map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setViewMode(v.key)}
+              className={`${v.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
+                viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
 
-        {/* Segunda fila: custom dates O navegacion + display + boton (mobile) */}
-        {viewMode === 'custom' ? (
-          <div className="w-full md:w-auto flex items-center gap-1.5 md:gap-2 md:inline-flex">
+        {/* Custom date inputs */}
+        {viewMode === 'custom' && (
+          <div className="mt-2 w-full md:w-auto flex items-center gap-1.5 md:gap-2 md:inline-flex">
             <input
               type="date"
               value={customStart}
@@ -469,65 +494,6 @@ export default function CalendarPage() {
               onChange={(e) => setCustomEnd(e.target.value)}
               className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
             />
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 md:gap-2 md:hidden">
-            <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0" aria-label="Anterior">
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button onClick={goToToday} className="px-2.5 py-1 text-[11px] font-medium rounded-lg border border-gray-300 bg-white text-gray-700 flex-shrink-0">
-              Hoy
-            </button>
-            <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0" aria-label="Siguiente">
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <span className="flex-1 text-[11px] font-medium text-gray-900 capitalize truncate">
-              {viewMode === 'month'
-                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
-                : viewMode === 'day'
-                  ? formatDate(currentDate.toDate(), 'D MMM YYYY')
-                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM')}`}
-            </span>
-            <button
-              onClick={() => {
-                setSelectedSlot(currentDate.format('YYYY-MM-DD') + 'T09:00:00');
-                setSelectedAppointmentId(null);
-                setIsModalOpen(true);
-              }}
-              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-[#008080] text-white flex-shrink-0"
-            >
-              + Nueva
-            </button>
-          </div>
-        )}
-
-        {/* Desktop only: navegacion + display en mismo bloque */}
-        {viewMode !== 'custom' && (
-          <div className="hidden md:flex items-center gap-3 md:mt-3">
-            <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Anterior">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
-              Hoy
-            </button>
-            <button onClick={goForward} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Siguiente">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <span className="text-base font-medium text-gray-900 capitalize">
-              {viewMode === 'month'
-                ? formatDate(currentDate.toDate(), 'MMMM YYYY')
-                : viewMode === 'day'
-                  ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
-                  : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
-            </span>
           </div>
         )}
       </div>
@@ -656,7 +622,53 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      {/* Cabecera con [Hoy] + fecha actual capitalizada */}
+      {viewMode !== 'custom' && (
+        <div className="flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 bg-white border-b border-gray-200">
+          <button
+            onClick={goToToday}
+            className="px-2.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex-shrink-0"
+          >
+            Hoy
+          </button>
+          <span className="text-sm md:text-base font-medium text-gray-900 capitalize truncate">
+            {viewMode === 'month'
+              ? formatDate(currentDate.toDate(), 'MMMM YYYY')
+              : viewMode === 'day'
+                ? formatDate(currentDate.toDate(), 'dddd, D [de] MMMM YYYY')
+                : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
+          </span>
+        </div>
+      )}
+
+      <div
+        className="relative flex-1 overflow-hidden"
+        onTouchStart={onSwipeStart}
+        onTouchEnd={onSwipeEnd}
+      >
+        {/* Flechas absolutas para anterior/siguiente (hidden en custom) */}
+        {viewMode !== 'custom' && (
+          <>
+            <button
+              onClick={goBack}
+              aria-label="Anterior"
+              className="absolute left-1 md:left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-gray-600 hover:bg-white hover:shadow transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={goForward}
+              aria-label="Siguiente"
+              className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/90 border border-gray-200 shadow-sm flex items-center justify-center text-gray-600 hover:bg-white hover:shadow transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        )}
         {viewMode === 'month' ? (
           <div className="h-full flex flex-col overflow-auto bg-white">
 

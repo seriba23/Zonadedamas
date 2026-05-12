@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 import { useWebSocket, EmployeeJoinedEvent, PurchaseCreatedEvent } from '@/lib/hooks/use-websocket';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { TopbarActionProvider, useTopbarAction } from '@/lib/hooks/use-topbar-action';
 
 function EmployeeJoinedNotification({
   employee,
@@ -163,7 +164,15 @@ function getSectionTitle(pathname: string): string {
   return 'Siliba';
 }
 
-export default function DashboardLayout({
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <TopbarActionProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </TopbarActionProvider>
+  );
+}
+
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -173,6 +182,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { notifications, dismissNotification, purchases, dismissPurchase } = useWebSocket();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const topbarAction = useTopbarAction();
 
   // Cerrar drawer al navegar entre paginas (mobile).
   useEffect(() => {
@@ -248,6 +258,9 @@ export default function DashboardLayout({
           <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center text-base font-semibold text-gray-900 truncate px-12 md:relative md:px-0 md:inset-auto md:flex-1 md:justify-start md:text-xl md:pointer-events-auto">
             <span className="truncate">{sectionTitle}</span>
           </h1>
+          {topbarAction && (
+            <div className="relative z-10 ml-auto flex-shrink-0">{topbarAction}</div>
+          )}
         </header>
 
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
