@@ -387,9 +387,18 @@ export function CalendarView({
           if (newDay) {
             const closure = isDateInClosure(newDay, closures);
             if (!closure) {
-              const newDateStr = newDay.format('YYYY-MM-DD');
-              const newTimeStr = minutesToTimeStr(prev.ghostMinutes);
-              const newStartTime = `${newDateStr}T${newTimeStr}:00`;
+              // Construir el datetime en zona LOCAL del usuario y convertir a
+              // ISO con Z. Antes mandabamos "YYYY-MM-DDTHH:mm:00" sin offset
+              // y el backend lo interpretaba como UTC, lo que causaba desfase
+              // de horas igual al offset local.
+              const hh = Math.floor(prev.ghostMinutes / 60);
+              const mm = prev.ghostMinutes % 60;
+              const newStartTime = newDay
+                .hour(hh)
+                .minute(mm)
+                .second(0)
+                .millisecond(0)
+                .toISOString();
 
               // Only call if actually changed
               const origMins = timeToMinutes(prev.appointment.startTime);
