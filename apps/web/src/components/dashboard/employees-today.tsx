@@ -60,7 +60,7 @@ export function EmployeesToday() {
             const count = countsByEmployee[emp.id] || 0;
             return (
               <li key={emp.id}>
-                <Link href={`/staff/${emp.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                <Link href={`/staff/${emp.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors">
                   <div
                     className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold overflow-hidden"
                     style={{ backgroundColor: emp.color || '#008080' }}

@@ -6,18 +6,24 @@
 :root {
   --bg-canvas: #f8fafc;
   --bg-surface: #ffffff;
+  --bg-muted: #f1f5f9;
+  --bg-subtle: #f8fafc;
   --border: #e2e8f0;
   --text-primary: #0f172a;
   --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
   --text-muted: #94a3b8;
 }
 
 html[data-theme="dark"] {
   --bg-canvas: #0b1220;
   --bg-surface: #0f172a;
+  --bg-muted: #1e293b;
+  --bg-subtle: #111827;
   --border: #1e293b;
   --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
   --text-muted: #64748b;
 }
 

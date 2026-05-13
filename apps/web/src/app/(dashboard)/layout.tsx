@@ -8,6 +8,7 @@ import { SubscriptionBanner } from '@/components/subscription-banner';
 import { useWebSocket, EmployeeJoinedEvent, PurchaseCreatedEvent } from '@/lib/hooks/use-websocket';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { TopbarActionProvider, useTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 function EmployeeJoinedNotification({
   employee,
@@ -251,14 +252,18 @@ function DashboardLayoutContent({
         >
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="md:hidden relative z-10 p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            className="md:hidden relative z-10 p-2 -ml-2 rounded-lg text-[var(--text-primary)] hover:bg-[var(--bg-muted)]"
             aria-label="Abrir menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center text-base font-semibold text-gray-900 truncate px-12 md:relative md:px-0 md:inset-auto md:flex-1 md:justify-start md:text-xl md:pointer-events-auto">
+          {/* Toggle de tema visible junto al hamburger en mobile */}
+          <div className="md:hidden relative z-10">
+            <ThemeToggle />
+          </div>
+          <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center text-base font-semibold text-[var(--text-primary)] truncate px-24 md:relative md:px-0 md:inset-auto md:flex-1 md:justify-start md:text-xl md:pointer-events-auto">
             <span className="truncate">{sectionTitle}</span>
           </h1>
           {topbarAction && (

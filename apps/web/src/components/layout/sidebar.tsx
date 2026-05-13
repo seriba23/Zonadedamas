@@ -102,17 +102,23 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
           borderRight: '1px solid var(--border)',
         }}
       >
-      {/* Logo + close button */}
+      {/* Logo + theme toggle + close button */}
       <div
-        className="h-16 flex items-center justify-between px-6"
+        className="h-16 flex items-center justify-between px-4 md:px-6"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <span className="text-xl font-bold text-primary-600">
-          Siliba
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold text-primary-600">
+            Siliba
+          </span>
+          {/* Toggle de tema visible junto al logo en desktop */}
+          <span className="hidden md:inline-flex">
+            <ThemeToggle />
+          </span>
+        </div>
         <button
           onClick={onClose}
-          className="md:hidden p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:bg-gray-100"
+          className="md:hidden p-1.5 -mr-1.5 rounded-lg transition-colors text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
           aria-label="Cerrar menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -141,8 +147,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                       isChildActive
-                        ? 'bg-gray-100 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                        ? 'bg-[var(--bg-muted)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
                     )}
                   >
                     <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
@@ -176,8 +182,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
                               className={cn(
                                 'block px-3 py-2 rounded-lg text-sm transition-colors',
                                 isActive
-                                  ? 'bg-gray-100 text-gray-900 font-medium'
-                                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700',
+                                  ? 'bg-[var(--bg-muted)] text-[var(--text-primary)] font-medium'
+                                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
                               )}
                             >
                               {child.label}
@@ -203,8 +209,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                      ? 'bg-[var(--bg-muted)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
                   )}
                 >
                   <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
@@ -218,9 +224,9 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
 
       {/* User section */}
       {user && (
-        <div className="border-t border-gray-200 p-4">
+        <div className="p-4" style={{ borderTop: '1px solid var(--border)' }}>
           <div
-            className={`flex items-center gap-3 mb-3 ${user.employeeId ? 'cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-gray-100 transition-colors' : ''}`}
+            className={`flex items-center gap-3 mb-3 ${user.employeeId ? 'cursor-pointer rounded-lg p-1.5 -m-1.5 transition-colors hover:bg-[var(--bg-muted)]' : ''}`}
             onClick={() => { if (user.employeeId) window.location.href = '/employee'; }}
             title={user.employeeId ? `Cambiar a ${user.jobTitle || 'Empleado'}` : undefined}
           >
@@ -232,19 +238,16 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                 {user.firstName} {user.lastName}
               </p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{user.email}</p>
             </div>
             {user.employeeId && (
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
             )}
-          </div>
-          <div className="flex items-center justify-end mb-1">
-            <ThemeToggle />
           </div>
           <button
             onClick={async () => {
@@ -253,7 +256,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
               // queries cacheadas y cualquier service worker.
               window.location.replace('/login');
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]"
           >
             <svg
               className="w-4 h-4"
