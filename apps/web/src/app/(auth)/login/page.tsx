@@ -34,6 +34,12 @@ function LoginPageInner() {
     if (skipAutoRedirect.current) return;
     if (isAuthenticated && user) {
       const isAdmin = user.isAdmin === true || user.permissions?.includes('employees.create');
+      // Si el redirect apunta al marketplace pero solo tenemos sesion business
+      // (no marketplace), no auto-redirigir — el marketplace guard nos
+      // mandaria de vuelta aqui causando un loop. Mostramos el form para que
+      // el usuario inicie sesion como cliente.
+      const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
+      if (wantsMarketplace) return;
       router.replace(redirectAfterLogin || (isAdmin ? '/home' : '/employee'));
     }
   }, [authLoading, isAuthenticated, user, redirectAfterLogin, router]);
