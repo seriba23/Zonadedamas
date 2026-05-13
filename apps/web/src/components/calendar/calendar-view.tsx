@@ -82,7 +82,7 @@ const SLOT_HEIGHT = 40; // px per 30-min slot
 const TOTAL_SLOTS = TOTAL_HOURS * 2; // 28 slots
 const HEADER_HEIGHT = 0; // header is outside the grid body
 const HORA_COL_WIDTH = 60; // px for time labels column
-const EMPLOYEE_COL_WIDTH = 240; // px por columna de empleado en vista 'day' (scroll horizontal)
+const EMPLOYEE_COL_WIDTH = 168; // px por columna de empleado en vista 'day' (scroll horizontal)
 const SNAP_MINUTES = 15;
 
 const DRAGGABLE_STATUSES = new Set(['pending', 'confirmed', 'rescheduled']);
@@ -521,21 +521,25 @@ export function CalendarView({
   const innerMinWidth = isEmployeeView
     ? `${HORA_COL_WIDTH + numDays * EMPLOYEE_COL_WIDTH}px`
     : undefined;
-  // Estilos para fijar la columna de horas (sticky) cuando hay scroll horizontal
+  // Estilos para fijar la columna de horas (sticky) cuando hay scroll horizontal.
+  // zIndex 15 supera el z-10 de los bloques de cita: al scrollear, el contenido
+  // desaparece DETRÁS de la columna de horas en vez de superponerse.
   const stickyColStyle: React.CSSProperties = isEmployeeView
     ? {
         position: 'sticky',
         left: 0,
-        zIndex: 5,
+        zIndex: 15,
         backgroundColor: 'var(--bg-surface)',
+        borderRight: '1px solid var(--border)',
       }
     : {};
   const stickyCornerStyle: React.CSSProperties = isEmployeeView
     ? {
         position: 'sticky',
         left: 0,
-        zIndex: 6,
+        zIndex: 16,
         backgroundColor: 'var(--bg-surface)',
+        borderRight: '1px solid var(--border)',
       }
     : {};
 
