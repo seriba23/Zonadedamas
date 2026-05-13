@@ -122,7 +122,7 @@ const TEAL_PALETTE = [
   '#f43f5e',
 ];
 
-const EXTRA_EMPLOYEES: Array<{
+export const EXTRA_EMPLOYEES: Array<{
   firstName: string;
   lastName: string;
   bio: string;
@@ -159,8 +159,8 @@ const EXTRA_EMPLOYEES: Array<{
     bio: 'Masoterapeuta diplomada en técnicas suecas, descontracturantes y piedras calientes.',
   },
   {
-    firstName: 'Mateo',
-    lastName: 'Rojas',
+    firstName: 'Javier',
+    lastName: 'Salinas',
     jobTitle: 'Colorista',
     bio: 'Experto en transformaciones de color. Su mantra: el cabello sano siempre primero.',
   },
@@ -183,8 +183,8 @@ const EXTRA_EMPLOYEES: Array<{
     bio: 'Barbería clásica con toques modernos. Cliente que entra estresado, sale como nuevo.',
   },
   {
-    firstName: 'Isabela',
-    lastName: 'Cordero',
+    firstName: 'Mariana',
+    lastName: 'Domínguez',
     jobTitle: 'Depiladora',
     bio: 'Cera tibia y caliente con técnica indolora. Resultados duraderos.',
   },

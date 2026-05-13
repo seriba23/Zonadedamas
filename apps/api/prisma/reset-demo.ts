@@ -11,7 +11,7 @@
  * tocan.
  */
 import { PrismaClient } from '@prisma/client';
-import seedDemo from './seed-demo';
+import seedDemo, { EXTRA_EMPLOYEES } from './seed-demo';
 
 const prisma = new PrismaClient();
 
@@ -53,6 +53,34 @@ async function main() {
       `${aptItems.count} apt-items, ${paymentItems.count} pay-items, ` +
       `${aptHistory.count} historial, ${aptPhotos.count} fotos`,
   );
+
+  // Sincronizar nombres de empleados con el template actual (por si se
+  // cambiaron en EXTRA_EMPLOYEES, p.ej. nombres no mexicanos -> mexicanos).
+  console.log('Sincronizando nombres de empleados con el template actual...');
+  let renamed = 0;
+  for (let i = 0; i < EXTRA_EMPLOYEES.length; i++) {
+    const tmpl = EXTRA_EMPLOYEES[i];
+    const email = `empleado${i + 1}@demosalon.com`;
+    const existing = await prisma.employee.findFirst({
+      where: { tenantId: tenant.id, email },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    if (!existing) continue;
+    if (existing.firstName !== tmpl.firstName || existing.lastName !== tmpl.lastName) {
+      await prisma.employee.update({
+        where: { id: existing.id },
+        data: {
+          firstName: tmpl.firstName,
+          lastName: tmpl.lastName,
+          jobTitle: tmpl.jobTitle,
+          bio: tmpl.bio,
+        },
+      });
+      console.log(`  ✓ ${existing.firstName} ${existing.lastName} → ${tmpl.firstName} ${tmpl.lastName}`);
+      renamed++;
+    }
+  }
+  console.log(`  ✓ ${renamed} empleado(s) renombrado(s).`);
 
   console.log('Re-sembrando data demo coherente (seed es idempotente)...');
   await seedDemo();
