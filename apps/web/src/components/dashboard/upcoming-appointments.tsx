@@ -16,10 +16,10 @@ interface UpcomingAppointment {
 
 function statusLabel(status: string) {
   const map: Record<string, { text: string; className: string }> = {
-    CONFIRMED: { text: 'Confirmada', className: 'bg-green-100 text-green-700' },
+    CONFIRMED: { text: 'Confirmada', className: 'bg-primary-50 text-primary-700' },
     PENDING: { text: 'Pendiente', className: 'bg-yellow-100 text-yellow-700' },
     IN_PROGRESS: { text: 'En curso', className: 'bg-blue-100 text-blue-700' },
-    COMPLETED: { text: 'Completada', className: 'bg-gray-100 text-gray-600' },
+    COMPLETED: { text: 'Completada', className: 'bg-success-50 text-success-700' },
     CANCELLED: { text: 'Cancelada', className: 'bg-red-100 text-red-600' },
     NO_SHOW: { text: 'Ausente', className: 'bg-red-100 text-red-600' },
   };
@@ -31,7 +31,7 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-700">Próximas citas</h2>
-        <Link href="/calendar" className="text-xs text-[#008080] hover:text-[#006666] font-medium">
+        <Link href="/calendar" className="text-xs text-primary-600 hover:text-primary-700 font-medium">
           Ver todas
         </Link>
       </div>
@@ -53,7 +53,7 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
             return (
               <li key={apt.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                 <div className="flex-shrink-0 text-center min-w-[52px]">
-                  <p className="text-sm font-semibold text-[#008080]">{dayjs(apt.startTime).format('h:mm A')}</p>
+                  <p className="text-sm font-semibold text-primary-600">{dayjs(apt.startTime).format('h:mm A')}</p>
                   <p className="text-[10px] text-gray-400">{dayjs(apt.endTime).format('h:mm A')}</p>
                 </div>
                 <div className="flex-1 min-w-0">

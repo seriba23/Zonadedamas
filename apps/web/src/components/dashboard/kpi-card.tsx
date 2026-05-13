@@ -11,7 +11,7 @@ export function KpiCard({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 flex items-center gap-4">
-      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-[#e0f2f1] text-[#008080]">
+      <div className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-primary-50 text-primary-600">
         {icon}
       </div>
       <div>
