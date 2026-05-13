@@ -472,7 +472,7 @@ export function CalendarView({
             <div
               key={day.format('YYYY-MM-DD')}
               className={`text-center py-2 border-l border-gray-100 relative group ${
-                isDayClosed ? 'bg-gray-100' : isToday(day) ? 'bg-blue-50/50' : ''
+                isDayClosed ? 'bg-gray-100' : isToday(day) ? 'bg-primary-50' : ''
               }`}
             >
               <p className="text-xs text-gray-500 uppercase">
@@ -750,21 +750,21 @@ export function CalendarView({
                 right: 0,
               }}
             >
-              {/* Red circle on the left */}
+              {/* Punto rojo a la izquierda — marca la hora actual */}
               <div
-                className="absolute rounded-full bg-red-500"
+                className="absolute rounded-full bg-danger-600 shadow-sm"
                 style={{
-                  width: 8,
-                  height: 8,
-                  top: -3,
+                  width: 10,
+                  height: 10,
+                  top: -4,
                   left: 0,
                 }}
               />
-              {/* Red line */}
+              {/* Linea horizontal de la hora actual */}
               <div
-                className="border-t-2 border-red-500"
+                className="border-t-2 border-danger-600"
                 style={{
-                  marginLeft: 8,
+                  marginLeft: 10,
                 }}
               />
             </div>
