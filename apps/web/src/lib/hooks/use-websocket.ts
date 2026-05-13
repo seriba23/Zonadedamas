@@ -53,6 +53,19 @@ export function useWebSocket() {
     const socket = io(WS_URL, {
       query: { tenantId: user.tenantId },
       transports: ['websocket', 'polling'],
+      // Si el WS falla (p.ej. NGINX sin upgrade headers), no spam la consola
+      // intentando reconectar cada segundo. 3 intentos con backoff, luego deja
+      // de intentar hasta el proximo mount. Las notificaciones en tiempo real
+      // (employee.joined, purchase.created) son nice-to-have, no criticas.
+      reconnection: true,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 5000,
+      reconnectionDelayMax: 30000,
+      timeout: 8000,
+    });
+
+    socket.on('connect_error', () => {
+      // Silenciar logs. Socket.io ya intenta reconectar segun config.
     });
 
     socket.on('employee:joined', (data: EmployeeJoinedEvent) => {
