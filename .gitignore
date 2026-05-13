@@ -54,3 +54,4 @@ apps/api/jest.config.js.map
 
 # Database backups (local snapshots, not for source control)
 backup_*.sql
+design-handoff.zip
