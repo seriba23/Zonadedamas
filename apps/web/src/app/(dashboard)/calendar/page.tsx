@@ -100,6 +100,7 @@ export default function CalendarPage() {
 
   // Filter state
   const [filterEmployeeIds, setFilterEmployeeIds] = useState<string[]>([]);
+  const [filterOnlyWithAppointments, setFilterOnlyWithAppointments] = useState(false);
   const [filterClientId, setFilterClientId] = useState('');
   function toggleEmployeeFilter(id: string) {
     setFilterEmployeeIds((prev) =>
@@ -366,12 +367,13 @@ export default function CalendarPage() {
     setViewMode('day');
   }
 
-  const hasFilters = filterEmployeeIds.length > 0 || filterClientId || filterServiceNames.length > 0;
+  const hasFilters = filterEmployeeIds.length > 0 || filterClientId || filterServiceNames.length > 0 || filterOnlyWithAppointments;
 
   function clearFilters() {
     setFilterEmployeeIds([]);
     setFilterClientId('');
     setFilterServiceNames([]);
+    setFilterOnlyWithAppointments(false);
   }
 
   function toggleServiceFilter(name: string) {
@@ -618,6 +620,26 @@ export default function CalendarPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Pill: mostrar solo empleados con citas (vista día) */}
+              <button
+                type="button"
+                onClick={() => setFilterOnlyWithAppointments((v) => !v)}
+                className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  filterOnlyWithAppointments
+                    ? 'bg-[#008080] text-white border-[#008080]'
+                    : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  {filterOnlyWithAppointments ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  ) : (
+                    <circle cx="12" cy="12" r="9" />
+                  )}
+                </svg>
+                Mostrar solo empleados con citas
+              </button>
             </div>
 
             {/* Cliente */}
@@ -694,16 +716,13 @@ export default function CalendarPage() {
               <button
                 onClick={clearFilters}
                 disabled={!hasFilters}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap ${
                   hasFilters
                     ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                     : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
                 }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Limpiar filtros
+                Limpiar
               </button>
               <button
                 onClick={() => setShowFilters(false)}
@@ -962,9 +981,11 @@ export default function CalendarPage() {
             businessHours={businessHoursData?.data || []}
             dayEmployees={
               viewMode === 'day'
-                ? (dayEmployeesData?.data || []).filter(
-                    (e) => filterEmployeeIds.length === 0 || filterEmployeeIds.includes(e.id),
-                  )
+                ? (dayEmployeesData?.data || [])
+                    .filter((e) => filterEmployeeIds.length === 0 || filterEmployeeIds.includes(e.id))
+                    .filter((e) =>
+                      !filterOnlyWithAppointments || appointments.some((a) => a.employeeId === e.id),
+                    )
                 : []
             }
             onDayHeaderClick={(day) => {
