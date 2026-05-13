@@ -189,6 +189,16 @@ export default function CalendarPage() {
       api.get<{ data: EmployeeSummary[] }>('/api/employees?perPage=100'),
   });
 
+  // Empleados que trabajan en el día seleccionado (solo necesario en vista 'day'
+  // para hacer columnas por empleado).
+  const workingDateStr = currentDate.format('YYYY-MM-DD');
+  const { data: dayEmployeesData } = useQuery({
+    queryKey: ['employees-working', workingDateStr],
+    queryFn: () =>
+      api.get<{ data: EmployeeSummary[] }>(`/api/employees?perPage=100&workingDate=${workingDateStr}`),
+    enabled: viewMode === 'day',
+  });
+
   // Fetch clients for filter dropdown
   const { data: clientsData } = useQuery({
     queryKey: ['clients-calendar'],
@@ -942,6 +952,7 @@ export default function CalendarPage() {
             closures={closures}
             employeeTimeOffs={employeeTimeOffs}
             businessHours={businessHoursData?.data || []}
+            dayEmployees={viewMode === 'day' ? (dayEmployeesData?.data || []) : []}
           />
         )}
         </div>

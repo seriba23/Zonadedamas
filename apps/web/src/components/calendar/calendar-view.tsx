@@ -45,6 +45,14 @@ export interface BusinessHourEntry {
   endTime?: string;   // "HH:mm"
 }
 
+export interface DayEmployee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  color?: string;
+  avatarUrl?: string | null;
+}
+
 interface CalendarViewProps {
   date: Dayjs;
   appointments: Appointment[];
@@ -55,6 +63,15 @@ interface CalendarViewProps {
   closures?: BusinessClosure[];
   employeeTimeOffs?: EmployeeTimeOff[];
   businessHours?: BusinessHourEntry[];
+  /** Empleados que trabajan en `date` (solo se usa en vista 'day' para hacer columnas por empleado). */
+  dayEmployees?: DayEmployee[];
+}
+
+interface Column {
+  key: string;
+  date: Dayjs;
+  /** Si está presente, esta columna pertenece a un empleado específico (vista día). */
+  employee?: DayEmployee;
 }
 
 const HOUR_START = 6;
@@ -200,6 +217,7 @@ export function CalendarView({
   closures = [],
   employeeTimeOffs = [],
   businessHours = [],
+  dayEmployees = [],
 }: CalendarViewProps) {
   const gridBodyRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -217,37 +235,58 @@ export function CalendarView({
     return () => clearInterval(interval);
   }, []);
 
-  const weekDays = useMemo(
-    () =>
-      viewMode === 'week'
-        ? Array.from({ length: 7 }, (_, i) => date.startOf('week').add(i, 'day'))
-        : [date],
-    [date, viewMode],
-  );
+  // Las columnas del grid:
+  // - Vista semana: 7 columnas, una por día
+  // - Vista día con empleados que trabajan: una columna por empleado
+  // - Vista día sin empleados: una columna única del día (fallback)
+  const columns: Column[] = useMemo(() => {
+    if (viewMode === 'week') {
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = date.startOf('week').add(i, 'day');
+        return { key: d.format('YYYY-MM-DD'), date: d };
+      });
+    }
+    if (dayEmployees && dayEmployees.length > 0) {
+      return dayEmployees.map((emp) => ({
+        key: emp.id,
+        date,
+        employee: emp,
+      }));
+    }
+    return [{ key: date.format('YYYY-MM-DD'), date }];
+  }, [date, viewMode, dayEmployees]);
 
-  const numDays = weekDays.length;
+  const numDays = columns.length;
 
   const isToday = (d: Dayjs) => d.isSame(dayjs(), 'day');
   const todayIndex = useMemo(() => {
     const today = dayjs();
-    return weekDays.findIndex((d) => d.isSame(today, 'day'));
-  }, [weekDays]);
+    // En vista día por empleado, todas las columnas son el mismo día. Si es hoy,
+    // marcamos col 0 para que la linea AHORA se renderice una sola vez (a lo ancho).
+    if (viewMode === 'day') {
+      return columns[0]?.date.isSame(today, 'day') ? 0 : -1;
+    }
+    return columns.findIndex((c) => c.date.isSame(today, 'day'));
+  }, [columns, viewMode]);
 
-  // Group appointments by day
+  // Group appointments by column index
+  // - Semana: una col por día, filtrar por mismo día
+  // - Día por empleado: filtrar por mismo día Y mismo empleado
   const appointmentsByDay = useMemo(() => {
     const map = new Map<number, Appointment[]>();
-    weekDays.forEach((_, i) => map.set(i, []));
+    columns.forEach((_, i) => map.set(i, []));
     for (const apt of appointments) {
       const aptDay = dayjs(apt.startTime);
-      for (let i = 0; i < weekDays.length; i++) {
-        if (aptDay.isSame(weekDays[i], 'day')) {
-          map.get(i)!.push(apt);
-          break;
-        }
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        if (!aptDay.isSame(col.date, 'day')) continue;
+        if (col.employee && apt.employeeId !== col.employee.id) continue;
+        map.get(i)!.push(apt);
+        if (viewMode === 'week') break; // en semana cada cita va a un único día
       }
     }
     return map;
-  }, [appointments, weekDays]);
+  }, [appointments, columns, viewMode]);
 
   // Overlap layouts per day
   const layoutsByDay = useMemo(() => {
@@ -258,10 +297,11 @@ export function CalendarView({
     return map;
   }, [appointmentsByDay]);
 
-  // Closures per day
+  // Closures por columna. En vista día las columnas comparten el mismo día,
+  // por lo que el closure aplica a todas o a ninguna.
   const closureByDay = useMemo(() => {
-    return weekDays.map((d) => isDateInClosure(d, closures));
-  }, [weekDays, closures]);
+    return columns.map((c) => isDateInClosure(c.date, closures));
+  }, [columns, closures]);
 
   // Business hours per day of week (0=Sun..6=Sat)
   const DOW_MAP: Record<string, number> = { SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6 };
@@ -277,17 +317,21 @@ export function CalendarView({
     return map;
   }, [businessHours]);
 
-  // Time-offs per day
+  // Time-offs por columna. En vista día, cada columna solo ve los time-offs
+  // del empleado al que pertenece. En vista semana, todos los time-offs del día.
   const timeOffsByDay = useMemo(() => {
-    return weekDays.map((day) => {
-      const dayStr = day.format('YYYY-MM-DD');
+    return columns.map((col) => {
+      const dayStr = col.date.format('YYYY-MM-DD');
       return employeeTimeOffs.filter((to) => {
         const toStart = to.startDatetime.split('T')[0];
         const toEnd = to.endDatetime.split('T')[0];
-        return dayStr >= toStart && dayStr <= toEnd;
+        const dateMatches = dayStr >= toStart && dayStr <= toEnd;
+        if (!dateMatches) return false;
+        if (col.employee) return to.employeeId === col.employee.id;
+        return true;
       });
     });
-  }, [weekDays, employeeTimeOffs]);
+  }, [columns, employeeTimeOffs]);
 
   // --- Drag & Drop ---
   const pixelToSlot = useCallback(
@@ -328,7 +372,10 @@ export function CalendarView({
       const durationMinutes = endMins - startMins;
 
       const aptDay = dayjs(apt.startTime);
-      const originalDayIndex = weekDays.findIndex((d) => d.isSame(aptDay, 'day'));
+      // En vista día por empleado, fijamos la columna a la del empleado dueño.
+      const originalDayIndex = viewMode === 'day' && dayEmployees.length > 0
+        ? columns.findIndex((c) => c.employee?.id === apt.employeeId)
+        : columns.findIndex((c) => c.date.isSame(aptDay, 'day'));
 
       setDragState({
         appointmentId: apt.id,
@@ -343,7 +390,7 @@ export function CalendarView({
         durationMinutes,
       });
     },
-    [weekDays, onAppointmentDragEnd],
+    [columns, viewMode, dayEmployees, onAppointmentDragEnd],
   );
 
   useEffect(() => {
@@ -383,7 +430,10 @@ export function CalendarView({
         if (!prev) return null;
 
         if (prev.isDragging && onAppointmentDragEnd) {
-          const newDay = weekDays[prev.ghostDayIndex];
+          // En vista día por empleado, las columnas representan empleados,
+          // no días: el día destino siempre es `date`.
+          const targetCol = columns[prev.ghostDayIndex];
+          const newDay = targetCol?.date;
           if (newDay) {
             const closure = isDateInClosure(newDay, closures);
             if (!closure) {
@@ -423,7 +473,7 @@ export function CalendarView({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, pixelToSlot, weekDays, closures, onAppointmentDragEnd, onAppointmentClick]);
+  }, [dragState, pixelToSlot, columns, closures, onAppointmentDragEnd, onAppointmentClick]);
 
   // --- Slot click handler ---
   function handleSlotClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -434,9 +484,10 @@ export function CalendarView({
     const closure = closureByDay[slot.dayIndex];
     if (closure) return;
 
-    const day = weekDays[slot.dayIndex];
+    const col = columns[slot.dayIndex];
+    if (!col) return;
     const timeStr = minutesToTimeStr(slot.totalMinutes);
-    onSlotClick(`${day.format('YYYY-MM-DD')}T${timeStr}:00`);
+    onSlotClick(`${col.date.format('YYYY-MM-DD')}T${timeStr}:00`);
   }
 
   // --- Grid body height ---
@@ -464,15 +515,52 @@ export function CalendarView({
         {/* Empty corner cell */}
         <div className="py-2" />
 
-        {weekDays.map((day, i) => {
+        {columns.map((col, i) => {
+          const day = col.date;
           const closure = closureByDay[i];
           const dayTimeOffs = timeOffsByDay[i];
           const hasTimeOffs = dayTimeOffs.length > 0 && !closure;
           const dayBh = businessHoursByDow.get(day.day());
           const isDayClosed = closure || (dayBh && !dayBh.isOpen);
+          // Vista día por empleado: header con avatar + nombre + número de citas
+          if (col.employee) {
+            const emp = col.employee;
+            const empColor = emp.color || '#008080';
+            const aptCount = (appointmentsByDay.get(i) || []).length;
+            const initials = `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase();
+            return (
+              <div
+                key={col.key}
+                className="flex items-center gap-2 px-2 md:px-3 py-2 border-l border-[var(--border)] min-w-0"
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold text-white"
+                  style={{ backgroundColor: empColor }}
+                >
+                  {emp.avatarUrl ? (
+                    <img
+                      src={emp.avatarUrl.startsWith('http') ? emp.avatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${emp.avatarUrl}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{initials || '·'}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate text-[var(--text-primary)]">
+                    {emp.firstName}
+                  </p>
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    {aptCount} {aptCount === 1 ? 'cita' : 'citas'}
+                  </p>
+                </div>
+              </div>
+            );
+          }
           return (
             <div
-              key={day.format('YYYY-MM-DD')}
+              key={col.key}
               className={`text-center py-2 border-l border-[var(--border)] relative group ${
                 isDayClosed ? 'bg-[var(--bg-muted)]' : isToday(day) ? 'bg-primary-50' : ''
               }`}
@@ -573,7 +661,8 @@ export function CalendarView({
                   </div>
 
                   {/* Day cells with grid lines */}
-                  {weekDays.map((day, dayIdx) => {
+                  {columns.map((col, dayIdx) => {
+                    const day = col.date;
                     const dow = day.day();
                     const bh = businessHoursByDow.get(dow);
                     const isClosed = bh ? !bh.isOpen : false;
@@ -605,7 +694,7 @@ export function CalendarView({
           />
 
           {/* Closure overlays */}
-          {weekDays.map((day, dayIdx) => {
+          {columns.map((_, dayIdx) => {
             const closure = closureByDay[dayIdx];
             if (!closure) return null;
             return (
@@ -629,7 +718,7 @@ export function CalendarView({
           })}
 
           {/* Appointment blocks */}
-          {weekDays.map((_, dayIdx) => {
+          {columns.map((_, dayIdx) => {
             if (closureByDay[dayIdx]) return null;
             const dayApts = appointmentsByDay.get(dayIdx) || [];
             const layout = layoutsByDay.get(dayIdx) || new Map();
