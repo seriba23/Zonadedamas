@@ -884,19 +884,25 @@ async function main() {
     if (existingDemoApts >= 40) {
       console.log(`  → ${existingDemoApts} appointments ya existen; saltando creación.`);
     } else {
-      // Distribución:
-      // - 20 COMPLETED (últimos 60 días)
-      // - 10 CONFIRMED (próximos 14 días)
-      //  - 5 CANCELLED (pasado)
-      //  - 5 NO_SHOW (pasado)
-      // - 10 PENDING (próximos 7 días)
-      type ApptPlan = { offsetDays: number; status: AppointmentStatus };
+      // Distribución pensada para que el dashboard del demo se vea poblado:
+      // - 14 COMPLETED concentradas en los últimos 7 días (chart "Últimos 7 días")
+      // -  6 COMPLETED más antiguas (días 8-30) para historial
+      // -  4 CONFIRMED HOY a horas futuras del día ("Próximas citas")
+      // -  8 CONFIRMED próximos 14 días
+      // -  3 PENDING HOY a horas futuras del día
+      // -  7 PENDING próximos 7 días
+      // -  5 CANCELLED pasado
+      // -  5 NO_SHOW pasado
+      type ApptPlan = { offsetDays: number; status: AppointmentStatus; mustBeFutureToday?: boolean };
       const plans: ApptPlan[] = [];
-      for (let i = 0; i < 20; i++) plans.push({ offsetDays: -1 - Math.floor(Math.random() * 60), status: 'COMPLETED' });
-      for (let i = 0; i < 10; i++) plans.push({ offsetDays: 1 + Math.floor(Math.random() * 14), status: 'CONFIRMED' });
-      for (let i = 0; i < 5; i++) plans.push({ offsetDays: -1 - Math.floor(Math.random() * 45), status: 'CANCELLED' });
-      for (let i = 0; i < 5; i++) plans.push({ offsetDays: -1 - Math.floor(Math.random() * 45), status: 'NO_SHOW' });
-      for (let i = 0; i < 10; i++) plans.push({ offsetDays: 1 + Math.floor(Math.random() * 7), status: 'PENDING' });
+      for (let i = 0; i < 14; i++) plans.push({ offsetDays: -(1 + Math.floor(Math.random() * 7)), status: 'COMPLETED' });
+      for (let i = 0; i < 6; i++) plans.push({ offsetDays: -(8 + Math.floor(Math.random() * 23)), status: 'COMPLETED' });
+      for (let i = 0; i < 4; i++) plans.push({ offsetDays: 0, status: 'CONFIRMED', mustBeFutureToday: true });
+      for (let i = 0; i < 8; i++) plans.push({ offsetDays: 1 + Math.floor(Math.random() * 14), status: 'CONFIRMED' });
+      for (let i = 0; i < 3; i++) plans.push({ offsetDays: 0, status: 'PENDING', mustBeFutureToday: true });
+      for (let i = 0; i < 7; i++) plans.push({ offsetDays: 1 + Math.floor(Math.random() * 7), status: 'PENDING' });
+      for (let i = 0; i < 5; i++) plans.push({ offsetDays: -(1 + Math.floor(Math.random() * 30)), status: 'CANCELLED' });
+      for (let i = 0; i < 5; i++) plans.push({ offsetDays: -(1 + Math.floor(Math.random() * 30)), status: 'NO_SHOW' });
 
       // Garantizar horarios laborales (09-18) y no exactamente el mismo slot por empleado
       const slotsTakenByEmp = new Map<string, Set<string>>();
@@ -917,11 +923,22 @@ async function main() {
         const secondarySvc = secondaryEmpSvc?.service ?? null;
 
         // Hora: 09, 10, 11, 12, 14, 15, 16, 17
-        const hourPool = [9, 10, 11, 12, 14, 15, 16, 17];
-        let attempt = 0;
-        let chosenHour = hourPool[aptIdx % hourPool.length];
+        const fullHourPool = [9, 10, 11, 12, 14, 15, 16, 17];
+        // Si la cita debe ser futura HOY, restringir a horas posteriores a (ahora + 1h)
+        const now = new Date();
+        const minHourToday = now.getHours() + 1;
+        const hourPool = plan.mustBeFutureToday
+          ? fullHourPool.filter((h) => h >= minHourToday)
+          : fullHourPool;
+        // Si no quedan horas futuras hoy (ya es tarde), saltar empujando al día siguiente
         let dayDate = new Date(baseDate);
         dayDate.setDate(dayDate.getDate() + plan.offsetDays);
+        if (plan.mustBeFutureToday && hourPool.length === 0) {
+          dayDate.setDate(dayDate.getDate() + 1);
+        }
+        const activeHourPool = hourPool.length > 0 ? hourPool : fullHourPool;
+        let attempt = 0;
+        let chosenHour = activeHourPool[aptIdx % activeHourPool.length];
         // Evitar domingo
         if (dayDate.getDay() === 0) dayDate.setDate(dayDate.getDate() + 1);
 
@@ -930,7 +947,7 @@ async function main() {
           `${d.toISOString().slice(0, 10)}#${h}`;
         let taken = slotsTakenByEmp.get(emp.id) || new Set<string>();
         while (taken.has(empSlotKey(dayDate, chosenHour)) && attempt < 12) {
-          chosenHour = hourPool[(aptIdx + attempt + 1) % hourPool.length];
+          chosenHour = activeHourPool[(aptIdx + attempt + 1) % activeHourPool.length];
           if (attempt > 6) {
             dayDate.setDate(dayDate.getDate() + 1);
             if (dayDate.getDay() === 0) dayDate.setDate(dayDate.getDate() + 1);
@@ -1043,6 +1060,9 @@ async function main() {
               currency: 'USD',
               paymentMethod: method,
               status: 'COMPLETED' as PaymentStatus,
+              // Alinea el cobro con la cita: aparece en el chart en el día real
+              // del servicio, no en el día que se corrió el seed.
+              createdAt: endTime,
               items: {
                 create: [
                   {

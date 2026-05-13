@@ -16,6 +16,7 @@
     "db:seed-marketplace": "ts-node prisma/seed-marketplace.ts",
     "db:seed-photos": "ts-node prisma/seed-photos.ts",
     "db:seed-demo": "ts-node prisma/seed-demo.ts",
+    "db:reset-demo": "ts-node prisma/reset-demo.ts",
     "db:seed-products": "ts-node prisma/seed-products.ts",
     "db:seed-barberia": "ts-node prisma/seed-barberia-products.ts",
     "db:seed-fix-avatars": "ts-node prisma/seed-fix-avatars.ts",
