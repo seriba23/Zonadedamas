@@ -14,7 +14,10 @@ export function KpiCard({
       className="rounded-xl p-5 flex items-center gap-4"
       style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
     >
-      <div className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-primary-50 text-primary-600">
+      <div
+        className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center"
+        style={{ backgroundColor: 'var(--primary-tint)', color: 'var(--primary-tint-fg)' }}
+      >
         {icon}
       </div>
       <div>

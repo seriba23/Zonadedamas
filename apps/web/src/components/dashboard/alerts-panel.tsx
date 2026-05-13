@@ -66,14 +66,17 @@ export function AlertsPanel() {
           href={item.href}
           className="card card-highlight flex items-center gap-3 hover:shadow-sm transition-shadow"
         >
-          <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center flex-shrink-0">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'var(--primary-tint)', color: 'var(--primary-tint-fg)' }}
+          >
             {item.icon}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-primary-700">
+            <p className="text-sm font-semibold" style={{ color: 'var(--primary-tint-fg)' }}>
               <span className="text-base font-bold">{item.count}</span> {item.label}
             </p>
-            <p className="text-xs text-primary-600 mt-0.5 font-medium">{item.action} →</p>
+            <p className="text-xs mt-0.5 font-medium" style={{ color: 'var(--primary-tint-fg)' }}>{item.action} →</p>
           </div>
         </Link>
       ))}

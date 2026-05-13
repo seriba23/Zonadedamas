@@ -13,6 +13,10 @@
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
   --text-muted: #94a3b8;
+  /* Tints teal que respetan el tema */
+  --primary-tint: #e0f2f1;          /* fondo suave teal en claro */
+  --primary-tint-border: #b2dfdb;   /* borde tint en claro */
+  --primary-tint-fg: #006666;       /* texto/icon sobre tint en claro */
 }
 
 html[data-theme="dark"] {
@@ -25,6 +29,10 @@ html[data-theme="dark"] {
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
   --text-muted: #64748b;
+  /* Tints teal en oscuro: vidrio sobre superficie oscura */
+  --primary-tint: rgba(20, 184, 166, 0.12);
+  --primary-tint-border: rgba(20, 184, 166, 0.30);
+  --primary-tint-fg: #5eead4;
 }
 
 @layer base {
@@ -103,6 +111,7 @@ html[data-theme="dark"] {
     border-color: transparent;
   }
   .card-highlight {
-    @apply bg-primary-50 border-primary-200;
+    background-color: var(--primary-tint);
+    border-color: var(--primary-tint-border);
   }
 }
