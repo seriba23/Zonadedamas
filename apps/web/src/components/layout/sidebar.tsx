@@ -93,13 +93,20 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-40 transition-transform duration-200',
+          'fixed inset-y-0 left-0 w-64 flex flex-col z-40 transition-transform duration-200',
           'md:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
+        style={{
+          backgroundColor: 'var(--bg-surface)',
+          borderRight: '1px solid var(--border)',
+        }}
       >
       {/* Logo + close button */}
-      <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
+      <div
+        className="h-16 flex items-center justify-between px-6"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
         <span className="text-xl font-bold text-primary-600">
           Siliba
         </span>

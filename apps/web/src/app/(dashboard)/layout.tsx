@@ -241,11 +241,14 @@ function DashboardLayoutContent({
   const sectionTitle = getSectionTitle(pathname);
 
   return (
-    <div className="flex h-[100dvh] bg-gray-50">
+    <div className="flex h-[100dvh]" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
         {/* Topbar (mobile + desktop) — titulo centrado a TODO el viewport en mobile. */}
-        <header className="relative sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3 bg-white border-b border-gray-200">
+        <header
+          className="relative sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3"
+          style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}
+        >
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="md:hidden relative z-10 p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
