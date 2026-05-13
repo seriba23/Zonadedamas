@@ -227,15 +227,17 @@ export class ReportsService {
         _sum: { totalAmount: true },
         _count: { id: true },
       }),
+      // "Próximas citas": cualquier cita futura (incluyendo días posteriores),
+      // no solo las del día de hoy. Mostrar las 5 mas proximas.
       this.prisma.appointment.findMany({
         where: {
           tenantId,
-          startTime: { gte: now, lte: endOfDay },
+          startTime: { gte: now },
           status: { in: ['PENDING', 'CONFIRMED'] },
         },
         include: {
           client: { select: { firstName: true, lastName: true } },
-          employee: { select: { firstName: true, lastName: true, color: true, avatarUrl: true } },
+          employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
           items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
         },
         orderBy: { startTime: 'asc' },

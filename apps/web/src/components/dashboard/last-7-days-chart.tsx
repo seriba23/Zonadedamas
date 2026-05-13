@@ -1,9 +1,12 @@
+'use client';
+
 import dayjs from 'dayjs';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 export function Last7DaysChart({ days }: { days: { date: string; revenue: number }[] }) {
+  const { format: formatCurrency } = useCurrency();
   const maxRevenue = Math.max(...days.map((d) => d.revenue), 1);
   const total = days.reduce((s, d) => s + d.revenue, 0);
 

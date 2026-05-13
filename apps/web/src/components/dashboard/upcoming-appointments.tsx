@@ -1,6 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import dayjs from 'dayjs';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/lib/hooks/use-currency';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -27,6 +29,7 @@ function statusLabel(status: string) {
 }
 
 export function UpcomingAppointments({ appointments }: { appointments: UpcomingAppointment[] }) {
+  const { format: formatCurrency } = useCurrency();
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
