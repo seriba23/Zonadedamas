@@ -10,6 +10,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
 import { SetBusinessHoursDto } from './dto/business-hours.dto';
 import { CreateBusinessClosureDto } from './dto/business-closure.dto';
+import { parseRangeBound } from '../../common/utils/date-range.util';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 
 // All 53 permissions for the platform
@@ -432,8 +433,8 @@ export class TenantsService {
   async getClosures(tenantId: string, startDate?: string, endDate?: string) {
     const where: any = { tenantId };
     if (startDate && endDate) {
-      where.startDate = { lte: new Date(endDate + 'T23:59:59Z') };
-      where.endDate = { gte: new Date(startDate + 'T00:00:00Z') };
+      where.startDate = { lte: parseRangeBound(endDate, 'end') };
+      where.endDate = { gte: parseRangeBound(startDate, 'start') };
     }
     return this.prisma.businessClosure.findMany({
       where,

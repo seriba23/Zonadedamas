@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { parseRangeBound } from '../../common/utils/date-range.util';
 import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/create-employee.dto';
 import { SetSchedulesDto } from './dto/schedule.dto';
 import { CreateTimeOffDto, ServiceConfigDto } from './dto/time-off.dto';
@@ -347,8 +348,8 @@ export class EmployeesService {
   async getAllTimeOffs(tenantId: string, startDate: string, endDate: string, status?: string) {
     const where: any = {
       employee: { tenantId },
-      startDatetime: { lte: new Date(endDate + 'T23:59:59Z') },
-      endDatetime: { gte: new Date(startDate + 'T00:00:00Z') },
+      startDatetime: { lte: parseRangeBound(endDate, 'end') },
+      endDatetime: { gte: parseRangeBound(startDate, 'start') },
     };
     if (status) where.status = status;
     return this.prisma.employeeTimeOff.findMany({
