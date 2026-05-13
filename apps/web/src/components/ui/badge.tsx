@@ -3,18 +3,19 @@ import { cn } from '@/lib/utils';
 
 export interface BadgeProps {
   children: ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'orange';
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'orange';
   size?: 'sm' | 'md';
   className?: string;
 }
 
 const variantClasses: Record<NonNullable<BadgeProps['variant']>, string> = {
   default: 'bg-gray-100 text-gray-700',
-  success: 'bg-green-100 text-green-700',
-  warning: 'bg-yellow-100 text-yellow-700',
-  danger: 'bg-red-100 text-red-700',
-  info: 'bg-blue-100 text-blue-700',
-  purple: 'bg-purple-100 text-purple-700',
+  primary: 'bg-primary-50 text-primary-700',
+  success: 'bg-success-50 text-success-700',
+  warning: 'bg-warning-50 text-warning-700',
+  danger: 'bg-danger-50 text-danger-700',
+  info: 'bg-info-50 text-info-700',
+  purple: 'bg-purple-50 text-purple-700',
   orange: 'bg-orange-100 text-orange-700',
 };
 
@@ -54,12 +55,12 @@ export function AppointmentStatusBadge({
     { label: string; variant: BadgeProps['variant'] }
   > = {
     pending: { label: 'Pendiente', variant: 'warning' },
-    confirmed: { label: 'Confirmada', variant: 'info' },
+    confirmed: { label: 'Confirmada', variant: 'primary' },
     rescheduled: { label: 'Reagendada', variant: 'orange' },
     in_progress: { label: 'En progreso', variant: 'purple' },
     completed: { label: 'Completada', variant: 'success' },
     cancelled: { label: 'Cancelada', variant: 'danger' },
-    no_show: { label: 'No se presentó', variant: 'default' },
+    no_show: { label: 'No-show', variant: 'default' },
   };
 
   const { label, variant } = config[status] || {
