@@ -18,6 +18,22 @@ export function EmployeesToday() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Citas de hoy para contar por empleado.
+  const todayStart = dayjs().startOf('day').toISOString();
+  const todayEnd = dayjs().endOf('day').toISOString();
+  const { data: aptsData } = useQuery({
+    queryKey: ['employees-today-appointments', todayStart, todayEnd],
+    queryFn: () => api.get<{ data: Array<{ employeeId: string }> }>(
+      `/api/appointments?startDate=${todayStart}&endDate=${todayEnd}&perPage=200`,
+    ),
+    staleTime: 60 * 1000,
+  });
+
+  const countsByEmployee = (aptsData?.data || []).reduce<Record<string, number>>((acc, a) => {
+    acc[a.employeeId] = (acc[a.employeeId] || 0) + 1;
+    return acc;
+  }, {});
+
   const todayDow = dayjs().day();
   const employees = (data?.data || []).filter((e: any) => {
     if (!e.isActive) return false;
@@ -26,35 +42,55 @@ export function EmployeesToday() {
   });
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">
-        Trabajan hoy <span className="text-gray-400 font-normal">({employees.length})</span>
+    <div
+      className="rounded-xl p-5"
+      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+    >
+      <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>
+        Trabajan hoy <span className="font-normal" style={{ color: 'var(--text-muted)' }}>({employees.length})</span>
       </h2>
 
       {employees.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">No hay empleados programados hoy</p>
+        <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>
+          No hay empleados programados hoy
+        </p>
       ) : (
         <ul className="space-y-2">
-          {employees.map((emp: any) => (
-            <li key={emp.id}>
-              <Link href={`/staff/${emp.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                <div
-                  className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold overflow-hidden"
-                  style={{ backgroundColor: emp.color || '#008080' }}
-                >
-                  {emp.avatarUrl ? (
-                    <img src={emp.avatarUrl.startsWith('http') ? emp.avatarUrl : `${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    getInitials(emp.firstName, emp.lastName)
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{emp.firstName} {emp.lastName}</p>
-                  <p className="text-xs text-gray-400 truncate">{emp.jobTitle || 'Empleado'}</p>
-                </div>
-              </Link>
-            </li>
-          ))}
+          {employees.map((emp: any) => {
+            const count = countsByEmployee[emp.id] || 0;
+            return (
+              <li key={emp.id}>
+                <Link href={`/staff/${emp.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div
+                    className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold overflow-hidden"
+                    style={{ backgroundColor: emp.color || '#008080' }}
+                  >
+                    {emp.avatarUrl ? (
+                      <img src={emp.avatarUrl.startsWith('http') ? emp.avatarUrl : `${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      getInitials(emp.firstName, emp.lastName)
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                      {emp.firstName} {emp.lastName}
+                    </p>
+                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                      {emp.jobTitle || 'Empleado'}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-sm font-semibold" style={{ color: count > 0 ? '#008080' : 'var(--text-muted)' }}>
+                      {count}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                      {count === 1 ? 'cita' : 'citas'}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

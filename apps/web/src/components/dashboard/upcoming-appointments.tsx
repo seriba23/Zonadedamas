@@ -28,9 +28,9 @@ function statusLabel(status: string) {
 
 export function UpcomingAppointments({ appointments }: { appointments: UpcomingAppointment[] }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-gray-700">Próximas citas</h2>
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Próximas citas</h2>
         <Link href="/calendar" className="text-xs text-primary-600 hover:text-primary-700 font-medium">
           Ver todas
         </Link>
