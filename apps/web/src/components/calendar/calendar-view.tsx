@@ -450,13 +450,15 @@ export function CalendarView({
   const GAP = 3;
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--bg-surface)' }}>
       {/* Day headers */}
       <div
-        className="border-b border-gray-200 bg-white"
+        className="border-b"
         style={{
           display: 'grid',
           gridTemplateColumns: `${HORA_COL_WIDTH}px repeat(${numDays}, 1fr)`,
+          backgroundColor: 'var(--bg-surface)',
+          borderColor: 'var(--border)',
         }}
       >
         {/* Empty corner cell */}
@@ -471,26 +473,26 @@ export function CalendarView({
           return (
             <div
               key={day.format('YYYY-MM-DD')}
-              className={`text-center py-2 border-l border-gray-100 relative group ${
-                isDayClosed ? 'bg-gray-100' : isToday(day) ? 'bg-primary-50' : ''
+              className={`text-center py-2 border-l border-[var(--border)] relative group ${
+                isDayClosed ? 'bg-[var(--bg-muted)]' : isToday(day) ? 'bg-primary-50' : ''
               }`}
             >
-              <p className="text-xs text-gray-500 uppercase">
+              <p className="text-xs uppercase text-[var(--text-secondary)]">
                 {day.format('ddd')}
               </p>
               <p
                 className={`text-lg font-semibold ${
                   isDayClosed
-                    ? 'text-gray-400'
+                    ? 'text-[var(--text-muted)]'
                     : isToday(day)
-                      ? 'text-blue-600'
-                      : 'text-gray-900'
+                      ? 'text-primary-600'
+                      : 'text-[var(--text-primary)]'
                 }`}
               >
                 {day.format('D')}
               </p>
               {isDayClosed && (
-                <p className="text-xs text-gray-400 truncate px-1">Cerrado</p>
+                <p className="text-xs text-[var(--text-muted)] truncate px-1">Cerrado</p>
               )}
               {hasTimeOffs && (
                 <>
@@ -564,7 +566,7 @@ export function CalendarView({
                     style={{ gridRow: slotIdx + 1, gridColumn: 1 }}
                   >
                     {isHourLine && (
-                      <span className={`text-xs text-gray-400 absolute right-2 ${slotIdx === 0 ? 'top-1' : '-top-2'}`}>
+                      <span className={`text-xs text-[var(--text-muted)] absolute right-2 ${slotIdx === 0 ? 'top-1' : '-top-2'}`}>
                         {formatHourLabel(hour)}
                       </span>
                     )}
@@ -581,11 +583,11 @@ export function CalendarView({
                     return (
                       <div
                         key={dayIdx}
-                        className={`border-l border-gray-100 ${
+                        className={`border-l border-[var(--border)] ${
                           isHourLine
-                            ? 'border-t border-t-gray-200'
-                            : 'border-t border-t-gray-100 border-dashed'
-                        } ${isDisabled ? 'bg-gray-50' : ''}`}
+                            ? 'border-t border-t-[var(--border)]'
+                            : 'border-t border-t-[var(--border)] border-dashed'
+                        } ${isDisabled ? 'bg-[var(--bg-subtle)]' : ''}`}
                         style={{ gridRow: slotIdx + 1, gridColumn: dayIdx + 2 }}
                       />
                     );
@@ -609,7 +611,7 @@ export function CalendarView({
             return (
               <div
                 key={`closure-${dayIdx}`}
-                className="absolute bg-gray-200/60 z-20 flex flex-col items-center justify-center pointer-events-none"
+                className="absolute z-20 flex flex-col items-center justify-center pointer-events-none bg-[var(--bg-muted)]/80"
                 style={{
                   top: 0,
                   height: gridBodyHeight,
@@ -617,11 +619,11 @@ export function CalendarView({
                   width: `calc((100% - ${HORA_COL_WIDTH}px) / ${numDays})`,
                 }}
               >
-                <svg className="w-6 h-6 text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-[var(--text-secondary)] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                <span className="text-sm font-semibold text-gray-600">Cerrado</span>
-                <span className="text-xs text-gray-500 mt-0.5 px-2 text-center">{closure.reason}</span>
+                <span className="text-sm font-semibold text-[var(--text-secondary)]">Cerrado</span>
+                <span className="text-xs text-[var(--text-muted)] mt-0.5 px-2 text-center">{closure.reason}</span>
               </div>
             );
           })}
@@ -704,14 +706,14 @@ export function CalendarView({
                       className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: statusDotColor }}
                     />
-                    <p className="text-xs font-bold truncate text-gray-900">
+                    <p className="text-xs font-bold truncate text-[var(--text-primary)]">
                       {clientName}
                     </p>
                   </div>
 
                   {/* Employee + service info (only if block tall enough) */}
                   {height > 42 && (
-                    <p className="text-[10px] truncate text-gray-600 leading-tight">
+                    <p className="text-[10px] truncate text-[var(--text-secondary)] leading-tight">
                       {empShort}{empShort ? ' · ' : ''}{serviceLabel}
                     </p>
                   )}

@@ -487,14 +487,14 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full">
 
       {/* Main view tabs */}
-      <div className="border-b border-gray-200 px-3 md:px-6 bg-white">
+      <div className="border-b border-[var(--border)] px-3 md:px-6 bg-[var(--bg-surface)]">
         <div className="flex gap-1">
           {(['calendario', 'registro'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setMainView(tab)}
               className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium border-b-2 transition-colors ${
-                mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               {tab === 'calendario' ? 'Citas' : (
@@ -509,9 +509,9 @@ export default function CalendarPage() {
       </div>
 
       {mainView === 'calendario' && (<>
-      <div className="px-3 md:px-6 py-2 md:py-3 bg-white border-b border-gray-200">
+      <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
         {/* Mode selector */}
-        <div className="flex w-full md:w-auto rounded-lg border border-gray-300 overflow-hidden md:inline-flex">
+        <div className="flex w-full md:w-auto rounded-lg border border-[var(--border)] overflow-hidden md:inline-flex">
           {([
             { key: 'day' as ViewMode, label: 'Día' },
             { key: 'week' as ViewMode, label: 'Semana' },
@@ -521,8 +521,8 @@ export default function CalendarPage() {
             <button
               key={v.key}
               onClick={() => setViewMode(v.key)}
-              className={`${v.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
-                viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              className={`${v.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-[var(--border)] last:border-r-0 ${
+                viewMode === v.key ? 'bg-[#008080] text-white' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
               }`}
             >
               {v.label}
@@ -537,14 +537,14 @@ export default function CalendarPage() {
               type="date"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
-              className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+              className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-[var(--border)] rounded-lg bg-[var(--bg-surface)] focus:outline-none focus:border-[#008080]"
             />
-            <span className="text-gray-500 text-[11px] md:text-sm flex-shrink-0">-</span>
+            <span className="text-[var(--text-secondary)] text-[11px] md:text-sm flex-shrink-0">-</span>
             <input
               type="date"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
-              className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+              className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-[var(--border)] rounded-lg bg-[var(--bg-surface)] focus:outline-none focus:border-[#008080]"
             />
           </div>
         )}
@@ -555,7 +555,7 @@ export default function CalendarPage() {
           <div className="space-y-5">
             {/* Empleados */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                 Empleado
               </label>
               <div
@@ -566,11 +566,11 @@ export default function CalendarPage() {
                   onClick={() => setFilterEmployeeId('')}
                   className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold border transition-all ${
                     filterEmployeeId === ''
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                      ? 'bg-[#008080] text-white border-[#008080]'
+                      : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
                   }`}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--text-muted)]" />
                   Todos
                 </button>
                 {activeEmployees.map((emp) => (
@@ -579,8 +579,8 @@ export default function CalendarPage() {
                     onClick={() => setFilterEmployeeId(filterEmployeeId === emp.id ? '' : emp.id)}
                     className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-xs md:text-sm font-semibold border transition-all ${
                       filterEmployeeId === emp.id
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                        ? 'bg-[#008080] text-white border-[#008080]'
+                        : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
                     }`}
                   >
                     <span
@@ -604,7 +604,7 @@ export default function CalendarPage() {
 
             {/* Cliente */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                 Cliente
               </label>
               <SearchableSelect
@@ -623,7 +623,7 @@ export default function CalendarPage() {
 
             {/* Servicios */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                 Servicios
               </label>
               <div className="relative">
@@ -638,7 +638,7 @@ export default function CalendarPage() {
                       ? 'Todos los servicios'
                       : `${filterServiceNames.length} servicio${filterServiceNames.length > 1 ? 's' : ''}`}
                   </span>
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -646,24 +646,24 @@ export default function CalendarPage() {
                   <div
                     ref={servicePanelRef}
                     style={{ position: 'fixed', top: serviceCoords.top, left: serviceCoords.left, width: serviceCoords.width, zIndex: 100 }}
-                    className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                    className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg shadow-lg max-h-60 overflow-y-auto"
                   >
                     {services.map((s) => (
                       <label
                         key={s.id}
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-[var(--bg-muted)] cursor-pointer text-sm"
                       >
                         <input
                           type="checkbox"
                           checked={filterServiceNames.includes(s.name)}
                           onChange={() => toggleServiceFilter(s.name)}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          className="rounded border-[var(--border)] text-primary-600 focus:ring-primary-500"
                         />
                         <span className="truncate">{s.name}</span>
                       </label>
                     ))}
                     {services.length === 0 && (
-                      <p className="px-3 py-2 text-sm text-gray-400">Sin servicios</p>
+                      <p className="px-3 py-2 text-sm text-[var(--text-muted)]">Sin servicios</p>
                     )}
                   </div>,
                   document.body,
@@ -672,14 +672,14 @@ export default function CalendarPage() {
             </div>
 
             {/* Acciones */}
-            <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
               <button
                 onClick={clearFilters}
                 disabled={!hasFilters}
                 className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                   hasFilters
                     ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                    : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -700,37 +700,37 @@ export default function CalendarPage() {
 
       {showStats && (
       /* Quick stats row — all views */
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-3 md:px-6 py-2 md:py-3 border-b border-gray-200 bg-gray-50">
-        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
-          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Total citas</p>
-          <p className="text-base md:text-xl font-bold text-gray-900">{viewStats.total}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-3 md:px-6 py-2 md:py-3 border-b border-[var(--border)] bg-[var(--bg-subtle)]">
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border)] px-3 md:px-4 py-2 md:py-2.5">
+          <p className="text-[10px] text-[var(--text-secondary)] font-medium uppercase tracking-wide">Total citas</p>
+          <p className="text-base md:text-xl font-bold text-[var(--text-primary)]">{viewStats.total}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
-          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Completadas</p>
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border)] px-3 md:px-4 py-2 md:py-2.5">
+          <p className="text-[10px] text-[var(--text-secondary)] font-medium uppercase tracking-wide">Completadas</p>
           <p className="text-base md:text-xl font-bold text-green-600">{viewStats.completed}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
-          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Canceladas</p>
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border)] px-3 md:px-4 py-2 md:py-2.5">
+          <p className="text-[10px] text-[var(--text-secondary)] font-medium uppercase tracking-wide">Canceladas</p>
           <p className="text-base md:text-xl font-bold text-red-500">{viewStats.cancelled}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 px-3 md:px-4 py-2 md:py-2.5">
-          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Ingresos</p>
+        <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border)] px-3 md:px-4 py-2 md:py-2.5">
+          <p className="text-[10px] text-[var(--text-secondary)] font-medium uppercase tracking-wide">Ingresos</p>
           <p className="text-base md:text-xl font-bold text-primary-600">{formatCurrency(viewStats.revenue)}</p>
         </div>
       </div>
       )}
 
       {/* Cabecera: [Hoy] + fecha + toggles de filtros/stats a la derecha */}
-      <div className="flex items-center gap-2 px-3 md:px-6 py-2 bg-white border-b border-gray-200">
+      <div className="flex items-center gap-2 px-3 md:px-6 py-2 bg-[var(--bg-surface)] border-b border-[var(--border)]">
         {viewMode !== 'custom' && (
           <>
             <button
               onClick={goToToday}
-              className="px-2.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex-shrink-0"
+              className="px-2.5 md:px-3 py-1 md:py-1.5 text-[11px] md:text-sm font-medium rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors flex-shrink-0"
             >
               Hoy
             </button>
-            <span className="text-sm md:text-base font-medium text-gray-900 capitalize truncate flex-1 min-w-0">
+            <span className="text-sm md:text-base font-medium text-[var(--text-primary)] capitalize truncate flex-1 min-w-0">
               {viewMode === 'month'
                 ? formatDate(currentDate.toDate(), 'MMMM YYYY')
                 : viewMode === 'day'
@@ -748,7 +748,7 @@ export default function CalendarPage() {
           className={`relative flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
             showFilters
               ? 'bg-[#008080] border-[#008080] text-white'
-              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
           }`}
           title="Filtros"
         >
@@ -767,7 +767,7 @@ export default function CalendarPage() {
           className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
             showStats
               ? 'bg-[#008080] border-[#008080] text-white'
-              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
           }`}
           title="Estadísticas"
         >
@@ -792,7 +792,7 @@ export default function CalendarPage() {
               onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); goBack(); }}
               aria-label="Anterior"
-              className="absolute left-1 md:left-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/95 border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-white hover:shadow-lg transition-all"
+              className="absolute left-1 md:left-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-md flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:shadow-lg transition-all"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -803,7 +803,7 @@ export default function CalendarPage() {
               onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); goForward(); }}
               aria-label="Siguiente"
-              className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/95 border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-white hover:shadow-lg transition-all"
+              className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 md:w-10 md:h-10 rounded-full bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-md flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:shadow-lg transition-all"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -816,12 +816,12 @@ export default function CalendarPage() {
           className={`h-full ${navDir === 'forward' ? 'animate-cal-slide-forward' : 'animate-cal-slide-back'}`}
         >
         {viewMode === 'month' ? (
-          <div className="h-full flex flex-col overflow-auto bg-white">
+          <div className="h-full flex flex-col overflow-auto bg-[var(--bg-surface)]">
 
             {/* Day-of-week header */}
-            <div className="grid grid-cols-7 border-b border-gray-200">
+            <div className="grid grid-cols-7 border-b border-[var(--border)]">
               {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
-                <div key={day} className="py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <div key={day} className="py-2 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
                   {day}
                 </div>
               ))}
@@ -830,7 +830,7 @@ export default function CalendarPage() {
             {/* Calendar grid */}
             <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${monthGridData.weeks.length}, 1fr)` }}>
               {monthGridData.weeks.map((week, wi) => (
-                <div key={wi} className="grid grid-cols-7 border-b border-gray-100 last:border-b-0">
+                <div key={wi} className="grid grid-cols-7 border-b border-[var(--border)] last:border-b-0">
                   {week.map((cell) => {
                     const count = cell.appointments.length;
                     const intensity = monthGridData.maxCount > 0 ? count / monthGridData.maxCount : 0;
@@ -840,7 +840,7 @@ export default function CalendarPage() {
                       <button
                         key={cell.date.format('YYYY-MM-DD')}
                         onClick={() => handleMonthDayClick(cell.date)}
-                        className={`relative flex flex-col items-start p-2 border-r border-gray-100 last:border-r-0 text-left transition-colors hover:bg-gray-50 min-h-[80px] ${
+                        className={`relative flex flex-col items-start p-2 border-r border-[var(--border)] last:border-r-0 text-left transition-colors hover:bg-[var(--bg-muted)] min-h-[80px] ${
                           !cell.isCurrentMonth ? 'opacity-40' : ''
                         }`}
                         style={cell.isCurrentMonth ? { backgroundColor: bgColor } : undefined}
@@ -850,8 +850,8 @@ export default function CalendarPage() {
                             cell.isToday
                               ? 'bg-primary-600 text-white w-7 h-7 rounded-full flex items-center justify-center'
                               : cell.isCurrentMonth
-                                ? 'text-gray-900'
-                                : 'text-gray-400'
+                                ? 'text-[var(--text-primary)]'
+                                : 'text-[var(--text-muted)]'
                           }`}
                         >
                           {cell.date.date()}
@@ -881,7 +881,7 @@ export default function CalendarPage() {
                               );
                             })}
                             {count > 2 && (
-                              <span className="text-[10px] text-gray-500">+{count - 2} más</span>
+                              <span className="text-[10px] text-[var(--text-secondary)]">+{count - 2} más</span>
                             )}
                           </div>
                         )}
@@ -893,9 +893,9 @@ export default function CalendarPage() {
             </div>
           </div>
         ) : viewMode === 'custom' ? (
-          <div className="h-full overflow-auto p-3 md:p-6 bg-white">
+          <div className="h-full overflow-auto p-3 md:p-6 bg-[var(--bg-surface)]">
             {appointments.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">No hay citas en este período</div>
+              <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
             ) : (
               <div className="space-y-2">
                 {appointments.map((apt) => {
@@ -904,24 +904,24 @@ export default function CalendarPage() {
                     <div
                       key={apt.id}
                       onClick={() => handleAppointmentClick(apt)}
-                      className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="flex items-center gap-4 p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors"
                       style={{ borderLeft: `3px solid ${apt.employee?.color || '#008080'}` }}
                     >
                       <div className="min-w-[100px]">
-                        <p className="text-sm font-medium text-gray-900">{dayjs(apt.startTime).format('D MMM YYYY')}</p>
-                        <p className="text-xs text-gray-500">{dayjs(apt.startTime).format('h:mm A')} - {dayjs(apt.endTime).format('h:mm A')}</p>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{dayjs(apt.startTime).format('D MMM YYYY')}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">{dayjs(apt.startTime).format('h:mm A')} - {dayjs(apt.endTime).format('h:mm A')}</p>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{apt.client?.firstName} {apt.client?.lastName}</p>
-                        <p className="text-xs text-gray-500 truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</p>
+                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{apt.client?.firstName} {apt.client?.lastName}</p>
+                        <p className="text-xs text-[var(--text-secondary)] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</p>
                       </div>
-                      <div className="text-xs text-gray-500">{apt.employee?.firstName} {apt.employee?.lastName}</div>
-                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(totalPrice)}</div>
+                      <div className="text-xs text-[var(--text-secondary)]">{apt.employee?.firstName} {apt.employee?.lastName}</div>
+                      <div className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(totalPrice)}</div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         apt.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                         apt.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
                         apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-gray-100 text-gray-600'
+                        'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
                       }`}>
                         {apt.status === 'COMPLETED' ? 'Completada' : apt.status === 'CANCELLED' ? 'Cancelada' : apt.status === 'PENDING' ? 'Pendiente' : apt.status}
                       </span>
@@ -952,13 +952,13 @@ export default function CalendarPage() {
       {mainView === 'registro' && (
         <div className="flex-1 overflow-y-auto">
           {/* Filters: solo busqueda + icono de filtros (el resto vive en un modal) */}
-          <div className="px-3 md:px-6 py-2 md:py-3 bg-white border-b border-gray-200 flex items-center gap-2">
+          <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-surface)] border-b border-[var(--border)] flex items-center gap-2">
             <input
               type="text"
               value={regSearch}
               onChange={(e) => setRegSearch(e.target.value)}
               placeholder="Buscar cliente, empleado, servicio..."
-              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+              className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
             />
             <button
               onClick={() => setShowRegistroFilters(true)}
@@ -966,7 +966,7 @@ export default function CalendarPage() {
               className={`relative flex-shrink-0 p-2 rounded-lg border transition-colors ${
                 showRegistroFilters
                   ? 'bg-[#008080] border-[#008080] text-white'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
               }`}
               title="Filtros"
             >
@@ -985,7 +985,7 @@ export default function CalendarPage() {
               <div className="space-y-5">
                 {/* Rango de fechas */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                     Rango de fechas
                   </label>
                   <div className="flex items-center gap-2">
@@ -993,21 +993,21 @@ export default function CalendarPage() {
                       type="date"
                       value={regDateFrom}
                       onChange={(e) => setRegDateFrom(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white"
+                      className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)]"
                     />
-                    <span className="text-gray-400 flex-shrink-0">–</span>
+                    <span className="text-[var(--text-muted)] flex-shrink-0">–</span>
                     <input
                       type="date"
                       value={regDateTo}
                       onChange={(e) => setRegDateTo(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-white"
+                      className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)]"
                     />
                   </div>
                 </div>
 
                 {/* Empleado */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                     Empleado
                   </label>
                   <SearchableSelect
@@ -1023,7 +1023,7 @@ export default function CalendarPage() {
 
                 {/* Cliente */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                     Cliente
                   </label>
                   <SearchableSelect
@@ -1039,13 +1039,13 @@ export default function CalendarPage() {
 
                 {/* Estado */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                     Estado
                   </label>
                   <select
                     value={regStatus}
                     onChange={(e) => setRegStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-[#008080]"
+                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--bg-surface)] focus:outline-none focus:border-[#008080]"
                   >
                     <option value="">Todos los estados</option>
                     <option value="CONFIRMED">Confirmada</option>
@@ -1057,7 +1057,7 @@ export default function CalendarPage() {
                 </div>
 
                 {/* Acciones */}
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
                   <button
                     onClick={() => {
                       setRegEmployee('');
@@ -1068,7 +1068,7 @@ export default function CalendarPage() {
                     className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                       regEmployee || regClient || regStatus
                         ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                        : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
                     }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -1088,8 +1088,8 @@ export default function CalendarPage() {
           )}
 
           {/* Summary */}
-          <div className="px-3 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-            <span className="text-sm text-gray-600">{regAppointments.length} cita{regAppointments.length !== 1 ? 's' : ''}</span>
+          <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-subtle)] border-b border-[var(--border)] flex items-center justify-between">
+            <span className="text-sm text-[var(--text-secondary)]">{regAppointments.length} cita{regAppointments.length !== 1 ? 's' : ''}</span>
             <span className="text-sm font-bold text-green-700">
               Total: {formatCurrency(regAppointments.reduce((s, a) => s + (a.items || []).reduce((is, i) => is + Number(i.priceSnapshot || 0), 0), 0))}
             </span>
@@ -1098,15 +1098,15 @@ export default function CalendarPage() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-white border-b border-gray-200">
+              <thead className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border)]">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Horario</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Servicios</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Monto</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Horario</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Empleado</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Servicios</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1114,7 +1114,7 @@ export default function CalendarPage() {
                   const total = (apt.items || []).reduce((s, i) => s + Number(i.priceSnapshot || 0), 0);
                   const statusMap: Record<string, { label: string; color: string }> = {
                     CONFIRMED: { label: 'Confirmada', color: 'bg-green-100 text-green-700' },
-                    COMPLETED: { label: 'Completada', color: 'bg-gray-100 text-gray-600' },
+                    COMPLETED: { label: 'Completada', color: 'bg-[var(--bg-muted)] text-[var(--text-secondary)]' },
                     CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-600' },
                     NO_SHOW: { label: 'Ausente', color: 'bg-red-100 text-red-600' },
                     IN_PROGRESS: { label: 'En curso', color: 'bg-blue-100 text-blue-700' },
@@ -1124,11 +1124,11 @@ export default function CalendarPage() {
                   return (
                     <tr
                       key={apt.id}
-                      className="hover:bg-gray-50 cursor-pointer"
+                      className="hover:bg-[var(--bg-muted)] cursor-pointer"
                       onClick={() => { setSelectedAppointmentId(apt.id); setIsModalOpen(true); }}
                     >
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: '#008080' }}>
@@ -1138,7 +1138,7 @@ export default function CalendarPage() {
                               <>{apt.client?.firstName?.[0]}{apt.client?.lastName?.[0]}</>
                             )}
                           </div>
-                          <span className="text-sm font-medium text-gray-900">{apt.client?.firstName} {apt.client?.lastName}</span>
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{apt.client?.firstName} {apt.client?.lastName}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -1150,21 +1150,21 @@ export default function CalendarPage() {
                               <>{apt.employee?.firstName?.[0]}{apt.employee?.lastName?.[0]}</>
                             )}
                           </div>
-                          <span className="text-sm text-gray-600">{apt.employee?.firstName} {apt.employee?.lastName}</span>
+                          <span className="text-sm text-[var(--text-secondary)]">{apt.employee?.firstName} {apt.employee?.lastName}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-[200px] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{formatCurrency(total)}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap">{formatCurrency(total)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
             {regAppointments.length === 0 && (
-              <div className="text-center py-16 text-gray-400">No hay citas en este período</div>
+              <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
             )}
           </div>
         </div>
