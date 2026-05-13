@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -234,6 +235,9 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
             )}
+          </div>
+          <div className="flex items-center justify-end mb-1">
+            <ThemeToggle />
           </div>
           <button
             onClick={async () => {

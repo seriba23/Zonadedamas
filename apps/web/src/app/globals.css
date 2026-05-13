@@ -2,9 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens via CSS variables — habilitan tema claro/oscuro. */
+:root {
+  --bg-canvas: #f8fafc;
+  --bg-surface: #ffffff;
+  --border: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+}
+
+html[data-theme="dark"] {
+  --bg-canvas: #0b1220;
+  --bg-surface: #0f172a;
+  --border: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    @apply antialiased;
   }
 }
 
@@ -67,10 +88,13 @@
     @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-4 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all;
   }
   .card {
-    @apply bg-white rounded-xl border border-gray-200 p-5;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    @apply rounded-xl p-5;
   }
   .card-elevated {
-    @apply shadow-sm border-transparent;
+    @apply shadow-sm;
+    border-color: transparent;
   }
   .card-highlight {
     @apply bg-primary-50 border-primary-200;
