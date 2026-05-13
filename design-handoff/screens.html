@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Siliba — Pantallas rediseñadas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin:0; padding:0; background:#f0eee9; font-family:'Inter', system-ui, sans-serif; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* ─── Siliba tokens (idem design-system.html) ──────────────────────── */
+  :root {
+    --primary-50:#e6f2f2; --primary-100:#ccf2f2; --primary-200:#99e6e6;
+    --primary-300:#66cccc; --primary-400:#00b3b3; --primary-500:#009999;
+    --primary-600:#008080; --primary-700:#006666; --primary-800:#004d4d; --primary-900:#003333;
+
+    --gray-50:#f8fafc; --gray-100:#f1f5f9; --gray-200:#e2e8f0;
+    --gray-300:#cbd5e1; --gray-400:#94a3b8; --gray-500:#64748b;
+    --gray-600:#475569; --gray-700:#334155; --gray-800:#1e293b; --gray-900:#0f172a;
+
+    --success-50:#ecfdf5; --success-100:#d1fae5; --success-600:#059669; --success-700:#047857;
+    --warning-50:#fffbeb; --warning-100:#fef3c7; --warning-600:#d97706; --warning-700:#b45309;
+    --danger-50:#fef2f2;  --danger-100:#fee2e2;  --danger-600:#dc2626;  --danger-700:#b91c1c;
+    --info-50:#eff6ff;    --info-100:#dbeafe;    --info-600:#2563eb;    --info-700:#1d4ed8;
+    --purple-50:#faf5ff;  --purple-100:#f3e8ff;  --purple-200:#e9d5ff;  --purple-300:#d8b4fe;
+    --purple-400:#c084fc; --purple-500:#a855f7;  --purple-600:#9333ea;  --purple-700:#7e22ce;
+    --purple-800:#6b21a8; --purple-900:#581c87;
+
+    --bg-canvas:#f8fafc; --bg-surface:#ffffff; --border:#e2e8f0;
+    --text-primary:#0f172a; --text-secondary:#475569; --text-muted:#94a3b8;
+
+    --radius-md:10px; --radius-lg:14px; --radius-xl:18px;
+    --shadow-sm:0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-lg:0 12px 32px -8px rgba(15,23,42,.16);
+  }
+
+  /* Dark mode tokens — applied via [data-theme="dark"] on html */
+  html[data-theme="dark"] {
+    --bg-canvas:#0b1220; --bg-surface:#0f172a; --border:#1e293b;
+    --text-primary:#f1f5f9; --text-secondary:#94a3b8; --text-muted:#64748b;
+    --gray-50:#0b1220; --gray-100:#0f172a; --gray-200:#1e293b;
+    --gray-300:#334155; --gray-400:#64748b; --gray-500:#94a3b8;
+    --gray-600:#cbd5e1; --gray-700:#e2e8f0; --gray-800:#f1f5f9; --gray-900:#ffffff;
+
+    --primary-50:#072525; --primary-100:#0a3939; --primary-200:#0f5252;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    --shadow-lg:0 12px 32px -8px rgba(0,0,0,.5);
+  }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="screens-primitives.jsx"></script>
+<script type="text/babel" src="screen-dashboard.jsx"></script>
+<script type="text/babel" src="screen-calendar.jsx"></script>
+<script type="text/babel" src="screen-staff.jsx"></script>
+<script type="text/babel" src="screen-services.jsx"></script>
+<script type="text/babel" src="screen-inventory.jsx"></script>
+<script type="text/babel" src="screen-reports.jsx"></script>
+<script type="text/babel" src="screens-app.jsx"></script>
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>

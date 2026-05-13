@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Siliba — Sistema de diseño v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; color: #0f172a; background: #f8fafc; -webkit-font-smoothing: antialiased; }
+
+  /* ─── Siliba design tokens v2 ─────────────────────────────────────────── */
+  :root {
+    /* Brand */
+    --primary-50:  #e6f2f2;
+    --primary-100: #ccf2f2;
+    --primary-200: #99e6e6;
+    --primary-300: #66cccc;
+    --primary-400: #00b3b3;
+    --primary-500: #009999;
+    --primary-600: #008080;  /* PRIMARY — brand */
+    --primary-700: #006666;
+    --primary-800: #004d4d;
+    --primary-900: #003333;
+
+    /* Neutrals (warm-tinted slate) */
+    --gray-50:  #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-300: #cbd5e1;
+    --gray-400: #94a3b8;
+    --gray-500: #64748b;
+    --gray-600: #475569;
+    --gray-700: #334155;
+    --gray-800: #1e293b;
+    --gray-900: #0f172a;
+
+    /* Semantic */
+    --success-50: #ecfdf5; --success-100: #d1fae5; --success-600: #059669; --success-700: #047857;
+    --warning-50: #fffbeb; --warning-100: #fef3c7; --warning-600: #d97706; --warning-700: #b45309;
+    --danger-50:  #fef2f2; --danger-100:  #fee2e2; --danger-600:  #dc2626; --danger-700:  #b91c1c;
+    --info-50:    #eff6ff; --info-100:    #dbeafe; --info-600:    #2563eb; --info-700:    #1d4ed8;
+    --purple-50:  #faf5ff; --purple-100:  #f3e8ff; --purple-600:  #9333ea;
+
+    /* Spacing scale (4px base) */
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+    --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+    /* Radii */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;  /* default for cards/buttons/inputs */
+    --radius-xl: 18px;
+    --radius-full: 999px;
+
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
+    --shadow-sm: 0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-md: 0 4px 12px -2px rgba(15,23,42,.08), 0 2px 4px rgba(15,23,42,.04);
+    --shadow-lg: 0 12px 32px -8px rgba(15,23,42,.16);
+
+    /* Type scale */
+    --fs-display: 36px; --lh-display: 1.1;
+    --fs-h1:      28px; --lh-h1:      1.15;
+    --fs-h2:      22px; --lh-h2:      1.2;
+    --fs-h3:      18px; --lh-h3:      1.3;
+    --fs-body:    14px; --lh-body:    1.5;
+    --fs-sm:      13px; --lh-sm:      1.45;
+    --fs-xs:      12px; --lh-xs:      1.4;
+    --fs-micro:   11px; --lh-micro:   1.3;
+
+    /* Page */
+    --bg-canvas: #f8fafc;
+    --bg-surface: #ffffff;
+    --border: #e2e8f0;
+  }
+
+  /* ─── Page chrome ─────────────────────────────────────────────────────── */
+  .doc { max-width: 1240px; margin: 0 auto; padding: 64px 32px 96px; }
+
+  /* Top banner */
+  .banner {
+    display: flex; align-items: center; gap: 20px;
+    background: var(--primary-600);
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: var(--radius-xl);
+    margin-bottom: 48px;
+    box-shadow: var(--shadow-lg);
+  }
+  .banner-logo {
+    width: 56px; height: 56px; border-radius: 14px;
+    background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .banner-logo img { width: 100%; height: 100%; object-fit: cover; }
+  .banner-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: .85; }
+  .banner h1 { font-size: var(--fs-display); line-height: var(--lh-display); font-weight: 800; margin: 4px 0 6px; letter-spacing: -.02em; }
+  .banner p { font-size: 15px; opacity: .92; margin: 0; max-width: 60ch; }
+
+  /* TOC chips */
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 56px; }
+  .toc a {
+    text-decoration: none;
+    background: #fff; border: 1px solid var(--border);
+    color: var(--gray-700); font-size: var(--fs-sm); font-weight: 500;
+    padding: 7px 14px; border-radius: var(--radius-full);
+    transition: all .15s;
+  }
+  .toc a:hover { border-color: var(--primary-300); color: var(--primary-700); }
+
+  /* Sections */
+  section { margin-bottom: 80px; scroll-margin-top: 24px; }
+  .section-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    margin-bottom: 24px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+  }
+  .section-head h2 {
+    font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 800;
+    color: var(--gray-900); margin: 0; letter-spacing: -.015em;
+  }
+  .section-head .section-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500;
+    color: var(--primary-600);
+  }
+  .section-desc { color: var(--gray-500); font-size: 15px; line-height: 1.55; max-width: 65ch; margin: -12px 0 28px; }
+
+  .group-head {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--gray-500); margin: 32px 0 14px;
+  }
+
+  /* Common spec callout */
+  .callout {
+    margin-top: 12px; padding: 12px 14px;
+    background: var(--primary-50); border-left: 3px solid var(--primary-600);
+    border-radius: 0 8px 8px 0;
+    font-size: 13px; color: var(--gray-700); line-height: 1.5;
+  }
+  .callout b { color: var(--primary-700); }
+  .callout code, code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #fff; border: 1px solid var(--primary-100);
+    padding: 1px 6px; border-radius: 4px; font-size: 12px;
+    color: var(--primary-700);
+  }
+
+  /* Grid helpers */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  @media (max-width: 900px) { .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); } .grid-6 { grid-template-columns: repeat(3, 1fr); } }
+
+  /* Demo container */
+  .demo {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 24px; margin-bottom: 14px;
+  }
+  .demo-grid {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;
+  }
+  .demo-label {
+    font-size: 11px; color: var(--gray-500); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px;
+  }
+
+  /* ─── Color swatches ──────────────────────────────────────────────────── */
+  .swatch {
+    border-radius: var(--radius-md); overflow: hidden;
+    border: 1px solid var(--border); background: #fff;
+  }
+  .swatch-color {
+    height: 70px; display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 10px 12px; color: #fff; font-size: 11px; font-weight: 600;
+  }
+  .swatch-color.light { color: var(--gray-700); }
+  .swatch-meta { padding: 8px 12px; font-size: 11px; line-height: 1.4; }
+  .swatch-meta b { display: block; color: var(--gray-900); font-weight: 600; }
+  .swatch-meta code { font-size: 10.5px; background: var(--gray-100); color: var(--gray-700); border: none; padding: 1px 4px; }
+
+  /* ─── Buttons (the canonical set) ─────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn-sm  { font-size: 12.5px; padding: 6px 12px;   border-radius: 8px;  height: 32px; }
+  .btn-md  { font-size: 14px;   padding: 9px 16px;   border-radius: 10px; height: 40px; }
+  .btn-lg  { font-size: 15px;   padding: 12px 20px;  border-radius: 12px; height: 48px; }
+  .btn-primary   { background: var(--primary-600); color: #fff; }
+  .btn-primary:hover { background: var(--primary-700); }
+  .btn-secondary { background: #fff; color: var(--gray-700); border-color: var(--gray-300); }
+  .btn-secondary:hover { background: var(--gray-50); border-color: var(--gray-400); }
+  .btn-outline   { background: transparent; color: var(--primary-600); border-color: var(--primary-600); }
+  .btn-outline:hover { background: var(--primary-50); }
+  .btn-ghost     { background: transparent; color: var(--gray-700); }
+  .btn-ghost:hover { background: var(--gray-100); }
+  .btn-danger    { background: var(--danger-600); color: #fff; }
+  .btn-danger:hover { background: var(--danger-700); }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  /* ─── Badges / Status ─────────────────────────────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; line-height: 1;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .badge-primary { background: var(--primary-50);  color: var(--primary-700); }
+  .badge-success { background: var(--success-50);  color: var(--success-700); }
+  .badge-warning { background: var(--warning-50);  color: var(--warning-700); }
+  .badge-danger  { background: var(--danger-50);   color: var(--danger-700); }
+  .badge-info    { background: var(--info-50);     color: var(--info-700); }
+  .badge-purple  { background: var(--purple-50);   color: var(--purple-600); }
+  .badge-neutral { background: var(--gray-100);    color: var(--gray-600); }
+
+  /* ─── Inputs ──────────────────────────────────────────────────────────── */
+  .input {
+    width: 100%; height: 40px; padding: 0 14px; font-family: inherit; font-size: 14px;
+    color: var(--gray-900); background: #fff; border: 1px solid var(--gray-300);
+    border-radius: 10px; outline: none; transition: all .15s;
+  }
+  .input:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--primary-100); }
+  .input::placeholder { color: var(--gray-400); }
+  .label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+  .helper { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+  /* ─── Cards (canonical) ───────────────────────────────────────────────── */
+  .card {
+    background: #fff; border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px;
+  }
+  .card-elevated { box-shadow: var(--shadow-sm); border-color: transparent; }
+  .card-highlight { background: var(--primary-50); border-color: var(--primary-200); }
+
+  /* ─── KPI card (replacement spec) ─────────────────────────────────────── */
+  .kpi {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px;
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg);
+  }
+  .kpi-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--primary-50); color: var(--primary-600);
+  }
+  .kpi-label { font-size: 12.5px; color: var(--gray-500); font-weight: 500; margin: 0 0 2px; }
+  .kpi-value { font-size: 22px; font-weight: 800; color: var(--gray-900); margin: 0; letter-spacing: -.01em; }
+  .kpi-sub { font-size: 11.5px; color: var(--gray-400); margin: 2px 0 0; }
+
+  /* ─── Avatar ──────────────────────────────────────────────────────────── */
+  .avatar {
+    border-radius: 999px; background: var(--primary-100); color: var(--primary-700);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; flex-shrink: 0;
+  }
+  .avatar-sm { width: 32px; height: 32px; font-size: 12px; }
+  .avatar-md { width: 40px; height: 40px; font-size: 13px; }
+  .avatar-lg { width: 56px; height: 56px; font-size: 17px; }
+
+  /* ─── Type scale display ──────────────────────────────────────────────── */
+  .type-row {
+    display: flex; align-items: baseline; gap: 24px;
+    padding: 18px 0; border-bottom: 1px dashed var(--border);
+  }
+  .type-row:last-child { border-bottom: 0; }
+  .type-spec {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--gray-500); min-width: 220px;
+  }
+  .type-spec b { color: var(--gray-900); }
+
+  /* ─── Spacing scale display ───────────────────────────────────────────── */
+  .space-row { display: flex; align-items: center; gap: 16px; padding: 8px 0; }
+  .space-bar { height: 16px; background: var(--primary-600); border-radius: 2px; }
+  .space-spec { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gray-600); min-width: 200px; }
+  .space-spec b { color: var(--gray-900); }
+
+  /* ─── Radius examples ─────────────────────────────────────────────────── */
+  .radius-box {
+    width: 100%; aspect-ratio: 1; background: var(--primary-100);
+    border: 1px solid var(--primary-200);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary-700); font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+
+  /* ─── Tables ──────────────────────────────────────────────────────────── */
+  table.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.spec th, table.spec td {
+    padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top;
+  }
+  table.spec th { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; background: var(--gray-50); }
+  table.spec td code { font-family: 'JetBrains Mono', monospace; background: var(--gray-100); border: none; color: var(--gray-700); font-size: 12px; padding: 1px 6px; }
+  table.spec td.cross { color: var(--danger-600); text-decoration: line-through; }
+  table.spec td.good { color: var(--success-700); font-weight: 600; }
+
+  /* ─── User role pill ──────────────────────────────────────────────────── */
+  .role-card {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 20px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .role-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .role-card h4 { margin: 4px 0 0; font-size: 16px; font-weight: 700; color: var(--gray-900); }
+  .role-card p { margin: 0; font-size: 13px; color: var(--gray-600); line-height: 1.5; }
+
+  /* ─── Migration list (handoff) ────────────────────────────────────────── */
+  .migrate {
+    background: #0f172a; color: #e2e8f0; border-radius: var(--radius-lg);
+    padding: 24px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.7;
+  }
+  .migrate .file { color: #67e8f9; }
+  .migrate .add  { color: #86efac; }
+  .migrate .rm   { color: #fca5a5; }
+  .migrate .cmt  { color: #94a3b8; font-style: italic; }
+
+  /* ─── Section step ────────────────────────────────────────────────────── */
+  .step {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 18px 20px 18px 56px; position: relative; margin-bottom: 12px;
+  }
+  .step::before {
+    content: attr(data-step); position: absolute; left: 16px; top: 18px;
+    width: 28px; height: 28px; border-radius: 999px;
+    background: var(--primary-600); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .step h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; color: var(--gray-900); }
+  .step p { margin: 0; font-size: 13px; color: var(--gray-600); line-height: 1.55; }
+
+</style>
+</head>
+<body>
+
+<div class="doc">
+
+  <!-- ─── Banner ────────────────────────────────────────────────────────── -->
+  <div class="banner">
+    <div class="banner-logo"><img src="logo-siliba.png" alt="Siliba" /></div>
+    <div>
+      <div class="banner-eyebrow">Siliba · Design System v2</div>
+      <h1>Una identidad visual consistente</h1>
+      <p>Tokens, componentes y reglas de uso para unificar la app web (admin, empleado y cliente). Todo derivado del teal #008080 y la escala existente en <code style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;">tailwind.config.ts</code>.</p>
+    </div>
+  </div>
+
+  <!-- ─── TOC ───────────────────────────────────────────────────────────── -->
+  <nav class="toc">
+    <a href="#brand">1 · Marca</a>
+    <a href="#color">2 · Color</a>
+    <a href="#type">3 · Tipografía</a>
+    <a href="#space">4 · Espaciado &amp; radios</a>
+    <a href="#shadow">5 · Sombras</a>
+    <a href="#icon">6 · Iconos</a>
+    <a href="#buttons">7 · Botones</a>
+    <a href="#badges">8 · Badges &amp; Status</a>
+    <a href="#inputs">9 · Inputs</a>
+    <a href="#cards">10 · Cards &amp; KPIs</a>
+    <a href="#avatar">11 · Avatares</a>
+    <a href="#roles">12 · Usuarios</a>
+    <a href="#handoff">13 · Handoff →&nbsp;Claude&nbsp;Code</a>
+  </nav>
+
+  <!-- ─── 1 · Brand ─────────────────────────────────────────────────────── -->
+  <section id="brand">
+    <div class="section-head">
+      <h2>Marca</h2>
+      <span class="section-num">01</span>
+    </div>
+    <p class="section-desc">Logo + uso del color de marca. El teal sólido es la firma visual; siempre como color plano, nunca con gradiente.</p>
+
+    <div class="grid-3">
+      <div class="card" style="display:flex;align-items:center;justify-content:center;padding:32px;background:var(--primary-600);">
+        <img src="logo-siliba.png" alt="" style="width:140px;border-radius:14px;" />
+      </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;padding:32px;background:#fff;">
+        <img src="logo-siliba.png" alt="" style="width:140px;border-radius:14px;" />
+      </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;padding:32px;background:var(--gray-900);">
+        <img src="logo-siliba.png" alt="" style="width:140px;border-radius:14px;" />
+      </div>
+    </div>
+    <div class="callout">
+      <b>Regla:</b> usa <code>#008080</code> (primary-600) como fondo del logo siempre que sea posible. Sobre fondos blancos, mantén el logo intacto en su versión con fondo teal. Espacio mínimo alrededor: 16px (1× alto de la "S").
+    </div>
+  </section>
+
+  <!-- ─── 2 · Color ─────────────────────────────────────────────────────── -->
+  <section id="color">
+    <div class="section-head">
+      <h2>Color</h2>
+      <span class="section-num">02</span>
+    </div>
+    <p class="section-desc">La escala primary (teal) ya existe en tu Tailwind. Los neutros pasan de <code>gray-*</code> a una escala con tono ligeramente cálido (slate). Semánticos para feedback.</p>
+
+    <div class="group-head">Primary · marca</div>
+    <div class="grid-6">
+      <div class="swatch"><div class="swatch-color" style="background:#e6f2f2;color:#006666;font-weight:600;">50</div><div class="swatch-meta"><b>primary-50</b><code>#e6f2f2</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#ccf2f2;color:#006666;font-weight:600;">100</div><div class="swatch-meta"><b>primary-100</b><code>#ccf2f2</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#99e6e6;color:#006666;font-weight:600;">200</div><div class="swatch-meta"><b>primary-200</b><code>#99e6e6</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#66cccc;color:#003333;font-weight:600;">300</div><div class="swatch-meta"><b>primary-300</b><code>#66cccc</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#00b3b3;">400</div><div class="swatch-meta"><b>primary-400</b><code>#00b3b3</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#009999;">500</div><div class="swatch-meta"><b>primary-500</b><code>#009999</code></div></div>
+      <div class="swatch" style="grid-column:span 2; border:2px solid #008080;"><div class="swatch-color" style="background:#008080;">600 · BRAND ★</div><div class="swatch-meta"><b>primary-600</b><code>#008080</code> · CTAs, links, brand</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#006666;">700</div><div class="swatch-meta"><b>primary-700</b><code>#006666</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#004d4d;">800</div><div class="swatch-meta"><b>primary-800</b><code>#004d4d</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#003333;">900</div><div class="swatch-meta"><b>primary-900</b><code>#003333</code></div></div>
+    </div>
+
+    <div class="group-head">Neutrals · slate</div>
+    <div class="grid-6">
+      <div class="swatch"><div class="swatch-color" style="background:#f8fafc;color:#475569;font-weight:600;">50</div><div class="swatch-meta"><b>gray-50</b><code>#f8fafc</code> · canvas</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#f1f5f9;color:#475569;font-weight:600;">100</div><div class="swatch-meta"><b>gray-100</b><code>#f1f5f9</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#e2e8f0;color:#334155;font-weight:600;">200</div><div class="swatch-meta"><b>gray-200</b><code>#e2e8f0</code> · borders</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#cbd5e1;color:#1e293b;font-weight:600;">300</div><div class="swatch-meta"><b>gray-300</b><code>#cbd5e1</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#94a3b8;">400</div><div class="swatch-meta"><b>gray-400</b><code>#94a3b8</code> · muted</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#64748b;">500</div><div class="swatch-meta"><b>gray-500</b><code>#64748b</code> · secondary</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#475569;">600</div><div class="swatch-meta"><b>gray-600</b><code>#475569</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#334155;">700</div><div class="swatch-meta"><b>gray-700</b><code>#334155</code> · text body</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#1e293b;">800</div><div class="swatch-meta"><b>gray-800</b><code>#1e293b</code></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#0f172a;">900</div><div class="swatch-meta"><b>gray-900</b><code>#0f172a</code> · ink</div></div>
+    </div>
+
+    <div class="group-head">Semánticos · feedback</div>
+    <div class="grid-4">
+      <div class="swatch"><div class="swatch-color" style="background:#059669;">Success</div><div class="swatch-meta"><b>success-600</b><code>#059669</code> · Completada, pagado</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#d97706;">Warning</div><div class="swatch-meta"><b>warning-600</b><code>#d97706</code> · Pendiente</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#dc2626;">Danger</div><div class="swatch-meta"><b>danger-600</b><code>#dc2626</code> · Cancelada, error</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#9333ea;">Purple</div><div class="swatch-meta"><b>purple-600</b><code>#9333ea</code> · En curso</div></div>
+    </div>
+
+    <div class="callout">
+      <b>Cambio clave:</b> el estado <code>confirmed</code> pasa de <code>info</code> (azul) a <code>primary</code> (teal). El color de marca representa el flujo "todo en orden", no el azul de información.
+      <br><br>
+      <b>Mapeo nuevo de estados:</b> Pendiente <span class="badge badge-warning"><span class="dot"></span>warning</span> · Confirmada <span class="badge badge-primary"><span class="dot"></span>primary</span> · En curso <span class="badge badge-purple"><span class="dot"></span>purple</span> · Completada <span class="badge badge-success"><span class="dot"></span>success</span> · Cancelada <span class="badge badge-danger"><span class="dot"></span>danger</span> · No-show <span class="badge badge-neutral"><span class="dot"></span>neutral</span>
+    </div>
+  </section>
+
+  <!-- ─── 3 · Type ──────────────────────────────────────────────────────── -->
+  <section id="type">
+    <div class="section-head">
+      <h2>Tipografía</h2>
+      <span class="section-num">03</span>
+    </div>
+    <p class="section-desc">Inter como única familia. 8 niveles. Sin "text-base" libre — todo cae en una escala.</p>
+
+    <div class="demo">
+      <div class="type-row"><span class="type-spec"><b>Display</b> · 36/40 · 800</span><div style="font-size:36px;line-height:1.1;font-weight:800;letter-spacing:-.02em;color:var(--gray-900);">Tu día, en orden.</div></div>
+      <div class="type-row"><span class="type-spec"><b>H1</b> · 28/32 · 800</span><div style="font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-.015em;color:var(--gray-900);">Citas de hoy</div></div>
+      <div class="type-row"><span class="type-spec"><b>H2</b> · 22/26 · 700</span><div style="font-size:22px;line-height:1.2;font-weight:700;color:var(--gray-900);">Próximas citas</div></div>
+      <div class="type-row"><span class="type-spec"><b>H3</b> · 18/24 · 700</span><div style="font-size:18px;line-height:1.3;font-weight:700;color:var(--gray-900);">Renata Castillo</div></div>
+      <div class="type-row"><span class="type-spec"><b>Body</b> · 14/21 · 400</span><div style="font-size:14px;line-height:1.5;color:var(--gray-700);">Tinte de cabello en cliente preferente. Alergia leve al amoníaco.</div></div>
+      <div class="type-row"><span class="type-spec"><b>Small</b> · 13/19 · 500</span><div style="font-size:13px;line-height:1.45;color:var(--gray-600);font-weight:500;">11:00 — 12:30 · 90 min</div></div>
+      <div class="type-row"><span class="type-spec"><b>XS</b> · 12/17 · 500</span><div style="font-size:12px;line-height:1.4;color:var(--gray-500);font-weight:500;">Última visita hace 3 semanas</div></div>
+      <div class="type-row"><span class="type-spec"><b>Micro · UPPER</b> · 11/15 · 700 · .08em</span><div style="font-size:11px;line-height:1.3;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--gray-500);">CLIENTE</div></div>
+    </div>
+
+    <div class="callout">
+      <b>Reglas:</b>
+      <br>· Nunca uses peso 600 + tamaño Display (lee débil). Display siempre 800.
+      <br>· Section labels (UPPERCASE) usan Micro con <code>letter-spacing: .08em</code> y <code>color: gray-500</code>.
+      <br>· Números (precios, KPIs) → activa <code>font-variant-numeric: tabular-nums</code>.
+    </div>
+  </section>
+
+  <!-- ─── 4 · Space + Radius ────────────────────────────────────────────── -->
+  <section id="space">
+    <div class="section-head">
+      <h2>Espaciado &amp; radios</h2>
+      <span class="section-num">04</span>
+    </div>
+    <p class="section-desc">Sistema de 4px. Todo padding, gap y margin debe caer en uno de estos 9 valores.</p>
+
+    <div class="grid-3" style="align-items:start;">
+      <div style="grid-column: span 2;">
+        <div class="demo">
+          <div class="space-row"><span class="space-spec"><b>--space-1</b> · 4px</span><div class="space-bar" style="width:4px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-2</b> · 8px</span><div class="space-bar" style="width:8px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-3</b> · 12px</span><div class="space-bar" style="width:12px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-4</b> · 16px</span><div class="space-bar" style="width:16px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-5</b> · 20px</span><div class="space-bar" style="width:20px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-6</b> · 24px</span><div class="space-bar" style="width:24px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-8</b> · 32px</span><div class="space-bar" style="width:32px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-10</b> · 40px</span><div class="space-bar" style="width:40px"></div></div>
+          <div class="space-row"><span class="space-spec"><b>--space-12</b> · 48px</span><div class="space-bar" style="width:48px"></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="group-head" style="margin-top:0;">Radios</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="radius-box" style="border-radius:6px;">6px<br>sm</div>
+          <div class="radius-box" style="border-radius:10px;">10px<br>md</div>
+          <div class="radius-box" style="border-radius:14px;">14px<br><b>lg ★</b></div>
+          <div class="radius-box" style="border-radius:18px;">18px<br>xl</div>
+        </div>
+        <div class="callout" style="margin-top:14px;font-size:12px;">★ <b>Default</b>: usa <code>rounded-[14px]</code> (lg) para cards, modales, drawers y botones grandes. Botones medianos usan md (10px).</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>Aplicación:</b>
+      <br>· Card padding interno: <code>--space-5</code> (20px) en desktop, <code>--space-4</code> (16px) en móvil.
+      <br>· Gap entre cards: <code>--space-4</code> (16px) ó <code>--space-6</code> (24px) en grids amplios.
+      <br>· Container page padding: <code>--space-8</code> desktop / <code>--space-4</code> móvil.
+    </div>
+  </section>
+
+  <!-- ─── 5 · Shadows ───────────────────────────────────────────────────── -->
+  <section id="shadow">
+    <div class="section-head">
+      <h2>Sombras</h2>
+      <span class="section-num">05</span>
+    </div>
+    <p class="section-desc">Casi todo es plano. Sombras suaves solo para elevación funcional (dropdowns, modales, popovers, toasts).</p>
+
+    <div class="grid-4">
+      <div class="card" style="box-shadow:var(--shadow-xs);"><div class="demo-label">shadow-xs</div><div style="font-size:13px;color:var(--gray-600);">Sutil. Cards en hover.</div></div>
+      <div class="card" style="box-shadow:var(--shadow-sm);"><div class="demo-label">shadow-sm</div><div style="font-size:13px;color:var(--gray-600);">Cards elevados, paneles.</div></div>
+      <div class="card" style="box-shadow:var(--shadow-md);"><div class="demo-label">shadow-md</div><div style="font-size:13px;color:var(--gray-600);">Dropdowns, popovers.</div></div>
+      <div class="card" style="box-shadow:var(--shadow-lg);"><div class="demo-label">shadow-lg</div><div style="font-size:13px;color:var(--gray-600);">Modales, drawers.</div></div>
+    </div>
+  </section>
+
+  <!-- ─── 6 · Icons ─────────────────────────────────────────────────────── -->
+  <section id="icon">
+    <div class="section-head">
+      <h2>Iconos</h2>
+      <span class="section-num">06</span>
+    </div>
+    <p class="section-desc">Heroicons <b>outline</b>, peso <code>1.5px</code>, tamaño base 20×20. Solo cambia el color (currentColor). Nada de filled mezclado.</p>
+
+    <div class="demo">
+      <div class="demo-grid" style="gap:24px;">
+        <svg style="width:20px;height:20px;color:var(--gray-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"/></svg>
+        <svg style="width:20px;height:20px;color:var(--gray-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75"/></svg>
+        <svg style="width:20px;height:20px;color:var(--gray-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z"/></svg>
+        <svg style="width:20px;height:20px;color:var(--gray-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+        <svg style="width:20px;height:20px;color:var(--gray-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+        <svg style="width:20px;height:20px;color:var(--gray-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z"/></svg>
+        <svg style="width:20px;height:20px;color:var(--primary-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25"/></svg>
+        <svg style="width:20px;height:20px;color:var(--success-600);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+    </div>
+    <div class="callout">
+      <b>Reglas:</b> stroke <code>1.5</code>, jamás filled. En tu sidebar ya está bien, solo asegúrate de no mezclar con filled en otras pantallas. Tamaño 20 default, 16 inline-text, 24 grandes (KPI cards).
+    </div>
+  </section>
+
+  <!-- ─── 7 · Buttons ───────────────────────────────────────────────────── -->
+  <section id="buttons">
+    <div class="section-head">
+      <h2>Botones</h2>
+      <span class="section-num">07</span>
+    </div>
+    <p class="section-desc">Tu <code>Button</code> component ya tiene la API correcta. Solo se ajustan radios y agrega <code>lg</code> con altura 48px (mobile-friendly hit area).</p>
+
+    <div class="demo">
+      <div class="demo-label">Variants × sizes</div>
+      <div class="demo-grid" style="gap:12px;align-items:center;">
+        <button class="btn btn-sm btn-primary">Primary sm</button>
+        <button class="btn btn-md btn-primary">Primary md</button>
+        <button class="btn btn-lg btn-primary">Primary lg</button>
+      </div>
+      <div class="demo-grid" style="gap:12px;align-items:center;margin-top:12px;">
+        <button class="btn btn-md btn-secondary">Secondary</button>
+        <button class="btn btn-md btn-outline">Outline</button>
+        <button class="btn btn-md btn-ghost">Ghost</button>
+        <button class="btn btn-md btn-danger">Danger</button>
+        <button class="btn btn-md btn-primary" disabled>Disabled</button>
+      </div>
+      <div class="demo-grid" style="gap:12px;align-items:center;margin-top:12px;">
+        <button class="btn btn-md btn-primary"><svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg> Nueva cita</button>
+        <button class="btn btn-md btn-secondary"><svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg> Exportar</button>
+        <button class="btn btn-md btn-danger"><svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg> Cancelar cita</button>
+      </div>
+    </div>
+
+    <table class="spec">
+      <thead><tr><th>Token</th><th>Tamaño</th><th>Altura</th><th>Radio</th><th>Padding</th><th>Cuándo</th></tr></thead>
+      <tbody>
+        <tr><td><code>btn-sm</code></td><td>12.5px / 600</td><td>32px</td><td>8px</td><td>6 / 12</td><td>Tablas, inline.</td></tr>
+        <tr><td><code>btn-md</code></td><td>14px / 600</td><td>40px</td><td>10px</td><td>9 / 16</td><td>Default.</td></tr>
+        <tr><td><code>btn-lg</code></td><td>15px / 600</td><td>48px</td><td>12px</td><td>12 / 20</td><td>CTAs móvil, paso final.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ─── 8 · Badges ────────────────────────────────────────────────────── -->
+  <section id="badges">
+    <div class="section-head">
+      <h2>Badges &amp; estado de cita</h2>
+      <span class="section-num">08</span>
+    </div>
+    <p class="section-desc">Reemplaza el mapeo actual en <code>AppointmentStatusBadge</code> donde <i>Confirmada = info (azul)</i>. Ahora <b>Confirmada = primary (teal)</b>.</p>
+
+    <div class="demo">
+      <div class="demo-label">Estado de cita — nuevo mapeo</div>
+      <div class="demo-grid">
+        <span class="badge badge-warning"><span class="dot"></span>Pendiente</span>
+        <span class="badge badge-primary"><span class="dot"></span>Confirmada</span>
+        <span class="badge badge-purple"><span class="dot"></span>En curso</span>
+        <span class="badge badge-success"><span class="dot"></span>Completada</span>
+        <span class="badge badge-danger"><span class="dot"></span>Cancelada</span>
+        <span class="badge badge-neutral"><span class="dot"></span>No-show</span>
+      </div>
+    </div>
+
+    <table class="spec">
+      <thead><tr><th>Status</th><th>Antes</th><th>Después</th><th>Token nuevo</th></tr></thead>
+      <tbody>
+        <tr><td>Confirmada</td><td class="cross">info / azul</td><td class="good">primary / teal</td><td><code>bg-primary-50 text-primary-700</code></td></tr>
+        <tr><td>Pendiente</td><td>warning</td><td>warning</td><td><code>bg-warning-50 text-warning-700</code></td></tr>
+        <tr><td>En curso</td><td>purple</td><td>purple</td><td><code>bg-purple-50 text-purple-600</code></td></tr>
+        <tr><td>Completada</td><td>success</td><td>success</td><td><code>bg-success-50 text-success-700</code></td></tr>
+        <tr><td>Cancelada</td><td>danger</td><td>danger</td><td><code>bg-danger-50 text-danger-700</code></td></tr>
+        <tr><td>No-show / Ausente</td><td class="cross">danger (rojo)</td><td class="good">neutral (gris)</td><td><code>bg-gray-100 text-gray-600</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <b>Por qué No-show pasa a gris:</b> rojo es "algo malo pasó pero podemos actuar" (cancelada). No-show ya pasó, no hay acción — gris transmite mejor "evento del pasado, sin alarma".
+    </div>
+  </section>
+
+  <!-- ─── 9 · Inputs ────────────────────────────────────────────────────── -->
+  <section id="inputs">
+    <div class="section-head">
+      <h2>Inputs</h2>
+      <span class="section-num">09</span>
+    </div>
+    <p class="section-desc">Misma altura que <code>btn-md</code> (40px) para que se alineen perfecto en filas.</p>
+
+    <div class="demo" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div>
+        <label class="label">Nombre del cliente</label>
+        <input class="input" placeholder="ej. Fernando Ortiz" />
+        <div class="helper">Será visible al confirmar la cita.</div>
+      </div>
+      <div>
+        <label class="label">Email</label>
+        <input class="input" value="cliente.demo@example.com" />
+      </div>
+      <div>
+        <label class="label">Estado</label>
+        <select class="input">
+          <option>Confirmada</option><option>Pendiente</option><option>Completada</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">Notas</label>
+        <textarea class="input" style="height:90px;padding:10px 14px;resize:vertical;">Cliente prefiere tonos cálidos. Alergia leve al amoníaco.</textarea>
+      </div>
+    </div>
+
+    <div class="callout">
+      Focus ring: <code>box-shadow: 0 0 0 3px var(--primary-100)</code> + border <code>primary-500</code>. Tu CSS actual usa <code>ring-2 focus:ring-primary-500</code>; cambia a <code>ring-4 ring-primary-100</code> para anillo más suave.
+    </div>
+  </section>
+
+  <!-- ─── 10 · Cards / KPIs ─────────────────────────────────────────────── -->
+  <section id="cards">
+    <div class="section-head">
+      <h2>Cards &amp; KPIs</h2>
+      <span class="section-num">10</span>
+    </div>
+    <p class="section-desc">Unifica todas las cards al mismo lenguaje: <code>border-gray-200</code>, <code>rounded-[14px]</code>, <code>p-5</code>, fondo blanco. Sin sombras a menos que esté elevado funcionalmente.</p>
+
+    <div class="grid-4">
+      <div class="kpi">
+        <div class="kpi-icon">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25"/></svg>
+        </div>
+        <div>
+          <p class="kpi-label">Citas hoy</p>
+          <p class="kpi-value">12</p>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182"/></svg>
+        </div>
+        <div>
+          <p class="kpi-label">Ingresos hoy</p>
+          <p class="kpi-value" style="font-variant-numeric:tabular-nums;">$3,240</p>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3"/></svg>
+        </div>
+        <div>
+          <p class="kpi-label">Pagos hoy</p>
+          <p class="kpi-value">8</p>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-icon">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22"/></svg>
+        </div>
+        <div>
+          <p class="kpi-label">Mes</p>
+          <p class="kpi-value">142</p>
+          <p class="kpi-sub" style="font-variant-numeric:tabular-nums;">$48,200 · ingresos</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>Fix en <code>kpi-card.tsx</code>:</b> reemplaza el color hardcoded <code>bg-[#e0f2f1] text-[#008080]</code> por tokens.
+      <br>Antes: <code style="background:var(--danger-50);color:var(--danger-700);border-color:var(--danger-100);">bg-[#e0f2f1] text-[#008080]</code> · Después: <code style="background:var(--success-50);color:var(--success-700);border-color:var(--success-100);">bg-primary-50 text-primary-600</code>
+    </div>
+
+    <div class="group-head">Variantes</div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="demo-label">Card default</div>
+        <p style="margin:0;font-size:14px;color:var(--gray-700);">Borde + fondo blanco. Sin sombra. Es el 90% de las cards.</p>
+      </div>
+      <div class="card card-elevated">
+        <div class="demo-label">Card elevated</div>
+        <p style="margin:0;font-size:14px;color:var(--gray-700);">Sin borde, con sombra-sm. Para resumen/hero en dashboards.</p>
+      </div>
+      <div class="card card-highlight">
+        <div class="demo-label" style="color:var(--primary-700);">Card highlight</div>
+        <p style="margin:0;font-size:14px;color:var(--gray-700);">Fondo primary-50 + borde primary-200. CTA contextuales.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 11 · Avatar ───────────────────────────────────────────────────── -->
+  <section id="avatar">
+    <div class="section-head">
+      <h2>Avatares</h2>
+      <span class="section-num">11</span>
+    </div>
+    <p class="section-desc">3 tamaños. Si no hay foto, iniciales en primary-100/primary-700. Cuando es empleado y tiene color asignado, ese color reemplaza al teal.</p>
+
+    <div class="demo">
+      <div class="demo-grid" style="align-items:center;gap:20px;">
+        <div class="avatar avatar-sm">FO</div>
+        <div class="avatar avatar-md">FO</div>
+        <div class="avatar avatar-lg">FO</div>
+        <div class="avatar avatar-md" style="background:#9333ea;color:#fff;">RC</div>
+        <div class="avatar avatar-md" style="background:#d97706;color:#fff;">JL</div>
+        <div class="avatar avatar-md" style="background:#dc2626;color:#fff;">MR</div>
+      </div>
+    </div>
+    <div class="callout">
+      <b>Empleados</b> usan el campo <code>color</code> del backend (ya existe). <b>Clientes</b> siempre usan primary-100/primary-700 a menos que tengan foto.
+    </div>
+  </section>
+
+  <!-- ─── 12 · Roles ────────────────────────────────────────────────────── -->
+  <section id="roles">
+    <div class="section-head">
+      <h2>Los 3 tipos de usuario</h2>
+      <span class="section-num">12</span>
+    </div>
+    <p class="section-desc">Cada rol entra a una "shell" distinta. Mismos componentes, diferente navegación, densidad y tono.</p>
+
+    <div class="grid-3">
+      <div class="role-card">
+        <div class="role-icon" style="background:var(--primary-50);color:var(--primary-600);">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </div>
+        <h4>Administrador</h4>
+        <p>Web densa, sidebar siempre visible (md+), KPIs, reportes, ajustes. Densidad <b>compact</b> por defecto. Tono profesional.</p>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <span class="badge badge-primary">Dashboard</span>
+          <span class="badge badge-neutral">Reportes</span>
+          <span class="badge badge-neutral">Personal</span>
+          <span class="badge badge-neutral">Configuración</span>
+        </div>
+      </div>
+
+      <div class="role-card">
+        <div class="role-icon" style="background:var(--purple-50);color:var(--purple-600);">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+        </div>
+        <h4>Empleado</h4>
+        <p>Mobile-first. Agenda del día como vista principal. Sin sidebar, bottom-nav. Densidad <b>cozy</b>. Acciones grandes (44px+).</p>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <span class="badge badge-primary">Mi día</span>
+          <span class="badge badge-neutral">Mis citas</span>
+          <span class="badge badge-neutral">Portfolio</span>
+          <span class="badge badge-neutral">Mi perfil</span>
+        </div>
+      </div>
+
+      <div class="role-card">
+        <div class="role-icon" style="background:var(--warning-50);color:var(--warning-600);">
+          <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+        </div>
+        <h4>Cliente</h4>
+        <p>Marketplace pulido. Búsqueda de negocios, perfiles, reservas. Tono <b>warm/wellness</b>. Imágenes grandes, bordes generosos (rounded-xl).</p>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <span class="badge badge-primary">Explorar</span>
+          <span class="badge badge-neutral">Negocio</span>
+          <span class="badge badge-neutral">Reservar</span>
+          <span class="badge badge-neutral">Mis reservas</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>Mismo design system, distinta densidad:</b>
+      <br>· <b>Admin web:</b> spacing tight (gap-3/4), tablas, vista de información.
+      <br>· <b>Empleado móvil:</b> spacing relajado (gap-4/6), botones 48px, listas grandes.
+      <br>· <b>Cliente:</b> spacing aireado (gap-6/8), imágenes hero, type display.
+    </div>
+  </section>
+
+  <!-- ─── 13 · Handoff ──────────────────────────────────────────────────── -->
+  <section id="handoff">
+    <div class="section-head">
+      <h2>Handoff para Claude Code</h2>
+      <span class="section-num">13</span>
+    </div>
+    <p class="section-desc">Pasos concretos para implementar el sistema sobre el repo actual. Cada paso es atómico y testeable.</p>
+
+    <div class="step" data-step="1">
+      <h4>Extender <code>tailwind.config.ts</code> con neutros + semánticos</h4>
+      <p>Tu <code>primary</code> ya está bien. Agrega <code>gray</code> (slate ya está en Tailwind por defecto, pero conviene fijarlo), <code>success</code>, <code>warning</code>, <code>danger</code>, <code>info</code>, <code>purple</code> como aliases para no escribir <code>green-100</code> en código.</p>
+    </div>
+
+    <div class="step" data-step="2">
+      <h4>Fix <code>kpi-card.tsx</code> · eliminar colores hardcoded</h4>
+      <p>Reemplaza <code>bg-[#e0f2f1] text-[#008080]</code> por <code>bg-primary-50 text-primary-600</code>. También sube el radio del icono a <code>rounded-xl</code> y el tamaño a <code>w-11 h-11</code> (44×44).</p>
+    </div>
+
+    <div class="step" data-step="3">
+      <h4>Fix <code>badge.tsx</code> · status Confirmada en teal</h4>
+      <p>En <code>AppointmentStatusBadge</code>, cambia <code>confirmed: { variant: 'info' }</code> → <code>confirmed: { variant: 'primary' }</code>. Agrega variante <code>primary</code> al <code>variantClasses</code> con <code>bg-primary-50 text-primary-700</code>. Cambia <code>no_show</code> a variant <code>default</code> (gris).</p>
+    </div>
+
+    <div class="step" data-step="4">
+      <h4>Fix <code>upcoming-appointments.tsx</code> · usar tokens</h4>
+      <p>Reemplaza <code>text-[#008080]</code> y <code>text-[#006666]</code> por <code>text-primary-600</code> y <code>text-primary-700</code>. Reemplaza <code>bg-green-100 text-green-700</code> por <code>bg-primary-50 text-primary-700</code> (status confirmed). El status helper duplicado puede usar el <code>AppointmentStatusBadge</code> compartido.</p>
+    </div>
+
+    <div class="step" data-step="5">
+      <h4>Unificar radios · <code>rounded-xl</code> es default</h4>
+      <p>Cambia <code>rounded-lg</code> → <code>rounded-xl</code> en cards de dashboard y todos los <code>border border-gray-200 bg-white</code>. Botones permanecen en <code>rounded-lg</code> (10px). Pills/badges en <code>rounded-full</code>.</p>
+    </div>
+
+    <div class="step" data-step="6">
+      <h4>Refactor <code>globals.css</code> · alinear con tokens</h4>
+      <p>La clase <code>.card</code> usa <code>shadow-sm border border-gray-200 p-6</code>. Cámbiala a <code>border border-gray-200 p-5 rounded-xl</code> (sin sombra default, p-5 = 20px). Usa <code>.card-elevated</code> para cuando sí necesites elevación.</p>
+    </div>
+
+    <div class="step" data-step="7">
+      <h4>Agregar plugin para CSS variables</h4>
+      <p>Para soportar <b>modo oscuro</b> sin duplicar todo, mueve los colores a CSS variables y referénciale desde Tailwind con un plugin (<code>tailwindcss-themer</code> o variables propias en globals.css). Toggle vía <code>data-theme="dark"</code> en <code>&lt;html&gt;</code>.</p>
+    </div>
+
+    <div class="step" data-step="8">
+      <h4>Nuevos componentes UI que faltan</h4>
+      <p><b>Empty state</b> (ya hay uno inline en <code>UpcomingAppointments</code> — sácalo a <code>ui/empty-state.tsx</code>) · <b>StatPill</b> (KPI inline con delta vs período anterior) · <b>Toast</b> (notificación tras acción) · <b>SegmentedControl</b> (día / semana / mes en calendario) · <b>Tabs</b>.</p>
+    </div>
+
+    <div class="step" data-step="9">
+      <h4>Mobile-first audit</h4>
+      <p>Tu sidebar ya tiene <code>-translate-x-full</code> en móvil. Falta: <b>bottom-nav</b> para vista de empleado (mejor que sidebar lateral en móvil) y <b>safe-area-inset-bottom</b> en sticky bottoms (ya tienes <code>.safe-bottom</code>, úsalo). Tamaño mínimo de hit area en móvil: <b>44×44px</b>.</p>
+    </div>
+
+    <h3 style="margin-top:48px;font-size:18px;font-weight:700;color:var(--gray-900);">Diff resumido</h3>
+    <div class="migrate">
+<span class="cmt">// apps/web/tailwind.config.ts</span>
+extend.colors = {
+  primary: { ... },                       <span class="cmt">// ✔ ya existe</span>
+<span class="add">+ gray:    { 50:'#f8fafc', ..., 900:'#0f172a' },</span>
+<span class="add">+ success: { 50:'#ecfdf5', 600:'#059669', 700:'#047857' },</span>
+<span class="add">+ warning: { 50:'#fffbeb', 600:'#d97706', 700:'#b45309' },</span>
+<span class="add">+ danger:  { 50:'#fef2f2', 600:'#dc2626', 700:'#b91c1c' },</span>
+<span class="add">+ info:    { 50:'#eff6ff', 600:'#2563eb', 700:'#1d4ed8' },</span>
+<span class="add">+ purple:  { 50:'#faf5ff', 600:'#9333ea' },</span>
+}
+
+<span class="cmt">// apps/web/src/components/dashboard/kpi-card.tsx</span>
+<span class="rm">- &lt;div className="... bg-[#e0f2f1] text-[#008080]"&gt;</span>
+<span class="add">+ &lt;div className="... bg-primary-50 text-primary-600 rounded-xl w-11 h-11"&gt;</span>
+
+<span class="cmt">// apps/web/src/components/ui/badge.tsx</span>
+const config = {
+  pending:     { label: 'Pendiente',  variant: 'warning' },
+<span class="rm">- confirmed:   { label: 'Confirmada', variant: 'info' },</span>
+<span class="add">+ confirmed:   { label: 'Confirmada', variant: 'primary' },</span>
+  rescheduled: { label: 'Reagendada', variant: 'orange' },
+  in_progress: { label: 'En progreso',variant: 'purple' },
+  completed:   { label: 'Completada', variant: 'success' },
+  cancelled:   { label: 'Cancelada',  variant: 'danger' },
+<span class="rm">- no_show:     { label: 'Ausente',    variant: 'default' },</span>
+<span class="add">+ no_show:     { label: 'No-show',    variant: 'default' },</span>
+};
+<span class="add">+ primary:     'bg-primary-50 text-primary-700',  // add to variantClasses</span>
+
+<span class="cmt">// apps/web/src/components/dashboard/upcoming-appointments.tsx</span>
+<span class="rm">- text-[#008080] hover:text-[#006666]</span>
+<span class="add">+ text-primary-600 hover:text-primary-700</span>
+<span class="rm">- CONFIRMED: { ..., className: 'bg-green-100 text-green-700' }</span>
+<span class="add">+ CONFIRMED: { ..., className: 'bg-primary-50 text-primary-700' }</span>
+
+<span class="cmt">// apps/web/src/app/globals.css</span>
+.card {
+<span class="rm">- @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;</span>
+<span class="add">+ @apply bg-white rounded-xl border border-gray-200 p-5;</span>
+}
+<span class="add">+ .card-elevated { @apply shadow-sm border-transparent; }</span>
+<span class="add">+ .card-highlight { @apply bg-primary-50 border-primary-200; }</span>
+    </div>
+
+    <div class="callout">
+      <b>Próximos pasos:</b>
+      <br>1. Abre <code>screens.html</code> para ver el sistema aplicado a Dashboard, Calendario, Personal y Reportes.
+      <br>2. Cada pantalla tiene specs anotados al lado (margins, sizes, hex codes).
+      <br>3. Usa este documento como referencia mientras Claude Code va aplicando los cambios — un PR por sección (color, badges, kpi, cards, etc).
+    </div>
+  </section>
+
+  <!-- ─── Footer ────────────────────────────────────────────────────────── -->
+  <div style="text-align:center;color:var(--gray-400);font-size:12px;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);">
+    Siliba · Design System v2 · Documentación viva
+  </div>
+</div>
+
+</body>
+</html>

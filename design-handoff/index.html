@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Siliba — Vista de cita a detalle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* Siliba design tokens shared by both variations */
+  :root {
+    /* Brand: solid teal #008080 */
+    --brand:    #008080;
+    --teal-50:  #e6f2f2;
+    --teal-100: #cce5e5;
+    --teal-200: #99cccc;
+    --teal-300: #66b2b2;
+    --teal-400: #339999;
+    --teal-500: #008080;
+    --teal-600: #008080;
+    --teal-700: #006666;
+    --teal-800: #004d4d;
+
+    --ink-900:  #0f1715;
+    --ink-700:  #2b3633;
+    --ink-500:  #5b6a66;
+    --ink-400:  #7c8a86;
+    --ink-300:  #aab3b0;
+
+    --paper:    #ffffff;
+    --paper-2:  #f7f7f4;
+    --paper-3:  #efeee9;
+    --line:     #e7e5e0;
+    --line-2:   #efedea;
+
+    --amber:    #f59e0b;
+    --rose:     #e2483a;
+    --rose-soft:#fde8e6;
+    --info:     #2a6fdb;
+    --info-soft:#eaf1fc;
+  }
+
+  /* Density tweak: adjust via CSS variables on body */
+  body[data-density="cozy"]    { --gap-card: 20px; --gap-row: 14px; --gap-tight: 10px; --pad-card: 20px; --radius-card: 18px; --fs-label: 12px; }
+  body[data-density="compact"] { --gap-card: 12px; --gap-row: 8px;  --gap-tight: 6px;  --pad-card: 14px; --radius-card: 14px; --fs-label: 11px; }
+
+  /* Override !important rules from artboard children if user edits styles */
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="variation-a.jsx"></script>
+<script type="text/babel" src="variation-b.jsx"></script>
+<script type="text/babel" src="variation-b-frames.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</head>
+<body data-density="cozy">
+  <div id="root"></div>
+</body>
+</html>
