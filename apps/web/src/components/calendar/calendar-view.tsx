@@ -516,10 +516,13 @@ export function CalendarView({
 
   // --- Render ---
   const GAP = 3;
-  // Vista día con columnas por empleado: scroll horizontal + columna horas fija
+  // Vista día con columnas por empleado: scroll horizontal + columna horas fija.
+  // Usamos minmax(168px, 1fr) para que las columnas crezcan cuando hay pocos
+  // empleados (llenan el viewport) y se queden en 168px cuando hay muchos
+  // (forzando scroll horizontal en el contenedor padre).
   const isEmployeeView = viewMode === 'day' && columns.some((c) => !!c.employee);
   const gridTemplateColumns = isEmployeeView
-    ? `${HORA_COL_WIDTH}px repeat(${numDays}, ${EMPLOYEE_COL_WIDTH}px)`
+    ? `${HORA_COL_WIDTH}px repeat(${numDays}, minmax(${EMPLOYEE_COL_WIDTH}px, 1fr))`
     : `${HORA_COL_WIDTH}px repeat(${numDays}, 1fr)`;
   const innerMinWidth = isEmployeeView
     ? `${HORA_COL_WIDTH + numDays * EMPLOYEE_COL_WIDTH}px`
@@ -611,6 +614,7 @@ export function CalendarView({
             );
           }
           const isClickable = viewMode === 'week' && !!onDayHeaderClick;
+          const isCurrent = isToday(day);
           return (
             <div
               key={col.key}
@@ -628,8 +632,9 @@ export function CalendarView({
                   : undefined
               }
               className={`text-center py-2 border-l border-[var(--border)] relative group ${
-                isDayClosed ? 'bg-[var(--bg-muted)]' : isToday(day) ? 'bg-primary-50' : ''
+                isDayClosed ? 'bg-[var(--bg-muted)]' : ''
               } ${isClickable ? 'cursor-pointer hover:bg-[var(--bg-muted)] transition-colors' : ''}`}
+              style={isCurrent && !isDayClosed ? { backgroundColor: 'var(--primary-tint)' } : undefined}
             >
               <p className="text-xs uppercase text-[var(--text-secondary)]">
                 {day.format('ddd')}
