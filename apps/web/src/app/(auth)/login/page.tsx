@@ -51,8 +51,14 @@ function LoginPageInner() {
   const [roleChoice, setRoleChoice] = useState<AuthUser | null>(null);
   const [availableProfiles, setAvailableProfiles] = useState<string[]>([]);
 
-  // Social login: invite code step
+  // Social login: tipo de cuenta + invite code step
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
+  const [socialToken, setSocialToken] = useState<string | null>(null);
+  // 'choice' = mostrar selector (Cliente/Profesional/Administrador)
+  // 'professional' = mostrar form de codigo de invitacion
+  const [socialStage, setSocialStage] = useState<'choice' | 'professional'>('choice');
+  const [socialError, setSocialError] = useState('');
+  const [socialBusy, setSocialBusy] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -130,8 +136,13 @@ function LoginPageInner() {
       const result = res.data;
 
       if (result.needsProfile) {
-        // New user — show invite code form inline
+        // New user — primero mostrar selector de tipo de cuenta
+        // (Cliente / Profesional / Administrador), no saltar directo
+        // al form de invitacion.
         setSocialProfile(result.socialProfile);
+        setSocialToken(token);
+        setSocialStage('choice');
+        setSocialError('');
         setIsLoading(false);
         return;
       }
@@ -189,6 +200,37 @@ function LoginPageInner() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleChooseClient() {
+    if (!socialProfile || !socialToken) return;
+    setSocialBusy(true);
+    setSocialError('');
+    try {
+      // Marketplace tiene su propio endpoint social que registra al cliente.
+      await marketplaceApi.socialLoginAndStore(
+        socialProfile.provider as 'google' | 'facebook',
+        socialToken,
+      );
+      router.push('/marketplace');
+    } catch (err: any) {
+      setSocialError(err?.message || 'No se pudo registrar la cuenta de cliente.');
+    } finally {
+      setSocialBusy(false);
+    }
+  }
+
+  function handleChooseAdmin() {
+    if (!socialProfile) return;
+    // Redirige al flujo de registro de negocio con los datos sociales
+    // pre-llenados. El usuario completara el nombre del negocio alli.
+    const params = new URLSearchParams({
+      type: 'freelancer',
+      email: socialProfile.email,
+      firstName: socialProfile.firstName,
+      lastName: socialProfile.lastName,
+    });
+    router.push(`/register?${params.toString()}`);
   }
 
   async function handleInviteSubmit(e: FormEvent) {
@@ -308,8 +350,117 @@ function LoginPageInner() {
     );
   }
 
-  // If social login returned needsProfile — show invite code form
+  // If social login returned needsProfile — show account type selector first,
+  // then optionally invite code form for "Profesional".
   if (socialProfile) {
+    const ProfileHeader = (
+      <>
+        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+          {socialProfile.avatarUrl ? (
+            <img src={socialProfile.avatarUrl} alt="" className="w-12 h-12 rounded-full" />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-lg font-bold">
+              {socialProfile.firstName[0]}
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-gray-900">{socialProfile.firstName} {socialProfile.lastName}</p>
+            <p className="text-sm text-gray-500">{socialProfile.email}</p>
+          </div>
+        </div>
+      </>
+    );
+
+    // STAGE 1: selector de tipo de cuenta
+    if (socialStage === 'choice') {
+      return (
+        <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
+              <p className="mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
+              {ProfileHeader}
+
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">¿Cómo quieres usar Siliba?</h2>
+              <p className="text-sm text-gray-500 mb-6">Selecciona el tipo de cuenta que vas a crear.</p>
+
+              {socialError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{socialError}</div>
+              )}
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleChooseClient}
+                  disabled={socialBusy}
+                  className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5a4 4 0 11-8 0 4 4 0 018 0zm6 3a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">Cliente</p>
+                      <p className="text-xs text-gray-500">Quiero reservar citas en negocios</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setSocialError(''); setSocialStage('professional'); }}
+                  disabled={socialBusy}
+                  className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">Profesional</p>
+                      <p className="text-xs text-gray-500">Me uno a un negocio con código de invitación</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleChooseAdmin}
+                  disabled={socialBusy}
+                  className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">Administrador</p>
+                      <p className="text-xs text-gray-500">Voy a registrar mi propio negocio</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => { setSocialProfile(null); setSocialToken(null); }}
+                disabled={socialBusy}
+                className="w-full mt-4 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Volver al inicio de sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // STAGE 2: form de codigo de invitacion (cuando eligio "Profesional")
     return (
       <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
         <div className="w-full max-w-md">
@@ -319,20 +470,7 @@ function LoginPageInner() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
-            {/* Social profile preview */}
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-              {socialProfile.avatarUrl ? (
-                <img src={socialProfile.avatarUrl} alt="" className="w-12 h-12 rounded-full" />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-lg font-bold">
-                  {socialProfile.firstName[0]}
-                </div>
-              )}
-              <div>
-                <p className="font-semibold text-gray-900">{socialProfile.firstName} {socialProfile.lastName}</p>
-                <p className="text-sm text-gray-500">{socialProfile.email}</p>
-              </div>
-            </div>
+            {ProfileHeader}
 
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Únete a un negocio</h2>
             <p className="text-sm text-gray-500 mb-6">
@@ -373,10 +511,10 @@ function LoginPageInner() {
             </form>
 
             <button
-              onClick={() => setSocialProfile(null)}
+              onClick={() => { setSocialStage('choice'); setInviteCode(''); setInviteError(''); }}
               className="w-full mt-4 text-sm text-gray-500 hover:text-gray-700"
             >
-              Volver al inicio de sesión
+              Volver
             </button>
           </div>
         </div>
