@@ -82,6 +82,7 @@ const SLOT_HEIGHT = 40; // px per 30-min slot
 const TOTAL_SLOTS = TOTAL_HOURS * 2; // 28 slots
 const HEADER_HEIGHT = 0; // header is outside the grid body
 const HORA_COL_WIDTH = 60; // px for time labels column
+const EMPLOYEE_COL_WIDTH = 240; // px por columna de empleado en vista 'day' (scroll horizontal)
 const SNAP_MINUTES = 15;
 
 const DRAGGABLE_STATUSES = new Set(['pending', 'confirmed', 'rescheduled']);
@@ -220,7 +221,20 @@ export function CalendarView({
   dayEmployees = [],
 }: CalendarViewProps) {
   const gridBodyRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+
+  // Sincroniza scroll horizontal del body hacia el header (vista 'day' empleado)
+  useEffect(() => {
+    const body = gridBodyRef.current;
+    const header = headerRef.current;
+    if (!body || !header) return;
+    function onScroll() {
+      if (header && body) header.scrollLeft = body.scrollLeft;
+    }
+    body.addEventListener('scroll', onScroll);
+    return () => body.removeEventListener('scroll', onScroll);
+  }, []);
   const [nowMinutes, setNowMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
@@ -499,21 +513,52 @@ export function CalendarView({
 
   // --- Render ---
   const GAP = 3;
+  // Vista día con columnas por empleado: scroll horizontal + columna horas fija
+  const isEmployeeView = viewMode === 'day' && columns.some((c) => !!c.employee);
+  const gridTemplateColumns = isEmployeeView
+    ? `${HORA_COL_WIDTH}px repeat(${numDays}, ${EMPLOYEE_COL_WIDTH}px)`
+    : `${HORA_COL_WIDTH}px repeat(${numDays}, 1fr)`;
+  const innerMinWidth = isEmployeeView
+    ? `${HORA_COL_WIDTH + numDays * EMPLOYEE_COL_WIDTH}px`
+    : undefined;
+  // Estilos para fijar la columna de horas (sticky) cuando hay scroll horizontal
+  const stickyColStyle: React.CSSProperties = isEmployeeView
+    ? {
+        position: 'sticky',
+        left: 0,
+        zIndex: 5,
+        backgroundColor: 'var(--bg-surface)',
+      }
+    : {};
+  const stickyCornerStyle: React.CSSProperties = isEmployeeView
+    ? {
+        position: 'sticky',
+        left: 0,
+        zIndex: 6,
+        backgroundColor: 'var(--bg-surface)',
+      }
+    : {};
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--bg-surface)' }}>
-      {/* Day headers */}
+      {/* Day headers — overflow oculto, scroll sincronizado con el body */}
       <div
-        className="border-b"
+        ref={headerRef}
+        className="border-b overflow-x-hidden"
         style={{
-          display: 'grid',
-          gridTemplateColumns: `${HORA_COL_WIDTH}px repeat(${numDays}, 1fr)`,
           backgroundColor: 'var(--bg-surface)',
           borderColor: 'var(--border)',
         }}
       >
-        {/* Empty corner cell */}
-        <div className="py-2" />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns,
+          minWidth: innerMinWidth,
+        }}
+      >
+        {/* Empty corner cell (sticky en vista empleado) */}
+        <div className="py-2" style={stickyCornerStyle} />
 
         {columns.map((col, i) => {
           const day = col.date;
@@ -630,16 +675,17 @@ export function CalendarView({
           );
         })}
       </div>
+      </div>
 
-      {/* Scrollable grid body */}
-      <div className="flex-1 overflow-y-auto" ref={gridBodyRef}>
-        <div className="relative" style={{ height: gridBodyHeight }}>
+      {/* Scrollable grid body — scroll vertical siempre, horizontal solo en vista empleado */}
+      <div className={`flex-1 overflow-y-auto ${isEmployeeView ? 'overflow-x-auto' : ''}`} ref={gridBodyRef}>
+        <div className="relative" style={{ height: gridBodyHeight, minWidth: innerMinWidth }}>
           {/* Grid lines + time labels using CSS Grid */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               display: 'grid',
-              gridTemplateColumns: `${HORA_COL_WIDTH}px repeat(${numDays}, 1fr)`,
+              gridTemplateColumns,
               gridTemplateRows: `repeat(${TOTAL_SLOTS}, ${SLOT_HEIGHT}px)`,
             }}
           >
@@ -648,10 +694,10 @@ export function CalendarView({
               const hour = HOUR_START + Math.floor(slotIdx / 2);
               return (
                 <React.Fragment key={slotIdx}>
-                  {/* Time label cell */}
+                  {/* Time label cell — sticky en vista empleado */}
                   <div
                     className="relative pr-2 text-right"
-                    style={{ gridRow: slotIdx + 1, gridColumn: 1 }}
+                    style={{ gridRow: slotIdx + 1, gridColumn: 1, ...stickyColStyle }}
                   >
                     {isHourLine && (
                       <span className={`text-xs text-[var(--text-muted)] absolute right-2 ${slotIdx === 0 ? 'top-1' : '-top-2'}`}>

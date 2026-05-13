@@ -424,13 +424,16 @@ export default function CalendarPage() {
 
   // Swipe horizontal sobre el calendario: misma accion que las flechas.
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  // En vista 'day' con empleados, el calendario tiene scroll horizontal nativo
+  // para ver columnas; no queremos que el swipe cambie de día y compita con ese scroll.
+  const hasEmployeeDayScroll = viewMode === 'day' && (dayEmployeesData?.data?.length || 0) > 0;
   function onSwipeStart(e: React.TouchEvent | React.PointerEvent) {
-    if (viewMode === 'custom') return;
+    if (viewMode === 'custom' || hasEmployeeDayScroll) return;
     const point = 'touches' in e ? e.touches[0] : e;
     swipeStartRef.current = { x: point.clientX, y: point.clientY };
   }
   function onSwipeEnd(e: React.TouchEvent | React.PointerEvent) {
-    if (viewMode === 'custom' || !swipeStartRef.current) return;
+    if (viewMode === 'custom' || hasEmployeeDayScroll || !swipeStartRef.current) return;
     const point = 'changedTouches' in e ? e.changedTouches[0] : e;
     const dx = point.clientX - swipeStartRef.current.x;
     const dy = Math.abs(point.clientY - swipeStartRef.current.y);
