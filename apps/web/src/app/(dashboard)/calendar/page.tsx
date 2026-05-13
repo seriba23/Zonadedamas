@@ -956,6 +956,10 @@ export default function CalendarPage() {
             employeeTimeOffs={employeeTimeOffs}
             businessHours={businessHoursData?.data || []}
             dayEmployees={viewMode === 'day' ? (dayEmployeesData?.data || []) : []}
+            onDayHeaderClick={(day) => {
+              setCurrentDate(day);
+              setViewMode('day');
+            }}
           />
         )}
         </div>

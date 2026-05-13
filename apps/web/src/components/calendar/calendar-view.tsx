@@ -65,6 +65,8 @@ interface CalendarViewProps {
   businessHours?: BusinessHourEntry[];
   /** Empleados que trabajan en `date` (solo se usa en vista 'day' para hacer columnas por empleado). */
   dayEmployees?: DayEmployee[];
+  /** Click en el header de un día (solo aplica a vista semana) — típicamente navega a vista día. */
+  onDayHeaderClick?: (date: Dayjs) => void;
 }
 
 interface Column {
@@ -219,6 +221,7 @@ export function CalendarView({
   employeeTimeOffs = [],
   businessHours = [],
   dayEmployees = [],
+  onDayHeaderClick,
 }: CalendarViewProps) {
   const gridBodyRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -607,12 +610,26 @@ export function CalendarView({
               </div>
             );
           }
+          const isClickable = viewMode === 'week' && !!onDayHeaderClick;
           return (
             <div
               key={col.key}
+              role={isClickable ? 'button' : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onClick={isClickable ? () => onDayHeaderClick!(day) : undefined}
+              onKeyDown={
+                isClickable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onDayHeaderClick!(day);
+                      }
+                    }
+                  : undefined
+              }
               className={`text-center py-2 border-l border-[var(--border)] relative group ${
                 isDayClosed ? 'bg-[var(--bg-muted)]' : isToday(day) ? 'bg-primary-50' : ''
-              }`}
+              } ${isClickable ? 'cursor-pointer hover:bg-[var(--bg-muted)] transition-colors' : ''}`}
             >
               <p className="text-xs uppercase text-[var(--text-secondary)]">
                 {day.format('ddd')}
