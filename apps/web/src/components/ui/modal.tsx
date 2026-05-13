@@ -57,25 +57,30 @@ export function Modal({
       {/* Dialog */}
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-xl z-10 flex flex-col max-h-[90vh]',
+          'relative w-full rounded-2xl shadow-xl z-10 flex flex-col max-h-[90vh]',
           sizeClasses[size],
           className,
         )}
+        style={{ backgroundColor: 'var(--bg-surface)' }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'var(--border)' }}
+        >
           <h2
             id="modal-title"
-            className="text-lg font-semibold text-gray-900"
+            className="text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            className="p-1.5 rounded-lg transition-colors text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]"
             aria-label="Cerrar"
           >
             <svg

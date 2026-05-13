@@ -99,8 +99,13 @@ export default function CalendarPage() {
   }, [searchParams]);
 
   // Filter state
-  const [filterEmployeeId, setFilterEmployeeId] = useState('');
+  const [filterEmployeeIds, setFilterEmployeeIds] = useState<string[]>([]);
   const [filterClientId, setFilterClientId] = useState('');
+  function toggleEmployeeFilter(id: string) {
+    setFilterEmployeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
   const [filterServiceNames, setFilterServiceNames] = useState<string[]>([]);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
   const serviceButtonRef = useRef<HTMLButtonElement>(null);
@@ -171,11 +176,11 @@ export default function CalendarPage() {
     endDate,
     perPage: '100',
   });
-  if (filterEmployeeId) queryParams.set('employeeId', filterEmployeeId);
+  if (filterEmployeeIds.length > 0) queryParams.set('employeeIds', filterEmployeeIds.join(','));
   if (filterClientId) queryParams.set('clientId', filterClientId);
 
   const { data, refetch } = useQuery({
-    queryKey: ['appointments', startDate, endDate, filterEmployeeId, filterClientId],
+    queryKey: ['appointments', startDate, endDate, filterEmployeeIds.join(','), filterClientId],
     queryFn: () =>
       api.get<{ data: Appointment[] }>(
         `/api/appointments?${queryParams.toString()}`,
@@ -361,10 +366,10 @@ export default function CalendarPage() {
     setViewMode('day');
   }
 
-  const hasFilters = filterEmployeeId || filterClientId || filterServiceNames.length > 0;
+  const hasFilters = filterEmployeeIds.length > 0 || filterClientId || filterServiceNames.length > 0;
 
   function clearFilters() {
-    setFilterEmployeeId('');
+    setFilterEmployeeIds([]);
     setFilterClientId('');
     setFilterServiceNames([]);
   }
@@ -576,9 +581,9 @@ export default function CalendarPage() {
                 style={{ scrollbarWidth: 'thin' }}
               >
                 <button
-                  onClick={() => setFilterEmployeeId('')}
+                  onClick={() => setFilterEmployeeIds([])}
                   className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold border transition-all ${
-                    filterEmployeeId === ''
+                    filterEmployeeIds.length === 0
                       ? 'bg-[#008080] text-white border-[#008080]'
                       : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
                   }`}
@@ -589,9 +594,9 @@ export default function CalendarPage() {
                 {activeEmployees.map((emp) => (
                   <button
                     key={emp.id}
-                    onClick={() => setFilterEmployeeId(filterEmployeeId === emp.id ? '' : emp.id)}
+                    onClick={() => toggleEmployeeFilter(emp.id)}
                     className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-xs md:text-sm font-semibold border transition-all ${
-                      filterEmployeeId === emp.id
+                      filterEmployeeIds.includes(emp.id)
                         ? 'bg-[#008080] text-white border-[#008080]'
                         : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
                     }`}
@@ -955,7 +960,13 @@ export default function CalendarPage() {
             closures={closures}
             employeeTimeOffs={employeeTimeOffs}
             businessHours={businessHoursData?.data || []}
-            dayEmployees={viewMode === 'day' ? (dayEmployeesData?.data || []) : []}
+            dayEmployees={
+              viewMode === 'day'
+                ? (dayEmployeesData?.data || []).filter(
+                    (e) => filterEmployeeIds.length === 0 || filterEmployeeIds.includes(e.id),
+                  )
+                : []
+            }
             onDayHeaderClick={(day) => {
               setCurrentDate(day);
               setViewMode('day');

@@ -10,6 +10,11 @@ export class FilterAppointmentsDto extends PaginationDto {
   @IsUUID()
   employeeId?: string;
 
+  // CSV de UUIDs ("id1,id2"). Si está presente, tiene prioridad sobre employeeId.
+  @IsOptional()
+  @IsString()
+  employeeIds?: string;
+
   @IsOptional()
   @IsUUID()
   clientId?: string;

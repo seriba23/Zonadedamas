@@ -374,7 +374,12 @@ export class AppointmentsService {
 
     const where: any = { tenantId };
     if (filters.locationId) where.locationId = filters.locationId;
-    if (filters.employeeId) where.employeeId = filters.employeeId;
+    if (filters.employeeIds) {
+      const ids = filters.employeeIds.split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length > 0) where.employeeId = { in: ids };
+    } else if (filters.employeeId) {
+      where.employeeId = filters.employeeId;
+    }
     if (filters.clientId) where.clientId = filters.clientId;
     if (filters.status) where.status = filters.status;
 
