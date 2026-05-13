@@ -110,11 +110,11 @@ const PAYMENT_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
   CONFIRMED: { label: 'Confirmada', color: 'bg-blue-100 text-blue-800' },
-  RESCHEDULED: { label: 'Reagendada', color: 'bg-orange-100 text-orange-800' },
+  RESCHEDULED: { label: 'Reagendada', color: 'bg-teal-50 text-teal-700' },
   IN_PROGRESS: { label: 'En curso', color: 'bg-purple-100 text-purple-800' },
   COMPLETED: { label: 'Completada', color: 'bg-green-100 text-green-800' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-800' },
-  NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-800' },
+  NO_SHOW: { label: 'Ausente', color: 'bg-[var(--bg-muted)] text-[var(--text-primary)]' },
 };
 
 export default function ReportsPage() {
@@ -266,8 +266,8 @@ export default function ReportsPage() {
   function renderAppointmentsTable(apts: Appointment[], totalRevenue: number, revenueOnly: boolean) {
     return (
       <div>
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-          <span className="text-sm font-medium text-gray-600">{apts.length} cita{apts.length !== 1 ? 's' : ''}</span>
+        <div className="px-4 py-3 bg-[var(--bg-subtle)] border-b border-[var(--border)] flex justify-between items-center">
+          <span className="text-sm font-medium text-[var(--text-secondary)]">{apts.length} cita{apts.length !== 1 ? 's' : ''}</span>
           <span className="text-sm font-bold text-green-700">Total: {formatCurrency(totalRevenue)}</span>
         </div>
         <div className="max-h-[70vh] overflow-y-auto">
@@ -279,32 +279,32 @@ export default function ReportsPage() {
               return (
                 <div
                   key={apt.id}
-                  className="p-3 hover:bg-gray-50 cursor-pointer"
+                  className="p-3 hover:bg-[var(--bg-muted)] cursor-pointer"
                   onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}
                 >
                   <div className="flex items-start justify-between mb-1.5">
-                    <p className="text-sm font-semibold text-gray-900">{dayjs(apt.startTime).format('DD/MM/YYYY')} · {dayjs(apt.startTime).format('HH:mm')}</p>
-                    <span className="text-sm font-semibold text-gray-900 flex-shrink-0 ml-2">{formatCurrency(total)}</span>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{dayjs(apt.startTime).format('DD/MM/YYYY')} · {dayjs(apt.startTime).format('HH:mm')}</p>
+                    <span className="text-sm font-semibold text-[var(--text-primary)] flex-shrink-0 ml-2">{formatCurrency(total)}</span>
                   </div>
                   <dl className="space-y-1 text-xs">
                     <div className="flex">
-                      <dt className="w-20 text-gray-500 flex-shrink-0">Cliente</dt>
-                      <dd className="text-gray-800 font-medium flex-1 min-w-0 truncate">{apt.client.firstName} {apt.client.lastName}</dd>
+                      <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Cliente</dt>
+                      <dd className="text-[var(--text-primary)] font-medium flex-1 min-w-0 truncate">{apt.client.firstName} {apt.client.lastName}</dd>
                     </div>
                     <div className="flex items-center">
-                      <dt className="w-20 text-gray-500 flex-shrink-0">Empleado</dt>
-                      <dd className="text-gray-700 flex-1 min-w-0 flex items-center gap-1.5">
+                      <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Empleado</dt>
+                      <dd className="text-[var(--text-secondary)] flex-1 min-w-0 flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
                         <span className="truncate">{apt.employee.firstName} {apt.employee.lastName}</span>
                       </dd>
                     </div>
                     <div className="flex">
-                      <dt className="w-20 text-gray-500 flex-shrink-0">Servicios</dt>
-                      <dd className="text-gray-700 flex-1 min-w-0">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</dd>
+                      <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Servicios</dt>
+                      <dd className="text-[var(--text-secondary)] flex-1 min-w-0">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</dd>
                     </div>
                     {!revenueOnly && (
                       <div className="flex items-center pt-0.5">
-                        <dt className="w-20 text-gray-500 flex-shrink-0">Estado</dt>
+                        <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Estado</dt>
                         <dd>
                           <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${status.color}`}>{status.label}</span>
                         </dd>
@@ -318,15 +318,15 @@ export default function ReportsPage() {
 
           {/* Desktop: tabla */}
           <table className="hidden md:table w-full">
-            <thead className="sticky top-0 bg-white border-b border-gray-200">
+            <thead className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border)]">
               <tr>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Horario</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Servicios</th>
-                {!revenueOnly && <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Estado</th>}
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Monto</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Horario</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Empleado</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Servicios</th>
+                {!revenueOnly && <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>}
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -334,23 +334,23 @@ export default function ReportsPage() {
                 const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
                 const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
                 return (
-                  <tr key={apt.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}>
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{apt.client.firstName} {apt.client.lastName}</td>
+                  <tr key={apt.id} className="hover:bg-[var(--bg-muted)] cursor-pointer" onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}>
+                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{apt.client.firstName} {apt.client.lastName}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
-                        <span className="text-sm text-gray-600">{apt.employee.firstName} {apt.employee.lastName}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{apt.employee.firstName} {apt.employee.lastName}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-[200px] truncate">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</td>
                     {!revenueOnly && (
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{formatCurrency(total)}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap">{formatCurrency(total)}</td>
                   </tr>
                 );
               })}
@@ -365,36 +365,36 @@ export default function ReportsPage() {
     // Payment method detail -> show payments
     if (typeof detail === 'object' && detail?.type === 'paymentMethod') {
       const payments = detailPayments || [];
-      if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (payments.length === 0) return <div className="p-8 text-center text-gray-400">No hay pagos con este método en este período</div>;
+      if (detailLoading) return <div className="p-8 text-center text-[var(--text-muted)]">Cargando...</div>;
+      if (payments.length === 0) return <div className="p-8 text-center text-[var(--text-muted)]">No hay pagos con este método en este período</div>;
       const total = payments.reduce((s, p) => s + Number(p.totalAmount), 0);
       return (
         <div>
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-600">{payments.length} pago{payments.length !== 1 ? 's' : ''}</span>
+          <div className="px-4 py-3 bg-[var(--bg-subtle)] border-b border-[var(--border)] flex justify-between items-center">
+            <span className="text-sm font-medium text-[var(--text-secondary)]">{payments.length} pago{payments.length !== 1 ? 's' : ''}</span>
             <span className="text-sm font-bold text-green-700">Total: {formatCurrency(total)}</span>
           </div>
           <div className="max-h-[70vh] overflow-y-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-white border-b border-gray-200">
+              <thead className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border)]">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Fecha</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Método</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Monto</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Método</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{dayjs(p.createdAt).format('DD/MM/YYYY HH:mm')}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{p.client.firstName} {p.client.lastName}</td>
+                  <tr key={p.id} className="hover:bg-[var(--bg-muted)]">
+                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(p.createdAt).format('DD/MM/YYYY HH:mm')}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{p.client.firstName} {p.client.lastName}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{PAYMENT_LABELS[p.paymentMethod] || p.paymentMethod}</span>
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-[var(--bg-muted)] text-[var(--text-secondary)]">{PAYMENT_LABELS[p.paymentMethod] || p.paymentMethod}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{p.status === 'COMPLETED' ? 'Completado' : p.status}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{formatCurrency(Number(p.totalAmount))}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{p.status === 'COMPLETED' ? 'Completado' : p.status}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap">{formatCurrency(Number(p.totalAmount))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -407,8 +407,8 @@ export default function ReportsPage() {
     // Revenue detail -> show completed appointments
     if (detail === 'revenue') {
       const apts = (detailAppointments || []).filter((a) => a.status === 'COMPLETED');
-      if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (apts.length === 0) return <div className="p-8 text-center text-gray-400">No hay citas completadas en este período</div>;
+      if (detailLoading) return <div className="p-8 text-center text-[var(--text-muted)]">Cargando...</div>;
+      if (apts.length === 0) return <div className="p-8 text-center text-[var(--text-muted)]">No hay citas completadas en este período</div>;
       const totalRevenue = apts.reduce((s, a) => s + a.items.reduce((is, i) => is + Number(i.priceSnapshot), 0), 0);
       return renderAppointmentsTable(apts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()), totalRevenue, true);
     }
@@ -417,8 +417,8 @@ export default function ReportsPage() {
     if (detail === 'appointments' || detail === 'cancelled' || detail === 'noshow'
       || (typeof detail === 'object' && detail !== null && (detail.type === 'employee' || detail.type === 'client' || detail.type === 'service'))) {
       const apts = getFilteredAppointments();
-      if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (apts.length === 0) return <div className="p-8 text-center text-gray-400">No hay citas en este período</div>;
+      if (detailLoading) return <div className="p-8 text-center text-[var(--text-muted)]">Cargando...</div>;
+      if (apts.length === 0) return <div className="p-8 text-center text-[var(--text-muted)]">No hay citas en este período</div>;
       const totalRevenue = apts.reduce((s, a) => s + a.items.reduce((is, i) => is + Number(i.priceSnapshot), 0), 0);
       return renderAppointmentsTable(apts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()), totalRevenue, false);
     }
@@ -426,32 +426,32 @@ export default function ReportsPage() {
     // New clients detail
     if (detail === 'newClients' || detail === 'returningClients') {
       const clients = detailClients || [];
-      if (detailLoading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-      if (clients.length === 0) return <div className="p-8 text-center text-gray-400">{detail === 'newClients' ? 'No hay clientes nuevos en este período' : 'No hay clientes recurrentes'}</div>;
+      if (detailLoading) return <div className="p-8 text-center text-[var(--text-muted)]">Cargando...</div>;
+      if (clients.length === 0) return <div className="p-8 text-center text-[var(--text-muted)]">{detail === 'newClients' ? 'No hay clientes nuevos en este período' : 'No hay clientes recurrentes'}</div>;
       return (
         <div>
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <span className="text-sm font-medium text-gray-600">{clients.length} cliente{clients.length !== 1 ? 's' : ''} nuevo{clients.length !== 1 ? 's' : ''}</span>
+          <div className="px-4 py-3 bg-[var(--bg-subtle)] border-b border-[var(--border)]">
+            <span className="text-sm font-medium text-[var(--text-secondary)]">{clients.length} cliente{clients.length !== 1 ? 's' : ''} nuevo{clients.length !== 1 ? 's' : ''}</span>
           </div>
           <div className="max-h-[70vh] overflow-y-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-white border-b border-gray-200">
+              <thead className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border)]">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Nombre</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Email</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Teléfono</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Citas</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Registro</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Nombre</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Email</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Teléfono</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Citas</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Registro</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {clients.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.firstName} {c.lastName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.email || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.phone || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c._count?.appointments || 0}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dayjs(c.createdAt).format('DD/MM/YYYY')}</td>
+                  <tr key={c.id} className="hover:bg-[var(--bg-muted)]">
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{c.firstName} {c.lastName}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{c.email || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{c.phone || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{c._count?.appointments || 0}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(c.createdAt).format('DD/MM/YYYY')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -464,7 +464,7 @@ export default function ReportsPage() {
     return null;
   }
 
-  const clickableCard = 'cursor-pointer hover:shadow-md hover:border-gray-300 transition-all';
+  const clickableCard = 'cursor-pointer hover:shadow-md hover:border-[var(--border)] transition-all';
 
   return (
     <div className="flex flex-col h-full">
@@ -472,13 +472,13 @@ export default function ReportsPage() {
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
         {/* Date range selector */}
         <div className="mb-4 md:mb-6 space-y-2">
-          <div className="w-full md:w-auto flex rounded-lg border border-gray-300 overflow-hidden md:inline-flex">
+          <div className="w-full md:w-auto flex rounded-lg border border-[var(--border)] overflow-hidden md:inline-flex">
             {rangeOptions.map((r) => (
               <button
                 key={r.key}
                 onClick={() => setDateRange(r.key)}
-                className={`${r.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-gray-300 last:border-r-0 ${
-                  dateRange === r.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`${r.key === 'custom' ? 'flex-[1.6] md:flex-none' : 'flex-1 md:flex-none'} px-1 md:px-4 py-1.5 md:py-2 text-[11px] md:text-sm font-medium whitespace-nowrap transition-colors border-r border-[var(--border)] last:border-r-0 ${
+                  dateRange === r.key ? 'bg-[#008080] text-white' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
                 }`}
               >
                 {r.label}
@@ -491,14 +491,14 @@ export default function ReportsPage() {
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+                className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-[var(--border)] rounded-lg bg-[var(--bg-surface)] focus:outline-none focus:border-[#008080]"
               />
-              <span className="text-gray-500 text-[11px] md:text-sm flex-shrink-0">-</span>
+              <span className="text-[var(--text-secondary)] text-[11px] md:text-sm flex-shrink-0">-</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-[#008080]"
+                className="flex-1 md:flex-none min-w-0 md:w-auto px-2 md:px-3 py-1.5 md:py-2 text-[11px] md:text-sm border border-[var(--border)] rounded-lg bg-[var(--bg-surface)] focus:outline-none focus:border-[#008080]"
               />
             </div>
           )}
@@ -509,35 +509,35 @@ export default function ReportsPage() {
           {/* Ingresos */}
           <div
             onClick={() => setDetail('revenue')}
-            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
+            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
           >
             <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-green-700 bg-green-50">
               <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}</p>
-            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Ingresos totales</p>
+            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}</p>
+            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Ingresos totales</p>
             <p className="text-[10px] md:text-xs text-primary-600 mt-1 md:mt-2 font-medium">Ver detalle &rarr;</p>
           </div>
 
           {/* Citas totales */}
           <div
             onClick={() => setDetail('appointments')}
-            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
+            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
           >
             <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-blue-700 bg-blue-50">
               <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : stats.kpis.totalAppointments}</p>
-            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Citas totales</p>
+            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : stats.kpis.totalAppointments}</p>
+            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Citas totales</p>
             <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 md:mt-2">
               <button onClick={(e) => { e.stopPropagation(); setDetail('cancelled'); }} className="text-[10px] md:text-xs text-red-600 font-medium hover:underline">
                 {stats.kpis.cancelledAppointments} canc.
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setDetail('noshow'); }} className="text-[10px] md:text-xs text-gray-600 font-medium hover:underline">
+              <button onClick={(e) => { e.stopPropagation(); setDetail('noshow'); }} className="text-[10px] md:text-xs text-[var(--text-secondary)] font-medium hover:underline">
                 {stats.kpis.noShowCount} aus.
               </button>
             </div>
@@ -546,30 +546,30 @@ export default function ReportsPage() {
           {/* Ticket promedio */}
           <div
             onClick={() => setDetail('revenue')}
-            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
+            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
           >
             <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-purple-700 bg-purple-50">
               <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
               </svg>
             </div>
-            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : formatCurrency(stats.kpis.averageTicket)}</p>
-            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Ticket promedio</p>
+            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.averageTicket)}</p>
+            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Ticket promedio</p>
             <p className="text-[10px] md:text-xs text-primary-600 mt-1 md:mt-2 font-medium">Ver pagos &rarr;</p>
           </div>
 
           {/* Ausencias */}
           <div
             onClick={() => setDetail('noshow')}
-            className={`bg-white rounded-xl border border-gray-200 p-3 md:p-5 ${clickableCard}`}
+            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
           >
             <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-red-700 bg-red-50">
               <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
               </svg>
             </div>
-            <p className="text-base md:text-2xl font-bold text-gray-900 leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-gray-200 rounded animate-pulse" /> : `${stats.kpis.noShowRate.toFixed(1)}%`}</p>
-            <p className="text-[11px] md:text-sm text-gray-500 mt-0.5 md:mt-1">Tasa de ausencias</p>
+            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : `${stats.kpis.noShowRate.toFixed(1)}%`}</p>
+            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Tasa de ausencias</p>
             <p className="text-[10px] md:text-xs text-red-600 mt-1 md:mt-2 font-medium">{stats.kpis.noShowCount} cita{stats.kpis.noShowCount !== 1 ? 's' : ''} &rarr;</p>
           </div>
         </div>
@@ -577,12 +577,12 @@ export default function ReportsPage() {
         {/* Revenue chart + Top services */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6 mb-3 md:mb-6">
           {/* Revenue chart */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Ingresos por día</h3>
+          <div className="lg:col-span-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Ingresos por día</h3>
             {isLoading ? (
-              <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-48 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
             ) : stats.revenueByDay.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">No hay datos para este periodo</div>
+              <div className="h-48 flex items-center justify-center text-[var(--text-muted)] text-sm">No hay datos para este periodo</div>
             ) : (
               <div className="flex items-end gap-1 h-48">
                 {stats.revenueByDay.map((day) => (
@@ -600,7 +600,7 @@ export default function ReportsPage() {
                         style={{ height: `${Math.max((day.revenue / maxRevenue) * 160, 4)}px`, backgroundColor: '#008080', opacity: 0.7 }}
                       />
                     </div>
-                    <span className="text-xs text-gray-400 hidden lg:block">{dayjs(day.date).format('D')}</span>
+                    <span className="text-xs text-[var(--text-muted)] hidden lg:block">{dayjs(day.date).format('D')}</span>
                   </div>
                 ))}
               </div>
@@ -608,27 +608,27 @@ export default function ReportsPage() {
           </div>
 
           {/* Top services - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Servicios más populares</h3>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Servicios más populares</h3>
             {isLoading ? (
-              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />)}</div>
             ) : stats.topServices.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay datos disponibles</p>
+              <p className="text-sm text-[var(--text-muted)]">No hay datos disponibles</p>
             ) : (
               <div className="space-y-2">
                 {stats.topServices.slice(0, 8).map((service, idx) => (
                   <div
                     key={service.name}
                     onClick={() => setDetail({ type: 'service', name: service.name })}
-                    className="flex items-center gap-3 p-2 -mx-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 p-2 -mx-2 rounded-lg cursor-pointer hover:bg-[var(--bg-muted)] transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-500 w-5">{idx + 1}</span>
+                    <span className="text-sm font-medium text-[var(--text-secondary)] w-5">{idx + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{service.name}</p>
-                      <p className="text-xs text-gray-500">{service.count} cita{service.count !== 1 ? 's' : ''}</p>
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">{service.name}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">{service.count} cita{service.count !== 1 ? 's' : ''}</p>
                     </div>
-                    <span className="text-sm font-semibold text-gray-700">{formatCurrency(service.revenue)}</span>
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    <span className="text-sm font-semibold text-[var(--text-secondary)]">{formatCurrency(service.revenue)}</span>
+                    <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </div>
                 ))}
               </div>
@@ -639,16 +639,16 @@ export default function ReportsPage() {
         {/* Top employees + Payment methods */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6 mb-3 md:mb-6">
           {/* Top employees - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Empleados destacados</h3>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Empleados destacados</h3>
             {isLoading ? (
-              <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+              <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />)}</div>
             ) : stats.topEmployees.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay datos disponibles</p>
+              <p className="text-sm text-[var(--text-muted)]">No hay datos disponibles</p>
             ) : (
               <>
                 {/* Header columnas */}
-                <div className="flex items-center gap-2 px-2 pb-1.5 border-b border-gray-100 text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <div className="flex items-center gap-2 px-2 pb-1.5 border-b border-[var(--border)] text-[10px] md:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
                   <span className="w-5 flex-shrink-0">#</span>
                   <span className="w-8 flex-shrink-0" aria-hidden="true" />
                   <span className="flex-1 min-w-0">Empleado</span>
@@ -660,9 +660,9 @@ export default function ReportsPage() {
                     <div
                       key={emp.id}
                       onClick={() => setDetail({ type: 'employee', id: emp.id, name: emp.name })}
-                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-[var(--bg-muted)] transition-colors"
                     >
-                      <span className="w-5 text-gray-400 font-medium text-xs md:text-sm flex-shrink-0">{idx + 1}</span>
+                      <span className="w-5 text-[var(--text-muted)] font-medium text-xs md:text-sm flex-shrink-0">{idx + 1}</span>
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-xs font-semibold"
                         style={{
@@ -676,9 +676,9 @@ export default function ReportsPage() {
                           emp.name.split(' ').map((n) => n[0]).slice(0, 2).join('')
                         )}
                       </div>
-                      <span className="flex-1 min-w-0 truncate text-xs md:text-sm font-medium text-gray-900">{emp.name}</span>
-                      <span className="w-12 text-right text-xs md:text-sm text-gray-600 flex-shrink-0">{emp.appointments}</span>
-                      <span className="w-20 text-right text-xs md:text-sm font-semibold text-gray-700 flex-shrink-0">{formatCurrency(emp.revenue)}</span>
+                      <span className="flex-1 min-w-0 truncate text-xs md:text-sm font-medium text-[var(--text-primary)]">{emp.name}</span>
+                      <span className="w-12 text-right text-xs md:text-sm text-[var(--text-secondary)] flex-shrink-0">{emp.appointments}</span>
+                      <span className="w-20 text-right text-xs md:text-sm font-semibold text-[var(--text-secondary)] flex-shrink-0">{formatCurrency(emp.revenue)}</span>
                     </div>
                   ))}
                 </div>
@@ -687,12 +687,12 @@ export default function ReportsPage() {
           </div>
 
           {/* Payment methods - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Métodos de pago</h3>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Métodos de pago</h3>
             {isLoading ? (
-              <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-32 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
             ) : paymentEntries.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay datos disponibles</p>
+              <p className="text-sm text-[var(--text-muted)]">No hay datos disponibles</p>
             ) : (
               <div>
                 <div className="flex h-8 rounded-lg overflow-hidden mb-4">
@@ -711,16 +711,16 @@ export default function ReportsPage() {
                     <div
                       key={method}
                       onClick={() => setDetail({ type: 'paymentMethod', method })}
-                      className="flex items-center justify-between p-2 -mx-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between p-2 -mx-2 rounded-lg cursor-pointer hover:bg-[var(--bg-muted)] transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PAYMENT_COLORS[method] || '#9ca3af' }} />
-                        <span className="text-sm text-gray-700">{PAYMENT_LABELS[method] || method}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{PAYMENT_LABELS[method] || method}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-900">{formatCurrency(val.total)}</span>
-                        <span className="text-xs text-gray-500">({val.count})</span>
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(val.total)}</span>
+                        <span className="text-xs text-[var(--text-secondary)]">({val.count})</span>
+                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </div>
                     </div>
                   ))}
@@ -736,15 +736,15 @@ export default function ReportsPage() {
         {/* Client metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Retention + New vs Returning - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Clientes</h3>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Clientes</h3>
             {isLoading ? (
-              <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-32 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
             ) : (
               <div className="space-y-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-center p-4 bg-[var(--bg-subtle)] rounded-lg">
                   <p className="text-3xl font-bold" style={{ color: '#008080' }}>{stats.clientMetrics.retentionRate.toFixed(1)}%</p>
-                  <p className="text-sm text-gray-500 mt-1">Tasa de retención</p>
+                  <p className="text-sm text-[var(--text-secondary)] mt-1">Tasa de retención</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div
@@ -763,23 +763,23 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-500">Total: <span className="font-semibold text-gray-900">{stats.clientMetrics.totalClients}</span> clientes</p>
+                  <p className="text-sm text-[var(--text-secondary)]">Total: <span className="font-semibold text-[var(--text-primary)]">{stats.clientMetrics.totalClients}</span> clientes</p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Top clients - INTERACTIVE */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Mejores clientes</h3>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Mejores clientes</h3>
             {isLoading ? (
-              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />)}</div>
             ) : stats.clientMetrics.topClients.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay datos disponibles</p>
+              <p className="text-sm text-[var(--text-muted)]">No hay datos disponibles</p>
             ) : (
               <>
                 {/* Header columnas */}
-                <div className="flex items-center gap-2 px-2 pb-1.5 border-b border-gray-100 text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <div className="flex items-center gap-2 px-2 pb-1.5 border-b border-[var(--border)] text-[10px] md:text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
                   <span className="w-5 flex-shrink-0">#</span>
                   <span className="w-8 flex-shrink-0" aria-hidden="true" />
                   <span className="flex-1 min-w-0">Cliente</span>
@@ -791,9 +791,9 @@ export default function ReportsPage() {
                     <div
                       key={client.id}
                       onClick={() => setDetail({ type: 'client', id: client.id, name: client.name })}
-                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-[var(--bg-muted)] transition-colors"
                     >
-                      <span className="w-5 text-gray-400 font-medium text-xs md:text-sm flex-shrink-0">{idx + 1}</span>
+                      <span className="w-5 text-[var(--text-muted)] font-medium text-xs md:text-sm flex-shrink-0">{idx + 1}</span>
                       <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center overflow-hidden flex-shrink-0 text-xs font-semibold">
                         {client.avatarUrl ? (
                           <img src={resolveImageUrl(client.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
@@ -801,9 +801,9 @@ export default function ReportsPage() {
                           client.name.split(' ').map((n) => n[0]).slice(0, 2).join('')
                         )}
                       </div>
-                      <span className="flex-1 min-w-0 truncate text-xs md:text-sm font-medium text-gray-900">{client.name}</span>
-                      <span className="w-12 text-right text-xs md:text-sm text-gray-600 flex-shrink-0">{client.visits}</span>
-                      <span className="w-20 text-right text-xs md:text-sm font-semibold text-gray-700 flex-shrink-0">{formatCurrency(client.spent)}</span>
+                      <span className="flex-1 min-w-0 truncate text-xs md:text-sm font-medium text-[var(--text-primary)]">{client.name}</span>
+                      <span className="w-12 text-right text-xs md:text-sm text-[var(--text-secondary)] flex-shrink-0">{client.visits}</span>
+                      <span className="w-20 text-right text-xs md:text-sm font-semibold text-[var(--text-secondary)] flex-shrink-0">{formatCurrency(client.spent)}</span>
                     </div>
                   ))}
                 </div>
@@ -812,23 +812,23 @@ export default function ReportsPage() {
           </div>
 
           {/* Client source breakdown */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-4">Origen de clientes</h3>
+          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Origen de clientes</h3>
             {isLoading ? (
-              <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />
+              <div className="h-32 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
             ) : sourceEntries.length === 0 ? (
-              <p className="text-sm text-gray-400">No hay datos disponibles</p>
+              <p className="text-sm text-[var(--text-muted)]">No hay datos disponibles</p>
             ) : (
               <div className="space-y-3">
                 {sourceEntries.map(([source, count]) => (
                   <div key={source}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-gray-700">{SOURCE_LABELS[source] || source}</span>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {count} <span className="text-xs text-gray-400 font-normal">({((count / sourceTotal) * 100).toFixed(0)}%)</span>
+                      <span className="text-sm text-[var(--text-secondary)]">{SOURCE_LABELS[source] || source}</span>
+                      <span className="text-sm font-semibold text-[var(--text-primary)]">
+                        {count} <span className="text-xs text-[var(--text-muted)] font-normal">({((count / sourceTotal) * 100).toFixed(0)}%)</span>
                       </span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="w-full bg-[var(--bg-muted)] rounded-full h-2">
                       <div className="h-2 rounded-full transition-all" style={{ width: `${(count / sourceTotal) * 100}%`, backgroundColor: '#008080' }} />
                     </div>
                   </div>
@@ -862,59 +862,59 @@ function SalesCard() {
   const sales = salesData?.data || { today: { count: 0, revenue: 0 }, month: { count: 0, revenue: 0 }, total: { count: 0, revenue: 0 }, recent: [] };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-5 mb-6">
+    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-900">Ventas de productos</h3>
+        <h3 className="font-semibold text-[var(--text-primary)]">Ventas de productos</h3>
         <Link href="/reservations" className="text-xs text-[#008080] hover:underline">Ver apartados</Link>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-400 uppercase">Hoy</p>
-          <p className="text-xl font-bold text-gray-900">{formatCurrency(sales.today.revenue)}</p>
-          <p className="text-xs text-gray-400">{sales.today.count} venta{sales.today.count !== 1 ? 's' : ''}</p>
+        <div className="bg-[var(--bg-subtle)] rounded-lg p-3">
+          <p className="text-[10px] text-[var(--text-muted)] uppercase">Hoy</p>
+          <p className="text-xl font-bold text-[var(--text-primary)]">{formatCurrency(sales.today.revenue)}</p>
+          <p className="text-xs text-[var(--text-muted)]">{sales.today.count} venta{sales.today.count !== 1 ? 's' : ''}</p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-400 uppercase">Este mes</p>
-          <p className="text-xl font-bold text-gray-900">{formatCurrency(sales.month.revenue)}</p>
-          <p className="text-xs text-gray-400">{sales.month.count} venta{sales.month.count !== 1 ? 's' : ''}</p>
+        <div className="bg-[var(--bg-subtle)] rounded-lg p-3">
+          <p className="text-[10px] text-[var(--text-muted)] uppercase">Este mes</p>
+          <p className="text-xl font-bold text-[var(--text-primary)]">{formatCurrency(sales.month.revenue)}</p>
+          <p className="text-xs text-[var(--text-muted)]">{sales.month.count} venta{sales.month.count !== 1 ? 's' : ''}</p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-[10px] text-gray-400 uppercase">Total</p>
-          <p className="text-xl font-bold text-gray-900">{formatCurrency(sales.total.revenue)}</p>
-          <p className="text-xs text-gray-400">{sales.total.count} venta{sales.total.count !== 1 ? 's' : ''}</p>
+        <div className="bg-[var(--bg-subtle)] rounded-lg p-3">
+          <p className="text-[10px] text-[var(--text-muted)] uppercase">Total</p>
+          <p className="text-xl font-bold text-[var(--text-primary)]">{formatCurrency(sales.total.revenue)}</p>
+          <p className="text-xs text-[var(--text-muted)]">{sales.total.count} venta{sales.total.count !== 1 ? 's' : ''}</p>
         </div>
       </div>
 
       {sales.recent.length > 0 ? (
         <div>
-          <p className="text-[10px] text-gray-400 uppercase mb-2">Ventas recientes</p>
+          <p className="text-[10px] text-[var(--text-muted)] uppercase mb-2">Ventas recientes</p>
           <div className="space-y-2">
             {sales.recent.map((sale: any) => (
               <div key={sale.id} className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-[var(--bg-muted)] flex-shrink-0 overflow-hidden flex items-center justify-center">
                   {sale.product?.imageUrl ? (
                     <img src={`${API_URL}${sale.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <svg className="w-4 h-4 text-[var(--border)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
                     </svg>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 truncate">{sale.product?.name}</p>
-                  <p className="text-[10px] text-gray-400">{sale.customerName}</p>
+                  <p className="text-sm text-[var(--text-secondary)] truncate">{sale.product?.name}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">{sale.customerName}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-gray-900">{formatCurrency(Number(sale.unitPrice) * sale.quantity)}</p>
-                  <p className="text-[10px] text-gray-400">{new Date(sale.updatedAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(Number(sale.unitPrice) * sale.quantity)}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">{new Date(sale.updatedAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <p className="text-xs text-gray-400 text-center py-4">Aún no hay ventas concretadas</p>
+        <p className="text-xs text-[var(--text-muted)] text-center py-4">Aún no hay ventas concretadas</p>
       )}
     </div>
   );
