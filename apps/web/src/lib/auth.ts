@@ -96,6 +96,9 @@ export async function logout(): Promise<void> {
   // Clear local session immediately (no waiting)
   api.setAccessToken(null);
   localStorage.removeItem('refreshToken');
+  // Limpia tambien la sesion del marketplace si existe.
+  localStorage.removeItem('marketplace_refresh_token');
+  localStorage.removeItem('user');
   // Revoke token on backend in the background
   if (refreshToken) {
     api.post('/api/auth/logout', { refreshToken }).catch(() => {});

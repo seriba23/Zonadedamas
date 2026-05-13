@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  other: {
+    'mobile-web-app-capable': 'yes', // Reemplazo moderno de apple-mobile-web-app-capable.
+  },
 };
 
 export const viewport: Viewport = {
