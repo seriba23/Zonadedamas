@@ -11,7 +11,7 @@ export function KpiCard({
 }) {
   return (
     <div
-      className="rounded-xl p-5 flex items-center gap-4"
+      className="rounded-xl p-5 flex items-center gap-4 overflow-hidden"
       style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
     >
       <div
@@ -20,10 +20,10 @@ export function KpiCard({
       >
         {icon}
       </div>
-      <div>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</p>
-        <p className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        {subtitle && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+        <p className="text-xl font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
+        {subtitle && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>}
       </div>
     </div>
   );

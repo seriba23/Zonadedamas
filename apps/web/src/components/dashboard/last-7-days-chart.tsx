@@ -31,19 +31,19 @@ export function Last7DaysChart({ days }: { days: { date: string; revenue: number
 
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-5 overflow-hidden min-w-0"
       style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div>
+      <div className="flex items-start justify-between mb-3 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>
             Ingresos · últimos 7 días
           </p>
-          <p className="text-2xl font-extrabold mt-1" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-2xl font-extrabold mt-1 truncate" style={{ color: 'var(--text-primary)' }}>
             {formatCurrency(total)}
           </p>
           {trend !== 0 && (
-            <p className={`text-xs font-semibold mt-0.5 ${trend > 0 ? 'text-success-700' : 'text-danger-700'}`}>
+            <p className={`text-xs font-semibold mt-0.5 truncate ${trend > 0 ? 'text-success-700' : 'text-danger-700'}`}>
               {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}% vs inicio de semana
             </p>
           )}

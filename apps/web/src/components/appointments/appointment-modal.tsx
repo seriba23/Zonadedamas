@@ -479,7 +479,7 @@ export function AppointmentModal({
         loadingAppointment ? (
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+              <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />
             ))}
           </div>
         ) : appointment ? (
@@ -493,7 +493,7 @@ export function AppointmentModal({
             {/* Status */}
             <div className="flex items-center justify-between">
               <AppointmentStatusBadge status={appointment.status.toLowerCase()} />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--text-secondary)]">
                 {formatDate(appointment.startTime)},{' '}
                 {formatTime(
                   new Date(appointment.startTime).toTimeString().slice(0, 5),
@@ -508,7 +508,7 @@ export function AppointmentModal({
             {/* Client & Employee */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                   Cliente
                 </p>
                 {appointment.client ? (
@@ -521,20 +521,20 @@ export function AppointmentModal({
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                         {appointment.client.firstName} {appointment.client.lastName}
                       </p>
                       {appointment.client.email && (
-                        <p className="text-xs text-gray-500 truncate">{appointment.client.email}</p>
+                        <p className="text-xs text-[var(--text-secondary)] truncate">{appointment.client.email}</p>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm font-medium text-gray-900">-</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">-</p>
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                   Profesional
                 </p>
                 {appointment.employee ? (
@@ -552,12 +552,12 @@ export function AppointmentModal({
                         `${appointment.employee.firstName?.[0] ?? ''}${appointment.employee.lastName?.[0] ?? ''}`
                       )}
                     </div>
-                    <p className="text-sm font-medium text-gray-900 truncate flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">
                       {appointment.employee.firstName} {appointment.employee.lastName}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-sm font-medium text-gray-900">-</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">-</p>
                 )}
               </div>
             </div>
@@ -565,40 +565,40 @@ export function AppointmentModal({
             {/* Services */}
             {appointment.items && appointment.items.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                   Servicios
                 </p>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="bg-[var(--bg-subtle)] rounded-lg p-3 space-y-2">
                   {appointment.items.map((item) => (
                     <div
                       key={item.id}
                       className="flex justify-between items-center"
                     >
                       <div>
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm text-[var(--text-secondary)]">
                           {item.serviceNameSnapshot}
                         </span>
-                        <span className="text-xs text-gray-400 ml-2">
+                        <span className="text-xs text-[var(--text-muted)] ml-2">
                           {item.durationSnapshot} min
                         </span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-[var(--text-primary)]">
                         {formatCurrency(Number(item.priceSnapshot))}
                       </span>
                     </div>
                   ))}
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <span className="text-sm font-semibold text-gray-800">
+                  <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">
                       Subtotal servicios ({totalDuration} min)
                     </span>
-                    <span className="text-sm font-bold text-gray-900">
+                    <span className="text-sm font-bold text-[var(--text-primary)]">
                       {formatCurrency(subtotalServicios)}
                     </span>
                   </div>
                   {subtotalApartados > 0 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-700">Apartados (productos)</span>
-                      <span className="text-sm font-medium text-gray-900">{formatCurrency(subtotalApartados)}</span>
+                      <span className="text-sm text-[var(--text-secondary)]">Apartados (productos)</span>
+                      <span className="text-sm font-medium text-[var(--text-primary)]">{formatCurrency(subtotalApartados)}</span>
                     </div>
                   )}
                   {appointment.redemption && (
@@ -623,8 +623,8 @@ export function AppointmentModal({
                       <span className="text-sm font-medium text-teal-700">{pointsSpent} pts</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <span className="text-sm font-bold text-gray-900">Total a cobrar</span>
+                  <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
+                    <span className="text-sm font-bold text-[var(--text-primary)]">Total a cobrar</span>
                     <span className="text-base font-bold text-[#008080]">{formatCurrency(finalTotal)}</span>
                   </div>
                 </div>
@@ -634,10 +634,10 @@ export function AppointmentModal({
             {/* Product Reservations (Apartados) */}
             {appointment.productReservations && appointment.productReservations.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                   Apartados
                 </p>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="bg-[var(--bg-subtle)] rounded-lg p-3 space-y-2">
                   {appointment.productReservations.map((res) => {
                     const statusLabels: Record<string, { label: string; color: string }> = {
                       PENDING: { label: 'Pendiente', color: 'text-teal-700 bg-teal-50' },
@@ -646,7 +646,7 @@ export function AppointmentModal({
                       DELIVERED: { label: 'Entregado', color: 'text-green-700 bg-green-50' },
                       CANCELLED: { label: 'Cancelado', color: 'text-red-600 bg-red-50' },
                     };
-                    const st = statusLabels[res.status] || { label: res.status, color: 'text-gray-600 bg-gray-100' };
+                    const st = statusLabels[res.status] || { label: res.status, color: 'text-[var(--text-secondary)] bg-[var(--bg-muted)]' };
 
                     return (
                       <div key={res.id} className="flex items-center gap-3">
@@ -658,11 +658,11 @@ export function AppointmentModal({
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-700">{res.product.name}</p>
-                          <p className="text-xs text-gray-400">{res.quantity} × {formatCurrency(Number(res.unitPrice))}</p>
+                          <p className="text-sm text-[var(--text-secondary)]">{res.product.name}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{res.quantity} × {formatCurrency(Number(res.unitPrice))}</p>
                         </div>
                         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                          <span className="text-sm font-medium text-gray-900">{formatCurrency(Number(res.unitPrice) * res.quantity)}</span>
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{formatCurrency(Number(res.unitPrice) * res.quantity)}</span>
                           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
                         </div>
                       </div>
@@ -674,10 +674,10 @@ export function AppointmentModal({
 
             {appointment.notes && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
                   Notas
                 </p>
-                <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-[var(--text-secondary)] bg-[var(--bg-subtle)] rounded-lg p-3">
                   {appointment.notes}
                 </p>
               </div>
@@ -685,10 +685,10 @@ export function AppointmentModal({
 
             {appointment.internalNotes && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
                   Notas internas
                 </p>
-                <p className="text-sm text-gray-600 bg-amber-50 rounded-lg p-3 border border-amber-100">
+                <p className="text-sm text-teal-800 dark:text-teal-200 rounded-lg p-3 border" style={{ backgroundColor: 'var(--primary-tint)', borderColor: 'var(--primary-tint-border)' }}>
                   {appointment.internalNotes}
                 </p>
               </div>
@@ -697,10 +697,10 @@ export function AppointmentModal({
             {/* Result Photos — visible for CONFIRMED, IN_PROGRESS, COMPLETED */}
             {['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'].includes(appointment.status.toUpperCase()) && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                   Fotos de resultado
                 </p>
-                <div className="bg-gray-50 rounded-lg p-3">
+                <div className="bg-[var(--bg-subtle)] rounded-lg p-3">
                   {photos.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 mb-3">
                       {photos.map((photo) => (
@@ -721,7 +721,7 @@ export function AppointmentModal({
                       ))}
                     </div>
                   )}
-                  <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                  <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-[var(--border)] rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -734,9 +734,9 @@ export function AppointmentModal({
                       disabled={uploadingPhoto}
                     />
                     {uploadingPhoto ? (
-                      <span className="text-sm text-gray-500">Subiendo...</span>
+                      <span className="text-sm text-[var(--text-secondary)]">Subiendo...</span>
                     ) : (
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-[var(--text-secondary)]">
                         + Subir foto de resultado
                       </span>
                     )}
@@ -747,9 +747,9 @@ export function AppointmentModal({
 
             {/* Add services mode */}
             {addServicesMode && (
-              <div className="border-t border-gray-200 pt-4">
+              <div className="border-t border-[var(--border)] pt-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     Agregar servicios
                   </p>
                   <button
@@ -759,7 +759,7 @@ export function AppointmentModal({
                       setCheckAfterResult(null);
                       setAddServiceError(null);
                     }}
-                    className="text-xs text-gray-500 hover:text-gray-700"
+                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-secondary)]"
                   >
                     Cancelar
                   </button>
@@ -772,7 +772,7 @@ export function AppointmentModal({
                       className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                         newServiceIds.includes(s.id)
                           ? 'border-primary-400 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-[var(--border)] hover:border-[var(--border)]'
                       }`}
                     >
                       <input
@@ -794,10 +794,10 @@ export function AppointmentModal({
                         style={{ backgroundColor: s.color || '#008080' }}
                       />
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">
+                        <p className="text-xs font-medium text-[var(--text-primary)] truncate">
                           {s.name}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-[var(--text-secondary)]">
                           {s.durationMinutes}min · {formatCurrency(s.price)}
                         </p>
                       </div>
@@ -812,7 +812,7 @@ export function AppointmentModal({
                 )}
 
                 {checkingAvailability && (
-                  <div className="p-3 rounded-lg bg-gray-50 text-gray-600 text-sm mb-3 flex items-center gap-2">
+                  <div className="p-3 rounded-lg bg-[var(--bg-subtle)] text-[var(--text-secondary)] text-sm mb-3 flex items-center gap-2">
                     <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -883,11 +883,11 @@ export function AppointmentModal({
                     {!checkAfterResult.immediatelyAvailable &&
                       !checkAfterResult.immediateSlot &&
                       checkAfterResult.nextAvailable && (
-                        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                          <p className="text-sm text-amber-800 font-medium">
+                        <div className="p-3 rounded-lg border" style={{ backgroundColor: 'var(--primary-tint)', borderColor: 'var(--primary-tint-border)' }}>
+                          <p className="text-sm font-medium text-teal-800 dark:text-teal-200">
                             Sin espacio despues de la cita. Proxima disponibilidad:
                           </p>
-                          <p className="text-sm text-amber-700 mt-1">
+                          <p className="text-sm mt-1 text-teal-700 dark:text-teal-300">
                             {formatDate(checkAfterResult.nextAvailable.date)} a las{' '}
                             {formatTime(checkAfterResult.nextAvailable.startTime)}
                           </p>
@@ -939,8 +939,8 @@ export function AppointmentModal({
 
             {/* Reschedule mode */}
             {rescheduleMode && (
-              <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm font-semibold text-gray-900 mb-3">
+              <div className="border-t border-[var(--border)] pt-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                   Reagendar cita
                 </p>
                 <AvailabilityPicker
@@ -983,8 +983,8 @@ export function AppointmentModal({
 
             {/* Cancel form */}
             {showCancelForm && (
-              <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm font-semibold text-gray-900 mb-2">
+              <div className="border-t border-[var(--border)] pt-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                   Motivo de cancelacion
                 </p>
                 <textarea
@@ -1016,7 +1016,7 @@ export function AppointmentModal({
 
             {/* Action buttons */}
             {!rescheduleMode && !showCancelForm && !addServicesMode && (
-              <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-200">
+              <div className="flex flex-wrap gap-3 pt-2 border-t border-[var(--border)]">
                 {canAddServices && (
                   <button
                     onClick={() => setAddServicesMode(true)}
@@ -1068,7 +1068,7 @@ export function AppointmentModal({
             )}
           </div>
         ) : (
-          <p className="text-gray-500">No se encontro la cita</p>
+          <p className="text-[var(--text-secondary)]">No se encontro la cita</p>
         )
       ) : (
         // Create mode
@@ -1081,7 +1081,7 @@ export function AppointmentModal({
 
           {/* Client search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
               Cliente *
             </label>
             {selectedClientId ? (
@@ -1110,7 +1110,7 @@ export function AppointmentModal({
                   placeholder="Buscar cliente por nombre o email..."
                 />
                 {clientResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-10 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 z-10 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
                     {clientResults.map((c) => (
                       <button
                         key={c.id}
@@ -1119,13 +1119,13 @@ export function AppointmentModal({
                           setSelectedClientId(c.id);
                           setClientSearch('');
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                        className="w-full text-left px-4 py-2.5 hover:bg-[var(--bg-muted)] transition-colors"
                       >
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-[var(--text-primary)]">
                           {c.firstName} {c.lastName}
                         </p>
                         {c.email && (
-                          <p className="text-xs text-gray-500">{c.email}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">{c.email}</p>
                         )}
                       </button>
                     ))}
@@ -1137,7 +1137,7 @@ export function AppointmentModal({
 
           {/* Services */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
               Servicios *
             </label>
             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
@@ -1147,7 +1147,7 @@ export function AppointmentModal({
                   className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                     selectedServiceIds.includes(s.id)
                       ? 'border-primary-400 bg-primary-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      : 'border-[var(--border)] hover:border-[var(--border)]'
                   }`}
                 >
                   <input
@@ -1171,10 +1171,10 @@ export function AppointmentModal({
                     style={{ backgroundColor: s.color || '#008080' }}
                   />
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">
+                    <p className="text-xs font-medium text-[var(--text-primary)] truncate">
                       {s.name}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-[var(--text-secondary)]">
                       {s.durationMinutes}min · {formatCurrency(s.price)}
                     </p>
                   </div>
@@ -1185,7 +1185,7 @@ export function AppointmentModal({
 
           {/* Employee */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
               Profesional
             </label>
             <select
@@ -1209,7 +1209,7 @@ export function AppointmentModal({
           {/* Date & Time picker */}
           {selectedServiceIds.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Fecha y hora *
               </label>
               <AvailabilityPicker
@@ -1233,7 +1233,7 @@ export function AppointmentModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
               Notas
             </label>
             <textarea

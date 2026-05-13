@@ -99,8 +99,9 @@ export function Modal({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {/* Body — min-h-0 es necesario para que overflow-y-auto realmente
+            permita scroll dentro de un flex column con max-h en el padre. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );
