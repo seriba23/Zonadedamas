@@ -75,8 +75,12 @@ export default function CalendarPage() {
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
 
-  const [customStart, setCustomStart] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
-  const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
+  const [customStart, setCustomStart] = useState(
+    () => searchParams.get('from') || dayjs().subtract(7, 'day').format('YYYY-MM-DD'),
+  );
+  const [customEnd, setCustomEnd] = useState(
+    () => searchParams.get('to') || dayjs().format('YYYY-MM-DD'),
+  );
   // Búsqueda libre por texto (cliente, empleado, servicio). Reemplaza la
   // pestaña Registro: ahora cualquier vista del calendario aprovecha la búsqueda.
   const [filterSearch, setFilterSearch] = useState('');

@@ -330,6 +330,30 @@ export class ReportsService {
       }),
     ]);
 
-    return { lowStockCount, pendingReservations, unconfirmedAppointments };
+    // Rango (min/max) de las citas PENDING futuras — el frontend usa esto
+    // para abrir el calendario en vista Personalizada cubriendo justo el
+    // periodo donde están todas las citas sin confirmar.
+    const pendingRange =
+      unconfirmedAppointments > 0
+        ? await this.prisma.appointment.aggregate({
+            where: { tenantId, status: 'PENDING', startTime: { gte: now } },
+            _min: { startTime: true },
+            _max: { startTime: true },
+          })
+        : { _min: { startTime: null }, _max: { startTime: null } };
+
+    return {
+      lowStockCount,
+      pendingReservations,
+      unconfirmedAppointments,
+      unconfirmedRange: {
+        from: pendingRange._min.startTime
+          ? pendingRange._min.startTime.toISOString().split('T')[0]
+          : null,
+        to: pendingRange._max.startTime
+          ? pendingRange._max.startTime.toISOString().split('T')[0]
+          : null,
+      },
+    };
   }
 }
