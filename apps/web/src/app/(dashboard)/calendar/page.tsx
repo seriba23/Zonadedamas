@@ -70,7 +70,7 @@ export default function CalendarPage() {
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [showFilters, setShowFilters] = useState(() => !!searchParams.get('status'));
+  const [showFilters, setShowFilters] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
@@ -671,7 +671,7 @@ export default function CalendarPage() {
                 style={{ scrollbarWidth: 'thin' }}
               >
                 {[
-                  { key: 'PENDING', label: 'Pendiente', dot: '#eab308' },
+                  { key: 'PENDING', label: 'Sin confirmar', dot: '#eab308' },
                   { key: 'CONFIRMED', label: 'Confirmada', dot: '#008080' },
                   { key: 'IN_PROGRESS', label: 'En curso', dot: '#3b82f6' },
                   { key: 'COMPLETED', label: 'Completada', dot: '#059669' },
