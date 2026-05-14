@@ -247,7 +247,7 @@ export class ReportsService {
 
     // Month KPIs
     const monthStart = new Date(`${todayStr.substring(0, 7)}-01T00:00:00Z`);
-    const [monthAppointments, monthRevenue, monthNoShows] = await Promise.all([
+    const [monthAppointments, monthRevenue, monthNoShows, monthCompleted] = await Promise.all([
       this.prisma.appointment.count({
         where: { tenantId, startTime: { gte: monthStart, lte: endOfDay } },
       }),
@@ -257,6 +257,10 @@ export class ReportsService {
       }),
       this.prisma.appointment.count({
         where: { tenantId, status: 'NO_SHOW', startTime: { gte: monthStart, lte: endOfDay } },
+      }),
+      // Necesario para ticket promedio coherente con /reports (= revenue / completedAppointments).
+      this.prisma.appointment.count({
+        where: { tenantId, status: 'COMPLETED', startTime: { gte: monthStart, lte: endOfDay } },
       }),
     ]);
 
@@ -283,7 +287,12 @@ export class ReportsService {
       },
       month: {
         appointments: monthAppointments,
+        completedAppointments: monthCompleted,
         revenue: Number(monthRevenue._sum.totalAmount || 0),
+        // Ticket promedio coherente con /reports: solo cuenta citas completadas.
+        averageTicket: monthCompleted > 0
+          ? Math.round((Number(monthRevenue._sum.totalAmount || 0) / monthCompleted) * 100) / 100
+          : 0,
         noShowRate: monthAppointments > 0 ? Math.round((monthNoShows / monthAppointments) * 1000) / 10 : 0,
       },
       upcomingAppointments,

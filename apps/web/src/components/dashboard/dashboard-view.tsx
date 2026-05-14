@@ -13,7 +13,13 @@ import { EmployeesToday } from './employees-today';
 
 interface TodayReport {
   today: { appointments: number; revenue: number; payments: number };
-  month: { appointments: number; revenue: number; noShowRate: number };
+  month: {
+    appointments: number;
+    completedAppointments: number;
+    revenue: number;
+    averageTicket: number;
+    noShowRate: number;
+  };
   upcomingAppointments: any[];
   last7Days: { date: string; revenue: number }[];
 }
@@ -77,12 +83,8 @@ export function DashboardView() {
             </svg>
           }
           label="Ticket promedio"
-          value={
-            report.month.appointments > 0
-              ? formatCurrency(report.month.revenue / report.month.appointments)
-              : formatCurrency(0)
-          }
-          subtitle="por cita este mes"
+          value={formatCurrency(report.month.averageTicket || 0)}
+          subtitle="por cita completada este mes"
         />
         <KpiCard
           onClick={() => router.push('/calendar?view=month')}
