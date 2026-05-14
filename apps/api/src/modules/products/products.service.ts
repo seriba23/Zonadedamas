@@ -82,7 +82,9 @@ export class ProductsService {
     const where: any = {
       tenantId,
       isActive: true,
-      minStock: { not: null },
+      // Consistente con getAlertCounts: solo productos con minStock > 0
+      // (los que tienen minStock=0 o NULL no se alertan).
+      minStock: { gt: 0 },
       stock: { not: null },
     };
 
@@ -96,7 +98,7 @@ export class ProductsService {
     });
 
     const lowStockProducts = allProducts.filter(
-      (p) => p.stock !== null && p.minStock !== null && p.stock <= p.minStock,
+      (p) => p.stock !== null && p.minStock !== null && p.minStock > 0 && p.stock <= p.minStock,
     );
 
     const total = lowStockProducts.length;

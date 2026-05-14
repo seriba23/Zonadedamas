@@ -298,9 +298,17 @@ export class ReportsService {
     const endOfDay = new Date(`${todayStr}T23:59:59Z`);
 
     const [lowStockCount, pendingReservations, unconfirmedAppointments] = await Promise.all([
+      // Solo cuenta productos con minStock configurado (>0); ignora los que
+      // tienen minStock=0 o NULL para que la alerta del Home coincida con
+      // lo que se muestra al filtrar "stock bajo" en /inventory.
       this.prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count FROM products
-        WHERE tenant_id = ${tenantId} AND is_active = true AND stock <= min_stock
+        WHERE tenant_id = ${tenantId}
+          AND is_active = true
+          AND min_stock IS NOT NULL
+          AND min_stock > 0
+          AND stock IS NOT NULL
+          AND stock <= min_stock
       `.then((r) => Number(r[0]?.count || 0)).catch(() => 0),
       this.prisma.productReservation.count({
         where: { tenantId, status: 'PENDING' },

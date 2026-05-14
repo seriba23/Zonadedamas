@@ -37,8 +37,8 @@ export function KpiCard({
           {label}
         </p>
         <p
-          className="text-xl md:text-2xl font-extrabold leading-tight mt-0.5 tabular-nums break-words"
-          style={{ color: 'var(--text-primary)', letterSpacing: '-0.01em' }}
+          className="text-base md:text-xl font-extrabold leading-tight mt-0.5 tabular-nums break-words"
+          style={{ color: 'var(--text-primary)', letterSpacing: '-0.015em' }}
         >
           {value}
         </p>

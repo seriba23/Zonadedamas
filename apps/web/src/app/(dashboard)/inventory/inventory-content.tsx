@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
@@ -113,7 +114,16 @@ export function InventoryContent() {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
-  const [filterLowStock, setFilterLowStock] = useState(false);
+  const searchParams = useSearchParams();
+  const [filterLowStock, setFilterLowStock] = useState(
+    () => searchParams?.get('lowStock') === 'true' || searchParams?.get('stockBajo') === 'true',
+  );
+  // Sincroniza si el URL cambia (e.g. navegacion desde el alert del Home).
+  useEffect(() => {
+    const wantsLowStock =
+      searchParams?.get('lowStock') === 'true' || searchParams?.get('stockBajo') === 'true';
+    if (wantsLowStock) setFilterLowStock(true);
+  }, [searchParams]);
   const [page, setPage] = useState(1);
   const perPage = 20;
 
