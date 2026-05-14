@@ -662,7 +662,10 @@ export default function CalendarPage() {
               <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                 Estado de la cita
               </label>
-              <div className="flex flex-wrap gap-1.5">
+              <div
+                className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1"
+                style={{ scrollbarWidth: 'thin' }}
+              >
                 {[
                   { key: 'PENDING', label: 'Pendiente', dot: '#eab308' },
                   { key: 'CONFIRMED', label: 'Confirmada', dot: '#008080' },
@@ -677,7 +680,7 @@ export default function CalendarPage() {
                       key={s.key}
                       type="button"
                       onClick={() => toggleStatusFilter(s.key)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                      className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                         active
                           ? 'bg-[#008080] text-white border-[#008080]'
                           : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
