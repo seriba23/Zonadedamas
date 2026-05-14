@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import dayjs, { type Dayjs } from 'dayjs';
 import { formatTime } from '@/lib/utils';
 
@@ -227,16 +228,32 @@ export function CalendarView({
   const headerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
 
-  // Sincroniza scroll horizontal del body hacia el header (vista 'day' empleado)
+  // Sincroniza scroll horizontal en ambos sentidos entre header y body
+  // (vista 'day' empleado): el usuario puede deslizar desde la fila de
+  // avatares o desde el grid, ambos se mueven juntos.
   useEffect(() => {
     const body = gridBodyRef.current;
     const header = headerRef.current;
     if (!body || !header) return;
-    function onScroll() {
-      if (header && body) header.scrollLeft = body.scrollLeft;
+    let syncing = false;
+    function syncFromBody() {
+      if (syncing || !header || !body) return;
+      syncing = true;
+      header.scrollLeft = body.scrollLeft;
+      requestAnimationFrame(() => { syncing = false; });
     }
-    body.addEventListener('scroll', onScroll);
-    return () => body.removeEventListener('scroll', onScroll);
+    function syncFromHeader() {
+      if (syncing || !header || !body) return;
+      syncing = true;
+      body.scrollLeft = header.scrollLeft;
+      requestAnimationFrame(() => { syncing = false; });
+    }
+    body.addEventListener('scroll', syncFromBody);
+    header.addEventListener('scroll', syncFromHeader);
+    return () => {
+      body.removeEventListener('scroll', syncFromBody);
+      header.removeEventListener('scroll', syncFromHeader);
+    };
   }, []);
   const [nowMinutes, setNowMinutes] = useState(() => {
     const now = new Date();
@@ -551,10 +568,10 @@ export function CalendarView({
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--bg-surface)' }}>
-      {/* Day headers — overflow oculto, scroll sincronizado con el body */}
+      {/* Day headers — scroll horizontal habilitado y sincronizado con el body */}
       <div
         ref={headerRef}
-        className="border-b overflow-x-hidden"
+        className={`border-b ${isEmployeeView ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderColor: 'var(--border)',
@@ -584,9 +601,11 @@ export function CalendarView({
             const aptCount = (appointmentsByDay.get(i) || []).length;
             const initials = `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase();
             return (
-              <div
+              <Link
                 key={col.key}
-                className="flex items-center gap-2 px-2 md:px-3 py-2 border-l border-[var(--border)] min-w-0"
+                href={`/staff/${emp.id}`}
+                className="flex items-center gap-2 px-2 md:px-3 py-2 border-l border-[var(--border)] min-w-0 hover:bg-[var(--bg-muted)] transition-colors"
+                title={`Ver perfil de ${emp.firstName} ${emp.lastName}`}
               >
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-[11px] font-bold text-white"
@@ -610,7 +629,7 @@ export function CalendarView({
                     {aptCount} {aptCount === 1 ? 'cita' : 'citas'}
                   </p>
                 </div>
-              </div>
+              </Link>
             );
           }
           const isClickable = viewMode === 'week' && !!onDayHeaderClick;
