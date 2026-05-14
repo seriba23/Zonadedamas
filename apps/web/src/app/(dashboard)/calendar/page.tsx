@@ -313,7 +313,8 @@ export default function CalendarPage() {
   }
   if (filterPayment !== 'all') {
     appointments = appointments.filter((apt) => {
-      const isPaid = ((apt as any).payments || []).length > 0;
+      const payments = ((apt as any).payments || []) as Array<{ status?: string }>;
+      const isPaid = payments.some((p) => (p.status || '').toUpperCase() === 'COMPLETED');
       return filterPayment === 'paid' ? isPaid : !isPaid;
     });
   }
