@@ -9,6 +9,19 @@ import { UploadsService } from '../uploads/uploads.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
+// Fuente de verdad única para "stock bajo": productos activos del tenant
+// con minStock configurado (>0). El where Prisma es laxo y la decisión
+// final la toma isLowStockRow para que ambos pasos coincidan exactamente
+// entre el alert del Home, el filtro del listado y el badge visual.
+export function LOW_STOCK_WHERE(tenantId: string) {
+  return { tenantId, isActive: true, minStock: { gt: 0 } };
+}
+export function isLowStockRow(p: { stock: number | null; minStock: number | null }) {
+  const stock = p.stock ?? 0;
+  const minStock = p.minStock ?? 0;
+  return minStock > 0 && stock <= minStock;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -79,17 +92,8 @@ export class ProductsService {
     const perPage = Math.min(100, Math.max(1, query.perPage || 20));
     const skip = (page - 1) * perPage;
 
-    const where: any = {
-      tenantId,
-      isActive: true,
-      // Consistente con getAlertCounts: solo productos con minStock > 0
-      // (los que tienen minStock=0 o NULL no se alertan).
-      minStock: { gt: 0 },
-      stock: { not: null },
-    };
-
     const allProducts = await this.prisma.product.findMany({
-      where,
+      where: LOW_STOCK_WHERE(tenantId),
       include: {
         supplier: { select: { id: true, name: true } },
         images: { orderBy: { sortOrder: 'asc' } },
@@ -97,9 +101,7 @@ export class ProductsService {
       orderBy: { stock: 'asc' },
     });
 
-    const lowStockProducts = allProducts.filter(
-      (p) => p.stock !== null && p.minStock !== null && p.minStock > 0 && p.stock <= p.minStock,
-    );
+    const lowStockProducts = allProducts.filter(isLowStockRow);
 
     const total = lowStockProducts.length;
     const data = lowStockProducts.slice(skip, skip + perPage);

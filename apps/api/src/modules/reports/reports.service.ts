@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { LOW_STOCK_WHERE, isLowStockRow } from '../products/products.service';
 
 @Injectable()
 export class ReportsService {
@@ -304,15 +305,15 @@ export class ReportsService {
     const now = new Date();
 
     const [lowStockCount, pendingReservations, unconfirmedAppointments] = await Promise.all([
-      // Mismo camino que /api/products?lowStock=true (findLowStock) para
-      // que el conteo del alert coincida exactamente con lo que se muestra
-      // al filtrar. Antes era SQL raw y podía divergir bajo edge cases.
+      // Mismo helper que ProductsService.findLowStock para garantizar que
+      // el conteo del alert coincide exactamente con lo que se muestra al
+      // filtrar en /inventory.
       this.prisma.product
         .findMany({
-          where: { tenantId, isActive: true, minStock: { gt: 0 } },
+          where: LOW_STOCK_WHERE(tenantId),
           select: { stock: true, minStock: true },
         })
-        .then((all) => all.filter((p) => p.stock <= p.minStock).length)
+        .then((all) => all.filter(isLowStockRow).length)
         .catch(() => 0),
       this.prisma.productReservation.count({
         where: { tenantId, status: 'PENDING' },
