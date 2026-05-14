@@ -411,7 +411,10 @@ export class AppointmentsService {
           items: { select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true, commissionSnapshot: true } },
           // Para que el frontend pueda filtrar pagadas vs no pagadas sin
           // hacer queries adicionales. Solo trae cobros completados.
-          payments: { select: { id: true, status: true }, where: { status: 'COMPLETED' } },
+          payments: {
+            where: { status: 'COMPLETED' },
+            select: { id: true },
+          },
         },
       }),
       this.prisma.appointment.count({ where }),
