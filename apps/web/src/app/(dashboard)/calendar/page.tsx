@@ -18,8 +18,7 @@ import { createPortal } from 'react-dom';
 
 dayjs.extend(isoWeek);
 
-type ViewMode = 'day' | 'week' | 'month' | 'custom';
-type MainView = 'calendario' | 'registro';
+type ViewMode = 'day' | 'week' | 'month' | 'custom' | 'list';
 
 interface Appointment {
   id: string;
@@ -57,7 +56,6 @@ export default function CalendarPage() {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const [mainView, setMainView] = useState<MainView>('calendario');
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -68,20 +66,14 @@ export default function CalendarPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showFilters, setShowFilters] = useState(() => !!searchParams.get('status'));
   const [showStats, setShowStats] = useState(false);
-  const [showRegistroFilters, setShowRegistroFilters] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
 
   const [customStart, setCustomStart] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
   const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
-
-  // Registro filters
-  const [regDateFrom, setRegDateFrom] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
-  const [regDateTo, setRegDateTo] = useState(dayjs().format('YYYY-MM-DD'));
-  const [regClient, setRegClient] = useState('');
-  const [regEmployee, setRegEmployee] = useState('');
-  const [regStatus, setRegStatus] = useState('');
-  const [regSearch, setRegSearch] = useState('');
+  // Búsqueda libre por texto (cliente, empleado, servicio). Reemplaza la
+  // pestaña Registro: ahora cualquier vista del calendario aprovecha la búsqueda.
+  const [filterSearch, setFilterSearch] = useState('');
 
   // Open appointment from URL param (e.g. from reports detail)
   useEffect(() => {
@@ -173,18 +165,22 @@ export default function CalendarPage() {
   // interpretaba como UTC midnight, perdiendo las horas nocturnas locales.
   const startDate = viewMode === 'custom'
     ? dayjs(customStart).startOf('day').toISOString()
-    : viewMode === 'month'
-      ? currentDate.startOf('month').startOf('isoWeek').toISOString()
-      : viewMode === 'week'
-        ? currentDate.startOf('week').toISOString()
-        : currentDate.startOf('day').toISOString();
+    : viewMode === 'list'
+      ? dayjs().subtract(30, 'day').startOf('day').toISOString()
+      : viewMode === 'month'
+        ? currentDate.startOf('month').startOf('isoWeek').toISOString()
+        : viewMode === 'week'
+          ? currentDate.startOf('week').toISOString()
+          : currentDate.startOf('day').toISOString();
   const endDate = viewMode === 'custom'
     ? dayjs(customEnd).endOf('day').toISOString()
-    : viewMode === 'month'
-      ? currentDate.endOf('month').endOf('isoWeek').toISOString()
-      : viewMode === 'week'
-        ? currentDate.endOf('week').toISOString()
-        : currentDate.endOf('day').toISOString();
+    : viewMode === 'list'
+      ? dayjs().endOf('day').toISOString()
+      : viewMode === 'month'
+        ? currentDate.endOf('month').endOf('isoWeek').toISOString()
+        : viewMode === 'week'
+          ? currentDate.endOf('week').toISOString()
+          : currentDate.endOf('day').toISOString();
 
   // Build query params - month view needs more results
   const queryParams = new URLSearchParams({
@@ -269,26 +265,6 @@ export default function CalendarPage() {
 
   const allAppointments = data?.data || [];
 
-  // Registro query - all appointments for the date range
-  const regParams = new URLSearchParams({ startDate: regDateFrom, endDate: regDateTo, perPage: '100' });
-  if (regEmployee) regParams.set('employeeId', regEmployee);
-  if (regClient) regParams.set('clientId', regClient);
-  if (regStatus) regParams.set('status', regStatus);
-
-  const { data: regData } = useQuery({
-    queryKey: ['appointments-registro', regDateFrom, regDateTo, regEmployee, regClient, regStatus],
-    queryFn: () => api.get<{ data: Appointment[] }>(`/api/appointments?${regParams.toString()}`),
-    enabled: mainView === 'registro',
-  });
-  const regAppointments = (regData?.data || []).filter((apt) => {
-    if (!regSearch) return true;
-    const q = regSearch.toLowerCase().trim();
-    if (!q) return true;
-    const clientName = `${apt.client?.firstName || ''} ${apt.client?.lastName || ''}`.toLowerCase();
-    const empName = `${apt.employee?.firstName || ''} ${apt.employee?.lastName || ''}`.toLowerCase();
-    const services = (apt.items || []).map((i) => i.serviceNameSnapshot || '').join(' ').toLowerCase();
-    return clientName.includes(q) || empName.includes(q) || services.includes(q);
-  });
   const employees = employeesData?.data || [];
   const clients = clientsData?.data || [];
   const services = servicesData?.data || [];
@@ -316,6 +292,15 @@ export default function CalendarPage() {
       const payments = ((apt as any).payments || []) as Array<{ status?: string }>;
       const isPaid = payments.some((p) => (p.status || '').toUpperCase() === 'COMPLETED');
       return filterPayment === 'paid' ? isPaid : !isPaid;
+    });
+  }
+  if (filterSearch.trim()) {
+    const q = filterSearch.toLowerCase().trim();
+    appointments = appointments.filter((apt) => {
+      const clientName = `${apt.client?.firstName || ''} ${apt.client?.lastName || ''}`.toLowerCase();
+      const empName = `${apt.employee?.firstName || ''} ${apt.employee?.lastName || ''}`.toLowerCase();
+      const svcs = (apt.items || []).map((i) => i.serviceNameSnapshot || '').join(' ').toLowerCase();
+      return clientName.includes(q) || empName.includes(q) || svcs.includes(q);
     });
   }
 
@@ -402,7 +387,8 @@ export default function CalendarPage() {
     filterServiceNames.length > 0 ||
     filterOnlyWithAppointments ||
     filterStatuses.length > 0 ||
-    filterPayment !== 'all';
+    filterPayment !== 'all' ||
+    filterSearch.trim().length > 0;
 
   function clearFilters() {
     setFilterEmployeeIds([]);
@@ -411,6 +397,7 @@ export default function CalendarPage() {
     setFilterOnlyWithAppointments(false);
     setFilterStatuses([]);
     setFilterPayment('all');
+    setFilterSearch('');
   }
 
   function toggleServiceFilter(name: string) {
@@ -453,17 +440,15 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   }
 
-  // Registrar boton "+ Nueva cita" en el topbar global (solo en vista calendario).
+  // Registrar boton "+ Nueva cita" en el topbar global.
   useRegisterTopbarAction(
-    mainView === 'calendario' ? (
-      <button
-        onClick={openNewAppointment}
-        className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
-      >
-        + Nueva
-      </button>
-    ) : null,
-    [mainView, currentDate, viewMode],
+    <button
+      onClick={openNewAppointment}
+      className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+    >
+      + Nueva
+    </button>,
+    [currentDate, viewMode],
   );
 
   // Swipe horizontal sobre el calendario: misma accion que las flechas.
@@ -542,30 +527,7 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col h-full">
-
-      {/* Main view tabs */}
-      <div className="border-b border-[var(--border)] px-3 md:px-6 bg-[var(--bg-surface)]">
-        <div className="flex gap-1">
-          {(['calendario', 'registro'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setMainView(tab)}
-              className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium border-b-2 transition-colors ${
-                mainView === tab ? 'border-[#008080] text-[#008080]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {tab === 'calendario' ? 'Citas' : (
-                <>
-                  <span className="md:hidden">Registro</span>
-                  <span className="hidden md:inline">Registro de citas</span>
-                </>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {mainView === 'calendario' && (<>
+      <>
       <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
         {/* Mode selector */}
         <div className="flex w-full md:w-auto rounded-lg border border-[var(--border)] overflow-hidden md:inline-flex">
@@ -573,6 +535,7 @@ export default function CalendarPage() {
             { key: 'day' as ViewMode, label: 'Día' },
             { key: 'week' as ViewMode, label: 'Semana' },
             { key: 'month' as ViewMode, label: 'Mes' },
+            { key: 'list' as ViewMode, label: 'Lista' },
             { key: 'custom' as ViewMode, label: 'Personalizado' },
           ]).map((v) => (
             <button
@@ -610,6 +573,21 @@ export default function CalendarPage() {
       {showFilters && (
         <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
           <div className="space-y-5">
+            {/* Búsqueda libre */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Buscar
+              </label>
+              <input
+                type="text"
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                placeholder="Cliente, empleado o servicio..."
+                className="input-field text-sm py-2"
+                autoFocus
+              />
+            </div>
+
             {/* Empleados */}
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
@@ -1069,6 +1047,97 @@ export default function CalendarPage() {
               </div>
             )}
           </div>
+        ) : viewMode === 'list' ? (
+          <div className="h-full overflow-auto" style={{ backgroundColor: 'var(--bg-surface)' }}>
+            {/* Summary */}
+            <div
+              className="px-3 md:px-6 py-2 md:py-3 border-b flex items-center justify-between"
+              style={{ backgroundColor: 'var(--bg-subtle)', borderColor: 'var(--border)' }}
+            >
+              <span className="text-sm text-[var(--text-secondary)]">
+                {appointments.length} cita{appointments.length !== 1 ? 's' : ''}
+              </span>
+              <span className="text-sm font-bold text-success-700 tabular-nums">
+                Total: {formatCurrency(appointments.reduce((s, a) => s + (a.items || []).reduce((is, i) => is + Number(i.priceSnapshot || 0), 0), 0))}
+              </span>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="sticky top-0 border-b" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                  <tr>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Horario</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Empleado</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Servicios</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...appointments]
+                    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+                    .map((apt) => {
+                      const total = (apt.items || []).reduce((s, i) => s + Number(i.priceSnapshot || 0), 0);
+                      const statusMap: Record<string, { label: string; color: string }> = {
+                        CONFIRMED: { label: 'Confirmada', color: 'bg-primary-50 text-primary-700' },
+                        COMPLETED: { label: 'Completada', color: 'bg-success-50 text-success-700' },
+                        CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-600' },
+                        NO_SHOW: { label: 'No-show', color: 'bg-red-100 text-red-600' },
+                        IN_PROGRESS: { label: 'En curso', color: 'bg-blue-100 text-blue-700' },
+                        PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700' },
+                      };
+                      const status = statusMap[apt.status] || statusMap.PENDING;
+                      return (
+                        <tr
+                          key={apt.id}
+                          className="border-t hover:bg-[var(--bg-muted)] cursor-pointer"
+                          style={{ borderColor: 'var(--border)' }}
+                          onClick={() => { setSelectedAppointmentId(apt.id); setIsModalOpen(true); }}
+                        >
+                          <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
+                          <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: '#008080' }}>
+                                {(apt.client as any)?.avatarUrl ? (
+                                  <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.client as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <>{apt.client?.firstName?.[0]}{apt.client?.lastName?.[0]}</>
+                                )}
+                              </div>
+                              <span className="text-sm font-medium text-[var(--text-primary)]">{apt.client?.firstName} {apt.client?.lastName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: apt.employee?.color || '#008080' }}>
+                                {(apt.employee as any)?.avatarUrl ? (
+                                  <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.employee as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <>{apt.employee?.firstName?.[0]}{apt.employee?.lastName?.[0]}</>
+                                )}
+                              </div>
+                              <span className="text-sm text-[var(--text-secondary)]">{apt.employee?.firstName} {apt.employee?.lastName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-[200px] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap tabular-nums">{formatCurrency(total)}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+              {appointments.length === 0 && (
+                <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
+              )}
+            </div>
+          </div>
         ) : (
           <CalendarView
             date={currentDate}
@@ -1097,229 +1166,8 @@ export default function CalendarPage() {
         )}
         </div>
       </div>
-      </>)}
+      </>
 
-      {/* ─── Registro de citas ─── */}
-      {mainView === 'registro' && (
-        <div className="flex-1 overflow-y-auto">
-          {/* Filters: solo busqueda + icono de filtros (el resto vive en un modal) */}
-          <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-surface)] border-b border-[var(--border)] flex items-center gap-2">
-            <input
-              type="text"
-              value={regSearch}
-              onChange={(e) => setRegSearch(e.target.value)}
-              placeholder="Buscar cliente, empleado, servicio..."
-              className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-            />
-            <button
-              onClick={() => setShowRegistroFilters(true)}
-              aria-label="Filtros"
-              className={`relative flex-shrink-0 p-2 rounded-lg border transition-colors ${
-                showRegistroFilters
-                  ? 'bg-[#008080] border-[#008080] text-white'
-                  : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
-              }`}
-              title="Filtros"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              {(regEmployee || regClient || regStatus) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#008080] border-2 border-white" />
-              )}
-            </button>
-          </div>
-
-          {/* Modal de filtros del Registro */}
-          {showRegistroFilters && (
-            <Modal title="Filtros" onClose={() => setShowRegistroFilters(false)} size="md">
-              <div className="space-y-5">
-                {/* Rango de fechas */}
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
-                    Rango de fechas
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={regDateFrom}
-                      onChange={(e) => setRegDateFrom(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)]"
-                    />
-                    <span className="text-[var(--text-muted)] flex-shrink-0">–</span>
-                    <input
-                      type="date"
-                      value={regDateTo}
-                      onChange={(e) => setRegDateTo(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)]"
-                    />
-                  </div>
-                </div>
-
-                {/* Empleado */}
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
-                    Empleado
-                  </label>
-                  <SearchableSelect
-                    value={regEmployee}
-                    onChange={setRegEmployee}
-                    placeholder="Buscar empleado..."
-                    allLabel="Todos los empleados"
-                    options={[...employees].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((e) => ({
-                      id: e.id, label: `${e.firstName} ${e.lastName}`, avatarUrl: e.avatarUrl, color: e.color,
-                    }))}
-                  />
-                </div>
-
-                {/* Cliente */}
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
-                    Cliente
-                  </label>
-                  <SearchableSelect
-                    value={regClient}
-                    onChange={setRegClient}
-                    placeholder="Buscar cliente..."
-                    allLabel="Todos los clientes"
-                    options={[...clients].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es')).map((c) => ({
-                      id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.email || c.phone || undefined, avatarUrl: (c as any).avatarUrl,
-                    }))}
-                  />
-                </div>
-
-                {/* Estado */}
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
-                    Estado
-                  </label>
-                  <select
-                    value={regStatus}
-                    onChange={(e) => setRegStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--bg-surface)] focus:outline-none focus:border-[#008080]"
-                  >
-                    <option value="">Todos los estados</option>
-                    <option value="CONFIRMED">Confirmada</option>
-                    <option value="COMPLETED">Completada</option>
-                    <option value="CANCELLED">Cancelada</option>
-                    <option value="NO_SHOW">Ausente</option>
-                    <option value="IN_PROGRESS">En curso</option>
-                  </select>
-                </div>
-
-                {/* Acciones */}
-                <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
-                  <button
-                    onClick={() => {
-                      setRegEmployee('');
-                      setRegClient('');
-                      setRegStatus('');
-                    }}
-                    disabled={!regEmployee && !regClient && !regStatus}
-                    className={`flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
-                      regEmployee || regClient || regStatus
-                        ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                        : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Limpiar filtros
-                  </button>
-                  <button
-                    onClick={() => setShowRegistroFilters(false)}
-                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-            </Modal>
-          )}
-
-          {/* Summary */}
-          <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-subtle)] border-b border-[var(--border)] flex items-center justify-between">
-            <span className="text-sm text-[var(--text-secondary)]">{regAppointments.length} cita{regAppointments.length !== 1 ? 's' : ''}</span>
-            <span className="text-sm font-bold text-green-700">
-              Total: {formatCurrency(regAppointments.reduce((s, a) => s + (a.items || []).reduce((is, i) => is + Number(i.priceSnapshot || 0), 0), 0))}
-            </span>
-          </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border)]">
-                <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Horario</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Empleado</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Servicios</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {regAppointments.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map((apt) => {
-                  const total = (apt.items || []).reduce((s, i) => s + Number(i.priceSnapshot || 0), 0);
-                  const statusMap: Record<string, { label: string; color: string }> = {
-                    CONFIRMED: { label: 'Confirmada', color: 'bg-green-100 text-green-700' },
-                    COMPLETED: { label: 'Completada', color: 'bg-[var(--bg-muted)] text-[var(--text-secondary)]' },
-                    CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-600' },
-                    NO_SHOW: { label: 'Ausente', color: 'bg-red-100 text-red-600' },
-                    IN_PROGRESS: { label: 'En curso', color: 'bg-blue-100 text-blue-700' },
-                    PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700' },
-                  };
-                  const status = statusMap[apt.status] || statusMap.PENDING;
-                  return (
-                    <tr
-                      key={apt.id}
-                      className="hover:bg-[var(--bg-muted)] cursor-pointer"
-                      onClick={() => { setSelectedAppointmentId(apt.id); setIsModalOpen(true); }}
-                    >
-                      <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
-                      <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: '#008080' }}>
-                            {(apt.client as any)?.avatarUrl ? (
-                              <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.client as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <>{apt.client?.firstName?.[0]}{apt.client?.lastName?.[0]}</>
-                            )}
-                          </div>
-                          <span className="text-sm font-medium text-[var(--text-primary)]">{apt.client?.firstName} {apt.client?.lastName}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: apt.employee?.color || '#008080' }}>
-                            {(apt.employee as any)?.avatarUrl ? (
-                              <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.employee as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <>{apt.employee?.firstName?.[0]}{apt.employee?.lastName?.[0]}</>
-                            )}
-                          </div>
-                          <span className="text-sm text-[var(--text-secondary)]">{apt.employee?.firstName} {apt.employee?.lastName}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-[200px] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap">{formatCurrency(total)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {regAppointments.length === 0 && (
-              <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
-            )}
-          </div>
-        </div>
-      )}
 
       {isModalOpen && (
         <AppointmentModal
