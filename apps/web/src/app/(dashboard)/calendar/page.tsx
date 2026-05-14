@@ -636,25 +636,25 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              {/* Pill: mostrar solo empleados con citas (vista día) */}
-              <button
-                type="button"
-                onClick={() => setFilterOnlyWithAppointments((v) => !v)}
-                className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                  filterOnlyWithAppointments
-                    ? 'bg-[#008080] text-white border-[#008080]'
-                    : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
-                }`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  {filterOnlyWithAppointments ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  ) : (
-                    <circle cx="12" cy="12" r="9" />
-                  )}
-                </svg>
-                Mostrar solo empleados con citas
-              </button>
+              {/* Toggle: mostrar solo empleados con citas (vista día) */}
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-[var(--text-secondary)]">
+                  Mostrar solo empleados con citas
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={filterOnlyWithAppointments}
+                  onClick={() => setFilterOnlyWithAppointments((v) => !v)}
+                  className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                  style={{ backgroundColor: filterOnlyWithAppointments ? '#008080' : 'var(--border)' }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                    style={{ transform: filterOnlyWithAppointments ? 'translateX(20px)' : 'translateX(0)' }}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Estado de cita (multi-select pills) */}
