@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
@@ -188,7 +189,13 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function ReportsPage() {
   const { format: formatCurrency } = useCurrency();
-  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const searchParams = useSearchParams();
+  const initialRange: DateRange = (() => {
+    const r = (searchParams?.get('range') || '').toLowerCase();
+    if (r === 'today' || r === '7d' || r === '30d' || r === 'month' || r === 'custom') return r;
+    return '30d';
+  })();
+  const [dateRange, setDateRange] = useState<DateRange>(initialRange);
   const [customStart, setCustomStart] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
   const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
   const [detail, setDetail] = useState<DetailView>(null);

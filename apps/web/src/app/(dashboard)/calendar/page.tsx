@@ -18,7 +18,7 @@ import { createPortal } from 'react-dom';
 
 dayjs.extend(isoWeek);
 
-type ViewMode = 'day' | 'week' | 'month' | 'custom' | 'list';
+type ViewMode = 'day' | 'week' | 'month' | 'custom';
 
 interface Appointment {
   id: string;
@@ -57,10 +57,13 @@ export default function CalendarPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState(dayjs());
-  const [viewMode, setViewMode] = useState<ViewMode>('week');
-  // Para que al alternar el toggle de Lista vuelva a la vista de calendario
-  // que estaba activa antes (no siempre a 'week').
-  const [prevCalendarView, setPrevCalendarView] = useState<ViewMode>('week');
+  // Acepta ?view=day|week|month|custom desde Home u otras pestañas.
+  const initialViewMode: ViewMode = (() => {
+    const v = (searchParams.get('view') || '').toLowerCase();
+    if (v === 'day' || v === 'week' || v === 'month' || v === 'custom') return v;
+    return 'week';
+  })();
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<
     string | null
@@ -168,22 +171,18 @@ export default function CalendarPage() {
   // interpretaba como UTC midnight, perdiendo las horas nocturnas locales.
   const startDate = viewMode === 'custom'
     ? dayjs(customStart).startOf('day').toISOString()
-    : viewMode === 'list'
-      ? dayjs().subtract(30, 'day').startOf('day').toISOString()
-      : viewMode === 'month'
-        ? currentDate.startOf('month').startOf('isoWeek').toISOString()
-        : viewMode === 'week'
-          ? currentDate.startOf('week').toISOString()
-          : currentDate.startOf('day').toISOString();
+    : viewMode === 'month'
+      ? currentDate.startOf('month').startOf('isoWeek').toISOString()
+      : viewMode === 'week'
+        ? currentDate.startOf('week').toISOString()
+        : currentDate.startOf('day').toISOString();
   const endDate = viewMode === 'custom'
     ? dayjs(customEnd).endOf('day').toISOString()
-    : viewMode === 'list'
-      ? dayjs().endOf('day').toISOString()
-      : viewMode === 'month'
-        ? currentDate.endOf('month').endOf('isoWeek').toISOString()
-        : viewMode === 'week'
-          ? currentDate.endOf('week').toISOString()
-          : currentDate.endOf('day').toISOString();
+    : viewMode === 'month'
+      ? currentDate.endOf('month').endOf('isoWeek').toISOString()
+      : viewMode === 'week'
+        ? currentDate.endOf('week').toISOString()
+        : currentDate.endOf('day').toISOString();
 
   // Build query params - month view needs more results
   const queryParams = new URLSearchParams({
@@ -459,16 +458,13 @@ export default function CalendarPage() {
   // En vista 'day' con empleados, el calendario tiene scroll horizontal nativo
   // para ver columnas; no queremos que el swipe cambie de día y compita con ese scroll.
   const hasEmployeeDayScroll = viewMode === 'day' && (dayEmployeesData?.data?.length || 0) > 0;
-  // En vista 'list' la tabla tiene su propio scroll horizontal — desactivamos
-  // el swipe del calendario para que no compita y reinicie la vista.
-  const swipeDisabled = viewMode === 'custom' || viewMode === 'list' || hasEmployeeDayScroll;
   function onSwipeStart(e: React.TouchEvent | React.PointerEvent) {
-    if (swipeDisabled) return;
+    if (viewMode === 'custom' || hasEmployeeDayScroll) return;
     const point = 'touches' in e ? e.touches[0] : e;
     swipeStartRef.current = { x: point.clientX, y: point.clientY };
   }
   function onSwipeEnd(e: React.TouchEvent | React.PointerEvent) {
-    if (swipeDisabled || !swipeStartRef.current) return;
+    if (viewMode === 'custom' || hasEmployeeDayScroll || !swipeStartRef.current) return;
     const point = 'changedTouches' in e ? e.changedTouches[0] : e;
     const dx = point.clientX - swipeStartRef.current.x;
     const dy = Math.abs(point.clientY - swipeStartRef.current.y);
@@ -589,7 +585,6 @@ export default function CalendarPage() {
                 onChange={(e) => setFilterSearch(e.target.value)}
                 placeholder="Cliente, empleado o servicio..."
                 className="input-field text-sm py-2"
-                autoFocus
               />
             </div>
 
@@ -900,28 +895,6 @@ export default function CalendarPage() {
           </svg>
         </button>
 
-        {/* Toggle: Calendario vs Lista */}
-        <button
-          onClick={() => {
-            if (viewMode === 'list') {
-              setViewMode(prevCalendarView);
-            } else {
-              setPrevCalendarView(viewMode);
-              setViewMode('list');
-            }
-          }}
-          aria-label={viewMode === 'list' ? 'Ver calendario' : 'Ver lista'}
-          className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
-            viewMode === 'list'
-              ? 'bg-[#008080] border-[#008080] text-white'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
-          }`}
-          title={viewMode === 'list' ? 'Ver calendario' : 'Ver lista'}
-        >
-          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
       </div>
 
       <div
@@ -932,7 +905,7 @@ export default function CalendarPage() {
         {/* Flechas absolutas para anterior/siguiente (hidden en custom).
             z-30 garantiza que queden por encima de las citas (z-10/20).
             stopPropagation + onMouseDown/onTouchStart blockean el click de la cita. */}
-        {viewMode !== 'custom' && viewMode !== 'list' && (
+        {viewMode !== 'custom' && (
           <>
             <button
               onMouseDown={(e) => e.stopPropagation()}
@@ -1047,127 +1020,44 @@ export default function CalendarPage() {
               <div className="space-y-2">
                 {appointments.map((apt) => {
                   const totalPrice = (apt.items || []).reduce((sum, i) => sum + Number(i.priceSnapshot || 0), 0);
+                  const statusLabel =
+                    apt.status === 'COMPLETED' ? 'Completada' :
+                    apt.status === 'CANCELLED' ? 'Cancelada' :
+                    apt.status === 'PENDING' ? 'Pendiente' :
+                    apt.status === 'CONFIRMED' ? 'Confirmada' :
+                    apt.status === 'NO_SHOW' ? 'No-show' :
+                    apt.status;
+                  const statusColor =
+                    apt.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                    apt.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
+                    apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                    apt.status === 'CONFIRMED' ? 'bg-primary-50 text-primary-700' :
+                    'bg-[var(--bg-muted)] text-[var(--text-secondary)]';
                   return (
                     <div
                       key={apt.id}
                       onClick={() => handleAppointmentClick(apt)}
-                      className="flex items-center gap-4 p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors"
+                      className="flex flex-wrap md:flex-nowrap items-center gap-x-3 gap-y-2 p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors min-w-0"
                       style={{ borderLeft: `3px solid ${apt.employee?.color || '#008080'}` }}
                     >
-                      <div className="min-w-[100px]">
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{dayjs(apt.startTime).format('D MMM YYYY')}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">{dayjs(apt.startTime).format('h:mm A')} - {dayjs(apt.endTime).format('h:mm A')}</p>
+                      <div className="min-w-[110px] flex-shrink-0">
+                        <p className="text-sm font-medium text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('D MMM YYYY')}</p>
+                        <p className="text-xs text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('h:mm A')} - {dayjs(apt.endTime).format('h:mm A')}</p>
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 basis-full md:basis-auto order-3 md:order-none">
                         <p className="text-sm font-medium text-[var(--text-primary)] truncate">{apt.client?.firstName} {apt.client?.lastName}</p>
                         <p className="text-xs text-[var(--text-secondary)] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</p>
                       </div>
-                      <div className="text-xs text-[var(--text-secondary)]">{apt.employee?.firstName} {apt.employee?.lastName}</div>
-                      <div className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(totalPrice)}</div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                        apt.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                        apt.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
-                        apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-[var(--bg-muted)] text-[var(--text-secondary)]'
-                      }`}>
-                        {apt.status === 'COMPLETED' ? 'Completada' : apt.status === 'CANCELLED' ? 'Cancelada' : apt.status === 'PENDING' ? 'Pendiente' : apt.status}
+                      <div className="hidden md:block text-xs text-[var(--text-secondary)] truncate min-w-0 max-w-[140px]">{apt.employee?.firstName} {apt.employee?.lastName}</div>
+                      <div className="ml-auto md:ml-0 text-sm font-semibold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">{formatCurrency(totalPrice)}</div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${statusColor}`}>
+                        {statusLabel}
                       </span>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
-        ) : viewMode === 'list' ? (
-          <div className="h-full overflow-auto" style={{ backgroundColor: 'var(--bg-surface)' }}>
-            {/* Summary */}
-            <div
-              className="px-3 md:px-6 py-2 md:py-3 border-b flex items-center justify-between"
-              style={{ backgroundColor: 'var(--bg-subtle)', borderColor: 'var(--border)' }}
-            >
-              <span className="text-sm text-[var(--text-secondary)]">
-                {appointments.length} cita{appointments.length !== 1 ? 's' : ''}
-              </span>
-              <span className="text-sm font-bold text-success-700 tabular-nums">
-                Total: {formatCurrency(appointments.reduce((s, a) => s + (a.items || []).reduce((is, i) => is + Number(i.priceSnapshot || 0), 0), 0))}
-              </span>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="sticky top-0 border-b" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                  <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Horario</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Empleado</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Servicios</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...appointments]
-                    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-                    .map((apt) => {
-                      const total = (apt.items || []).reduce((s, i) => s + Number(i.priceSnapshot || 0), 0);
-                      const statusMap: Record<string, { label: string; color: string }> = {
-                        CONFIRMED: { label: 'Confirmada', color: 'bg-primary-50 text-primary-700' },
-                        COMPLETED: { label: 'Completada', color: 'bg-success-50 text-success-700' },
-                        CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-600' },
-                        NO_SHOW: { label: 'No-show', color: 'bg-red-100 text-red-600' },
-                        IN_PROGRESS: { label: 'En curso', color: 'bg-blue-100 text-blue-700' },
-                        PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700' },
-                      };
-                      const status = statusMap[apt.status] || statusMap.PENDING;
-                      return (
-                        <tr
-                          key={apt.id}
-                          className="border-t hover:bg-[var(--bg-muted)] cursor-pointer"
-                          style={{ borderColor: 'var(--border)' }}
-                          onClick={() => { setSelectedAppointmentId(apt.id); setIsModalOpen(true); }}
-                        >
-                          <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
-                          <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: '#008080' }}>
-                                {(apt.client as any)?.avatarUrl ? (
-                                  <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.client as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <>{apt.client?.firstName?.[0]}{apt.client?.lastName?.[0]}</>
-                                )}
-                              </div>
-                              <span className="text-sm font-medium text-[var(--text-primary)]">{apt.client?.firstName} {apt.client?.lastName}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: apt.employee?.color || '#008080' }}>
-                                {(apt.employee as any)?.avatarUrl ? (
-                                  <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${(apt.employee as any).avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <>{apt.employee?.firstName?.[0]}{apt.employee?.lastName?.[0]}</>
-                                )}
-                              </div>
-                              <span className="text-sm text-[var(--text-secondary)]">{apt.employee?.firstName} {apt.employee?.lastName}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-[200px] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
-                          </td>
-                          <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap tabular-nums">{formatCurrency(total)}</td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-              {appointments.length === 0 && (
-                <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
-              )}
-            </div>
           </div>
         ) : (
           <CalendarView
