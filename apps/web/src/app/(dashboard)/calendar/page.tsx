@@ -58,6 +58,9 @@ export default function CalendarPage() {
   const searchParams = useSearchParams();
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
+  // Para que al alternar el toggle de Lista vuelva a la vista de calendario
+  // que estaba activa antes (no siempre a 'week').
+  const [prevCalendarView, setPrevCalendarView] = useState<ViewMode>('week');
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<
     string | null
@@ -456,13 +459,16 @@ export default function CalendarPage() {
   // En vista 'day' con empleados, el calendario tiene scroll horizontal nativo
   // para ver columnas; no queremos que el swipe cambie de día y compita con ese scroll.
   const hasEmployeeDayScroll = viewMode === 'day' && (dayEmployeesData?.data?.length || 0) > 0;
+  // En vista 'list' la tabla tiene su propio scroll horizontal — desactivamos
+  // el swipe del calendario para que no compita y reinicie la vista.
+  const swipeDisabled = viewMode === 'custom' || viewMode === 'list' || hasEmployeeDayScroll;
   function onSwipeStart(e: React.TouchEvent | React.PointerEvent) {
-    if (viewMode === 'custom' || hasEmployeeDayScroll) return;
+    if (swipeDisabled) return;
     const point = 'touches' in e ? e.touches[0] : e;
     swipeStartRef.current = { x: point.clientX, y: point.clientY };
   }
   function onSwipeEnd(e: React.TouchEvent | React.PointerEvent) {
-    if (viewMode === 'custom' || hasEmployeeDayScroll || !swipeStartRef.current) return;
+    if (swipeDisabled || !swipeStartRef.current) return;
     const point = 'changedTouches' in e ? e.changedTouches[0] : e;
     const dx = point.clientX - swipeStartRef.current.x;
     const dy = Math.abs(point.clientY - swipeStartRef.current.y);
@@ -535,7 +541,6 @@ export default function CalendarPage() {
             { key: 'day' as ViewMode, label: 'Día' },
             { key: 'week' as ViewMode, label: 'Semana' },
             { key: 'month' as ViewMode, label: 'Mes' },
-            { key: 'list' as ViewMode, label: 'Lista' },
             { key: 'custom' as ViewMode, label: 'Personalizado' },
           ]).map((v) => (
             <button
@@ -894,6 +899,29 @@ export default function CalendarPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
           </svg>
         </button>
+
+        {/* Toggle: Calendario vs Lista */}
+        <button
+          onClick={() => {
+            if (viewMode === 'list') {
+              setViewMode(prevCalendarView);
+            } else {
+              setPrevCalendarView(viewMode);
+              setViewMode('list');
+            }
+          }}
+          aria-label={viewMode === 'list' ? 'Ver calendario' : 'Ver lista'}
+          className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+            viewMode === 'list'
+              ? 'bg-[#008080] border-[#008080] text-white'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
+          }`}
+          title={viewMode === 'list' ? 'Ver calendario' : 'Ver lista'}
+        >
+          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
 
       <div
@@ -904,7 +932,7 @@ export default function CalendarPage() {
         {/* Flechas absolutas para anterior/siguiente (hidden en custom).
             z-30 garantiza que queden por encima de las citas (z-10/20).
             stopPropagation + onMouseDown/onTouchStart blockean el click de la cita. */}
-        {viewMode !== 'custom' && (
+        {viewMode !== 'custom' && viewMode !== 'list' && (
           <>
             <button
               onMouseDown={(e) => e.stopPropagation()}
