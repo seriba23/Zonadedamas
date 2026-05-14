@@ -6,8 +6,77 @@ import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
 import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { KpiCard } from '@/components/dashboard/kpi-card';
 import dayjs from 'dayjs';
 import Link from 'next/link';
+
+// Donut chart inline para "Citas por estado".
+function DonutChart({
+  slices,
+  size = 140,
+}: {
+  slices: { label: string; value: number; color: string }[];
+  size?: number;
+}) {
+  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
+  const r = size / 2 - 12;
+  const c = 2 * Math.PI * r;
+  let cumulative = 0;
+  const segments = slices.map((s) => {
+    const dash = (s.value / total) * c;
+    const seg = { dash, offset: -cumulative, color: s.color };
+    cumulative += dash;
+    return seg;
+  });
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--bg-canvas)" strokeWidth="14" />
+      {segments.map((s, i) => (
+        <circle
+          key={i}
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={s.color}
+          strokeWidth="14"
+          strokeDasharray={`${s.dash} ${c}`}
+          strokeDashoffset={s.offset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      ))}
+      <text
+        x={size / 2}
+        y={size / 2 - 2}
+        textAnchor="middle"
+        style={{
+          fontSize: 22,
+          fontWeight: 800,
+          fill: 'var(--text-primary)',
+          fontFamily: 'inherit',
+          letterSpacing: '-.01em',
+        }}
+      >
+        {slices.reduce((s, x) => s + x.value, 0)}
+      </text>
+      <text
+        x={size / 2}
+        y={size / 2 + 16}
+        textAnchor="middle"
+        style={{
+          fontSize: 10,
+          fill: 'var(--text-muted)',
+          fontFamily: 'inherit',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '.06em',
+        }}
+      >
+        Total
+      </text>
+    </svg>
+  );
+}
 
 type DateRange = 'today' | '7d' | '30d' | 'month' | 'custom';
 
@@ -464,8 +533,6 @@ export default function ReportsPage() {
     return null;
   }
 
-  const clickableCard = 'cursor-pointer hover:shadow-md hover:border-[var(--border)] transition-all';
-
   return (
     <div className="flex flex-col h-full">
 
@@ -504,136 +571,185 @@ export default function ReportsPage() {
           )}
         </div>
 
-        {/* KPI cards - INTERACTIVE */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-8">
-          {/* Ingresos */}
-          <div
+        {/* KPI cards — usando el componente compartido */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+          <KpiCard
             onClick={() => setDetail('revenue')}
-            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
-          >
-            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-green-700 bg-green-50">
-              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}</p>
-            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Ingresos totales</p>
-            <p className="text-[10px] md:text-xs text-primary-600 mt-1 md:mt-2 font-medium">Ver detalle &rarr;</p>
-          </div>
-
-          {/* Citas totales */}
-          <div
+            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            label="Ingresos del período"
+            value={isLoading ? <span className="inline-block h-6 w-24 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}
+            subtitle={stats.kpis.totalAppointments > 0 ? `${stats.kpis.completedAppointments} completadas` : undefined}
+          />
+          <KpiCard
             onClick={() => setDetail('appointments')}
-            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
-          >
-            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-blue-700 bg-blue-50">
-              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : stats.kpis.totalAppointments}</p>
-            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Citas totales</p>
-            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 md:mt-2">
-              <button onClick={(e) => { e.stopPropagation(); setDetail('cancelled'); }} className="text-[10px] md:text-xs text-red-600 font-medium hover:underline">
-                {stats.kpis.cancelledAppointments} canc.
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); setDetail('noshow'); }} className="text-[10px] md:text-xs text-[var(--text-secondary)] font-medium hover:underline">
-                {stats.kpis.noShowCount} aus.
-              </button>
-            </div>
-          </div>
-
-          {/* Ticket promedio */}
-          <div
+            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>}
+            label="Citas"
+            value={isLoading ? <span className="inline-block h-6 w-12 bg-[var(--border)] rounded animate-pulse" /> : String(stats.kpis.totalAppointments)}
+            subtitle={`${stats.kpis.completedAppointments} ok · ${stats.kpis.cancelledAppointments} canc.`}
+          />
+          <KpiCard
+            onClick={() => setDetail('newClients')}
+            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>}
+            label="Clientes activos"
+            value={isLoading ? <span className="inline-block h-6 w-12 bg-[var(--border)] rounded animate-pulse" /> : String(stats.clientMetrics.totalClients)}
+            trend={stats.clientMetrics.newClients > 0 ? `+${stats.clientMetrics.newClients} nuevos` : undefined}
+          />
+          <KpiCard
             onClick={() => setDetail('revenue')}
-            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
-          >
-            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-purple-700 bg-purple-50">
-              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-              </svg>
-            </div>
-            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.averageTicket)}</p>
-            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Ticket promedio</p>
-            <p className="text-[10px] md:text-xs text-primary-600 mt-1 md:mt-2 font-medium">Ver pagos &rarr;</p>
-          </div>
-
-          {/* Ausencias */}
-          <div
-            onClick={() => setDetail('noshow')}
-            className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 ${clickableCard}`}
-          >
-            <div className="inline-flex p-1.5 md:p-2 rounded-lg mb-1.5 md:mb-3 text-red-700 bg-red-50">
-              <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-              </svg>
-            </div>
-            <p className="text-base md:text-2xl font-bold text-[var(--text-primary)] leading-tight">{isLoading ? <span className="inline-block h-5 md:h-7 w-20 md:w-24 bg-[var(--border)] rounded animate-pulse" /> : `${stats.kpis.noShowRate.toFixed(1)}%`}</p>
-            <p className="text-[11px] md:text-sm text-[var(--text-secondary)] mt-0.5 md:mt-1">Tasa de ausencias</p>
-            <p className="text-[10px] md:text-xs text-red-600 mt-1 md:mt-2 font-medium">{stats.kpis.noShowCount} cita{stats.kpis.noShowCount !== 1 ? 's' : ''} &rarr;</p>
-          </div>
+            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>}
+            label="Ticket promedio"
+            value={isLoading ? <span className="inline-block h-6 w-20 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.averageTicket)}
+            subtitle={`${stats.kpis.noShowRate.toFixed(1)}% no-show`}
+          />
         </div>
 
-        {/* Revenue chart + Top services */}
+        {/* Revenue chart + Citas por estado (donut) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6 mb-3 md:mb-6">
-          {/* Revenue chart */}
-          <div className="lg:col-span-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Ingresos por día</h3>
+          {/* Revenue chart con header rico */}
+          <div className="lg:col-span-2 rounded-xl border border-[var(--border)] p-4 md:p-5 overflow-hidden" style={{ backgroundColor: 'var(--bg-surface)' }}>
+            <div className="flex items-start justify-between mb-3 gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  Ingresos · {rangeOptions.find((r) => r.key === dateRange)?.label || ''}
+                </p>
+                <p className="text-2xl md:text-3xl font-extrabold mt-1 truncate" style={{ color: 'var(--text-primary)' }}>
+                  {isLoading ? <span className="inline-block h-8 w-32 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.totalRevenue)}
+                </p>
+              </div>
+              {(() => {
+                const best = stats.revenueByDay.reduce<{ date: string; revenue: number } | null>(
+                  (acc, d) => (!acc || d.revenue > acc.revenue ? d : acc),
+                  null,
+                );
+                if (!best || best.revenue === 0) return null;
+                return (
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>Mejor día</p>
+                    <p className="text-base font-bold text-primary-600 tabular-nums">{formatCurrency(best.revenue)}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{dayjs(best.date).format('D MMM')}</p>
+                  </div>
+                );
+              })()}
+            </div>
             {isLoading ? (
               <div className="h-48 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
             ) : stats.revenueByDay.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-[var(--text-muted)] text-sm">No hay datos para este periodo</div>
+              <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No hay datos para este periodo</div>
             ) : (
-              <div className="flex items-end gap-1 h-48">
-                {stats.revenueByDay.map((day) => (
-                  <div key={day.date} className="flex-1 flex flex-col items-center gap-1 group cursor-pointer"
-                    onClick={() => {
-                      setDateRange('custom');
-                      setCustomStart(day.date);
-                      setCustomEnd(day.date);
-                      setDetail('appointments');
-                    }}
-                  >
-                    <div className="relative w-full">
-                      <div
-                        className="w-full rounded-t transition-all group-hover:opacity-100"
-                        style={{ height: `${Math.max((day.revenue / maxRevenue) * 160, 4)}px`, backgroundColor: '#008080', opacity: 0.7 }}
-                      />
+              <div className="flex items-end gap-1 h-48 mt-2">
+                {stats.revenueByDay.map((day) => {
+                  const pct = (day.revenue / maxRevenue) * 100;
+                  const isBest = stats.revenueByDay.every((d) => d.revenue <= day.revenue) && day.revenue > 0;
+                  return (
+                    <div
+                      key={day.date}
+                      className="flex-1 min-w-0 flex flex-col items-center gap-1 group cursor-pointer relative"
+                      onClick={() => {
+                        setDateRange('custom');
+                        setCustomStart(day.date);
+                        setCustomEnd(day.date);
+                        setDetail('appointments');
+                      }}
+                    >
+                      <span
+                        className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none px-1.5 py-0.5 rounded shadow-sm z-10 border"
+                        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                      >
+                        {formatCurrency(day.revenue)}
+                      </span>
+                      <div className="w-full flex items-end" style={{ height: 'calc(100% - 18px)' }}>
+                        <div
+                          className="w-full rounded-t-md transition-all duration-300 group-hover:opacity-100"
+                          style={{
+                            height: `${Math.max(pct, 2)}%`,
+                            backgroundColor: day.revenue > 0 ? '#008080' : 'var(--border)',
+                            opacity: isBest ? 1 : day.revenue > 0 ? 0.65 : 1,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{dayjs(day.date).format('D')}</span>
                     </div>
-                    <span className="text-xs text-[var(--text-muted)] hidden lg:block">{dayjs(day.date).format('D')}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Top services - INTERACTIVE */}
-          <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
-            <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Servicios más populares</h3>
+          {/* Citas por estado (donut) */}
+          <div className="rounded-xl border border-[var(--border)] p-4 md:p-5" style={{ backgroundColor: 'var(--bg-surface)' }}>
+            <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+              Citas por estado
+            </p>
             {isLoading ? (
-              <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />)}</div>
-            ) : stats.topServices.length === 0 ? (
-              <p className="text-sm text-[var(--text-muted)]">No hay datos disponibles</p>
-            ) : (
-              <div className="space-y-2">
+              <div className="h-40 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
+            ) : stats.kpis.totalAppointments === 0 ? (
+              <p className="text-sm py-6 text-center" style={{ color: 'var(--text-muted)' }}>Sin citas</p>
+            ) : (() => {
+              const completed = stats.kpis.completedAppointments;
+              const cancelled = stats.kpis.cancelledAppointments;
+              const noshow = stats.kpis.noShowCount;
+              const otros = Math.max(0, stats.kpis.totalAppointments - completed - cancelled - noshow);
+              const slices = [
+                { label: 'Completadas', value: completed, color: '#059669' },
+                { label: 'Pendientes', value: otros, color: '#008080' },
+                { label: 'Canceladas', value: cancelled, color: '#dc2626' },
+                { label: 'No-show', value: noshow, color: '#94a3b8' },
+              ].filter((s) => s.value > 0);
+              return (
+                <div className="flex items-center gap-3 mt-2">
+                  <DonutChart slices={slices} size={130} />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {slices.map((s) => (
+                      <div key={s.label} className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="text-xs flex-1 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                        <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Top services con barras de progreso */}
+        <div className="mb-3 md:mb-6 rounded-xl border border-[var(--border)] p-4 md:p-5" style={{ backgroundColor: 'var(--bg-surface)' }}>
+          <p className="text-xs uppercase tracking-wide font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>
+            Top servicios
+          </p>
+          {isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />)}</div>
+          ) : stats.topServices.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No hay datos disponibles</p>
+          ) : (() => {
+            const maxCount = Math.max(...stats.topServices.map((s) => s.count), 1);
+            const palette = ['#008080', '#7c3aed', '#d97706', '#059669', '#3b82f6', '#0891b2', '#db2777', '#9333ea'];
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                 {stats.topServices.slice(0, 8).map((service, idx) => (
                   <div
                     key={service.name}
                     onClick={() => setDetail({ type: 'service', name: service.name })}
-                    className="flex items-center gap-3 p-2 -mx-2 rounded-lg cursor-pointer hover:bg-[var(--bg-muted)] transition-colors"
+                    className="cursor-pointer"
                   >
-                    <span className="text-sm font-medium text-[var(--text-secondary)] w-5">{idx + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">{service.name}</p>
-                      <p className="text-xs text-[var(--text-secondary)]">{service.count} cita{service.count !== 1 ? 's' : ''}</p>
+                    <div className="flex items-baseline justify-between mb-1 gap-2">
+                      <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{service.name}</span>
+                      <span className="text-sm font-bold tabular-nums flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{formatCurrency(service.revenue)}</span>
                     </div>
-                    <span className="text-sm font-semibold text-[var(--text-secondary)]">{formatCurrency(service.revenue)}</span>
-                    <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-muted)' }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${(service.count / maxCount) * 100}%`, backgroundColor: palette[idx % palette.length] }} />
+                      </div>
+                      <span className="text-xs tabular-nums w-16 text-right flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                        {service.count} cita{service.count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
 
         {/* Top employees + Payment methods */}
