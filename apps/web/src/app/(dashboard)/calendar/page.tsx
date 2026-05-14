@@ -66,7 +66,7 @@ export default function CalendarPage() {
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(() => !!searchParams.get('status'));
   const [showStats, setShowStats] = useState(false);
   const [showRegistroFilters, setShowRegistroFilters] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
@@ -107,6 +107,21 @@ export default function CalendarPage() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
+  // Filtro de estado (multi-pill). Si viene ?status=XXX en el URL (e.g. desde
+  // la alerta del Home "X citas sin confirmar"), se inicializa con ese status.
+  const initialStatuses = useMemo(() => {
+    const fromUrl = searchParams.get('status');
+    return fromUrl ? [fromUrl.toUpperCase()] : [];
+  }, [searchParams]);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>(initialStatuses);
+  function toggleStatusFilter(s: string) {
+    setFilterStatuses((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+    );
+  }
+  // Filtro de pago: 'all' | 'paid' | 'unpaid'. Se aplica en client-side
+  // sobre el array de appointments (que incluye .payments del backend).
+  const [filterPayment, setFilterPayment] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [filterServiceNames, setFilterServiceNames] = useState<string[]>([]);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
   const serviceButtonRef = useRef<HTMLButtonElement>(null);
@@ -179,9 +194,11 @@ export default function CalendarPage() {
   });
   if (filterEmployeeIds.length > 0) queryParams.set('employeeIds', filterEmployeeIds.join(','));
   if (filterClientId) queryParams.set('clientId', filterClientId);
+  // Backend solo admite un status; con multi-status filtramos en client.
+  if (filterStatuses.length === 1) queryParams.set('status', filterStatuses[0]);
 
   const { data, refetch } = useQuery({
-    queryKey: ['appointments', startDate, endDate, filterEmployeeIds.join(','), filterClientId],
+    queryKey: ['appointments', startDate, endDate, filterEmployeeIds.join(','), filterClientId, filterStatuses.length === 1 ? filterStatuses[0] : ''],
     queryFn: () =>
       api.get<{ data: Appointment[] }>(
         `/api/appointments?${queryParams.toString()}`,
@@ -281,14 +298,25 @@ export default function CalendarPage() {
   const closures = closuresData?.data || [];
   const employeeTimeOffs = timeOffsData?.data || [];
 
-  // Apply frontend service filter (multi-select)
-  const appointments = filterServiceNames.length > 0
+  // Apply frontend filters en cascada: servicios + status (cuando hay multi) + pago
+  let appointments = filterServiceNames.length > 0
     ? allAppointments.filter((apt) =>
         apt.items?.some((item) =>
           filterServiceNames.includes(item.serviceNameSnapshot),
         ),
       )
     : allAppointments;
+  if (filterStatuses.length > 1) {
+    appointments = appointments.filter((apt) =>
+      filterStatuses.includes(apt.status?.toUpperCase?.() || ''),
+    );
+  }
+  if (filterPayment !== 'all') {
+    appointments = appointments.filter((apt) => {
+      const isPaid = ((apt as any).payments || []).length > 0;
+      return filterPayment === 'paid' ? isPaid : !isPaid;
+    });
+  }
 
   // Stats for current view (day/week/month)
   const viewStats = useMemo(() => {
@@ -367,13 +395,21 @@ export default function CalendarPage() {
     setViewMode('day');
   }
 
-  const hasFilters = filterEmployeeIds.length > 0 || filterClientId || filterServiceNames.length > 0 || filterOnlyWithAppointments;
+  const hasFilters =
+    filterEmployeeIds.length > 0 ||
+    filterClientId ||
+    filterServiceNames.length > 0 ||
+    filterOnlyWithAppointments ||
+    filterStatuses.length > 0 ||
+    filterPayment !== 'all';
 
   function clearFilters() {
     setFilterEmployeeIds([]);
     setFilterClientId('');
     setFilterServiceNames([]);
     setFilterOnlyWithAppointments(false);
+    setFilterStatuses([]);
+    setFilterPayment('all');
   }
 
   function toggleServiceFilter(name: string) {
@@ -640,6 +676,70 @@ export default function CalendarPage() {
                 </svg>
                 Mostrar solo empleados con citas
               </button>
+            </div>
+
+            {/* Estado de cita (multi-select pills) */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Estado de la cita
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: 'PENDING', label: 'Pendiente', dot: '#eab308' },
+                  { key: 'CONFIRMED', label: 'Confirmada', dot: '#008080' },
+                  { key: 'IN_PROGRESS', label: 'En curso', dot: '#3b82f6' },
+                  { key: 'COMPLETED', label: 'Completada', dot: '#059669' },
+                  { key: 'CANCELLED', label: 'Cancelada', dot: '#dc2626' },
+                  { key: 'NO_SHOW', label: 'No-show', dot: '#94a3b8' },
+                ].map((s) => {
+                  const active = filterStatuses.includes(s.key);
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => toggleStatusFilter(s.key)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        active
+                          ? 'bg-[#008080] text-white border-[#008080]'
+                          : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: active ? '#ffffff' : s.dot }} />
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Pago */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Pago
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: 'all', label: 'Todas' },
+                  { key: 'paid', label: 'Pagadas' },
+                  { key: 'unpaid', label: 'No pagadas' },
+                ].map((p) => {
+                  const active = filterPayment === p.key;
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setFilterPayment(p.key as 'all' | 'paid' | 'unpaid')}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        active
+                          ? 'bg-[#008080] text-white border-[#008080]'
+                          : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Cliente */}
