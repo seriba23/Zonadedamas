@@ -326,7 +326,10 @@ export function InventoryContent() {
   }
 
   function isLowStock(product: Product): boolean {
-    return product.stock <= product.minStock;
+    // Solo se considera "stock bajo" si hay un minStock configurado (>0).
+    // minStock=0 significa "no controlado", asi no se alerta. Coherente
+    // con backend findLowStock y getAlertCounts.
+    return product.minStock > 0 && product.stock <= product.minStock;
   }
 
   return (
