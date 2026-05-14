@@ -63,13 +63,21 @@ export function Last7DaysChart({ days }: { days: { date: string; revenue: number
       </svg>
 
       {/* Barras compactas con tooltip on hover */}
-      <div className="flex items-end justify-between gap-1.5 h-28 mt-2">
+      <div className="flex items-end justify-between gap-1 h-28 mt-2">
         {days.map((day) => {
           const pct = (day.revenue / maxRevenue) * 100;
           const dayLabel = DAY_LABELS[dayjs(day.date).day()];
           return (
-            <div key={day.date} className="flex-1 flex flex-col items-center gap-1 group">
-              <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+            <div key={day.date} className="flex-1 min-w-0 flex flex-col items-center group relative">
+              {/* Tooltip absolute: no afecta el ancho de la columna */}
+              <span
+                className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none px-1.5 py-0.5 rounded shadow-sm z-10 border"
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderColor: 'var(--border)',
+                }}
+              >
                 {formatCurrency(day.revenue)}
               </span>
               <div className="w-full flex items-end" style={{ height: '76px' }}>
@@ -82,7 +90,7 @@ export function Last7DaysChart({ days }: { days: { date: string; revenue: number
                   }}
                 />
               </div>
-              <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{dayLabel}</span>
+              <span className="text-[11px] font-medium mt-1" style={{ color: 'var(--text-muted)' }}>{dayLabel}</span>
             </div>
           );
         })}
