@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { Modal } from '@/components/ui/modal';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -20,6 +22,7 @@ interface Employee {
   phone?: string;
   color?: string;
   avatarUrl?: string | null;
+  coverImageUrl?: string | null;
   jobTitle?: string | null;
   managerId?: string | null;
   isActive: boolean;
@@ -55,6 +58,21 @@ export default function StaffPage() {
   const [filterLocation, setFilterLocation] = useState('');
   const [filterService, setFilterService] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Botón "+ Nuevo empleado" en el topbar global (solo cuando la tab Empleados
+  // está activa y el usuario tiene permiso).
+  useRegisterTopbarAction(
+    activeTab === 'empleados' && hasPermission('employees.create') ? (
+      <Link
+        href="/settings/invite-codes"
+        className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        + Nuevo
+      </Link>
+    ) : null,
+    [activeTab, hasPermission],
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees'],
@@ -124,55 +142,30 @@ export default function StaffPage() {
         {/* ─── Tab: Empleados ─── */}
         {activeTab === 'empleados' && (
           <div className="space-y-4 md:space-y-5">
-            {/* Header: search + filtros + nuevo */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap flex-1">
-                <input
-                  type="text"
-                  placeholder="Buscar empleado o rol..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)] w-48"
-                />
-                {locations.length > 1 && (
-                  <select
-                    value={filterLocation}
-                    onChange={(e) => setFilterLocation(e.target.value)}
-                    className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
-                  >
-                    <option value="">Todas las sucursales</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>{loc.name}</option>
-                    ))}
-                  </select>
-                )}
-                {allServices.length > 0 && (
-                  <select
-                    value={filterService}
-                    onChange={(e) => setFilterService(e.target.value)}
-                    className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
-                  >
-                    <option value="">Todos los servicios</option>
-                    {allServices.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                )}
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
-                >
-                  <option value="">Todos los estados</option>
-                  <option value="active">Activos</option>
-                  <option value="inactive">Inactivos</option>
-                </select>
-              </div>
-              {hasPermission('employees.create') && (
-                <Link href="/settings/invite-codes" className="btn-primary text-sm whitespace-nowrap">
-                  + Nuevo empleado
-                </Link>
-              )}
+            {/* Header: solo búsqueda + icono de filtros (resto en modal) */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Buscar empleado o rol..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 min-w-0 px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowFilters(true)}
+                aria-label="Filtros"
+                className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+                  (filterLocation || filterService || filterStatus)
+                    ? 'bg-[#008080] border-[#008080] text-white'
+                    : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
+                }`}
+                title="Filtros"
+              >
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+              </button>
             </div>
 
             {/* KPI row */}
@@ -256,10 +249,14 @@ export default function StaffPage() {
                       className="rounded-xl overflow-hidden border flex flex-col"
                       style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                     >
-                      {/* Gradient header */}
+                      {/* Header: foto de portada o gradient con su color */}
                       <div
-                        className="h-20"
-                        style={{ background: `linear-gradient(135deg, ${empColor}, ${empColor}99)` }}
+                        className="h-20 bg-cover bg-center"
+                        style={
+                          emp.coverImageUrl
+                            ? { backgroundImage: `url(${emp.coverImageUrl.startsWith('http') ? emp.coverImageUrl : `${API_URL}${emp.coverImageUrl}`})` }
+                            : { background: `linear-gradient(135deg, ${empColor}, ${empColor}99)` }
+                        }
                       />
                       {/* Body */}
                       <div className="px-5 pb-4 -mt-8 flex flex-col flex-1">
@@ -313,13 +310,17 @@ export default function StaffPage() {
                           </div>
                         )}
 
-                        {/* Stats row */}
+                        {/* Stats row: Citas y Reseñas son links; Rating es dato plano */}
                         <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-dashed border-[var(--border)]">
-                          <div>
+                          <Link
+                            href={`/calendar?view=day&employeeIds=${emp.id}`}
+                            className="rounded-md -m-1 p-1 hover:bg-[var(--bg-muted)] transition-colors"
+                            title={`Ver citas de ${emp.firstName}`}
+                          >
                             <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Citas</p>
                             <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{totalApts}</p>
-                          </div>
-                          <div>
+                          </Link>
+                          <div className="rounded-md -m-1 p-1">
                             <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Rating</p>
                             <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5 flex items-center gap-0.5">
                               {rating}
@@ -330,10 +331,14 @@ export default function StaffPage() {
                               )}
                             </p>
                           </div>
-                          <div>
+                          <Link
+                            href={`/staff/${emp.id}?tab=resenas`}
+                            className="rounded-md -m-1 p-1 hover:bg-[var(--bg-muted)] transition-colors"
+                            title={`Ver reseñas de ${emp.firstName}`}
+                          >
                             <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Reseñas</p>
                             <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{emp.totalReviews || 0}</p>
-                          </div>
+                          </Link>
                         </div>
 
                         {/* Botones */}
@@ -356,6 +361,103 @@ export default function StaffPage() {
                   );
                 })}
               </div>
+            )}
+
+            {/* Modal de filtros */}
+            {showFilters && (
+              <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
+                <div className="space-y-5">
+                  {locations.length > 1 && (
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                        Sucursal
+                      </label>
+                      <select
+                        value={filterLocation}
+                        onChange={(e) => setFilterLocation(e.target.value)}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                      >
+                        <option value="">Todas las sucursales</option>
+                        {locations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {allServices.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                        Servicio
+                      </label>
+                      <select
+                        value={filterService}
+                        onChange={(e) => setFilterService(e.target.value)}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                      >
+                        <option value="">Todos los servicios</option>
+                        {allServices.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                      Estado
+                    </label>
+                    <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1">
+                      {[
+                        { key: '', label: 'Todos' },
+                        { key: 'active', label: 'Activos' },
+                        { key: 'inactive', label: 'Inactivos' },
+                      ].map((s) => {
+                        const active = filterStatus === s.key;
+                        return (
+                          <button
+                            key={s.key || 'all'}
+                            type="button"
+                            onClick={() => setFilterStatus(s.key)}
+                            className={`flex-shrink-0 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                              active
+                                ? 'bg-[#008080] text-white border-[#008080]'
+                                : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-muted)]'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
+                    <button
+                      onClick={() => {
+                        setFilterLocation('');
+                        setFilterService('');
+                        setFilterStatus('');
+                      }}
+                      disabled={!filterLocation && !filterService && !filterStatus}
+                      className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap ${
+                        filterLocation || filterService || filterStatus
+                          ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                          : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
+                      }`}
+                    >
+                      Limpiar
+                    </button>
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </div>
+              </Modal>
             )}
           </div>
         )}
