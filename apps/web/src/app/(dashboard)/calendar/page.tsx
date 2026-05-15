@@ -1027,42 +1027,80 @@ export default function CalendarPage() {
             {appointments.length === 0 ? (
               <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3 max-w-3xl mx-auto">
                 {appointments.map((apt) => {
                   const totalPrice = (apt.items || []).reduce((sum, i) => sum + Number(i.priceSnapshot || 0), 0);
                   const statusLabel =
                     apt.status === 'COMPLETED' ? 'Completada' :
                     apt.status === 'CANCELLED' ? 'Cancelada' :
-                    apt.status === 'PENDING' ? 'Pendiente' :
+                    apt.status === 'PENDING' ? 'Sin confirmar' :
                     apt.status === 'CONFIRMED' ? 'Confirmada' :
+                    apt.status === 'IN_PROGRESS' ? 'En curso' :
                     apt.status === 'NO_SHOW' ? 'No-show' :
                     apt.status;
-                  const statusColor =
-                    apt.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                    apt.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
-                    apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                    apt.status === 'CONFIRMED' ? 'bg-primary-50 text-primary-700' :
-                    'bg-[var(--bg-muted)] text-[var(--text-secondary)]';
+                  const statusStyle =
+                    apt.status === 'COMPLETED' ? { bg: 'bg-green-50', text: 'text-green-700', dot: '#059669' } :
+                    apt.status === 'CANCELLED' ? { bg: 'bg-red-50', text: 'text-red-700', dot: '#dc2626' } :
+                    apt.status === 'PENDING' ? { bg: 'bg-yellow-50', text: 'text-yellow-700', dot: '#eab308' } :
+                    apt.status === 'CONFIRMED' ? { bg: 'bg-primary-50', text: 'text-primary-700', dot: '#008080' } :
+                    apt.status === 'IN_PROGRESS' ? { bg: 'bg-purple-50', text: 'text-purple-700', dot: '#7c3aed' } :
+                    { bg: 'bg-[var(--bg-muted)]', text: 'text-[var(--text-secondary)]', dot: '#94a3b8' };
+                  const clientFirst = apt.client?.firstName?.[0] || '';
+                  const clientLast = apt.client?.lastName?.[0] || '';
+                  const clientAvatarUrl = (apt.client as any)?.avatarUrl;
                   return (
                     <div
                       key={apt.id}
                       onClick={() => handleAppointmentClick(apt)}
-                      className="flex flex-wrap md:flex-nowrap items-center gap-x-3 gap-y-2 p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors min-w-0"
-                      style={{ borderLeft: `3px solid ${apt.employee?.color || '#008080'}` }}
+                      className="flex items-center gap-4 px-4 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors"
+                      style={{ backgroundColor: 'var(--bg-surface)' }}
                     >
-                      <div className="min-w-[110px] flex-shrink-0">
-                        <p className="text-sm font-medium text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('D MMM YYYY')}</p>
-                        <p className="text-xs text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('h:mm A')} - {dayjs(apt.endTime).format('h:mm A')}</p>
+                      {/* Hora inicio / fin (columna izquierda, alineada vertical) */}
+                      <div className="flex-shrink-0 min-w-[58px] text-center">
+                        <p className="text-base font-bold text-primary-600 tabular-nums leading-none">
+                          {dayjs(apt.startTime).format('HH:mm')}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)] tabular-nums mt-1">
+                          {dayjs(apt.endTime).format('HH:mm')}
+                        </p>
                       </div>
-                      <div className="flex-1 min-w-0 basis-full md:basis-auto order-3 md:order-none">
-                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{apt.client?.firstName} {apt.client?.lastName}</p>
-                        <p className="text-xs text-[var(--text-secondary)] truncate">{apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}</p>
+
+                      {/* Avatar del cliente */}
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
+                        style={{ backgroundColor: '#008080' }}
+                      >
+                        {clientAvatarUrl ? (
+                          <img
+                            src={clientAvatarUrl.startsWith('http') ? clientAvatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${clientAvatarUrl}`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{clientFirst}{clientLast}</span>
+                        )}
                       </div>
-                      <div className="hidden md:block text-xs text-[var(--text-secondary)] truncate min-w-0 max-w-[140px]">{apt.employee?.firstName} {apt.employee?.lastName}</div>
-                      <div className="ml-auto md:ml-0 text-sm font-semibold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">{formatCurrency(totalPrice)}</div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${statusColor}`}>
-                        {statusLabel}
-                      </span>
+
+                      {/* Nombre + servicios + badge */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-base font-bold text-[var(--text-primary)] truncate">
+                            {apt.client?.firstName} {apt.client?.lastName}
+                          </p>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusStyle.bg} ${statusStyle.text}`}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusStyle.dot }} />
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">
+                          {apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}
+                        </p>
+                      </div>
+
+                      {/* Precio */}
+                      <p className="text-base font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
+                        {formatCurrency(totalPrice)}
+                      </p>
                     </div>
                   );
                 })}

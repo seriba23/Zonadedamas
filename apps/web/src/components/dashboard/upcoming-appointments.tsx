@@ -11,21 +11,21 @@ interface UpcomingAppointment {
   startTime: string;
   endTime: string;
   status: string;
-  client: { firstName: string; lastName: string };
+  client: { firstName: string; lastName: string; avatarUrl?: string | null };
   employee: { id: string; firstName: string; lastName: string; color: string; avatarUrl: string | null };
   items: { serviceNameSnapshot: string; priceSnapshot: number }[];
 }
 
-function statusLabel(status: string) {
-  const map: Record<string, { text: string; className: string }> = {
-    CONFIRMED: { text: 'Confirmada', className: 'bg-primary-50 text-primary-700' },
-    PENDING: { text: 'Pendiente', className: 'bg-yellow-100 text-yellow-700' },
-    IN_PROGRESS: { text: 'En curso', className: 'bg-blue-100 text-blue-700' },
-    COMPLETED: { text: 'Completada', className: 'bg-success-50 text-success-700' },
-    CANCELLED: { text: 'Cancelada', className: 'bg-red-100 text-red-600' },
-    NO_SHOW: { text: 'Ausente', className: 'bg-red-100 text-red-600' },
+function statusInfo(status: string): { text: string; bg: string; textColor: string; dot: string } {
+  const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
+    CONFIRMED: { text: 'Confirmada', bg: 'bg-primary-50', textColor: 'text-primary-700', dot: '#008080' },
+    PENDING: { text: 'Sin confirmar', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
+    IN_PROGRESS: { text: 'En curso', bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
+    COMPLETED: { text: 'Completada', bg: 'bg-green-50', textColor: 'text-green-700', dot: '#059669' },
+    CANCELLED: { text: 'Cancelada', bg: 'bg-red-50', textColor: 'text-red-700', dot: '#dc2626' },
+    NO_SHOW: { text: 'No-show', bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' },
   };
-  return map[status] || { text: status, className: 'bg-gray-100 text-gray-600' };
+  return map[status] || { text: status, bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' };
 }
 
 export function UpcomingAppointments({ appointments }: { appointments: UpcomingAppointment[] }) {
@@ -47,40 +47,64 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
           <p className="text-sm">No hay citas próximas</p>
         </div>
       ) : (
-        <ul className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+        <ul className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
           {appointments.map((apt) => {
             const totalPrice = apt.items.reduce((sum, i) => sum + i.priceSnapshot, 0);
             const services = apt.items.map((i) => i.serviceNameSnapshot).join(', ');
-            const status = statusLabel(apt.status);
+            const st = statusInfo(apt.status);
+            const clientAvatar = apt.client.avatarUrl;
+            const clientInitials = `${apt.client.firstName?.[0] || ''}${apt.client.lastName?.[0] || ''}`.toUpperCase();
 
             return (
-              <li key={apt.id} className="flex items-start gap-3 p-3 rounded-lg bg-[var(--bg-subtle)] hover:bg-[var(--bg-muted)] transition-colors">
-                <div className="flex-shrink-0 text-center min-w-[52px]">
-                  <p className="text-sm font-semibold text-primary-600">{dayjs(apt.startTime).format('h:mm A')}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">{dayjs(apt.endTime).format('h:mm A')}</p>
+              <li
+                key={apt.id}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
+                style={{ backgroundColor: 'var(--bg-surface)' }}
+              >
+                {/* Hora inicio / fin */}
+                <div className="flex-shrink-0 min-w-[52px] text-center">
+                  <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
+                    {dayjs(apt.startTime).format('HH:mm')}
+                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)] tabular-nums mt-1">
+                    {dayjs(apt.endTime).format('HH:mm')}
+                  </p>
                 </div>
+
+                {/* Avatar del cliente */}
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden"
+                  style={{ backgroundColor: '#008080' }}
+                >
+                  {clientAvatar ? (
+                    <img
+                      src={clientAvatar.startsWith('http') ? clientAvatar : `${API_URL}${clientAvatar}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{clientInitials}</span>
+                  )}
+                </div>
+
+                {/* Nombre + badge + servicios */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{apt.client.firstName} {apt.client.lastName}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${status.className}`}>{status.text}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">
+                      {apt.client.firstName} {apt.client.lastName}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${st.bg} ${st.textColor}`}>
+                      <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
+                      {st.text}
+                    </span>
                   </div>
                   <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{services}</p>
-                  <Link href={`/staff/${apt.employee.id}`} className="flex items-center gap-1.5 mt-1 group w-fit">
-                    <div
-                      className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
-                      style={{ backgroundColor: apt.employee.color || '#008080' }}
-                    >
-                      {apt.employee.avatarUrl
-                        ? <img src={apt.employee.avatarUrl.startsWith('http') ? apt.employee.avatarUrl : `${API_URL}${apt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                        : <span>{apt.employee.firstName[0]}{apt.employee.lastName[0]}</span>
-                      }
-                    </div>
-                    <span className="text-xs text-[var(--text-secondary)] group-hover:underline">{apt.employee.firstName} {apt.employee.lastName}</span>
-                  </Link>
                 </div>
-                <div className="flex-shrink-0 text-right">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(totalPrice)}</p>
-                </div>
+
+                {/* Precio */}
+                <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
+                  {formatCurrency(totalPrice)}
+                </p>
               </li>
             );
           })}

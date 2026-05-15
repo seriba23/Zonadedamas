@@ -237,7 +237,7 @@ export class ReportsService {
           status: { in: ['PENDING', 'CONFIRMED'] },
         },
         include: {
-          client: { select: { firstName: true, lastName: true } },
+          client: { select: { firstName: true, lastName: true, avatarUrl: true } },
           employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
           items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
         },
