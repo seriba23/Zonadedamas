@@ -58,11 +58,11 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
             return (
               <li
                 key={apt.id}
-                className="flex items-start gap-3 px-3 py-2.5 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
-                style={{ backgroundColor: 'var(--bg-surface)' }}
+                className="grid items-center gap-x-3 gap-y-1.5 px-3 py-2.5 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
+                style={{ backgroundColor: 'var(--bg-surface)', gridTemplateColumns: 'auto auto 1fr auto' }}
               >
-                {/* Hora inicio / fin (compacto) */}
-                <div className="flex-shrink-0 min-w-[42px] text-center">
+                {/* Hora — col 1, row-span 2, centrada vertical */}
+                <div className="row-span-2 self-center text-center min-w-[42px]">
                   <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
                     {dayjs(apt.startTime).format('HH:mm')}
                   </p>
@@ -71,9 +71,9 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   </p>
                 </div>
 
-                {/* Avatar del cliente */}
+                {/* Avatar — col 2, row-span 2, centrado vertical */}
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden"
+                  className="row-span-2 self-center w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold overflow-hidden"
                   style={{ backgroundColor: '#008080' }}
                 >
                   {clientAvatar ? (
@@ -87,24 +87,24 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   )}
                 </div>
 
-                {/* Centro: nombre + badge (fila), precio (a la derecha), servicios (multilinea) */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                      <p className="text-sm font-bold text-[var(--text-primary)] break-words">
-                        {apt.client.firstName} {apt.client.lastName}
-                      </p>
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${st.bg} ${st.textColor}`}>
-                        <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
-                        {st.text}
-                      </span>
-                    </div>
-                    <p className="text-xs font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
-                      {formatCurrency(totalPrice)}
-                    </p>
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5 break-words">{services}</p>
-                </div>
+                {/* Nombre — col 3, row 1 */}
+                <p className="text-sm font-bold text-[var(--text-primary)] break-words min-w-0">
+                  {apt.client.firstName} {apt.client.lastName}
+                </p>
+
+                {/* Precio — col 4, row 1 */}
+                <p className="text-xs font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap text-right">
+                  {formatCurrency(totalPrice)}
+                </p>
+
+                {/* Servicio — col 3, row 2 */}
+                <p className="text-xs text-[var(--text-secondary)] break-words min-w-0 self-start">{services}</p>
+
+                {/* Status — col 4, row 2 (esquina inferior derecha) */}
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap self-start justify-self-end ${st.bg} ${st.textColor}`}>
+                  <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
+                  {st.text}
+                </span>
               </li>
             );
           })}
