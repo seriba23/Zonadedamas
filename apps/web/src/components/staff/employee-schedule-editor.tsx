@@ -144,7 +144,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
     return (
       <div className="space-y-3">
         {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+          <div key={i} className="h-12 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
         ))}
       </div>
     );
@@ -152,7 +152,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-[var(--text-secondary)]">
         Configura los días y horarios de trabajo de este empleado.
       </p>
 
@@ -167,12 +167,12 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                 businessClosed
                   ? 'bg-red-50/50 border-red-100'
                   : day.isWorking
-                    ? 'bg-white border-gray-200'
-                    : 'bg-gray-50 border-gray-100'
+                    ? 'bg-[var(--bg-surface)] border-[var(--border)]'
+                    : 'bg-[var(--bg-subtle)] border-gray-100'
               }`}
             >
               <div className="w-24 flex-shrink-0">
-                <span className={`text-sm font-medium ${businessClosed ? 'text-gray-400' : 'text-gray-900'}`}>
+                <span className={`text-sm font-medium ${businessClosed ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
                   {DAY_LABELS[day.dayOfWeek]}
                 </span>
               </div>
@@ -185,7 +185,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                     </svg>
                     Negocio cerrado
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-[var(--text-muted)]">
                     No se pueden agendar citas este día
                   </span>
                 </div>
@@ -199,13 +199,13 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                     }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-[var(--bg-surface)] transition-transform ${
                         day.isWorking ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>
 
-                  <span className={`text-xs w-14 flex-shrink-0 ${day.isWorking ? 'text-green-600' : 'text-gray-400'}`}>
+                  <span className={`text-xs w-14 flex-shrink-0 ${day.isWorking ? 'text-green-600' : 'text-[var(--text-muted)]'}`}>
                     {day.isWorking ? 'Trabaja' : 'Libre'}
                   </span>
 
@@ -220,7 +220,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                           <option key={t} value={t}>{t}</option>
                         ))}
                       </select>
-                      <span className="text-gray-400 text-xs">a</span>
+                      <span className="text-[var(--text-muted)] text-xs">a</span>
                       <select
                         value={day.endTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}

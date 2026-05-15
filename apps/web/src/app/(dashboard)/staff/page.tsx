@@ -492,9 +492,9 @@ function PlaceholderTab({ icon, title, desc, hint }: { icon: string; title: stri
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <span className="text-4xl mb-4">{icon}</span>
-      <h2 className="text-lg font-semibold text-gray-900 mb-1">{title}</h2>
-      <p className="text-sm text-gray-500 max-w-md mb-3">{desc}</p>
-      <p className="text-xs text-gray-400 max-w-sm">{hint}</p>
+      <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{title}</h2>
+      <p className="text-sm text-[var(--text-secondary)] max-w-md mb-3">{desc}</p>
+      <p className="text-xs text-[var(--text-muted)] max-w-sm">{hint}</p>
     </div>
   );
 }
@@ -536,7 +536,7 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
   });
 
   if (employees.length === 0) {
-    return <div className="text-center py-20 text-gray-400">No hay empleados registrados</div>;
+    return <div className="text-center py-20 text-[var(--text-muted)]">No hay empleados registrados</div>;
   }
 
   // Build hierarchy from managerId
@@ -565,7 +565,7 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
           className={`rounded-2xl border-2 shadow-lg flex flex-col items-center justify-center overflow-hidden transition-all ${isLarge ? 'w-28 h-32' : 'w-24 h-28'} ${isEditing ? 'border-[#008080] ring-2 ring-teal-300' : 'border-white'}`}
           style={{ backgroundColor: emp.color || '#008080' }}
         >
-          <div className={`bg-white/20 flex items-center justify-center ${isLarge ? 'w-14 h-14 rounded-full mb-1.5' : 'w-10 h-10 rounded-full mb-1'}`}>
+          <div className={`bg-[var(--bg-surface)]/20 flex items-center justify-center ${isLarge ? 'w-14 h-14 rounded-full mb-1.5' : 'w-10 h-10 rounded-full mb-1'}`}>
             {emp.avatarUrl ? (
               <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full rounded-full object-cover" />
             ) : (
@@ -575,19 +575,19 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
           <p className="text-[10px] font-semibold text-white text-center px-1 leading-tight">{emp.firstName}</p>
           <p className="text-[9px] text-white/70 text-center px-1 leading-tight">{emp.lastName}</p>
         </div>
-        <span className="text-[9px] text-gray-500 mt-1 text-center">{emp.jobTitle || 'Sin puesto'}</span>
+        <span className="text-[9px] text-[var(--text-secondary)] mt-1 text-center">{emp.jobTitle || 'Sin puesto'}</span>
       </div>
     );
   }
 
   function ManagerPicker({ emp }: { emp: Employee }) {
     return (
-      <div className="mt-2 bg-white rounded-lg border border-gray-200 shadow-lg p-3 w-52 z-10 relative">
-        <p className="text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Reporta a:</p>
+      <div className="mt-2 bg-[var(--bg-surface)] rounded-lg border border-[var(--border)] shadow-lg p-3 w-52 z-10 relative">
+        <p className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase mb-1.5">Reporta a:</p>
         <select
           value={selectedManagerId || ''}
           onChange={(e) => setSelectedManagerId(e.target.value || null)}
-          className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:border-[#008080] focus:ring-1 focus:ring-[#008080] mb-2"
+          className="w-full text-xs border border-[var(--border)] rounded-lg px-2 py-1.5 focus:border-[#008080] focus:ring-1 focus:ring-[#008080] mb-2"
         >
           <option value="">Sin jefe (nivel superior)</option>
           {employees
@@ -609,7 +609,7 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
           </button>
           <button
             onClick={() => setEditingEmpId(null)}
-            className="flex-1 text-[10px] font-medium text-gray-600 py-1 rounded-md border border-gray-200 hover:bg-gray-50"
+            className="flex-1 text-[10px] font-medium text-[var(--text-secondary)] py-1 rounded-md border border-[var(--border)] hover:bg-[var(--bg-muted)]"
           >
             Cancelar
           </button>
@@ -637,10 +637,10 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
                 setEditingEmpId(isEditing ? null : emp.id);
                 setSelectedManagerId(emp.managerId || null);
               }}
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--bg-surface)] border border-[var(--border)] shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               title="Cambiar jefe"
             >
-              <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </button>
@@ -653,28 +653,28 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
         {/* Children */}
         {children.length > 0 && (
           <>
-            <div className="w-px h-3 bg-gray-300" />
+            <div className="w-px h-3 bg-[var(--border)]" />
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleCollapse(emp.id); }}
-              className="w-5 h-5 rounded-full border border-gray-300 bg-white flex items-center justify-center text-gray-400 hover:border-[#008080] hover:text-[#008080] transition-colors"
+              className="w-5 h-5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] flex items-center justify-center text-[var(--text-muted)] hover:border-[#008080] hover:text-[#008080] transition-colors"
               title={collapsedNodes.has(emp.id) ? 'Expandir' : 'Contraer'}
             >
               <span className="text-[10px] font-bold">{collapsedNodes.has(emp.id) ? `+${children.length}` : '−'}</span>
             </button>
             {!collapsedNodes.has(emp.id) && (
               <>
-                <div className="w-px h-3 bg-gray-300" />
+                <div className="w-px h-3 bg-[var(--border)]" />
                 {children.length === 1 ? (
                   <OrgNode emp={children[0]} />
                 ) : (
                   <>
                     <div className="relative">
-                      <div className="h-px bg-gray-300" style={{ width: Math.max(children.length * 140, 140) }} />
+                      <div className="h-px bg-[var(--border)]" style={{ width: Math.max(children.length * 140, 140) }} />
                     </div>
                     <div className="flex gap-6">
                       {children.map((child) => (
                         <div key={child.id} className="flex flex-col items-center">
-                          <div className="w-px h-6 bg-gray-300" />
+                          <div className="w-px h-6 bg-[var(--border)]" />
                           <OrgNode emp={child} />
                         </div>
                       ))}
@@ -693,12 +693,12 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
     <div>
       {/* Controls */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <button onClick={expandAll} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50">Expandir</button>
-        <button onClick={collapseAll} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50">Contraer</button>
+        <button onClick={expandAll} className="px-3 py-1.5 text-xs font-medium border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)]">Expandir</button>
+        <button onClick={collapseAll} className="px-3 py-1.5 text-xs font-medium border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)]">Contraer</button>
         {hasPermission('employees.update') && (
           <button
             onClick={() => { setEditMode(!editMode); setEditingEmpId(null); }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${editMode ? 'bg-[#008080] text-white' : 'border border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${editMode ? 'bg-[#008080] text-white' : 'border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'}`}
           >
             {editMode ? 'Listo' : 'Editar estructura'}
           </button>
@@ -712,22 +712,22 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
           </div>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))} className="px-2.5 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">−</button>
-          <span className="text-xs text-gray-500 min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom((z) => Math.min(2, z + 0.1))} className="px-2.5 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">+</button>
-          <button onClick={() => setZoom(1)} className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-50">Reset</button>
+          <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))} className="px-2.5 py-1 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)]">−</button>
+          <span className="text-xs text-[var(--text-secondary)] min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom((z) => Math.min(2, z + 0.1))} className="px-2.5 py-1 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)]">+</button>
+          <button onClick={() => setZoom(1)} className="px-2.5 py-1 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--bg-muted)]">Reset</button>
         </div>
       </div>
 
       {/* Org tree */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-auto" style={{ minHeight: 400 }}>
+      <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-auto" style={{ minHeight: 400 }}>
         <div className="flex flex-col items-center py-10 px-8" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', minWidth: 'max-content' }}>
           <OrgNode emp={topRoot} isRoot />
 
           {/* Unassigned employees */}
           {unassigned.length > 0 && (
-            <div className="mt-10 pt-6 border-t-2 border-dashed border-gray-200 w-full">
-              <p className="text-xs font-semibold text-gray-400 text-center mb-4">Sin jefe asignado</p>
+            <div className="mt-10 pt-6 border-t-2 border-dashed border-[var(--border)] w-full">
+              <p className="text-xs font-semibold text-[var(--text-muted)] text-center mb-4">Sin jefe asignado</p>
               <div className="flex gap-6 justify-center flex-wrap">
                 {unassigned.map((emp) => (
                   <div key={emp.id} className="flex flex-col items-center">
@@ -743,10 +743,10 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
                             setEditingEmpId(editingEmpId === emp.id ? null : emp.id);
                             setSelectedManagerId(null);
                           }}
-                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--bg-surface)] border border-[var(--border)] shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Asignar jefe"
                         >
-                          <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </button>
@@ -767,23 +767,42 @@ function OrgChart({ employees, onUpdate }: { employees: Employee[]; onUpdate: ()
 /* ─── Employee Schedules Tab ─── */
 function EmployeeSchedulesTab({ employees }: { employees: Employee[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   if (employees.length === 0) {
-    return <div className="text-center py-16 text-gray-400">No hay empleados activos.</div>;
+    return <div className="text-center py-16 text-[var(--text-muted)]">No hay empleados activos.</div>;
   }
+
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? employees.filter((e) =>
+        `${e.firstName} ${e.lastName} ${e.jobTitle || ''}`.toLowerCase().includes(q),
+      )
+    : employees;
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-4">Configura el horario laboral de cada empleado.</p>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <input
+          type="text"
+          placeholder="Buscar empleado o puesto..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 max-w-sm px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+        />
+        <p className="text-xs text-[var(--text-muted)] hidden md:block">Configura el horario laboral de cada empleado.</p>
+      </div>
       <div className="space-y-3">
-        {employees.map((employee) => {
+        {filtered.length === 0 ? (
+          <p className="text-center py-8 text-sm text-[var(--text-muted)]">Sin coincidencias.</p>
+        ) : filtered.map((employee) => {
           const isExpanded = expandedId === employee.id;
           return (
-            <div key={employee.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div key={employee.id} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
               <button
                 type="button"
                 onClick={() => setExpandedId(isExpanded ? null : employee.id)}
-                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-4 p-4 hover:bg-[var(--bg-muted)] transition-colors"
               >
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden"
@@ -796,24 +815,25 @@ function EmployeeSchedulesTab({ employees }: { employees: Employee[] }) {
                   )}
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900 text-sm">{employee.firstName} {employee.lastName}</p>
-                  <p className="text-xs text-gray-400">{employee.jobTitle || 'Sin puesto'}</p>
+                  <p className="font-medium text-[var(--text-primary)] text-sm">{employee.firstName} {employee.lastName}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{employee.jobTitle || 'Sin puesto'}</p>
                 </div>
                 <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                   fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               {isExpanded && (
-                <div className="border-t border-gray-100 p-4">
+                <div className="border-t border-[var(--border)] p-4">
                   <EmployeeScheduleEditor employeeId={employee.id} />
                 </div>
               )}
             </div>
           );
-        })}
+        })
+        }
       </div>
     </div>
   );
@@ -905,7 +925,7 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     }
 
     return (
-      <tr key={record.id} className="border-t border-gray-100 hover:bg-gray-50">
+      <tr key={record.id} className="border-t border-[var(--border)] hover:bg-[var(--bg-muted)]">
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <div
@@ -919,16 +939,16 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
               )}
             </div>
             <div>
-              <span className="text-gray-900 text-sm">{emp?.firstName} {emp?.lastName}</span>
+              <span className="text-[var(--text-primary)] text-sm">{emp?.firstName} {emp?.lastName}</span>
               {record.checkInDistance != null && record.checkInDistance > 50 && (
                 <p className="text-[10px] text-red-500">{record.checkInDistance}m de distancia</p>
               )}
             </div>
           </div>
         </td>
-        <td className="px-4 py-3 text-center font-mono text-gray-700 text-sm">{checkIn || '—'}</td>
-        <td className="px-4 py-3 text-center font-mono text-gray-700 text-sm">{checkOut || '—'}</td>
-        <td className="px-4 py-3 text-center text-gray-600 text-sm font-mono">{hours || '—'}</td>
+        <td className="px-4 py-3 text-center font-mono text-[var(--text-secondary)] text-sm">{checkIn || '—'}</td>
+        <td className="px-4 py-3 text-center font-mono text-[var(--text-secondary)] text-sm">{checkOut || '—'}</td>
+        <td className="px-4 py-3 text-center text-[var(--text-secondary)] text-sm font-mono">{hours || '—'}</td>
         <td className="px-4 py-3 text-center">
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusInfo.color} ${statusInfo.bg}`}>
             {statusInfo.label}
@@ -968,13 +988,13 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
       <div className="space-y-3 mb-4">
         <div className="flex items-center gap-3">
           {/* Range mode pills */}
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <div className="flex rounded-lg border border-[var(--border)] overflow-hidden">
             {rangeModes.map((mode) => (
               <button
                 key={mode.key}
                 onClick={() => setRangeMode(mode.key)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                  rangeMode === mode.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  rangeMode === mode.key ? 'bg-[#008080] text-white' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
                 }`}
               >
                 {mode.label}
@@ -992,13 +1012,13 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
           {rangeMode === 'custom' && (
             <div className="flex items-center gap-2">
               <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} /></div>
-              <span className="text-xs text-gray-400">a</span>
+              <span className="text-xs text-[var(--text-muted)]">a</span>
               <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} /></div>
             </div>
           )}
 
           {/* Range label */}
-          <span className="text-xs text-gray-400 ml-auto">
+          <span className="text-xs text-[var(--text-muted)] ml-auto">
             {startDate === endDate
               ? new Date(startDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
               : `${new Date(startDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short' })} — ${new Date(endDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}`
@@ -1009,19 +1029,19 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
 
       {isLoading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-[var(--bg-muted)] rounded-xl animate-pulse" />)}
         </div>
       ) : records.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-[var(--text-muted)]">
           <p>No hay registros de asistencia en este periodo.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {rangeMode === 'day' ? (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr className="text-xs text-gray-500 uppercase">
+                <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)]">
+                  <tr className="text-xs text-[var(--text-secondary)] uppercase">
                     <th className="text-left px-4 py-3 font-semibold">Empleado</th>
                     <th className="text-center px-4 py-3 font-semibold">Entrada</th>
                     <th className="text-center px-4 py-3 font-semibold">Salida</th>
@@ -1036,15 +1056,15 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
           ) : (
             // Multi-day: group by date
             [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([dateKey, dayRecords]) => (
-              <div key={dateKey} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-                  <p className="text-xs font-semibold text-gray-600 capitalize">
+              <div key={dateKey} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+                <div className="px-4 py-2 bg-[var(--bg-subtle)] border-b border-[var(--border)]">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] capitalize">
                     {new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </p>
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50/50 border-b border-gray-100">
-                    <tr className="text-[10px] text-gray-400 uppercase">
+                  <thead className="bg-[var(--bg-subtle)]/50 border-b border-[var(--border)]">
+                    <tr className="text-[10px] text-[var(--text-muted)] uppercase">
                       <th className="text-left px-4 py-2 font-semibold">Empleado</th>
                       <th className="text-center px-4 py-2 font-semibold">Entrada</th>
                       <th className="text-center px-4 py-2 font-semibold">Salida</th>
@@ -1072,6 +1092,7 @@ function StaffCommissionsTab() {
   const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
   const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const { data: employeesData } = useQuery({
     queryKey: ['staff-commissions-employees'],
@@ -1154,38 +1175,56 @@ function StaffCommissionsTab() {
   }
 
   if (employees.length === 0) {
-    return <div className="text-center py-16 text-gray-400">No hay empleados activos.</div>;
+    return <div className="text-center py-16 text-[var(--text-muted)]">No hay empleados activos.</div>;
   }
+
+  const q = search.trim().toLowerCase();
+  const filteredEmps = q
+    ? employees.filter((e: any) =>
+        `${e.firstName} ${e.lastName} ${e.jobTitle || ''}`.toLowerCase().includes(q),
+      )
+    : employees;
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-4">Gestiona las comisiones de cada empleado por servicio.</p>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <input
+          type="text"
+          placeholder="Buscar empleado o puesto..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 max-w-sm px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+        />
+        <p className="text-xs text-[var(--text-muted)] hidden md:block">Gestiona las comisiones por servicio.</p>
+      </div>
       <div className="space-y-4">
-        {employees.map((emp: any) => {
+        {filteredEmps.length === 0 ? (
+          <p className="text-center py-8 text-sm text-[var(--text-muted)]">Sin coincidencias.</p>
+        ) : filteredEmps.map((emp: any) => {
           const empServices = (emp.employeeServices || []) as any[];
           const map = getConfigMap(emp.id, empServices);
           const changed = hasChanges(emp.id, empServices);
           const isExpanded = expandedEmps.has(emp.id);
 
           return (
-            <div key={emp.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div key={emp.id} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
               <button
                 onClick={() => setExpandedEmps((prev) => { const n = new Set(prev); n.has(emp.id) ? n.delete(emp.id) : n.add(emp.id); return n; })}
-                className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-[var(--bg-muted)] transition-colors text-left"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color || '#008080' }}>
                     {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{emp.firstName} {emp.lastName}</p>
-                    <p className="text-xs text-gray-400">{map.size} de {allServices.length} servicios</p>
+                    <p className="text-sm font-bold text-[var(--text-primary)]">{emp.firstName} {emp.lastName}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{map.size} de {allServices.length} servicios</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
                   {changed && <span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />}
-                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <svg className={`w-5 h-5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
@@ -1195,8 +1234,8 @@ function StaffCommissionsTab() {
                 <>
                   <div className="max-h-[400px] overflow-y-auto">
                     <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
-                        <tr className="text-xs text-gray-500 uppercase">
+                      <thead className="sticky top-0 bg-[var(--bg-subtle)] border-b border-[var(--border)]">
+                        <tr className="text-xs text-[var(--text-secondary)] uppercase">
                           <th className="w-8 px-2 py-2"></th>
                           <th className="text-left px-2 py-2 font-semibold">Servicio</th>
                           <th className="text-center px-2 py-2 font-semibold w-24">Precio</th>
@@ -1213,20 +1252,20 @@ function StaffCommissionsTab() {
                           const profit = price - Number(comm);
 
                           return (
-                            <tr key={svc.id} className={`border-t border-gray-100 ${isSelected ? 'bg-teal-50/30' : ''}`}>
+                            <tr key={svc.id} className={`border-t border-[var(--border)] ${isSelected ? 'bg-teal-50/30' : ''}`}>
                               <td className="px-2 py-2 text-center">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => toggleService(emp.id, svc.id, empServices)}
-                                  className="w-4 h-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]"
+                                  className="w-4 h-4 rounded border-[var(--border)] text-[#008080] focus:ring-[#008080]"
                                 />
                               </td>
                               <td className="px-2 py-2">
-                                <span className={isSelected ? 'text-gray-900' : 'text-gray-400'}>{svc.name}</span>
-                                <span className="text-xs text-gray-400 ml-1">({svc.durationMinutes}min)</span>
+                                <span className={isSelected ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>{svc.name}</span>
+                                <span className="text-xs text-[var(--text-muted)] ml-1">({svc.durationMinutes}min)</span>
                               </td>
-                              <td className="px-2 py-2 text-center text-gray-500 tabular-nums">{formatCurrency(price, svc.currency)}</td>
+                              <td className="px-2 py-2 text-center text-[var(--text-secondary)] tabular-nums">{formatCurrency(price, svc.currency)}</td>
                               <td className="px-2 py-2 text-center">
                                 <input
                                   type="number"
@@ -1236,13 +1275,13 @@ function StaffCommissionsTab() {
                                   placeholder="0"
                                   value={config?.commission ?? ''}
                                   onChange={(e) => updateCommission(emp.id, svc.id, e.target.value, empServices)}
-                                  className="w-24 text-right text-sm border border-gray-200 rounded px-2 py-1 tabular-nums disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                                  className="w-24 text-right text-sm border border-[var(--border)] rounded px-2 py-1 tabular-nums disabled:bg-[var(--bg-subtle)] disabled:text-[var(--text-muted)] disabled:cursor-not-allowed focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
                                 />
                               </td>
                               <td className="px-2 py-2 text-center tabular-nums">
                                 {isSelected && config?.commission != null ? (
                                   <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit, svc.currency)}</span>
-                                ) : <span className="text-gray-300">--</span>}
+                                ) : <span className="text-[var(--text-muted)]">--</span>}
                               </td>
                             </tr>
                           );
