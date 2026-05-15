@@ -873,12 +873,12 @@ export default function CalendarPage() {
         )}
         {viewMode === 'custom' && <div className="flex-1" />}
 
-        {/* Toggle: Filtros */}
+        {/* Toggle: Filtros — fondo teal si hay filtros activos o si está abierto */}
         <button
           onClick={() => setShowFilters((v) => !v)}
           aria-label="Mostrar/ocultar filtros"
-          className={`relative flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
-            showFilters
+          className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+            showFilters || hasFilters
               ? 'bg-[#008080] border-[#008080] text-white'
               : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
           }`}
@@ -887,9 +887,6 @@ export default function CalendarPage() {
           <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          {hasFilters && !showFilters && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#008080] border-2 border-white" />
-          )}
         </button>
 
         {/* Toggle: Stats (icono de reportes) */}
