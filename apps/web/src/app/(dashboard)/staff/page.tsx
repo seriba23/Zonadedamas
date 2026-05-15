@@ -26,6 +26,9 @@ interface Employee {
   locationId?: string;
   location?: { id: string; name: string };
   employeeServices?: { service: { name: string } }[];
+  averageRating?: number | null;
+  totalReviews?: number;
+  _count?: { appointments?: number };
 }
 
 interface Location {
@@ -98,7 +101,7 @@ export default function StaffPage() {
     <div className="flex flex-col h-full">
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 px-3 md:px-6 overflow-x-auto">
+      <div className="border-b border-[var(--border)] px-3 md:px-6 overflow-x-auto" style={{ backgroundColor: 'var(--bg-surface)' }}>
         <nav className="flex gap-1 -mb-px">
           {TABS.map((tab) => (
             <button
@@ -107,7 +110,7 @@ export default function StaffPage() {
               className={`px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? 'border-[#008080] text-[#008080]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border)]'
               }`}
             >
               {tab.label}
@@ -120,21 +123,22 @@ export default function StaffPage() {
 
         {/* ─── Tab: Empleados ─── */}
         {activeTab === 'empleados' && (
-          <div>
-            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <div className="space-y-4 md:space-y-5">
+            {/* Header: search + filtros + nuevo */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap flex-1">
                 <input
                   type="text"
-                  placeholder="Buscar empleado..."
+                  placeholder="Buscar empleado o rol..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] w-48"
+                  className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)] w-48"
                 />
                 {locations.length > 1 && (
                   <select
                     value={filterLocation}
                     onChange={(e) => setFilterLocation(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
+                    className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
                   >
                     <option value="">Todas las sucursales</option>
                     {locations.map((loc) => (
@@ -146,7 +150,7 @@ export default function StaffPage() {
                   <select
                     value={filterService}
                     onChange={(e) => setFilterService(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
+                    className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
                   >
                     <option value="">Todos los servicios</option>
                     {allServices.map((s) => (
@@ -157,7 +161,7 @@ export default function StaffPage() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
+                  className="px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
                 >
                   <option value="">Todos los estados</option>
                   <option value="active">Activos</option>
@@ -165,127 +169,192 @@ export default function StaffPage() {
                 </select>
               </div>
               {hasPermission('employees.create') && (
-                <Link href="/settings/invite-codes" className="btn-primary text-sm">
-                  + Nuevo Empleado
+                <Link href="/settings/invite-codes" className="btn-primary text-sm whitespace-nowrap">
+                  + Nuevo empleado
                 </Link>
               )}
             </div>
 
+            {/* KPI row */}
+            {!isLoading && employees.length > 0 && (() => {
+              const active = employees.filter((e) => e.isActive).length;
+              const inactive = employees.length - active;
+              const totalApts = employees.reduce((s, e) => s + (e._count?.appointments || 0), 0);
+              const withRating = employees.filter((e) => e.averageRating != null);
+              const avgRating = withRating.length > 0
+                ? (withRating.reduce((s, e) => s + (e.averageRating || 0), 0) / withRating.length).toFixed(1)
+                : '—';
+              const totalReviews = employees.reduce((s, e) => s + (e.totalReviews || 0), 0);
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  <div className="rounded-xl border border-[var(--border)] p-4 overflow-hidden" style={{ backgroundColor: 'var(--bg-surface)' }}>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Activos</p>
+                    <p className="text-xl md:text-2xl font-extrabold text-[var(--text-primary)] mt-1 tabular-nums">{active}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{inactive} en pausa</p>
+                  </div>
+                  <div className="rounded-xl border border-[var(--border)] p-4 overflow-hidden" style={{ backgroundColor: 'var(--bg-surface)' }}>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Total citas</p>
+                    <p className="text-xl md:text-2xl font-extrabold text-[var(--text-primary)] mt-1 tabular-nums">{totalApts}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">acumulado del equipo</p>
+                  </div>
+                  <div className="rounded-xl border border-[var(--border)] p-4 overflow-hidden col-span-2 md:col-span-1" style={{ backgroundColor: 'var(--bg-surface)' }}>
+                    <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Rating promedio</p>
+                    <p className="text-xl md:text-2xl font-extrabold text-[var(--text-primary)] mt-1 tabular-nums">{avgRating}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{totalReviews} reseña{totalReviews !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Admin alert: si no tiene perfil de empleado */}
+            {user && !user.employeeId && hasPermission('employees.create') && (
+              <div className="rounded-xl border p-4 flex items-center gap-3" style={{ backgroundColor: 'var(--primary-tint)', borderColor: 'var(--primary-tint-border)' }}>
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
+                  style={{ backgroundColor: '#008080' }}
+                >
+                  {user.avatarUrl ? (
+                    <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <>{user.firstName[0]}{user.lastName[0]}</>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: 'var(--primary-tint-fg)' }}>{user.firstName} {user.lastName} (Administrador)</p>
+                  <p className="text-xs" style={{ color: 'var(--primary-tint-fg)' }}>Aún no tienes perfil de empleado. Actívalo para aparecer en el equipo.</p>
+                </div>
+                <button
+                  onClick={() => registerSelfMutation.mutate()}
+                  disabled={registerSelfMutation.isPending}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors disabled:opacity-50 whitespace-nowrap flex-shrink-0"
+                >
+                  {registerSelfMutation.isPending ? 'Activando...' : 'Activar'}
+                </button>
+              </div>
+            )}
+
+            {/* Grid de cards */}
             {isLoading ? (
-              <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse" />)}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="rounded-xl h-64 animate-pulse" style={{ backgroundColor: 'var(--bg-muted)' }} />
+                ))}
+              </div>
             ) : employees.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">No hay empleados</div>
+              <div className="text-center py-16 text-[var(--text-muted)]">No hay empleados</div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Puesto</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Sucursal</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Servicios</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Admin row — shown if admin has no employee profile */}
-                    {user && !user.employeeId && hasPermission('employees.create') && (
-                      <tr className="border-b border-gray-100 bg-amber-50/40">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
-                              style={{ backgroundColor: '#008080' }}
-                            >
-                              {user.avatarUrl ? (
-                                <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <>{user.firstName[0]}{user.lastName[0]}</>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</p>
-                              <p className="text-[10px] text-gray-400">Administrador</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); registerSelfMutation.mutate(); }}
-                            disabled={registerSelfMutation.isPending}
-                            className="px-3 py-1 text-xs font-medium rounded-full bg-[#008080] text-white hover:bg-[#006666] transition-colors disabled:opacity-50"
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {employees.map((emp) => {
+                  const empColor = emp.color || '#008080';
+                  const initials = `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase();
+                  const totalApts = emp._count?.appointments || 0;
+                  const rating = emp.averageRating != null ? emp.averageRating.toFixed(1) : '—';
+                  const services = emp.employeeServices || [];
+                  return (
+                    <div
+                      key={emp.id}
+                      className="rounded-xl overflow-hidden border flex flex-col"
+                      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                    >
+                      {/* Gradient header */}
+                      <div
+                        className="h-20"
+                        style={{ background: `linear-gradient(135deg, ${empColor}, ${empColor}99)` }}
+                      />
+                      {/* Body */}
+                      <div className="px-5 pb-4 -mt-8 flex flex-col flex-1">
+                        <div className="flex items-end justify-between gap-3">
+                          <Link
+                            href={`/staff/${emp.id}`}
+                            className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0 overflow-hidden border-4 hover:opacity-90 transition-opacity"
+                            style={{ backgroundColor: empColor, borderColor: 'var(--bg-surface)' }}
+                            title={`Ver perfil de ${emp.firstName} ${emp.lastName}`}
                           >
-                            {registerSelfMutation.isPending ? 'Activando...' : 'Activar'}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400">—</td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs text-gray-600">{user.email}</p>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400">—</td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Sin activar</span>
-                        </td>
-                      </tr>
-                    )}
-                    {employees.map((emp) => (
-                      <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => window.location.href = `/staff/${emp.id}`}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
-                              style={{ backgroundColor: emp.color || '#008080' }}
-                            >
-                              {emp.avatarUrl ? (
-                                <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <>{emp.firstName[0]}{emp.lastName[0]}</>
-                              )}
-                            </div>
-                            <p className="text-sm font-medium text-gray-900">{emp.firstName} {emp.lastName}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{emp.jobTitle || '—'}</td>
-                        <td className="px-4 py-3">
-                          {locations.length > 1 ? (
-                            <select
-                              value={emp.location?.id || ''}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => changeLocationMutation.mutate({ empId: emp.id, locationId: e.target.value })}
-                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] cursor-pointer"
-                            >
-                              {locations.map((loc) => (
-                                <option key={loc.id} value={loc.id}>{loc.name}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="text-xs text-gray-600">{emp.location?.name || '—'}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs text-gray-600">{emp.email || '—'}</p>
-                          {emp.phone && <p className="text-xs text-gray-400">{emp.phone}</p>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {(emp.employeeServices || []).slice(0, 3).map((es, i) => (
-                              <span key={i} className="text-[10px] bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2 py-0.5">{es.service.name}</span>
-                            ))}
-                            {(emp.employeeServices || []).length > 3 && (
-                              <span className="text-[10px] text-gray-400">+{(emp.employeeServices || []).length - 3}</span>
+                            {emp.avatarUrl ? (
+                              <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{initials}</span>
                             )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${emp.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          </Link>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${emp.isActive ? 'bg-success-50 text-success-700' : 'bg-[var(--bg-muted)] text-[var(--text-secondary)]'}`}>
                             {emp.isActive ? 'Activo' : 'Inactivo'}
                           </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+
+                        <div className="mt-3 min-w-0">
+                          <Link href={`/staff/${emp.id}`} className="block">
+                            <p className="text-base font-bold text-[var(--text-primary)] truncate hover:text-primary-600 transition-colors">
+                              {emp.firstName} {emp.lastName}
+                            </p>
+                          </Link>
+                          <p className="text-xs text-[var(--text-secondary)] truncate">{emp.jobTitle || 'Sin puesto'}</p>
+                          {locations.length > 1 && emp.location?.name && (
+                            <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">📍 {emp.location.name}</p>
+                          )}
+                        </div>
+
+                        {/* Servicios chips */}
+                        {services.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {services.slice(0, 3).map((es, i) => (
+                              <span
+                                key={i}
+                                className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+                                style={{ backgroundColor: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                              >
+                                {es.service.name}
+                              </span>
+                            ))}
+                            {services.length > 3 && (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full text-[var(--text-muted)]">
+                                +{services.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stats row */}
+                        <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-dashed border-[var(--border)]">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Citas</p>
+                            <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{totalApts}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Rating</p>
+                            <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5 flex items-center gap-0.5">
+                              {rating}
+                              {emp.averageRating != null && (
+                                <svg className="w-3 h-3 text-warning-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Reseñas</p>
+                            <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{emp.totalReviews || 0}</p>
+                          </div>
+                        </div>
+
+                        {/* Botones */}
+                        <div className="flex gap-2 mt-3">
+                          <Link
+                            href={`/calendar?view=day&employeeIds=${emp.id}`}
+                            className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                          >
+                            Ver agenda
+                          </Link>
+                          <Link
+                            href={`/staff/${emp.id}`}
+                            className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+                          >
+                            Editar
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
