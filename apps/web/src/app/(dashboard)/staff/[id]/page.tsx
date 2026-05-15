@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 import { StarRating } from '@/components/staff/star-rating';
 import { ReviewCard } from '@/components/staff/review-card';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
@@ -166,6 +167,7 @@ export default function EmployeeProfilePage() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('estadisticas');
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
   const [coverSuccess, setCoverSuccess] = useState<string | null>(null);
+  const [coverPendingFile, setCoverPendingFile] = useState<File | null>(null);
 
   const canEdit = hasPermission('employees.update');
   const canDelete = hasPermission('employees.delete');
@@ -472,7 +474,7 @@ export default function EmployeeProfilePage() {
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) coverMutation.mutate(file);
+                  if (file) setCoverPendingFile(file);
                   e.target.value = '';
                 }}
                 disabled={coverMutation.isPending}
@@ -1382,6 +1384,20 @@ export default function EmployeeProfilePage() {
             })()
           )}
         </Modal>
+      )}
+
+      {/* Cover crop modal */}
+      {coverPendingFile && (
+        <CoverCropModal
+          imageFile={coverPendingFile}
+          aspect="landscape"
+          onAccept={(croppedFile) => {
+            coverMutation.mutate(croppedFile);
+            setCoverPendingFile(null);
+          }}
+          onCancel={() => setCoverPendingFile(null)}
+          onChooseAnother={() => setCoverPendingFile(null)}
+        />
       )}
 
     </div>

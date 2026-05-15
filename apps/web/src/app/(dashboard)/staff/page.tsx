@@ -63,9 +63,12 @@ export default function StaffPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Botón "+ Nuevo empleado" en el topbar global (solo cuando la tab Empleados
-  // está activa y el usuario tiene permiso).
+  // está activa y el usuario tiene permiso). hasPermission cambia de referencia
+  // en cada render del hook usePermissions; lo congelamos a un boolean para
+  // que el useEffect interno no haga loop.
+  const canCreateEmployee = hasPermission('employees.create');
   useRegisterTopbarAction(
-    activeTab === 'empleados' && hasPermission('employees.create') ? (
+    activeTab === 'empleados' && canCreateEmployee ? (
       <Link
         href="/settings/invite-codes"
         className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
@@ -73,7 +76,7 @@ export default function StaffPage() {
         + Nuevo
       </Link>
     ) : null,
-    [activeTab, hasPermission],
+    [activeTab, canCreateEmployee],
   );
 
   const { data, isLoading } = useQuery({
