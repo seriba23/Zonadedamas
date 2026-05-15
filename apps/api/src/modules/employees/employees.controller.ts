@@ -471,6 +471,45 @@ export class EmployeesController {
     return { data: updated };
   }
 
+  // Admin: subir / cambiar foto de portada de cualquier empleado del tenant.
+  @Post(':id/cover')
+  @RequirePermissions('employees.update')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadCover(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @UploadedFile() file: MulterFile,
+  ) {
+    const employee = await this.employeesService.findOne(id, tenantId);
+    const oldCoverUrl = employee.coverImageUrl;
+    const imageUrl = await this.uploadsService.saveFile(file, 'avatars');
+    const updated = await this.prisma.employee.update({
+      where: { id },
+      data: { coverImageUrl: imageUrl },
+    });
+    if (oldCoverUrl) {
+      await this.uploadsService.deleteFile(oldCoverUrl);
+    }
+    return { data: updated };
+  }
+
+  @Delete(':id/cover')
+  @RequirePermissions('employees.update')
+  async deleteCover(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const employee = await this.employeesService.findOne(id, tenantId);
+    if (employee.coverImageUrl) {
+      await this.uploadsService.deleteFile(employee.coverImageUrl);
+    }
+    const updated = await this.prisma.employee.update({
+      where: { id },
+      data: { coverImageUrl: null },
+    });
+    return { data: updated };
+  }
+
   // ─── PORTFOLIO ─────────────────────────────────────
 
   @Get(':id/portfolio')

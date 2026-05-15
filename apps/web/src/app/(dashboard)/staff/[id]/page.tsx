@@ -26,7 +26,9 @@ interface Employee {
   phone?: string;
   color?: string;
   bio?: string;
+  jobTitle?: string | null;
   avatarUrl?: string | null;
+  coverImageUrl?: string | null;
   bloodType?: string | null;
   emergencyContactName?: string | null;
   emergencyContactLastName?: string | null;
@@ -163,6 +165,7 @@ export default function EmployeeProfilePage() {
   const employeeId = params.id as string;
   const [activeTab, setActiveTab] = useState<ProfileTab>('estadisticas');
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
+  const [coverSuccess, setCoverSuccess] = useState<string | null>(null);
 
   const canEdit = hasPermission('employees.update');
   const canDelete = hasPermission('employees.delete');
@@ -354,6 +357,25 @@ export default function EmployeeProfilePage() {
     },
   });
 
+  const coverMutation = useMutation({
+    mutationFn: (file: File) =>
+      api.upload(`/api/employees/${employeeId}/cover`, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setCoverSuccess('Portada cargada con éxito');
+      setTimeout(() => setCoverSuccess(null), 3000);
+    },
+  });
+
+  const coverDeleteMutation = useMutation({
+    mutationFn: () => api.delete(`/api/employees/${employeeId}/cover`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+    },
+  });
+
   const employee = employeeData?.data;
   const isOwnProfile = employee?.userId === authUser?.id;
   const stats = statsData?.data;
@@ -422,6 +444,59 @@ export default function EmployeeProfilePage() {
             Volver a Personal
           </button>
         </div>
+
+        {/* Foto de portada — banda arriba con upload */}
+        {canEdit && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+              Foto de portada
+            </label>
+            <div
+              className="relative rounded-xl border border-dashed border-[var(--border)] h-32 overflow-hidden bg-cover bg-center group"
+              style={
+                employee.coverImageUrl
+                  ? { backgroundImage: `url(${employee.coverImageUrl.startsWith('http') ? employee.coverImageUrl : `${API_URL}${employee.coverImageUrl}`})` }
+                  : { background: `linear-gradient(135deg, ${empColor}, ${empColor}99)` }
+              }
+            >
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) coverMutation.mutate(file);
+                  e.target.value = '';
+                }}
+                disabled={coverMutation.isPending}
+                className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
+                aria-label="Subir foto de portada"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <span className="text-white text-sm font-semibold">
+                  {coverMutation.isPending ? 'Subiendo...' : employee.coverImageUrl ? 'Cambiar portada' : 'Subir portada'}
+                </span>
+              </div>
+              {employee.coverImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('¿Quitar la foto de portada?')) coverDeleteMutation.mutate();
+                  }}
+                  disabled={coverDeleteMutation.isPending}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center"
+                  title="Quitar portada"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {coverSuccess && (
+              <p className="text-xs text-success-700 mt-1.5">{coverSuccess}</p>
+            )}
+          </div>
+        )}
 
         {/* Header Card */}
         <div
