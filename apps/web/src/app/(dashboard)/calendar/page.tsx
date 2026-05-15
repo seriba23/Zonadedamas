@@ -1091,8 +1091,18 @@ export default function CalendarPage() {
                         {formatCurrency(totalPrice)}
                       </p>
 
-                      {/* Servicio — col 3, row 2 (alineado a la izquierda) */}
-                      <p className="text-xs text-[var(--text-secondary)] break-words min-w-0 self-start">
+                      {/* Servicio — col 3, row 2. Siempre 2 renglones de alto:
+                          si el texto es corto deja espacio en blanco; si supera,
+                          se trunca con "..." (line-clamp-2). */}
+                      <p
+                        className="text-xs text-[var(--text-secondary)] min-w-0 self-start leading-snug overflow-hidden"
+                        style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          minHeight: 'calc(2 * 1.375em)',
+                        }}
+                      >
                         {apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}
                       </p>
 

@@ -97,8 +97,19 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   {formatCurrency(totalPrice)}
                 </p>
 
-                {/* Servicio — col 3, row 2 */}
-                <p className="text-xs text-[var(--text-secondary)] break-words min-w-0 self-start">{services}</p>
+                {/* Servicio — col 3, row 2. Siempre 2 renglones de alto;
+                    si el texto es mas largo se trunca con "...". */}
+                <p
+                  className="text-xs text-[var(--text-secondary)] min-w-0 self-start leading-snug overflow-hidden"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    minHeight: 'calc(2 * 1.375em)',
+                  }}
+                >
+                  {services}
+                </p>
 
                 {/* Status — col 4, row 2 (esquina inferior derecha) */}
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap self-start justify-self-end ${st.bg} ${st.textColor}`}>
