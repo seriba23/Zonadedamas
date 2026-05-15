@@ -345,20 +345,18 @@ export default function StaffPage() {
 
                         {/* Botones */}
                         <div className="flex gap-2 mt-3">
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/calendar?view=day&employeeIds=${emp.id}`)}
+                          <a
+                            href={`/calendar?view=day&employeeIds=${emp.id}`}
                             className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
                           >
                             Ver agenda
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/staff/${emp.id}`)}
+                          </a>
+                          <a
+                            href={`/staff/${emp.id}`}
                             className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors"
                           >
                             Editar
-                          </button>
+                          </a>
                         </div>
                       </div>
                     </div>
