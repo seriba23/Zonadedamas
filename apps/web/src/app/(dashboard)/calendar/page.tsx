@@ -1052,22 +1052,22 @@ export default function CalendarPage() {
                     <div
                       key={apt.id}
                       onClick={() => handleAppointmentClick(apt)}
-                      className="flex items-center gap-4 px-4 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors"
+                      className="flex items-start gap-3 px-3 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors"
                       style={{ backgroundColor: 'var(--bg-surface)' }}
                     >
-                      {/* Hora inicio / fin (columna izquierda, alineada vertical) */}
-                      <div className="flex-shrink-0 min-w-[58px] text-center">
-                        <p className="text-base font-bold text-primary-600 tabular-nums leading-none">
+                      {/* Hora inicio / fin (columna izquierda compacta) */}
+                      <div className="flex-shrink-0 min-w-[42px] text-center">
+                        <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
                           {dayjs(apt.startTime).format('HH:mm')}
                         </p>
-                        <p className="text-xs text-[var(--text-muted)] tabular-nums mt-1">
+                        <p className="text-[10px] text-[var(--text-muted)] tabular-nums mt-1">
                           {dayjs(apt.endTime).format('HH:mm')}
                         </p>
                       </div>
 
                       {/* Avatar del cliente */}
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
                         style={{ backgroundColor: '#008080' }}
                       >
                         {clientAvatarUrl ? (
@@ -1081,26 +1081,26 @@ export default function CalendarPage() {
                         )}
                       </div>
 
-                      {/* Nombre + servicios + badge */}
+                      {/* Centro: nombre + badge (fila), precio (debajo del badge), servicios (multilinea) */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-base font-bold text-[var(--text-primary)] truncate">
-                            {apt.client?.firstName} {apt.client?.lastName}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            <p className="text-sm md:text-base font-bold text-[var(--text-primary)] break-words">
+                              {apt.client?.firstName} {apt.client?.lastName}
+                            </p>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusStyle.bg} ${statusStyle.text}`}>
+                              <span className="w-1 h-1 rounded-full" style={{ backgroundColor: statusStyle.dot }} />
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <p className="text-xs md:text-sm font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
+                            {formatCurrency(totalPrice)}
                           </p>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusStyle.bg} ${statusStyle.text}`}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusStyle.dot }} />
-                            {statusLabel}
-                          </span>
                         </div>
-                        <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5 break-words">
                           {apt.items?.map((i) => i.serviceNameSnapshot).join(', ')}
                         </p>
                       </div>
-
-                      {/* Precio */}
-                      <p className="text-base font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
-                        {formatCurrency(totalPrice)}
-                      </p>
                     </div>
                   );
                 })}

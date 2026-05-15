@@ -58,11 +58,11 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
             return (
               <li
                 key={apt.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
+                className="flex items-start gap-3 px-3 py-2.5 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
                 style={{ backgroundColor: 'var(--bg-surface)' }}
               >
-                {/* Hora inicio / fin */}
-                <div className="flex-shrink-0 min-w-[52px] text-center">
+                {/* Hora inicio / fin (compacto) */}
+                <div className="flex-shrink-0 min-w-[42px] text-center">
                   <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
                     {dayjs(apt.startTime).format('HH:mm')}
                   </p>
@@ -87,24 +87,24 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   )}
                 </div>
 
-                {/* Nombre + badge + servicios */}
+                {/* Centro: nombre + badge (fila), precio (a la derecha), servicios (multilinea) */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                      {apt.client.firstName} {apt.client.lastName}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <p className="text-sm font-bold text-[var(--text-primary)] break-words">
+                        {apt.client.firstName} {apt.client.lastName}
+                      </p>
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${st.bg} ${st.textColor}`}>
+                        <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
+                        {st.text}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
+                      {formatCurrency(totalPrice)}
                     </p>
-                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${st.bg} ${st.textColor}`}>
-                      <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
-                      {st.text}
-                    </span>
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{services}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5 break-words">{services}</p>
                 </div>
-
-                {/* Precio */}
-                <p className="text-sm font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap flex-shrink-0">
-                  {formatCurrency(totalPrice)}
-                </p>
               </li>
             );
           })}
