@@ -58,7 +58,7 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
             return (
               <li
                 key={apt.id}
-                className="grid items-center gap-x-3 gap-y-1.5 px-3 py-2.5 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
+                className="grid items-center gap-x-3 gap-y-1.5 px-3 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
                 style={{ backgroundColor: 'var(--bg-surface)', gridTemplateColumns: 'auto auto 1fr auto' }}
               >
                 {/* Hora — col 1, row-span 2, centrada vertical */}
@@ -73,7 +73,7 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
 
                 {/* Avatar — col 2, row-span 2, centrado vertical */}
                 <div
-                  className="row-span-2 self-center w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold overflow-hidden"
+                  className="row-span-2 self-center w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden"
                   style={{ backgroundColor: '#008080' }}
                 >
                   {clientAvatar ? (
@@ -88,12 +88,12 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                 </div>
 
                 {/* Nombre — col 3, row 1 */}
-                <p className="text-sm font-bold text-[var(--text-primary)] break-words min-w-0">
+                <p className="text-sm md:text-base font-bold text-[var(--text-primary)] break-words min-w-0">
                   {apt.client.firstName} {apt.client.lastName}
                 </p>
 
                 {/* Precio — col 4, row 1 */}
-                <p className="text-xs font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap text-right">
+                <p className="text-xs md:text-sm font-bold text-[var(--text-primary)] tabular-nums whitespace-nowrap text-right">
                   {formatCurrency(totalPrice)}
                 </p>
 
