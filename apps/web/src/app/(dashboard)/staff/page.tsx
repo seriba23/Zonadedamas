@@ -248,12 +248,12 @@ export default function StaffPage() {
                   return (
                     <div
                       key={emp.id}
-                      className="rounded-xl overflow-hidden border flex flex-col"
+                      className="relative rounded-xl overflow-hidden border flex flex-col isolate"
                       style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                     >
                       {/* Header: foto de portada o gradient con su color */}
                       <div
-                        className="h-20 bg-cover bg-center"
+                        className="h-20 bg-cover bg-center pointer-events-none"
                         style={
                           emp.coverImageUrl
                             ? { backgroundImage: `url(${emp.coverImageUrl.startsWith('http') ? emp.coverImageUrl : `${API_URL}${emp.coverImageUrl}`})` }
@@ -261,7 +261,7 @@ export default function StaffPage() {
                         }
                       />
                       {/* Body */}
-                      <div className="px-5 pb-4 -mt-8 flex flex-col flex-1">
+                      <div className="relative z-10 px-5 pb-4 -mt-8 flex flex-col flex-1">
                         <div className="flex items-end justify-between gap-3">
                           <Link
                             href={`/staff/${emp.id}`}
