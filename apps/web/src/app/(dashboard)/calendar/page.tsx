@@ -101,7 +101,12 @@ export default function CalendarPage() {
   }, [searchParams]);
 
   // Filter state
-  const [filterEmployeeIds, setFilterEmployeeIds] = useState<string[]>([]);
+  const [filterEmployeeIds, setFilterEmployeeIds] = useState<string[]>(
+    () => {
+      const fromUrl = searchParams.get('employeeIds');
+      return fromUrl ? fromUrl.split(',').filter(Boolean) : [];
+    },
+  );
   // Aceptar ?onlyWithAppointments=true desde Home ("Citas hoy") para que
   // solo se muestren columnas de empleados con citas hoy.
   const [filterOnlyWithAppointments, setFilterOnlyWithAppointments] = useState(

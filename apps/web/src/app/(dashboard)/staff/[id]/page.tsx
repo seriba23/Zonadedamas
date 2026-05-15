@@ -357,9 +357,16 @@ export default function EmployeeProfilePage() {
     },
   });
 
+  // Si el usuario está en su propio perfil usa /me/cover (sin permiso admin).
+  // Si es admin gestionando a otro, usa /:id/cover.
   const coverMutation = useMutation({
-    mutationFn: (file: File) =>
-      api.upload(`/api/employees/${employeeId}/cover`, file),
+    mutationFn: (file: File) => {
+      const endpoint =
+        employee?.userId === authUser?.id
+          ? `/api/employees/me/cover`
+          : `/api/employees/${employeeId}/cover`;
+      return api.upload(endpoint, file);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
@@ -368,6 +375,7 @@ export default function EmployeeProfilePage() {
     },
   });
 
+  // Solo admin puede borrar (no hay endpoint /me/cover DELETE).
   const coverDeleteMutation = useMutation({
     mutationFn: () => api.delete(`/api/employees/${employeeId}/cover`),
     onSuccess: () => {
@@ -445,8 +453,8 @@ export default function EmployeeProfilePage() {
           </button>
         </div>
 
-        {/* Foto de portada — banda arriba con upload */}
-        {canEdit && (
+        {/* Foto de portada — banda arriba con upload (admin o propio empleado) */}
+        {(canEdit || isOwnProfile) && (
           <div className="mb-4">
             <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
               Foto de portada
@@ -476,7 +484,7 @@ export default function EmployeeProfilePage() {
                   {coverMutation.isPending ? 'Subiendo...' : employee.coverImageUrl ? 'Cambiar portada' : 'Subir portada'}
                 </span>
               </div>
-              {employee.coverImageUrl && (
+              {employee.coverImageUrl && canEdit && (
                 <button
                   type="button"
                   onClick={() => {

@@ -10,6 +10,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -53,6 +54,7 @@ export default function StaffPage() {
   const { hasPermission } = usePermissions();
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<StaffTab>('empleados');
   const [search, setSearch] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
@@ -343,18 +345,20 @@ export default function StaffPage() {
 
                         {/* Botones */}
                         <div className="flex gap-2 mt-3">
-                          <Link
-                            href={`/calendar?view=day&employeeIds=${emp.id}`}
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/calendar?view=day&employeeIds=${emp.id}`)}
                             className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
                           >
                             Ver agenda
-                          </Link>
-                          <Link
-                            href={`/staff/${emp.id}`}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/staff/${emp.id}`)}
                             className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors"
                           >
                             Editar
-                          </Link>
+                          </button>
                         </div>
                       </div>
                     </div>
