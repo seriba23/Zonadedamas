@@ -1386,11 +1386,13 @@ export default function EmployeeProfilePage() {
         </Modal>
       )}
 
-      {/* Cover crop modal */}
+      {/* Cover crop modal — formato vertical (portrait) porque asi se ve
+          en el perfil publico del marketplace. La banda chica de la card
+          en admin es solo un preview. */}
       {coverPendingFile && (
         <CoverCropModal
           imageFile={coverPendingFile}
-          aspect="landscape"
+          aspect="portrait"
           onAccept={(croppedFile) => {
             coverMutation.mutate(croppedFile);
             setCoverPendingFile(null);
