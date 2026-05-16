@@ -56,10 +56,10 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
             const clientInitials = `${apt.client.firstName?.[0] || ''}${apt.client.lastName?.[0] || ''}`.toUpperCase();
 
             return (
-              <li
-                key={apt.id}
-                onClick={() => { window.location.href = `/calendar?appointmentId=${apt.id}`; }}
-                className="grid items-center gap-x-3 gap-y-1.5 px-3 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors"
+              <li key={apt.id}>
+              <Link
+                href={`/calendar?appointmentId=${apt.id}`}
+                className="grid items-center gap-x-3 gap-y-1.5 px-3 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors no-underline text-inherit"
                 style={{ backgroundColor: 'var(--bg-surface)', gridTemplateColumns: 'auto auto 1fr auto' }}
               >
                 {/* Hora — col 1, row-span 2, centrada vertical */}
@@ -117,6 +117,7 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
                   {st.text}
                 </span>
+              </Link>
               </li>
             );
           })}
