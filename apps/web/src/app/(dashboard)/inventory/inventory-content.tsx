@@ -494,245 +494,33 @@ export function InventoryContent() {
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Create/Edit Modal — mismo estilo de lista que el detalle, mismo orden */}
       {isModalOpen && (
         <Modal
           title={editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
           onClose={closeModal}
+          size="md"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             {formError && (
               <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="input-field"
-                placeholder="Ej: Tinte L'Oreal Majirel"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-                <input
-                  type="text"
-                  value={form.sku}
-                  onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                  className="input-field"
-                  placeholder="Ej: TIN-LOR-001"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                <div className="flex gap-2">
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                    className="input-field flex-1"
-                  >
-                    <option value="">Sin categoria</option>
-                    {allCategories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => { setNewCategoryName(''); setShowNewCategory(true); }}
-                    className="px-2.5 py-2 text-sm font-medium rounded-lg border border-gray-300 text-primary-600 hover:bg-primary-50 whitespace-nowrap"
-                    title="Agregar categoria"
-                  >
-                    +
-                  </button>
+            {/* Imagen grande (igual posicion que en detalle) */}
+            <div className="flex flex-col items-center gap-2">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="w-32 h-32 rounded-2xl object-cover border border-[var(--border)]" />
+              ) : editingProduct?.imageUrl ? (
+                <img src={`${API_URL}${editingProduct.imageUrl}`} alt={editingProduct.name} className="w-32 h-32 rounded-2xl object-cover border border-[var(--border)]" />
+              ) : (
+                <div className="w-32 h-32 rounded-2xl bg-gray-100 flex items-center justify-center border border-[var(--border)]">
+                  <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                  </svg>
                 </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className="input-field resize-none"
-                rows={2}
-                placeholder="Descripcion opcional..."
-              />
-            </div>
-
-            {/* Currency */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-              <select
-                value={form.currency}
-                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                className="input-field w-48"
-              >
-                <option value="MXN">MXN - Peso Mexicano</option>
-                <option value="USD">USD - Dolar Estadounidense</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="COP">COP - Peso Colombiano</option>
-                <option value="ARS">ARS - Peso Argentino</option>
-                <option value="CLP">CLP - Peso Chileno</option>
-                <option value="PEN">PEN - Sol Peruano</option>
-                <option value="BRL">BRL - Real Brasileno</option>
-                <option value="DOP">DOP - Peso Dominicano</option>
-                <option value="GTQ">GTQ - Quetzal</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Precio de venta *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                  className="input-field"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Costo *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.costPrice}
-                  onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))}
-                  className="input-field"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock actual</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.stock}
-                  onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock minimo</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.minStock}
-                  onChange={(e) => setForm((f) => ({ ...f, minStock: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unidad</label>
-                <select
-                  value={form.unit}
-                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="pieza">Pieza</option>
-                  <option value="ml">ml</option>
-                  <option value="g">g</option>
-                  <option value="oz">oz</option>
-                  <option value="litro">Litro</option>
-                  <option value="kg">kg</option>
-                  <option value="par">Par</option>
-                  <option value="caja">Caja</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
-              <div className="flex gap-2">
-                <select
-                  value={form.supplierId}
-                  onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))}
-                  className="input-field flex-1"
-                >
-                  <option value="">Sin proveedor</option>
-                  {suppliers.map((sup) => (
-                    <option key={sup.id} value={sup.id}>
-                      {sup.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => { setNewSupplierName(''); setNewSupplierPhone(''); setNewSupplierEmail(''); setShowNewSupplier(true); }}
-                  className="px-2.5 py-2 text-sm font-medium rounded-lg border border-gray-300 text-primary-600 hover:bg-primary-50 whitespace-nowrap"
-                  title="Agregar proveedor"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Supplier URL */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Enlace de compra al proveedor</label>
-              <input
-                type="url"
-                value={form.supplierUrl}
-                onChange={(e) => setForm((f) => ({ ...f, supplierUrl: e.target.value }))}
-                className="input-field"
-                placeholder="https://www.proveedor.com/producto"
-              />
-              <p className="text-xs text-gray-400 mt-1">URL para reordenar este producto con el proveedor</p>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                className="input-field resize-none"
-                rows={2}
-                placeholder="Notas internas sobre este producto..."
-              />
-            </div>
-
-            {/* Product Image */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del producto</label>
-              <div className="flex items-center gap-4">
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
-                  />
-                ) : editingProduct?.imageUrl ? (
-                  <img
-                    src={`${API_URL}${editingProduct.imageUrl}`}
-                    alt={editingProduct.name}
-                    className="w-16 h-16 rounded-lg object-cover border border-gray-200"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 border border-gray-200">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-                    </svg>
-                  </div>
-                )}
-                <label className="cursor-pointer text-sm font-medium text-primary-600 hover:text-primary-700">
+              )}
+              <div className="flex items-center gap-3 text-sm">
+                <label className="cursor-pointer font-medium text-[#008080] hover:text-[#006666]">
                   {imagePreview || editingProduct?.imageUrl ? 'Cambiar imagen' : 'Subir imagen'}
                   <input
                     type="file"
@@ -757,83 +545,328 @@ export function InventoryContent() {
               </div>
             </div>
 
-            <label className="flex items-center justify-between cursor-pointer">
-              <div>
-                <p className="text-sm font-medium text-gray-700">Mostrar en tienda</p>
-                <p className="text-xs text-gray-500">Visible para clientes en tu perfil publico</p>
-              </div>
-              <div className="relative">
+            {/* Lista de inputs (mismo orden que detalle) */}
+            <ul className="divide-y divide-[var(--border)] border border-[var(--border)] rounded-xl overflow-hidden bg-[var(--bg-surface)]">
+              {/* Nombre */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Nombre *
+                </span>
                 <input
-                  type="checkbox"
-                  checked={form.isShopListed}
-                  onChange={(e) => setForm((f) => ({ ...f, isShopListed: e.target.checked }))}
-                  className="sr-only peer"
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                  placeholder="Ej: Tinte L'Oreal Majirel"
+                  className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
                 />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-              </div>
-            </label>
+              </li>
 
-            {/* Shipping - only shown when isShopListed */}
-            {form.isShopListed && (
-              <div>
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Envio local disponible</p>
-                    <p className="text-xs text-gray-500">Permite que este producto pueda ser enviado al cliente a su casa o ubicacion</p>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={form.shippingEnabled}
-                      onChange={(e) => setForm((f) => ({ ...f, shippingEnabled: e.target.checked, ...(!e.target.checked && { shippingCost: '' }) }))}
-                      className="sr-only peer"
+              {/* SKU */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  SKU
+                </span>
+                <input
+                  type="text"
+                  value={form.sku}
+                  onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
+                  placeholder="TIN-LOR-001"
+                  className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                />
+              </li>
+
+              {/* Categoria + quick-add */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Categoría
+                </span>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    className="flex-1 min-w-0 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  >
+                    <option value="">Sin categoría</option>
+                    {allCategories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => { setNewCategoryName(''); setShowNewCategory(true); }}
+                    className="flex-shrink-0 w-7 h-7 rounded-lg border border-[var(--border)] text-[#008080] hover:bg-[#008080]/10 transition-colors text-sm font-bold"
+                    title="Agregar categoría"
+                  >
+                    +
+                  </button>
+                </div>
+              </li>
+
+              {/* Precio de venta */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Precio de venta *
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                  required
+                  placeholder="0.00"
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                />
+              </li>
+
+              {/* Costo */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Costo *
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.costPrice}
+                  onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))}
+                  required
+                  placeholder="0.00"
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                />
+              </li>
+
+              {/* Moneda */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Moneda
+                </span>
+                <select
+                  value={form.currency}
+                  onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+                  className="w-40 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                >
+                  <option value="MXN">MXN - Peso Mexicano</option>
+                  <option value="USD">USD - Dólar Estadounidense</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="COP">COP - Peso Colombiano</option>
+                  <option value="ARS">ARS - Peso Argentino</option>
+                  <option value="CLP">CLP - Peso Chileno</option>
+                  <option value="PEN">PEN - Sol Peruano</option>
+                  <option value="BRL">BRL - Real Brasileño</option>
+                  <option value="DOP">DOP - Peso Dominicano</option>
+                  <option value="GTQ">GTQ - Quetzal</option>
+                </select>
+              </li>
+
+              {/* Stock actual */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Stock actual
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.stock}
+                  onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                />
+              </li>
+
+              {/* Stock minimo */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Stock mínimo
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.minStock}
+                  onChange={(e) => setForm((f) => ({ ...f, minStock: e.target.value }))}
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                />
+              </li>
+
+              {/* Unidad */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Unidad
+                </span>
+                <select
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  className="w-32 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                >
+                  <option value="pieza">Pieza</option>
+                  <option value="ml">ml</option>
+                  <option value="g">g</option>
+                  <option value="oz">oz</option>
+                  <option value="litro">Litro</option>
+                  <option value="kg">kg</option>
+                  <option value="par">Par</option>
+                  <option value="caja">Caja</option>
+                </select>
+              </li>
+
+              {/* Proveedor + quick-add */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Proveedor
+                </span>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                  <select
+                    value={form.supplierId}
+                    onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))}
+                    className="flex-1 min-w-0 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  >
+                    <option value="">Sin proveedor</option>
+                    {suppliers.map((sup) => (
+                      <option key={sup.id} value={sup.id}>{sup.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => { setNewSupplierName(''); setNewSupplierPhone(''); setNewSupplierEmail(''); setShowNewSupplier(true); }}
+                    className="flex-shrink-0 w-7 h-7 rounded-lg border border-[var(--border)] text-[#008080] hover:bg-[#008080]/10 transition-colors text-sm font-bold"
+                    title="Agregar proveedor"
+                  >
+                    +
+                  </button>
+                </div>
+              </li>
+
+              {/* URL del proveedor — stack (full-width) */}
+              <li className="px-3 py-2.5 space-y-1.5">
+                <span className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                  URL del proveedor
+                </span>
+                <input
+                  type="url"
+                  value={form.supplierUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, supplierUrl: e.target.value }))}
+                  placeholder="https://www.proveedor.com/producto"
+                  className="w-full text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                />
+              </li>
+
+              {/* Descripción — stack (full-width) */}
+              <li className="px-3 py-2.5 space-y-1.5">
+                <span className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                  Descripción
+                </span>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={3}
+                  placeholder="Descripción opcional..."
+                  className="w-full text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors resize-none"
+                />
+              </li>
+
+              {/* Notas — stack (full-width) */}
+              <li className="px-3 py-2.5 space-y-1.5">
+                <span className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                  Notas
+                </span>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Notas internas sobre este producto..."
+                  className="w-full text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors resize-none"
+                />
+              </li>
+
+              {/* Visible en tienda */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                  Visible en tienda
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.isShopListed}
+                  onClick={() => setForm((f) => ({ ...f, isShopListed: !f.isShopListed }))}
+                  className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                  style={{ backgroundColor: form.isShopListed ? '#008080' : 'var(--border)' }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                    style={{ transform: form.isShopListed ? 'translateX(20px)' : 'translateX(0)' }}
+                  />
+                </button>
+              </li>
+
+              {/* Envío disponible — solo si isShopListed */}
+              {form.isShopListed && (
+                <li className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                    Envío disponible
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.shippingEnabled}
+                    onClick={() => setForm((f) => ({ ...f, shippingEnabled: !f.shippingEnabled, ...(!f.shippingEnabled ? {} : { shippingCost: '' }) }))}
+                    className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                    style={{ backgroundColor: form.shippingEnabled ? '#008080' : 'var(--border)' }}
+                  >
+                    <span
+                      className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                      style={{ transform: form.shippingEnabled ? 'translateX(20px)' : 'translateX(0)' }}
                     />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-                  </div>
-                </label>
-                {form.shippingEnabled && (
-                  <div className="mt-3 pl-4 border-l-2 border-gray-200">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Costo de envio local</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.shippingCost}
-                        onChange={(e) => setForm((f) => ({ ...f, shippingCost: e.target.value }))}
-                        className="input-field w-40"
-                        placeholder="0.00"
-                      />
-                      <p className="text-xs text-gray-500">
-                        {!form.shippingCost || Number(form.shippingCost) === 0
-                          ? 'Envio gratis'
-                          : `${formatCurrency(Number(form.shippingCost), form.currency || 'MXN')} por envio`}
-                      </p>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">Deja en 0 o vacio para envio gratis</p>
-                  </div>
-                )}
-                {!form.shippingEnabled && (
-                  <p className="text-xs text-gray-400 mt-1">Este producto solo podra recogerse en tienda</p>
-                )}
-              </div>
-            )}
+                  </button>
+                </li>
+              )}
 
-            <label className="flex items-center justify-between cursor-pointer">
-              <p className="text-sm font-medium text-gray-700">Activo</p>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-              </div>
-            </label>
+              {/* Costo de envio — solo si isShopListed && shippingEnabled */}
+              {form.isShopListed && form.shippingEnabled && (
+                <li className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                    Costo de envío
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">
+                      {!form.shippingCost || Number(form.shippingCost) === 0
+                        ? 'Envío gratis'
+                        : `${formatCurrency(Number(form.shippingCost), form.currency || 'MXN')} por envío`}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.shippingCost}
+                      onChange={(e) => setForm((f) => ({ ...f, shippingCost: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-24 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                    />
+                  </div>
+                </li>
+              )}
+
+              {/* Estado / Activo */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                  Estado
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.isActive}
+                  onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
+                  className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                  style={{ backgroundColor: form.isActive ? '#008080' : 'var(--border)' }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                    style={{ transform: form.isActive ? 'translateX(20px)' : 'translateX(0)' }}
+                  />
+                </button>
+              </li>
+            </ul>
 
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={closeModal} className="btn-secondary">
@@ -1140,62 +1173,27 @@ export function InventoryContent() {
       {viewingProduct && (() => {
         const p = viewingProduct;
         const low = isLowStock(p);
-        const rows: { label: string; value: React.ReactNode }[] = [
-          { label: 'Nombre', value: p.name },
-          { label: 'SKU', value: p.sku || '—' },
-          { label: 'Categoría', value: p.category || '—' },
-          { label: 'Precio de venta', value: formatCurrency(p.price, p.currency || 'MXN') },
-          { label: 'Costo', value: formatCurrency(p.costPrice, p.currency || 'MXN') },
-          {
-            label: 'Stock actual',
-            value: (
-              <span className={low ? 'font-semibold text-red-600' : 'font-semibold'}>
-                {p.stock} {p.unit || 'pieza'}
-                {low && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700">Stock bajo</span>}
-              </span>
-            ),
-          },
-          { label: 'Stock mínimo', value: `${p.minStock} ${p.unit || 'pieza'}` },
-          { label: 'Unidad', value: p.unit || 'pieza' },
-          { label: 'Proveedor', value: p.supplier?.name || '—' },
-          {
-            label: 'URL del proveedor',
-            value: p.supplierUrl ? (
-              <a
-                href={p.supplierUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#008080] hover:text-[#006666] underline break-all"
-              >
-                Abrir enlace
-              </a>
-            ) : (
-              '—'
-            ),
-          },
-          { label: 'Descripción', value: p.description || '—' },
-          { label: 'Notas', value: p.notes || '—' },
-          {
-            label: 'Visible en tienda',
-            value: p.isShopListed ? 'Sí' : 'No',
-          },
-          {
-            label: 'Envío disponible',
-            value: p.shippingEnabled
-              ? p.shippingCost
-                ? formatCurrency(p.shippingCost, p.currency || 'MXN')
-                : 'Gratis'
-              : 'No',
-          },
-          {
-            label: 'Estado',
-            value: p.isActive ? (
-              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Activo</span>
-            ) : (
-              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Inactivo</span>
-            ),
-          },
-        ];
+        // Inline = label izq, valor der. Stack = label arriba, valor full-width justificado.
+        const inlineRow = (label: string, value: React.ReactNode) => (
+          <li key={label} className="flex items-start justify-between gap-3 px-3 py-2.5">
+            <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0 pt-0.5">
+              {label}
+            </span>
+            <span className="text-sm text-[var(--text-primary)] text-right break-words min-w-0">
+              {value}
+            </span>
+          </li>
+        );
+        const stackRow = (label: string, value: React.ReactNode) => (
+          <li key={label} className="px-3 py-2.5 space-y-1.5">
+            <span className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+              {label}
+            </span>
+            <p className="text-sm text-[var(--text-primary)] break-words whitespace-pre-wrap" style={{ textAlign: 'justify' }}>
+              {value}
+            </p>
+          </li>
+        );
         return (
           <Modal title="Detalle del producto" onClose={() => setViewingProduct(null)} size="md">
             <div className="space-y-4">
@@ -1216,18 +1214,56 @@ export function InventoryContent() {
                 )}
               </div>
 
-              {/* Lista de campos label/valor */}
+              {/* Lista de campos */}
               <ul className="divide-y divide-[var(--border)] border border-[var(--border)] rounded-xl overflow-hidden bg-[var(--bg-surface)]">
-                {rows.map((r) => (
-                  <li key={r.label} className="flex items-start justify-between gap-3 px-3 py-2.5">
-                    <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0 pt-0.5">
-                      {r.label}
-                    </span>
-                    <span className="text-sm text-[var(--text-primary)] text-right break-words min-w-0">
-                      {r.value}
-                    </span>
-                  </li>
-                ))}
+                {inlineRow('Nombre', p.name)}
+                {inlineRow('SKU', p.sku || '—')}
+                {inlineRow('Categoría', p.category || '—')}
+                {inlineRow('Precio de venta', formatCurrency(p.price, p.currency || 'MXN'))}
+                {inlineRow('Costo', formatCurrency(p.costPrice, p.currency || 'MXN'))}
+                {inlineRow('Moneda', p.currency || 'MXN')}
+                {inlineRow(
+                  'Stock actual',
+                  <span className={low ? 'font-semibold text-red-600' : 'font-semibold'}>
+                    {p.stock} {p.unit || 'pieza'}
+                    {low && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700">Stock bajo</span>}
+                  </span>,
+                )}
+                {inlineRow('Stock mínimo', `${p.minStock} ${p.unit || 'pieza'}`)}
+                {inlineRow('Unidad', p.unit || 'pieza')}
+                {inlineRow('Proveedor', p.supplier?.name || '—')}
+                {p.supplierUrl
+                  ? stackRow(
+                      'URL del proveedor',
+                      <a
+                        href={p.supplierUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#008080] hover:text-[#006666] underline break-all"
+                      >
+                        {p.supplierUrl}
+                      </a>,
+                    )
+                  : inlineRow('URL del proveedor', '—')}
+                {stackRow('Descripción', p.description || '—')}
+                {stackRow('Notas', p.notes || '—')}
+                {inlineRow('Visible en tienda', p.isShopListed ? 'Sí' : 'No')}
+                {inlineRow(
+                  'Envío disponible',
+                  p.shippingEnabled
+                    ? p.shippingCost
+                      ? formatCurrency(p.shippingCost, p.currency || 'MXN')
+                      : 'Gratis'
+                    : 'No',
+                )}
+                {inlineRow(
+                  'Estado',
+                  p.isActive ? (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Activo</span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Inactivo</span>
+                  ),
+                )}
               </ul>
 
               {/* Acciones */}
