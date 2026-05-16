@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import { InventoryContent } from './inventory-content';
-import { SuppliersContent } from '../suppliers/suppliers-content';
 import { ResourcesContent } from '../resources/resources-content';
 
-type InventoryPageTab = 'productos' | 'proveedores' | 'recursos';
+type InventoryPageTab = 'productos' | 'recursos';
 
 const INVENTORY_PAGE_TABS: { key: InventoryPageTab; label: string }[] = [
   { key: 'productos', label: 'Productos' },
-  { key: 'proveedores', label: 'Proveedores' },
   { key: 'recursos', label: 'Recursos' },
 ];
 
@@ -37,7 +35,6 @@ export default function InventoryPage() {
 
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'productos' && <InventoryContent />}
-        {activeTab === 'proveedores' && <SuppliersContent embedded />}
         {activeTab === 'recursos' && <ResourcesContent embedded />}
       </div>
     </div>
