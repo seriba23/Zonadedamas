@@ -558,7 +558,7 @@ export function InventoryContent() {
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   required
                   placeholder="Ej: Tinte L'Oreal Majirel"
-                  className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -572,7 +572,7 @@ export function InventoryContent() {
                   value={form.sku}
                   onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
                   placeholder="TIN-LOR-001"
-                  className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -585,7 +585,7 @@ export function InventoryContent() {
                   <select
                     value={form.category}
                     onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                    className="flex-1 min-w-0 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                    className="flex-1 min-w-0 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                   >
                     <option value="">Sin categoría</option>
                     {allCategories.map((cat) => (
@@ -616,7 +616,7 @@ export function InventoryContent() {
                   onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
                   required
                   placeholder="0.00"
-                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -633,7 +633,7 @@ export function InventoryContent() {
                   onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))}
                   required
                   placeholder="0.00"
-                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -645,7 +645,7 @@ export function InventoryContent() {
                 <select
                   value={form.currency}
                   onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                  className="w-40 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="min-w-[220px] flex-1 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 >
                   <option value="MXN">MXN - Peso Mexicano</option>
                   <option value="USD">USD - Dólar Estadounidense</option>
@@ -671,7 +671,7 @@ export function InventoryContent() {
                   step="1"
                   value={form.stock}
                   onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -686,7 +686,7 @@ export function InventoryContent() {
                   step="1"
                   value={form.minStock}
                   onChange={(e) => setForm((f) => ({ ...f, minStock: e.target.value }))}
-                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="w-32 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -698,7 +698,7 @@ export function InventoryContent() {
                 <select
                   value={form.unit}
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                  className="w-32 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="w-32 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 >
                   <option value="pieza">Pieza</option>
                   <option value="ml">ml</option>
@@ -720,7 +720,7 @@ export function InventoryContent() {
                   <select
                     value={form.supplierId}
                     onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))}
-                    className="flex-1 min-w-0 text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                    className="flex-1 min-w-0 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                   >
                     <option value="">Sin proveedor</option>
                     {suppliers.map((sup) => (
@@ -748,7 +748,7 @@ export function InventoryContent() {
                   value={form.supplierUrl}
                   onChange={(e) => setForm((f) => ({ ...f, supplierUrl: e.target.value }))}
                   placeholder="https://www.proveedor.com/producto"
-                  className="w-full text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                  className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>
 
@@ -762,7 +762,7 @@ export function InventoryContent() {
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   rows={3}
                   placeholder="Descripción opcional..."
-                  className="w-full text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors resize-none"
+                  className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors resize-none"
                 />
               </li>
 
@@ -776,7 +776,7 @@ export function InventoryContent() {
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   rows={2}
                   placeholder="Notas internas sobre este producto..."
-                  className="w-full text-sm bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors resize-none"
+                  className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors resize-none"
                 />
               </li>
 
@@ -841,7 +841,7 @@ export function InventoryContent() {
                       value={form.shippingCost}
                       onChange={(e) => setForm((f) => ({ ...f, shippingCost: e.target.value }))}
                       placeholder="0.00"
-                      className="w-24 text-sm text-right tabular-nums bg-[var(--bg-muted)] border border-transparent rounded-lg px-2 py-1.5 text-[var(--text-primary)] focus:outline-none focus:border-[#008080] focus:bg-[var(--bg-surface)] transition-colors"
+                      className="w-24 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                     />
                   </div>
                 </li>
