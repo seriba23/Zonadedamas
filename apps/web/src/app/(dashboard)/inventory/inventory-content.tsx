@@ -414,7 +414,8 @@ export function InventoryContent() {
           </div>
         ) : (
           <>
-            <ul className="space-y-3">
+            {/* MOBILE / PWA: lista de cards */}
+            <ul className="space-y-3 md:hidden">
               {products.map((product) => {
                 const low = isLowStock(product);
                 return (
@@ -464,6 +465,149 @@ export function InventoryContent() {
                 );
               })}
             </ul>
+
+            {/* DESKTOP: tabla */}
+            <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">SKU</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Categoría</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-600">Precio</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-600">Costo</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">Stock</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">Mín.</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">Estado</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {products.map((product) => {
+                      const low = isLowStock(product);
+                      return (
+                        <tr
+                          key={product.id}
+                          onClick={() => setViewingProduct(product)}
+                          className={`hover:bg-gray-50 transition-colors cursor-pointer ${low ? 'bg-red-50/50' : ''}`}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {product.imageUrl ? (
+                                <img src={`${API_URL}${product.imageUrl}`} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                                  </svg>
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                                  <span className="truncate">{product.name}</span>
+                                  {product.isShopListed && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-teal-50 text-teal-700 flex-shrink-0">Tienda</span>
+                                  )}
+                                </div>
+                                {product.description && (
+                                  <div className="text-xs text-gray-400 line-clamp-1">{product.description}</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 font-mono text-xs">
+                            {product.sku || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {product.category ? (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                {product.category}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-900 font-medium tabular-nums">
+                            {formatCurrency(product.price, product.currency || 'MXN')}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-500 tabular-nums">
+                            {formatCurrency(product.costPrice, product.currency || 'MXN')}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {low ? (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
+                                {product.stock}
+                              </span>
+                            ) : (
+                              <span className="text-gray-900 font-medium">{product.stock}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-500">{product.minStock}</td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>{product.supplier?.name || '—'}</span>
+                              {product.supplierUrl && (
+                                <a
+                                  href={product.supplierUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[#008080] hover:text-[#006666]"
+                                  title="Comprar al proveedor"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                  </svg>
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {product.isActive ? (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                                Activo
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
+                                Inactivo
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {hasPermission('inventory.update') && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openEdit(product); }}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                                  title="Editar"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              )}
+                              {hasPermission('inventory.delete') && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeleteConfirm(product.id); }}
+                                  className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+                                  title="Eliminar"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
             {/* Pagination */}
             {meta && meta.totalPages > 1 && (
@@ -1038,90 +1182,44 @@ export function InventoryContent() {
               />
             </div>
 
-            {/* Categoría — pills horizontales */}
+            {/* Categoría — dropdown */}
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                 Categoría
               </label>
-              <div
-                className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1"
-                style={{ scrollbarWidth: 'thin' }}
+              <select
+                value={filterCategory}
+                onChange={(e) => {
+                  setFilterCategory(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterCategory('');
-                    setPage(1);
-                  }}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                    filterCategory === ''
-                      ? 'bg-[#008080] text-white border-[#008080]'
-                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Todas
-                </button>
+                <option value="">Todas las categorías</option>
                 {allCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      setFilterCategory(cat);
-                      setPage(1);
-                    }}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                      filterCategory === cat
-                        ? 'bg-[#008080] text-white border-[#008080]'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat}
-                  </button>
+                  <option key={cat} value={cat}>{cat}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
-            {/* Proveedor — pills horizontales */}
+            {/* Proveedor — dropdown */}
             <div>
               <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
                 Proveedor
               </label>
-              <div
-                className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1"
-                style={{ scrollbarWidth: 'thin' }}
+              <select
+                value={filterSupplier}
+                onChange={(e) => {
+                  setFilterSupplier(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterSupplier('');
-                    setPage(1);
-                  }}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                    filterSupplier === ''
-                      ? 'bg-[#008080] text-white border-[#008080]'
-                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Todos
-                </button>
+                <option value="">Todos los proveedores</option>
                 {suppliers.map((sup) => (
-                  <button
-                    key={sup.id}
-                    type="button"
-                    onClick={() => {
-                      setFilterSupplier(sup.id);
-                      setPage(1);
-                    }}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                      filterSupplier === sup.id
-                        ? 'bg-[#008080] text-white border-[#008080]'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {sup.name}
-                  </button>
+                  <option key={sup.id} value={sup.id}>{sup.name}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {/* Stock bajo — toggle */}
