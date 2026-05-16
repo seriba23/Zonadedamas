@@ -50,8 +50,12 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
 
   // Filters modal + filter state (search en client-side dentro de los campos)
   const [showFilters, setShowFilters] = useState(false);
+  // APLICADOS — disparan el filtrado del listado.
   const [search, setSearch] = useState('');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
+  // DRAFT — se editan dentro del modal, solo entran en vigor al darle "Aplicar".
+  const [draftSearch, setDraftSearch] = useState(search);
+  const [draftFilterActive, setDraftFilterActive] = useState<'all' | 'active' | 'inactive'>(filterActive);
 
   // Detalle (read-only) — se abre al clickear card/fila
   const [viewingSupplier, setViewingSupplier] = useState<Supplier | null>(null);
@@ -82,10 +86,23 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
   }, [allSuppliers, search, filterActive]);
 
   const hasActiveFilters = search.trim().length > 0 || filterActive !== 'all';
+  const hasDraftFilters = draftSearch.trim().length > 0 || draftFilterActive !== 'all';
 
-  function clearFilters() {
-    setSearch('');
-    setFilterActive('all');
+  function openFilters() {
+    setDraftSearch(search);
+    setDraftFilterActive(filterActive);
+    setShowFilters(true);
+  }
+
+  function applyFilters() {
+    setSearch(draftSearch);
+    setFilterActive(draftFilterActive);
+    setShowFilters(false);
+  }
+
+  function clearDraftFilters() {
+    setDraftSearch('');
+    setDraftFilterActive('all');
   }
 
   const saveMutation = useMutation({
@@ -183,7 +200,7 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
             {suppliers.length} proveedor{suppliers.length !== 1 ? 'es' : ''}
           </p>
           <button
-            onClick={() => setShowFilters(true)}
+            onClick={openFilters}
             aria-label="Mostrar filtros"
             className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
               hasActiveFilters
@@ -362,8 +379,8 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
               </label>
               <input
                 type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={draftSearch}
+                onChange={(e) => setDraftSearch(e.target.value)}
                 placeholder="Nombre, contacto, email, teléfono, dirección..."
                 className="input-field text-sm py-2"
                 autoFocus
@@ -384,12 +401,12 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
                   { key: 'active', label: 'Activos' },
                   { key: 'inactive', label: 'Inactivos' },
                 ].map((opt) => {
-                  const active = filterActive === opt.key;
+                  const active = draftFilterActive === opt.key;
                   return (
                     <button
                       key={opt.key}
                       type="button"
-                      onClick={() => setFilterActive(opt.key as 'all' | 'active' | 'inactive')}
+                      onClick={() => setDraftFilterActive(opt.key as 'all' | 'active' | 'inactive')}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                         active
                           ? 'bg-[#008080] text-white border-[#008080]'
@@ -406,10 +423,10 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
             {/* Acciones */}
             <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
               <button
-                onClick={clearFilters}
-                disabled={!hasActiveFilters}
+                onClick={clearDraftFilters}
+                disabled={!hasDraftFilters}
                 className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap ${
-                  hasActiveFilters
+                  hasDraftFilters
                     ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                     : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
                 }`}
@@ -417,7 +434,7 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
                 Limpiar
               </button>
               <button
-                onClick={() => setShowFilters(false)}
+                onClick={applyFilters}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
               >
                 Aplicar

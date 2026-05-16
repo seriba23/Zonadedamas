@@ -116,7 +116,7 @@ export function InventoryContent() {
   // Detalle producto (read-only) — se abre al clickear una card de la lista
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
 
-  // Filters
+  // Filters APLICADOS — son los que disparan el query a la API.
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
@@ -124,6 +124,15 @@ export function InventoryContent() {
   const [filterLowStock, setFilterLowStock] = useState(
     () => searchParams?.get('lowStock') === 'true' || searchParams?.get('stockBajo') === 'true',
   );
+
+  // Filters DRAFT — se editan dentro del modal y SOLO entran en vigor al
+  // dar click en "Aplicar". Si el usuario cierra el modal sin aplicar,
+  // se descartan en el siguiente openFilters().
+  const [draftSearch, setDraftSearch] = useState(search);
+  const [draftFilterCategory, setDraftFilterCategory] = useState(filterCategory);
+  const [draftFilterSupplier, setDraftFilterSupplier] = useState(filterSupplier);
+  const [draftFilterLowStock, setDraftFilterLowStock] = useState(filterLowStock);
+
   // Sincroniza si el URL cambia (e.g. navegacion desde el alert del Home).
   useEffect(() => {
     const wantsLowStock =
@@ -344,12 +353,35 @@ export function InventoryContent() {
     filterSupplier !== '' ||
     filterLowStock;
 
-  function clearFilters() {
-    setSearch('');
-    setFilterCategory('');
-    setFilterSupplier('');
-    setFilterLowStock(false);
+  const hasDraftFilters =
+    draftSearch.trim().length > 0 ||
+    draftFilterCategory !== '' ||
+    draftFilterSupplier !== '' ||
+    draftFilterLowStock;
+
+  function openFilters() {
+    // Sincroniza draft con los filtros actualmente aplicados.
+    setDraftSearch(search);
+    setDraftFilterCategory(filterCategory);
+    setDraftFilterSupplier(filterSupplier);
+    setDraftFilterLowStock(filterLowStock);
+    setShowFilters(true);
+  }
+
+  function applyFilters() {
+    setSearch(draftSearch);
+    setFilterCategory(draftFilterCategory);
+    setFilterSupplier(draftFilterSupplier);
+    setFilterLowStock(draftFilterLowStock);
     setPage(1);
+    setShowFilters(false);
+  }
+
+  function clearDraftFilters() {
+    setDraftSearch('');
+    setDraftFilterCategory('');
+    setDraftFilterSupplier('');
+    setDraftFilterLowStock(false);
   }
 
   // Registrar boton "Agregar" en el topbar global (solo si tiene permiso).
@@ -374,7 +406,7 @@ export function InventoryContent() {
             {products.length} producto{products.length !== 1 ? 's' : ''}
           </p>
           <button
-            onClick={() => setShowFilters(true)}
+            onClick={openFilters}
             aria-label="Mostrar filtros"
             className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
               hasActiveFilters
@@ -1161,7 +1193,8 @@ export function InventoryContent() {
           </div>
         </Modal>
       )}
-      {/* Filtros Modal (PWA, igual que en /calendar) */}
+      {/* Filtros Modal (PWA, igual que en /calendar)
+          Los cambios aqui son DRAFT y solo entran en vigor al darle "Aplicar". */}
       {showFilters && (
         <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
           <div className="space-y-5">
@@ -1172,11 +1205,8 @@ export function InventoryContent() {
               </label>
               <input
                 type="text"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
+                value={draftSearch}
+                onChange={(e) => setDraftSearch(e.target.value)}
                 placeholder="Nombre del producto..."
                 className="input-field text-sm py-2"
               />
@@ -1188,11 +1218,8 @@ export function InventoryContent() {
                 Categoría
               </label>
               <select
-                value={filterCategory}
-                onChange={(e) => {
-                  setFilterCategory(e.target.value);
-                  setPage(1);
-                }}
+                value={draftFilterCategory}
+                onChange={(e) => setDraftFilterCategory(e.target.value)}
                 className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
               >
                 <option value="">Todas las categorías</option>
@@ -1208,11 +1235,8 @@ export function InventoryContent() {
                 Proveedor
               </label>
               <select
-                value={filterSupplier}
-                onChange={(e) => {
-                  setFilterSupplier(e.target.value);
-                  setPage(1);
-                }}
+                value={draftFilterSupplier}
+                onChange={(e) => setDraftFilterSupplier(e.target.value)}
                 className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
               >
                 <option value="">Todos los proveedores</option>
@@ -1228,17 +1252,14 @@ export function InventoryContent() {
               <button
                 type="button"
                 role="switch"
-                aria-checked={filterLowStock}
-                onClick={() => {
-                  setFilterLowStock((v) => !v);
-                  setPage(1);
-                }}
+                aria-checked={draftFilterLowStock}
+                onClick={() => setDraftFilterLowStock((v) => !v)}
                 className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                style={{ backgroundColor: filterLowStock ? '#008080' : 'var(--border)' }}
+                style={{ backgroundColor: draftFilterLowStock ? '#008080' : 'var(--border)' }}
               >
                 <span
                   className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                  style={{ transform: filterLowStock ? 'translateX(20px)' : 'translateX(0)' }}
+                  style={{ transform: draftFilterLowStock ? 'translateX(20px)' : 'translateX(0)' }}
                 />
               </button>
             </div>
@@ -1246,10 +1267,10 @@ export function InventoryContent() {
             {/* Acciones */}
             <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
               <button
-                onClick={clearFilters}
-                disabled={!hasActiveFilters}
+                onClick={clearDraftFilters}
+                disabled={!hasDraftFilters}
                 className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap ${
-                  hasActiveFilters
+                  hasDraftFilters
                     ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                     : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
                 }`}
@@ -1257,7 +1278,7 @@ export function InventoryContent() {
                 Limpiar
               </button>
               <button
-                onClick={() => setShowFilters(false)}
+                onClick={applyFilters}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
               >
                 Aplicar
