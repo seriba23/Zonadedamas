@@ -7,6 +7,7 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { DatePicker } from '@/components/ui/date-picker';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -80,10 +81,20 @@ export function ResourcesContent({ embedded }: { embedded?: boolean } = {}) {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [form, setForm] = useState<ResourceForm>(defaultForm);
   const [formError, setFormError] = useState<string | null>(null);
+  // Filtros APLICADOS — disparan el filtrado del listado.
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterAssigned, setFilterAssigned] = useState('all');
+  // Filtros DRAFT — solo entran en vigor al darle "Aplicar".
+  const [draftSearch, setDraftSearch] = useState(search);
+  const [draftFilterType, setDraftFilterType] = useState(filterType);
+  const [draftFilterLocation, setDraftFilterLocation] = useState(filterLocation);
+  const [draftFilterAssigned, setDraftFilterAssigned] = useState(filterAssigned);
+  // UI toggles (mismo patron que /calendar)
+  const [showFilters, setShowFilters] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+
   const [pendingFiles, setPendingFiles] = useState<(File | null)[]>([null, null, null]);
   const [previewUrls, setPreviewUrls] = useState<(string | null)[]>([null, null, null]);
 
@@ -238,76 +249,116 @@ export function ResourcesContent({ embedded }: { embedded?: boolean } = {}) {
   const totalUnits = filtered.reduce((sum, r) => sum + (r.quantity || 1), 0);
   const totalValue = filtered.reduce((sum, r) => sum + (Number(r.value) || 0) * (r.quantity || 1), 0);
 
+  // Filter helpers (draft vs applied — solo "Aplicar" surte efecto)
+  const hasActiveFilters =
+    search.trim().length > 0 ||
+    filterType !== 'all' ||
+    filterLocation !== 'all' ||
+    filterAssigned !== 'all';
+  const hasDraftFilters =
+    draftSearch.trim().length > 0 ||
+    draftFilterType !== 'all' ||
+    draftFilterLocation !== 'all' ||
+    draftFilterAssigned !== 'all';
+
+  function openFilters() {
+    setDraftSearch(search);
+    setDraftFilterType(filterType);
+    setDraftFilterLocation(filterLocation);
+    setDraftFilterAssigned(filterAssigned);
+    setShowFilters(true);
+  }
+
+  function applyFilters() {
+    setSearch(draftSearch);
+    setFilterType(draftFilterType);
+    setFilterLocation(draftFilterLocation);
+    setFilterAssigned(draftFilterAssigned);
+    setShowFilters(false);
+  }
+
+  function clearDraftFilters() {
+    setDraftSearch('');
+    setDraftFilterType('all');
+    setDraftFilterLocation('all');
+    setDraftFilterAssigned('all');
+  }
+
+  // Topbar action: "+ Nuevo" (funciona standalone Y dentro del tab de inventario)
+  useRegisterTopbarAction(
+    hasPermission('resources.create') ? (
+      <button
+        onClick={openCreate}
+        className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        + Nuevo
+      </button>
+    ) : null,
+    [hasPermission('resources.create')],
+  );
+
   return (
     <div className={embedded ? '' : 'flex flex-col h-full'}>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs text-gray-400">Total activos</p>
-            <p className="text-xl font-bold text-gray-900">{filtered.length} <span className="text-sm font-normal text-gray-400">({totalUnits} uds)</span></p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs text-gray-400">Valor total</p>
-            <p className="text-xl font-bold text-gray-900">{formatCurrency(totalValue)}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs text-gray-400">Asignados a empleados</p>
-            <p className="text-xl font-bold text-gray-900">{resources.filter((r) => r.assignedTo && r.assignedTo !== 'business').length}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs text-gray-400">En buen estado</p>
-            <p className="text-xl font-bold text-gray-900">{resources.filter((r) => r.condition === 'good' || r.condition === 'new').length}</p>
+        {/* Header: contador + iconos filtros/stats (mismo patron que /calendar) */}
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <p className="text-sm text-gray-500">
+            {filtered.length} activo{filtered.length !== 1 ? 's' : ''}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openFilters}
+              aria-label="Mostrar filtros"
+              className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+                hasActiveFilters
+                  ? 'bg-[#008080] border-[#008080] text-white'
+                  : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
+              }`}
+              title="Filtros"
+            >
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowStats((v) => !v)}
+              aria-label="Mostrar/ocultar estadísticas"
+              className={`flex-shrink-0 p-1.5 md:p-2 rounded-lg border transition-colors ${
+                showStats
+                  ? 'bg-[#008080] border-[#008080] text-white'
+                  : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
+              }`}
+              title="Estadísticas"
+            >
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Filters + Add button */}
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <div className="relative">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar activo..."
-              className="text-xs border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 w-48 focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-            />
+        {/* Stats — toggle via icono */}
+        {showStats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs text-gray-400">Total activos</p>
+              <p className="text-xl font-bold text-gray-900">{filtered.length} <span className="text-sm font-normal text-gray-400">({totalUnits} uds)</span></p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs text-gray-400">Valor total</p>
+              <p className="text-xl font-bold text-gray-900">{formatCurrency(totalValue)}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs text-gray-400">Asignados a empleados</p>
+              <p className="text-xl font-bold text-gray-900">{resources.filter((r) => r.assignedTo && r.assignedTo !== 'business').length}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs text-gray-400">En buen estado</p>
+              <p className="text-xl font-bold text-gray-900">{resources.filter((r) => r.condition === 'good' || r.condition === 'new').length}</p>
+            </div>
           </div>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-          >
-            <option value="all">Todas las categorías</option>
-            {RESOURCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-          <select
-            value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-          >
-            <option value="all">Todas las ubicaciones</option>
-            {locations.map((loc: any) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
-          </select>
-          <select
-            value={filterAssigned}
-            onChange={(e) => setFilterAssigned(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-          >
-            <option value="all">Todos</option>
-            <option value="business">Del negocio</option>
-            <option value="employee">Asignado a empleado</option>
-            <option value="unassigned">Sin asignar</option>
-          </select>
-          <div className="ml-auto">
-            {hasPermission('resources.create') && (
-              <button onClick={openCreate} className="btn-primary text-sm">+ Nuevo activo</button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Resources grid */}
         {isLoading ? (
@@ -407,6 +458,95 @@ export function ResourcesContent({ embedded }: { embedded?: boolean } = {}) {
           </div>
         )}
       </div>
+
+      {/* Filtros Modal — los cambios son DRAFT y solo entran en vigor al darle "Aplicar" */}
+      {showFilters && (
+        <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
+          <div className="space-y-5">
+            {/* Búsqueda */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Buscar
+              </label>
+              <input
+                type="text"
+                value={draftSearch}
+                onChange={(e) => setDraftSearch(e.target.value)}
+                placeholder="Nombre, marca, serie o descripción..."
+                className="input-field text-sm py-2"
+              />
+            </div>
+
+            {/* Tipo */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Tipo
+              </label>
+              <select
+                value={draftFilterType}
+                onChange={(e) => setDraftFilterType(e.target.value)}
+                className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
+              >
+                <option value="all">Todos los tipos</option>
+                {RESOURCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+
+            {/* Ubicación */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Ubicación
+              </label>
+              <select
+                value={draftFilterLocation}
+                onChange={(e) => setDraftFilterLocation(e.target.value)}
+                className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
+              >
+                <option value="all">Todas las ubicaciones</option>
+                {locations.map((loc: any) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+              </select>
+            </div>
+
+            {/* Asignación */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                Asignación
+              </label>
+              <select
+                value={draftFilterAssigned}
+                onChange={(e) => setDraftFilterAssigned(e.target.value)}
+                className="w-full text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
+              >
+                <option value="all">Todos</option>
+                <option value="business">Del negocio</option>
+                <option value="employee">Asignado a empleado</option>
+                <option value="unassigned">Sin asignar</option>
+              </select>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
+              <button
+                onClick={clearDraftFilters}
+                disabled={!hasDraftFilters}
+                className={`flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap ${
+                  hasDraftFilters
+                    ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                    : 'bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
+                }`}
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Create/Edit Modal */}
       {isModalOpen && (
