@@ -397,8 +397,9 @@ export default function ProfessionalProfilePage() {
                                 alt={img.caption || ''}
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
-                              {/* Etiqueta de servicios */}
-                              {img.services.length > 0 && (
+                              {/* Etiqueta de servicios — solo en "Todos"
+                                  (redundante si estamos filtrando por uno) */}
+                              {activeCategory === 'all' && img.services.length > 0 && (
                                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2">
                                   <p className="text-[10px] text-white/95 font-medium truncate">
                                     {img.services.map((s) => s.name).join(' · ')}
