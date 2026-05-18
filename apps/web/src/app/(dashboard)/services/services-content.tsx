@@ -105,6 +105,15 @@ export function ServicesContent() {
   });
   const catalogItems: { name: string; category: string | null }[] = (catalogData as any)?.data || [];
 
+  // Profesiones reales (tabla Profession, gestionada desde SuperAdmin
+  // en /platform/professions). Esta es la fuente de verdad del dropdown
+  // de profesion al crear/editar un servicio.
+  const { data: professionsData } = useQuery({
+    queryKey: ['marketplace-professions'],
+    queryFn: () => api.get<{ data: string[] }>('/api/marketplace/professions'),
+  });
+  const professions: string[] = (professionsData as any)?.data || [];
+
   const services = data?.data || [];
 
 
@@ -365,11 +374,17 @@ export function ServicesContent() {
                 required
               >
                 <option value="">Seleccionar profesión...</option>
-                {[...new Set(catalogItems.map((i) => i.category).filter(Boolean) as string[])]
-                  .sort((a, b) => a.localeCompare(b, 'es'))
-                  .map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
+                {(() => {
+                  // Fuente principal: tabla Profession (SuperAdmin).
+                  // Union con categorias del catalogo por si hay alguna
+                  // historica no migrada. Dedup + sort alfabetico.
+                  const fromCatalog = catalogItems.map((i) => i.category).filter(Boolean) as string[];
+                  return [...new Set([...professions, ...fromCatalog])]
+                    .sort((a, b) => a.localeCompare(b, 'es'))
+                    .map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ));
+                })()}
               </select>
             </div>
 
@@ -377,21 +392,70 @@ export function ServicesContent() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Servicio *
               </label>
-              <select
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="input-field"
-                required
-                disabled={!form.catalogCategory}
-              >
-                <option value="">{form.catalogCategory ? 'Seleccionar servicio...' : 'Primero selecciona una profesión'}</option>
-                {catalogItems
+              {(() => {
+                // Si la profesion seleccionada tiene plantillas en el catalogo,
+                // mostramos dropdown con plantillas + opcion "Otro (escribir)".
+                // Si no tiene plantillas (caso Lashista recien creada), input
+                // de texto libre directamente.
+                const templates = catalogItems
                   .filter((i) => i.category === form.catalogCategory)
-                  .sort((a, b) => a.name.localeCompare(b.name, 'es'))
-                  .map((item) => (
-                    <option key={item.name} value={item.name}>{item.name}</option>
-                  ))}
-              </select>
+                  .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+                const CUSTOM_FLAG = '__custom__';
+                const hasTemplates = templates.length > 0;
+                const isCustom = form.name === CUSTOM_FLAG || (!!form.name && hasTemplates && !templates.some((t) => t.name === form.name));
+
+                if (!form.catalogCategory) {
+                  return (
+                    <select className="input-field" disabled>
+                      <option>Primero selecciona una profesión</option>
+                    </select>
+                  );
+                }
+                if (!hasTemplates) {
+                  // Sin plantillas: input de texto libre.
+                  return (
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Ej: Extensiones de pestañas"
+                      className="input-field"
+                      required
+                    />
+                  );
+                }
+                // Con plantillas: dropdown + opcion custom
+                return (
+                  <>
+                    <select
+                      value={isCustom ? CUSTOM_FLAG : form.name}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({ ...f, name: v === CUSTOM_FLAG ? '' : v }));
+                      }}
+                      className="input-field"
+                      required={!isCustom}
+                    >
+                      <option value="">Seleccionar servicio...</option>
+                      {templates.map((item) => (
+                        <option key={item.name} value={item.name}>{item.name}</option>
+                      ))}
+                      <option value={CUSTOM_FLAG}>+ Otro (escribir nombre)</option>
+                    </select>
+                    {isCustom && (
+                      <input
+                        type="text"
+                        value={form.name === CUSTOM_FLAG ? '' : form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder="Nombre del servicio personalizado"
+                        className="input-field mt-2"
+                        required
+                        autoFocus
+                      />
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             <div>
