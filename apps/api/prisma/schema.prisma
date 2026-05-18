@@ -589,6 +589,7 @@ model Service {
   serviceResources ServiceResource[]
   rewards          Reward[]
   inviteCodes      TenantInviteCodeService[]
+  portfolioImages  EmployeePortfolioImage[]
 
   @@index([tenantId])
   @@index([tenantId, isActive])
@@ -1141,14 +1142,17 @@ model TenantInviteCodeService {
 model EmployeePortfolioImage {
   id         String   @id @default(uuid())
   employeeId String   @map("employee_id")
+  serviceId  String?  @map("service_id")
   imageUrl   String   @map("image_url")
   caption    String?  @db.VarChar(255)
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  service  Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
   @@index([employeeId])
+  @@index([serviceId])
   @@map("employee_portfolio_images")
 }
 

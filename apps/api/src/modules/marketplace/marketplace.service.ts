@@ -1166,10 +1166,13 @@ export class MarketplaceService {
         _count: { id: true },
       }),
       // Portfolio manual curado desde el dashboard (EmployeePortfolioImage).
-      // Estas fotos no estan asociadas a un servicio especifico, asi que solo
-      // aparecen en el tab "Todos" en el frontend.
+      // Si tienen serviceId asignado, se incluye el service para categorizar.
+      // Si no, aparecen solo en el tab "Todos".
       this.prisma.employeePortfolioImage.findMany({
         where: { employeeId },
+        include: {
+          service: { select: { id: true, name: true } },
+        },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
         take: 60,
       }),
@@ -1231,7 +1234,7 @@ export class MarketplaceService {
         imageUrl: p.imageUrl,
         caption: p.caption,
         createdAt: p.createdAt,
-        services: [] as { id: string; name: string }[],
+        services: p.service ? [{ id: p.service.id, name: p.service.name }] : [],
       })),
     ];
 
