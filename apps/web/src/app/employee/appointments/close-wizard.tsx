@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
@@ -8,8 +8,10 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 
 const TEAL = '#008080';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const MAX_PHOTOS_PER_SERVICE = 3;
 
 interface AppointmentItem {
+  serviceId: string;
   serviceNameSnapshot: string;
   priceSnapshot: string | number;
   durationSnapshot: number;
@@ -19,6 +21,11 @@ interface Appointment {
   id: string;
   client: { firstName: string; lastName: string };
   items: AppointmentItem[];
+}
+
+interface UploadedPhoto {
+  serviceId: string;
+  imageUrl: string;
 }
 
 type Step = 'consent' | 'photos' | 'payment' | 'done';
@@ -43,12 +50,27 @@ export function CloseAppointmentWizard({
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
   const [step, setStep] = useState<Step>('consent');
   const [photoConsent, setPhotoConsent] = useState<boolean | null>(null);
-  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
-  const [uploading, setUploading] = useState(false);
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  // Servicio activo para el file picker (el "+ Añadir" elegido)
+  const [pendingServiceId, setPendingServiceId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const total = appointment.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+
+  // Servicios unicos de la cita (dedup por serviceId, si el mismo servicio
+  // aparece 2 veces solo lo contamos una vez para el grid de fotos).
+  const uniqueServices = useMemo(() => {
+    const map = new Map<string, AppointmentItem>();
+    for (const item of appointment.items) {
+      if (!map.has(item.serviceId)) map.set(item.serviceId, item);
+    }
+    return Array.from(map.values());
+  }, [appointment.items]);
+
+  const isSingleService = uniqueServices.length === 1;
+  const totalPhotos = uploadedPhotos.length;
 
   const consentMutation = useMutation({
     mutationFn: (consent: boolean) =>
@@ -59,21 +81,28 @@ export function CloseAppointmentWizard({
     },
   });
 
-  const handleUploadPhoto = async (file: File) => {
-    if (uploadedPhotos.length >= 3) return;
-    setUploading(true);
+  const handleUploadPhoto = async (file: File, serviceId: string) => {
+    const photosForService = uploadedPhotos.filter((p) => p.serviceId === serviceId);
+    if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) return;
+    setUploadingFor(serviceId);
     try {
       const res = await api.upload<{ data: { imageUrl: string } }>(
         `/api/appointments/${appointment.id}/photos`,
         file,
+        { serviceId },
       );
-      setUploadedPhotos((prev) => [...prev, res.data.imageUrl]);
+      setUploadedPhotos((prev) => [...prev, { serviceId, imageUrl: res.data.imageUrl }]);
     } catch (err) {
       console.error('Error uploading photo:', err);
     } finally {
-      setUploading(false);
+      setUploadingFor(null);
     }
   };
+
+  function openFilePicker(serviceId: string) {
+    setPendingServiceId(serviceId);
+    fileInputRef.current?.click();
+  }
 
   const recordPaymentMutation = useMutation({
     mutationFn: () =>
@@ -148,44 +177,73 @@ export function CloseAppointmentWizard({
             </div>
           )}
 
-          {/* ─── Step 2: Upload Photos ───────────────────── */}
+          {/* ─── Step 2: Upload Photos ─────────────────────
+              Si la cita tiene 1 servicio: grid simple de 3 fotos.
+              Si tiene 2+: una seccion por servicio con su propio grid. */}
           {step === 'photos' && (
             <div>
               <h2 className="text-lg font-bold text-gray-900 mb-1">Fotos del servicio</h2>
-              <p className="text-sm text-gray-500 mb-4">Sube de 1 a 3 fotos del resultado</p>
+              <p className="text-sm text-gray-500 mb-4">
+                {isSingleService
+                  ? `Sube hasta ${MAX_PHOTOS_PER_SERVICE} fotos del resultado`
+                  : `Sube hasta ${MAX_PHOTOS_PER_SERVICE} fotos por cada servicio`}
+              </p>
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {uploadedPhotos.map((url, i) => (
-                  <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
-                    <img src={`${API_URL}${url}`} alt="" className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => setUploadedPhotos((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center"
-                    >
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {uploadedPhotos.length < 3 && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-teal-400 transition-colors"
-                  >
-                    {uploading ? (
-                      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: TEAL, borderTopColor: 'transparent' }} />
-                    ) : (
-                      <>
-                        <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        <span className="text-[10px] text-gray-400">Añadir</span>
-                      </>
-                    )}
-                  </button>
-                )}
+              <div className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto pr-1">
+                {uniqueServices.map((svc) => {
+                  const photosForService = uploadedPhotos.filter((p) => p.serviceId === svc.serviceId);
+                  const isUploadingHere = uploadingFor === svc.serviceId;
+                  return (
+                    <div key={svc.serviceId}>
+                      {/* Encabezado de servicio (solo si hay 2+) */}
+                      {!isSingleService && (
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-gray-700 truncate">
+                            {svc.serviceNameSnapshot}
+                          </p>
+                          <span className="text-[10px] text-gray-400 flex-shrink-0">
+                            {photosForService.length}/{MAX_PHOTOS_PER_SERVICE}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Grid de 3 columnas */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {photosForService.map((photo) => (
+                          <div key={photo.imageUrl} className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
+                            <img src={`${API_URL}${photo.imageUrl}`} alt="" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => setUploadedPhotos((prev) => prev.filter((p) => p.imageUrl !== photo.imageUrl))}
+                              className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center"
+                            >
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                        {photosForService.length < MAX_PHOTOS_PER_SERVICE && (
+                          <button
+                            onClick={() => openFilePicker(svc.serviceId)}
+                            disabled={isUploadingHere}
+                            className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 hover:border-teal-400 transition-colors"
+                          >
+                            {isUploadingHere ? (
+                              <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: TEAL, borderTopColor: 'transparent' }} />
+                            ) : (
+                              <>
+                                <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                <span className="text-[10px] text-gray-400">Añadir</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <input
@@ -195,7 +253,8 @@ export function CloseAppointmentWizard({
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleUploadPhoto(file);
+                  if (file && pendingServiceId) handleUploadPhoto(file, pendingServiceId);
+                  setPendingServiceId(null);
                   e.target.value = '';
                 }}
               />
@@ -205,15 +264,15 @@ export function CloseAppointmentWizard({
                   onClick={() => setStep('payment')}
                   className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
                 >
-                  {uploadedPhotos.length === 0 ? 'Omitir' : 'Continuar'}
+                  {totalPhotos === 0 ? 'Omitir' : 'Continuar'}
                 </button>
-                {uploadedPhotos.length > 0 && (
+                {totalPhotos > 0 && (
                   <button
                     onClick={() => setStep('payment')}
                     className="flex-1 py-3 rounded-xl text-sm font-semibold text-white"
                     style={{ backgroundColor: TEAL }}
                   >
-                    Continuar ({uploadedPhotos.length})
+                    Continuar ({totalPhotos})
                   </button>
                 )}
               </div>

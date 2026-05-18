@@ -11,6 +11,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { CloseAppointmentWizard } from './close-wizard';
 
 interface AppointmentItem {
+  serviceId: string;
   serviceNameSnapshot: string;
   priceSnapshot: string | number;
   durationSnapshot: number;
