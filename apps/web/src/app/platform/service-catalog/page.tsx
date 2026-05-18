@@ -23,6 +23,7 @@ export default function ServiceCatalogPage() {
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
 
@@ -92,8 +93,17 @@ export default function ServiceCatalogPage() {
   // Resolve new category (custom or selected)
   const resolvedNewCategory = newCategory === '__custom__' ? newCustomCategory.trim() : newCategory;
 
+  // Filtrado por busqueda libre (match en name + category, case-insensitive).
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredItems = !normalizedQuery
+    ? items
+    : items.filter((i) => {
+        const hay = `${i.name} ${i.category || ''}`.toLowerCase();
+        return hay.includes(normalizedQuery);
+      });
+
   // Group by category
-  const grouped = items.reduce<Record<string, CatalogItem[]>>((acc, item) => {
+  const grouped = filteredItems.reduce<Record<string, CatalogItem[]>>((acc, item) => {
     const cat = item.category || 'Sin categoría';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
@@ -148,8 +158,39 @@ export default function ServiceCatalogPage() {
         </div>
       </div>
 
-      {/* Filter by category + edit/delete */}
+      {/* Buscador + filtro por categoria */}
       <div className="mb-4 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nombre o categoría..."
+            className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex items-center justify-center"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
@@ -207,6 +248,10 @@ export default function ServiceCatalogPage() {
         <div className="p-8 text-center text-gray-400">Cargando...</div>
       ) : items.length === 0 ? (
         <div className="p-8 text-center text-gray-400">No hay servicios en el catalogo</div>
+      ) : filteredItems.length === 0 ? (
+        <div className="p-8 text-center text-gray-400">
+          No hay coincidencias para <span className="font-medium text-gray-600">"{searchQuery}"</span>
+        </div>
       ) : (
         <div className="space-y-4">
           {sortedCategories.map((cat) => (
