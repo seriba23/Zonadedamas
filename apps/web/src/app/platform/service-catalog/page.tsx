@@ -34,6 +34,17 @@ export default function ServiceCatalogPage() {
     },
   });
 
+  // Profesiones de la tabla Profession (fuente de verdad de categorias).
+  // Asi cuando agregas "Lashista" en /platform/professions aparece como
+  // opcion en el dropdown de categoria al crear plantillas aqui.
+  const { data: professionsList } = useQuery({
+    queryKey: ['platform-professions-list'],
+    queryFn: async () => {
+      const res = await platformApi.get<{ data: { id: string; name: string }[] }>('/api/platform/professions');
+      return res.data;
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: (body: { name: string; category?: string }) => platformApi.post('/api/platform/service-catalog', body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] }); setNewName(''); setNewCategory(''); },
@@ -70,10 +81,13 @@ export default function ServiceCatalogPage() {
   });
 
   const items = data || [];
+  const professionNames = (professionsList || []).map((p) => p.name);
 
-  // All unique categories (default + from data)
+  // Unifica categorias: profesiones de DB (fuente principal) + categorias
+  // ya presentes en items del catalogo (compat con historicas).
   const existingCategories = [...new Set(items.map((i) => i.category).filter(Boolean) as string[])];
-  const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...existingCategories])].sort((a, b) => a.localeCompare(b, 'es'));
+  const allCategories = [...new Set([...professionNames, ...DEFAULT_CATEGORIES, ...existingCategories])]
+    .sort((a, b) => a.localeCompare(b, 'es'));
 
   // Resolve new category (custom or selected)
   const resolvedNewCategory = newCategory === '__custom__' ? newCustomCategory.trim() : newCategory;
