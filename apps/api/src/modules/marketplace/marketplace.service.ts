@@ -1154,9 +1154,9 @@ export class MarketplaceService {
       throw new NotFoundException('Profesional no encontrado');
     }
 
-    // Stats, rating, works portfolio (auto desde AppointmentPhoto agrupado por
-    // servicio) y top services en paralelo.
-    const [completedCount, ratingAgg, worksRaw, topServices] = await Promise.all([
+    // Stats, rating, dos fuentes de portfolio (manual + appointment photos)
+    // y top services en paralelo.
+    const [completedCount, ratingAgg, manualPortfolio, worksRaw, topServices] = await Promise.all([
       this.prisma.appointment.count({
         where: { employeeId, tenantId: tenant.id, status: 'COMPLETED' },
       }),
@@ -1164,6 +1164,14 @@ export class MarketplaceService {
         where: { employeeId, tenantId: tenant.id, isVisible: true },
         _avg: { rating: true },
         _count: { id: true },
+      }),
+      // Portfolio manual curado desde el dashboard (EmployeePortfolioImage).
+      // Estas fotos no estan asociadas a un servicio especifico, asi que solo
+      // aparecen en el tab "Todos" en el frontend.
+      this.prisma.employeePortfolioImage.findMany({
+        where: { employeeId },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        take: 60,
       }),
       // Fotos de resultado subidas al cerrar las citas COMPLETED del empleado.
       // Incluimos los items de la cita para asociar la foto a cada servicio.
@@ -1204,19 +1212,28 @@ export class MarketplaceService {
       }),
     ]);
 
-    // Transformar a portfolio agrupable por servicio: cada foto trae el array
-    // de services (id + name) de su cita. El frontend hace tabs/filtrado.
-    // Si la cita no tiene items para este empleado (caso raro) fallback a [].
-    const portfolio = worksRaw.map((p) => ({
-      id: p.id,
-      imageUrl: p.imageUrl,
-      caption: p.caption,
-      createdAt: p.createdAt,
-      services: (p.appointment?.items || []).map((it) => ({
-        id: it.serviceId,
-        name: it.serviceNameSnapshot,
+    // Merge de las dos fuentes en un solo array. Cada item tiene services[]
+    // (vacio para fotos manuales). El frontend agrupa por nombre de servicio
+    // y muestra las fotos manuales solo en el tab "Todos".
+    const portfolio = [
+      ...worksRaw.map((p) => ({
+        id: p.id,
+        imageUrl: p.imageUrl,
+        caption: p.caption,
+        createdAt: p.createdAt,
+        services: (p.appointment?.items || []).map((it) => ({
+          id: it.serviceId,
+          name: it.serviceNameSnapshot,
+        })),
       })),
-    }));
+      ...manualPortfolio.map((p) => ({
+        id: p.id,
+        imageUrl: p.imageUrl,
+        caption: p.caption,
+        createdAt: p.createdAt,
+        services: [] as { id: string; name: string }[],
+      })),
+    ];
 
     // If no completed work yet, fallback to assigned services
     let finalTopServices: { serviceName: string; count: number }[];
