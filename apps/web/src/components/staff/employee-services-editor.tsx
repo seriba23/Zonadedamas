@@ -8,6 +8,7 @@ interface Service {
   id: string;
   name: string;
   category?: string;
+  subcategory?: string;
   durationMinutes: number;
   price: number;
 }
@@ -65,11 +66,13 @@ export function EmployeeServicesEditor({ employeeId }: EmployeeServicesEditorPro
     setInitialized(true);
   }
 
-  // Group services by category
+  // Group services by category. Al crear un servicio en /services la
+  // profesion se guarda en subcategory (no en category), asi que ese
+  // campo es la fuente principal.
   const grouped = useMemo(() => {
     const groups: Record<string, Service[]> = {};
     for (const svc of allServices) {
-      const cat = svc.category || 'Sin categoria';
+      const cat = svc.subcategory || svc.category || 'Sin categoria';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(svc);
     }
