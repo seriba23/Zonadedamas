@@ -130,7 +130,11 @@ export class AvailabilityService {
       }> = [];
 
       for (const employee of employees) {
-        const cacheKey = `avail:${tenantId}:${query.locationId || 'all'}:${employee.id}:${dateStr}`;
+        // IMPORTANTE: la duracion total entra a la cache key. Antes faltaba
+        // y causaba que slots cacheados con 1 servicio (ej. 30min) se
+        // devolvieran al pedir 2 servicios (ej. 90min), mostrando slots
+        // que no caben en el horario real.
+        const cacheKey = `avail:${tenantId}:${query.locationId || 'all'}:${employee.id}:${dateStr}:${totalDuration}`;
 
         try {
           const cached = await this.redis.get(cacheKey);
@@ -254,8 +258,10 @@ export class AvailabilityService {
     employeeId: string,
     date: string,
   ): Promise<void> {
-    const cacheKey = `avail:${tenantId}:${locationId}:${employeeId}:${date}`;
-    await this.redis.del(cacheKey).catch(() => {});
+    // Ahora hay multiples keys por fecha (una por totalDuration). Usamos
+    // pattern wildcard para limpiarlas todas.
+    const pattern = `avail:${tenantId}:${locationId}:${employeeId}:${date}:*`;
+    await this.redis.delPattern(pattern).catch(() => {});
   }
 
   async invalidateCacheForEmployee(
