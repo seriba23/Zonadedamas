@@ -180,12 +180,24 @@ export class AppointmentsController {
     @Param('id') id: string,
     @UploadedFile() file: any,
     @Body('caption') caption?: string,
+    @Body('serviceId') serviceId?: string,
   ) {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, tenantId },
+      include: { items: { select: { serviceId: true } } },
     });
     if (!appointment) {
       throw new Error('Cita no encontrada');
+    }
+
+    // Validar que el serviceId pertenece a esta cita (si vino)
+    let validatedServiceId: string | null = null;
+    if (serviceId) {
+      const belongs = appointment.items.some((it) => it.serviceId === serviceId);
+      if (!belongs) {
+        throw new Error('El servicio no pertenece a esta cita');
+      }
+      validatedServiceId = serviceId;
     }
 
     const imageUrl = await this.uploadsService.saveFile(file, 'results');
@@ -194,6 +206,7 @@ export class AppointmentsController {
       data: {
         tenantId,
         appointmentId: id,
+        serviceId: validatedServiceId,
         imageUrl,
         caption,
         uploadedById: user.userId,

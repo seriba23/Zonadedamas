@@ -1177,7 +1177,9 @@ export class MarketplaceService {
         take: 60,
       }),
       // Fotos de resultado subidas al cerrar las citas COMPLETED del empleado.
-      // Incluimos los items de la cita para asociar la foto a cada servicio.
+      // Si la foto tiene serviceId, ese es el servicio (1 foto = 1 servicio).
+      // Si no tiene (legacy, antes del cambio), fallback a todos los items de
+      // la cita filtrados a este empleado.
       this.prisma.appointmentPhoto.findMany({
         where: {
           tenantId: tenant.id,
@@ -1188,6 +1190,7 @@ export class MarketplaceService {
           },
         },
         include: {
+          service: { select: { id: true, name: true } },
           appointment: {
             select: {
               id: true,
@@ -1224,10 +1227,12 @@ export class MarketplaceService {
         imageUrl: p.imageUrl,
         caption: p.caption,
         createdAt: p.createdAt,
-        services: (p.appointment?.items || []).map((it) => ({
-          id: it.serviceId,
-          name: it.serviceNameSnapshot,
-        })),
+        services: p.service
+          ? [{ id: p.service.id, name: p.service.name }]
+          : (p.appointment?.items || []).map((it) => ({
+              id: it.serviceId,
+              name: it.serviceNameSnapshot,
+            })),
       })),
       ...manualPortfolio.map((p) => ({
         id: p.id,
