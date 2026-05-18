@@ -1154,8 +1154,9 @@ export class MarketplaceService {
       throw new NotFoundException('Profesional no encontrado');
     }
 
-    // Stats, rating, portfolio in parallel
-    const [completedCount, ratingAgg, portfolio, topServices] = await Promise.all([
+    // Stats, rating, works portfolio (auto desde AppointmentPhoto agrupado por
+    // servicio) y top services en paralelo.
+    const [completedCount, ratingAgg, worksRaw, topServices] = await Promise.all([
       this.prisma.appointment.count({
         where: { employeeId, tenantId: tenant.id, status: 'COMPLETED' },
       }),
@@ -1164,10 +1165,33 @@ export class MarketplaceService {
         _avg: { rating: true },
         _count: { id: true },
       }),
-      this.prisma.employeePortfolioImage.findMany({
-        where: { employeeId },
-        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-        take: 12,
+      // Fotos de resultado subidas al cerrar las citas COMPLETED del empleado.
+      // Incluimos los items de la cita para asociar la foto a cada servicio.
+      this.prisma.appointmentPhoto.findMany({
+        where: {
+          tenantId: tenant.id,
+          appointment: {
+            employeeId,
+            tenantId: tenant.id,
+            status: 'COMPLETED',
+          },
+        },
+        include: {
+          appointment: {
+            select: {
+              id: true,
+              items: {
+                where: { employeeId },
+                select: {
+                  serviceId: true,
+                  serviceNameSnapshot: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 60,
       }),
       this.prisma.appointmentItem.groupBy({
         by: ['serviceNameSnapshot'],
@@ -1179,6 +1203,20 @@ export class MarketplaceService {
         take: 5,
       }),
     ]);
+
+    // Transformar a portfolio agrupable por servicio: cada foto trae el array
+    // de services (id + name) de su cita. El frontend hace tabs/filtrado.
+    // Si la cita no tiene items para este empleado (caso raro) fallback a [].
+    const portfolio = worksRaw.map((p) => ({
+      id: p.id,
+      imageUrl: p.imageUrl,
+      caption: p.caption,
+      createdAt: p.createdAt,
+      services: (p.appointment?.items || []).map((it) => ({
+        id: it.serviceId,
+        name: it.serviceNameSnapshot,
+      })),
+    }));
 
     // If no completed work yet, fallback to assigned services
     let finalTopServices: { serviceName: string; count: number }[];
@@ -1219,11 +1257,7 @@ export class MarketplaceService {
           ? Math.round(ratingAgg._avg.rating * 10) / 10
           : null,
         totalReviews: ratingAgg._count.id,
-        portfolio: portfolio.map((p) => ({
-          id: p.id,
-          imageUrl: p.imageUrl,
-          caption: p.caption,
-        })),
+        portfolio,
         topServices: finalTopServices,
         reviews: reviews.map((r) => ({
           id: r.id,

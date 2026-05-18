@@ -6,11 +6,20 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+interface PortfolioItem {
+  id: string;
+  imageUrl: string;
+  caption: string | null;
+  createdAt?: string;
+  services: { id: string; name: string }[];
+}
+
 interface Professional {
   id: string;
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  coverImageUrl?: string | null;
   color: string;
   bio: string | null;
   businessName: string;
@@ -18,7 +27,7 @@ interface Professional {
   completedAppointments: number;
   averageRating: number | null;
   totalReviews: number;
-  portfolio: { id: string; imageUrl: string; caption: string | null }[];
+  portfolio: PortfolioItem[];
   topServices: { serviceName: string; count: number }[];
   reviews: {
     id: string;
@@ -37,9 +46,35 @@ export default function ProfessionalProfilePage() {
   const employeeId = params.employeeId as string;
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
+  // Tabs Trabajos/Comentarios + categoria activa dentro de Trabajos.
+  const [activeSection, setActiveSection] = useState<0 | 1>(0); // 0 trabajos, 1 comentarios
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  const sectionsAnchorRef = useRef<HTMLDivElement>(null);
+
   // Sticky header: track when the name block scrolls out of view
   const [showStickyHeader, setShowStickyHeader] = useState(false);
   const nameRef = useRef<HTMLHeadingElement>(null);
+
+  function goToSection(idx: 0 | 1) {
+    setActiveSection(idx);
+    if (sectionsRef.current) {
+      const w = sectionsRef.current.clientWidth;
+      sectionsRef.current.scrollTo({ left: idx * w, behavior: 'smooth' });
+    }
+    // Si la seccion no esta visible (esta scrolleada arriba), bajamos a ella
+    if (sectionsAnchorRef.current) {
+      sectionsAnchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function handleSectionsScroll() {
+    if (!sectionsRef.current) return;
+    const left = sectionsRef.current.scrollLeft;
+    const w = sectionsRef.current.clientWidth || 1;
+    const idx = Math.round(left / w);
+    if (idx === 0 || idx === 1) setActiveSection(idx as 0 | 1);
+  }
 
   const handleScroll = useCallback(() => {
     if (!nameRef.current) return;
@@ -114,12 +149,17 @@ export default function ProfessionalProfilePage() {
               <p className="text-base font-bold text-white truncate">{fullName}</p>
             </div>
             {pro.averageRating && (
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => goToSection(1)}
+                aria-label="Ver comentarios"
+                className="flex items-center gap-1 flex-shrink-0 px-2 py-1 -mx-2 -my-1 rounded-full hover:bg-white/10 transition-colors"
+              >
                 <svg className="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 <span className="text-sm font-bold text-white">{pro.averageRating}</span>
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -164,17 +204,20 @@ export default function ProfessionalProfilePage() {
           </svg>
         </button>
 
-        {/* Rating badge (over hero) */}
+        {/* Rating badge (over hero) — click lleva a Comentarios */}
         {pro.averageRating && (
-          <div
-            className="fixed right-4 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/20 backdrop-blur-md"
+          <button
+            type="button"
+            onClick={() => goToSection(1)}
+            aria-label="Ver comentarios de clientes"
+            className="fixed right-4 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors"
             style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', display: showStickyHeader ? 'none' : undefined }}
           >
             <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
             <span className="text-xl font-bold text-white">{pro.averageRating}</span>
-          </div>
+          </button>
         )}
 
         {/* Hero content — positioned at bottom, scrolls with page */}
@@ -233,110 +276,200 @@ export default function ProfessionalProfilePage() {
       <div className="relative z-10 bg-gray-50 min-h-screen pb-20">
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
 
-          {/* Portfolio gallery */}
-          {pro.portfolio.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-                </svg>
-                Portfolio
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {pro.portfolio.map((img) => (
-                  <button
-                    key={img.id}
-                    onClick={() => setLightboxImg(`${API_URL}${img.imageUrl}`)}
-                    className="relative aspect-square rounded-xl overflow-hidden group"
-                  >
-                    <img
-                      src={`${API_URL}${img.imageUrl}`}
-                      alt={img.caption || ''}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    {img.caption && (
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <p className="text-xs text-white truncate">{img.caption}</p>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
+          {/* ─── Tabs + swiper horizontal: Trabajos | Comentarios ─── */}
+          <div ref={sectionsAnchorRef}>
+            {/* Tabs sticky-ish (no fixed, scroll normal) */}
+            <div className="flex items-center gap-1 mb-3 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => goToSection(0)}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                  activeSection === 0
+                    ? 'text-[#008080] border-[#008080]'
+                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                }`}
+              >
+                Trabajos de {pro.firstName}
+                {pro.portfolio.length > 0 && (
+                  <span className="ml-1.5 text-[10px] text-gray-400 font-normal">({pro.portfolio.length})</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => goToSection(1)}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                  activeSection === 1
+                    ? 'text-[#008080] border-[#008080]'
+                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                }`}
+              >
+                Comentarios
+                {pro.reviews.length > 0 && (
+                  <span className="ml-1.5 text-[10px] text-gray-400 font-normal">({pro.reviews.length})</span>
+                )}
+              </button>
             </div>
-          )}
 
-          {/* ─── Comentarios de clientes ─── */}
-          {pro.reviews.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  Comentarios de clientes
-                </h2>
-                <span className="text-xs text-gray-400">{pro.reviews.length} comentarios</span>
-              </div>
-              <div className="space-y-3">
-                {pro.reviews.map((review) => (
-                  <div key={review.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0">
-                        {review.clientAvatarUrl ? (
-                          <img
-                            src={`${API_URL}${review.clientAvatarUrl}`}
-                            alt=""
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500">
-                            {review.clientName[0]}
+            {/* Swiper horizontal (snap-x) — dos pages a 100% del ancho */}
+            <div
+              ref={sectionsRef}
+              onScroll={handleSectionsScroll}
+              className="flex overflow-x-auto snap-x snap-mandatory -mx-6 px-6"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              {/* ─── Page 1: Trabajos ─── */}
+              <div className="flex-shrink-0 w-full snap-start pr-3">
+                {pro.portfolio.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+                    <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                    </svg>
+                    <p className="text-sm text-gray-500">
+                      Aún no hay trabajos publicados. Las fotos aparecerán aquí automáticamente al cerrar cada cita.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Tabs de categorias (servicio) */}
+                    {(() => {
+                      const allCats = Array.from(
+                        new Set(pro.portfolio.flatMap((p) => p.services.map((s) => s.name))),
+                      ).sort((a, b) => a.localeCompare(b, 'es'));
+                      return (
+                        <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'thin' }}>
+                          <button
+                            type="button"
+                            onClick={() => setActiveCategory('all')}
+                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                              activeCategory === 'all'
+                                ? 'bg-[#008080] text-white border-[#008080]'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            Todos
+                          </button>
+                          {allCats.map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => setActiveCategory(cat)}
+                              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                                activeCategory === cat
+                                  ? 'bg-[#008080] text-white border-[#008080]'
+                                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Grid de fotos filtradas */}
+                    {(() => {
+                      const filtered = activeCategory === 'all'
+                        ? pro.portfolio
+                        : pro.portfolio.filter((p) => p.services.some((s) => s.name === activeCategory));
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-sm text-gray-400">
+                            No hay trabajos en esta categoría aún.
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-900">{review.clientName}</span>
-                          <div className="flex items-center gap-0.5">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <svg
-                                key={i}
-                                className={`w-3.5 h-3.5 ${i < review.rating ? 'text-amber-400' : 'text-gray-200'}`}
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                            ))}
+                        );
+                      }
+                      return (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {filtered.map((img) => (
+                            <button
+                              key={img.id}
+                              onClick={() => setLightboxImg(`${API_URL}${img.imageUrl}`)}
+                              className="relative aspect-square rounded-xl overflow-hidden group"
+                            >
+                              <img
+                                src={`${API_URL}${img.imageUrl}`}
+                                alt={img.caption || ''}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                              {/* Etiqueta de servicios */}
+                              {img.services.length > 0 && (
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2">
+                                  <p className="text-[10px] text-white/95 font-medium truncate">
+                                    {img.services.map((s) => s.name).join(' · ')}
+                                  </p>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+
+              {/* ─── Page 2: Comentarios ─── */}
+              <div className="flex-shrink-0 w-full snap-start pl-3">
+                {pro.reviews.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
+                    <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p className="text-sm text-gray-500">
+                      <span className="font-medium text-gray-700">{fullName}</span> aún no cuenta con reseñas de clientes.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pro.reviews.map((review) => (
+                      <div key={review.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            {review.clientAvatarUrl ? (
+                              <img
+                                src={`${API_URL}${review.clientAvatarUrl}`}
+                                alt=""
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500">
+                                {review.clientName[0]}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-900">{review.clientName}</span>
+                              <div className="flex items-center gap-0.5">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <svg
+                                    key={i}
+                                    className={`w-3.5 h-3.5 ${i < review.rating ? 'text-amber-400' : 'text-gray-200'}`}
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                ))}
+                              </div>
+                            </div>
+                            {review.comment && (
+                              <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
+                            )}
+                            <p className="text-[10px] text-gray-400 mt-2">
+                              {new Date(review.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
                           </div>
                         </div>
-                        {review.comment && (
-                          <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
-                        )}
-                        <p className="text-[10px] text-gray-400 mt-2">
-                          {new Date(review.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </p>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          )}
+          </div>
 
-          {/* No reviews message */}
-          {pro.reviews.length === 0 && (pro.bio || pro.portfolio.length > 0) && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
-              <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <p className="text-sm text-gray-500">
-                <span className="font-medium text-gray-700">{fullName}</span> es nuevo en Siliba, aún no cuenta con reseñas.
-              </p>
-            </div>
-          )}
-
-          {/* Empty state */}
+          {/* Empty state — solo si no hay nada en absoluto */}
           {!pro.bio && pro.portfolio.length === 0 && pro.reviews.length === 0 && (
             <div className="text-center py-12">
               <div
