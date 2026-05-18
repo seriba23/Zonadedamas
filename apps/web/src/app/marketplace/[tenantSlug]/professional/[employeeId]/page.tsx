@@ -62,7 +62,9 @@ export default function ProfessionalProfilePage() {
       const w = sectionsRef.current.clientWidth;
       sectionsRef.current.scrollTo({ left: idx * w, behavior: 'smooth' });
     }
-    // Si la seccion no esta visible (esta scrolleada arriba), bajamos a ella
+    // Scroll que deja las sub-pestañas visibles (no las esconde bajo el
+    // sticky header). El anchor tiene scroll-margin-top, asi que el browser
+    // descuenta esa distancia al hacer scrollIntoView.
     if (sectionsAnchorRef.current) {
       sectionsAnchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -277,7 +279,10 @@ export default function ProfessionalProfilePage() {
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
 
           {/* ─── Tabs + swiper horizontal: Trabajos | Comentarios ─── */}
-          <div ref={sectionsAnchorRef}>
+          <div
+            ref={sectionsAnchorRef}
+            style={{ scrollMarginTop: 'calc(env(safe-area-inset-top) + 4.5rem)' }}
+          >
             {/* Tabs sticky-ish (no fixed, scroll normal) */}
             <div className="flex items-center gap-1 mb-3 border-b border-gray-200">
               <button
@@ -310,15 +315,16 @@ export default function ProfessionalProfilePage() {
               </button>
             </div>
 
-            {/* Swiper horizontal (snap-x) — dos pages a 100% del ancho */}
+            {/* Swiper horizontal (snap-x) — cada page exactamente al 100% del
+                contenedor, sin overflow lateral, asi no se asoma la siguiente. */}
             <div
               ref={sectionsRef}
               onScroll={handleSectionsScroll}
-              className="flex overflow-x-auto snap-x snap-mandatory -mx-6 px-6"
+              className="flex overflow-x-auto snap-x snap-mandatory"
               style={{ scrollbarWidth: 'none' }}
             >
               {/* ─── Page 1: Trabajos ─── */}
-              <div className="flex-shrink-0 w-full snap-start pr-3">
+              <div className="flex-shrink-0 w-full snap-start">
                 {pro.portfolio.length === 0 ? (
                   <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
                     <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
@@ -379,7 +385,7 @@ export default function ProfessionalProfilePage() {
                         );
                       }
                       return (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-1">
                           {filtered.map((img) => (
                             <button
                               key={img.id}
@@ -409,7 +415,7 @@ export default function ProfessionalProfilePage() {
               </div>
 
               {/* ─── Page 2: Comentarios ─── */}
-              <div className="flex-shrink-0 w-full snap-start pl-3">
+              <div className="flex-shrink-0 w-full snap-start">
                 {pro.reviews.length === 0 ? (
                   <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
                     <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
