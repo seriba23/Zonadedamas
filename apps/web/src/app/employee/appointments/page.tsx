@@ -181,6 +181,7 @@ export default function EmployeeAppointmentsPage() {
                 apt={apt}
                 showDate={false}
                 onClick={() => setSelectedApt(apt)}
+                formatCurrency={formatCurrency}
               />
             ))}
           </ul>
@@ -349,10 +350,12 @@ function AppointmentRow({
   apt,
   showDate,
   onClick,
+  formatCurrency,
 }: {
   apt: Appointment;
   showDate: boolean;
   onClick: () => void;
+  formatCurrency: (amount: number) => string;
 }) {
   const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
   const totalPrice = apt.items.reduce(
@@ -391,7 +394,7 @@ function AppointmentRow({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-700">
-            {rawFormatCurrency(totalPrice)}
+            {formatCurrency(totalPrice)}
           </span>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
