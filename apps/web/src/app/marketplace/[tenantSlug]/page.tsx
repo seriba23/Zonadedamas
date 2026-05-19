@@ -675,15 +675,16 @@ export default function BusinessDetailPage() {
   const bizPromotions: BizPromotion[] = (biz?.promotions || []).map((p: any) => ({ ...p, value: Number(p.value), serviceIds: Array.isArray(p.serviceIds) ? p.serviceIds : [] }));
   const employees: BizEmployee[] = biz?.employees || [];
 
-  // Promociones que aplican a los servicios actualmente seleccionados.
-  // Una promo aplica si: (a) tiene serviceIds vacio = aplica a todos los
-  // servicios, o (b) al menos uno de sus serviceIds esta en
-  // selectedServiceIds. El step "Promociones" solo aparece si hay >= 1.
+  // Cupones del negocio aplicables a los servicios actualmente seleccionados.
+  // Una promo aplica solo si tiene al menos un service explicito en
+  // serviceIds y ese service esta entre los seleccionados. Las que tienen
+  // serviceIds vacios se consideran NO configuradas y NO aparecen (asi se
+  // evitan cupones como "Cupon $10" sin servicios que aparecian para todos).
   const applicablePromotions = (() => {
     if (selectedServiceIds.length === 0) return [];
     return bizPromotions.filter((p) => {
       const pIds = p.serviceIds || [];
-      if (pIds.length === 0) return true; // aplica a todos
+      if (pIds.length === 0) return false;
       return pIds.some((id) => selectedServiceIds.includes(id));
     });
   })();
@@ -1460,7 +1461,7 @@ export default function BusinessDetailPage() {
               {[
                 ...(biz?.locations?.length > 1 ? [{ key: 'location', label: 'Sucursal' }] : []),
                 { key: 'service', label: 'Servicio' },
-                ...(applicablePromotions.length > 0 ? [{ key: 'promotion', label: 'Promociones' }] : []),
+                ...(applicablePromotions.length > 0 ? [{ key: 'promotion', label: 'Cupones' }] : []),
                 ...(!bookEmployeeId ? [{ key: 'employee', label: 'Profesional' }] : []),
                 { key: 'datetime', label: 'Horario' },
                 ...(biz?.shopEnabled ? [{ key: 'products', label: 'Productos' }] : []),
@@ -1781,35 +1782,41 @@ export default function BusinessDetailPage() {
                 );
               })()}
 
-              {/* Step 2.5: Promociones (solo aparece si hay promos aplicables
-                  a los servicios seleccionados). Es opcional — el usuario
-                  puede continuar sin seleccionar una. */}
+              {/* Step "Cupones" — aparece solo si hay cupones que aplican a
+                  los servicios seleccionados. Estilo "ticket" con stub +
+                  perforaciones (mismo que /marketplace/coupons). 2x1 va con
+                  stub morado, descuentos con stub teal. Es opcional. */}
               {bookingStep === 'promotion' && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                    Promociones disponibles
+                    Cupones disponibles
                   </h2>
                   <p className="text-sm text-gray-500 mb-4">
-                    Estas promociones aplican a los servicios que seleccionaste. Podés
-                    elegir una o continuar sin promoción.
+                    Estos cupones aplican a los servicios que seleccionaste. Podés
+                    elegir uno o continuar sin cupón.
                   </p>
-                  <div className="grid gap-3 mb-4">
+                  <div className="space-y-4 mb-4">
                     {applicablePromotions.map((promo) => {
                       const promoSvcIds = promo.serviceIds || [];
-                      const promoServices = promoSvcIds.length > 0
-                        ? services.filter((s) => promoSvcIds.includes(s.id))
-                        : [];
+                      const promoServices = services.filter((s) => promoSvcIds.includes(s.id));
                       const isSelected = selectedPromotion?.id === promo.id;
                       const endDate = new Date(promo.endDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-                      const discountLabel = promo.type === 'PERCENTAGE'
-                        ? `${promo.value}% de descuento`
-                        : promo.type === 'FIXED_AMOUNT'
-                          ? `${formatCurrency(promo.value, bizCurrency)} de descuento`
-                          : 'Paga uno y regala el mismo servicio a un amigo totalmente gratis';
+                      const isTwoForOne = promo.type === 'TWO_FOR_ONE';
+                      const stubColor = isTwoForOne ? '#7c3aed' : TEAL;
+                      const stubBg = isTwoForOne ? 'bg-purple-50' : 'bg-teal-50';
+                      const stubText = isTwoForOne ? 'text-purple-600' : 'text-[#008080]';
+                      // Label del stub (valor grande a la izquierda)
+                      const stubLabel = promo.type === 'PERCENTAGE'
+                        ? `-${promo.value}%`
+                        : promo.type === 'TWO_FOR_ONE'
+                          ? '2×1'
+                          : `-${formatCurrency(promo.value, bizCurrency)}`;
+                      const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
 
                       return (
                         <button
                           key={promo.id}
+                          type="button"
                           onClick={() => {
                             if (isSelected) {
                               setSelectedPromotion(null);
@@ -1819,57 +1826,87 @@ export default function BusinessDetailPage() {
                               if (promo.allowPointPayment === false) setPayWithPoints(false);
                             }
                           }}
-                          className="w-full text-left rounded-xl border-2 overflow-hidden transition-all"
-                          style={isSelected ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT } : { borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                          className="relative w-full text-left transition-transform active:scale-[0.99]"
+                          style={{ opacity: 1 }}
                         >
-                          {/* Header con descuento */}
-                          <div className="px-4 py-3 flex items-center justify-between">
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900">{promo.name}</p>
-                              {promo.description && (
-                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
-                              )}
-                            </div>
-                            <span
-                              className="flex-shrink-0 ml-3 px-3 py-1.5 rounded-lg text-sm font-bold text-white"
-                              style={{ backgroundColor: TEAL }}
+                          {/* Card */}
+                          <div
+                            className="bg-white rounded-2xl overflow-hidden shadow-md flex"
+                            style={{
+                              minHeight: 110,
+                              outline: isSelected ? `2px solid ${stubColor}` : 'none',
+                              outlineOffset: isSelected ? 2 : 0,
+                            }}
+                          >
+                            {/* Stub izquierdo (valor grande) */}
+                            <div
+                              className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+                              style={{ backgroundColor: stubColor }}
                             >
-                              {promo.type === 'PERCENTAGE' ? `-${promo.value}%` : promo.type === 'TWO_FOR_ONE' ? '2×1' : `-${formatCurrency(promo.value, bizCurrency)}`}
-                            </span>
-                          </div>
+                              <span
+                                className="text-white font-black leading-tight text-center break-all w-full px-2"
+                                style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
+                              >
+                                {stubLabel}
+                              </span>
+                              <span className="text-white/70 text-[9px] uppercase tracking-wider">
+                                {isTwoForOne ? 'regalo' : 'descuento'}
+                              </span>
+                              {/* Perforaciones */}
+                              <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                              <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                            </div>
 
-                          {/* Servicios aplicables */}
-                          {promoServices.length > 0 && (
-                            <div className="px-4 pb-2">
-                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Aplica a</p>
-                              <div className="space-y-1">
-                                {promoServices.map((s) => (
-                                  <div key={s.id} className="flex items-center gap-2">
-                                    <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="text-sm text-gray-700">{s.name}</span>
-                                    <span className="text-xs text-gray-400 ml-auto">{formatCurrency(Number(s.price), bizCurrency)}</span>
-                                  </div>
-                                ))}
+                            {/* Separador perforado */}
+                            <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                              {Array.from({ length: 9 }).map((_, i) => (
+                                <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                              ))}
+                            </div>
+
+                            {/* Contenido principal */}
+                            <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+                              <div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                                    {promo.name}
+                                  </p>
+                                  {isSelected && (
+                                    <span className={`text-[10px] font-bold ${stubBg} ${stubText} px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider`}>
+                                      Aplicado
+                                    </span>
+                                  )}
+                                </div>
+                                {promo.description ? (
+                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
+                                ) : isTwoForOne ? (
+                                  <p className="text-xs text-gray-500 mt-0.5">Paga uno y regalá el mismo servicio a un amigo gratis</p>
+                                ) : null}
+                                {promoServices.length > 0 && (
+                                  <p className="text-[11px] text-gray-400 mt-1 truncate">
+                                    Aplica a: {promoServices.map((s) => s.name).join(', ')}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between mt-2 gap-2">
+                                <div
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
+                                  style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                                >
+                                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span className="text-[10px] font-semibold whitespace-nowrap">Vence {endDate}</span>
+                                </div>
+                                <span
+                                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white"
+                                  style={{ backgroundColor: isSelected ? '#9ca3af' : stubColor, letterSpacing: '0.05em' }}
+                                >
+                                  {isSelected ? 'QUITAR' : 'APLICAR'}
+                                </span>
                               </div>
                             </div>
-                          )}
-                          {promoSvcIds.length === 0 && (
-                            <div className="px-4 pb-2">
-                              <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                                <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                Aplica a todos los servicios
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Footer: vigencia + descuento info */}
-                          <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
-                            <span className="text-[11px] text-gray-400">Válida hasta {endDate}</span>
-                            <span className="text-xs font-semibold" style={{ color: TEAL }}>{discountLabel}</span>
                           </div>
                         </button>
                       );
@@ -2736,8 +2773,8 @@ export default function BusinessDetailPage() {
               // step "Promociones" antes de seguir al empleado. Sino, salto.
               onClick = () => setBookingStep(applicablePromotions.length > 0 ? 'promotion' : 'employee');
             } else if (bookingStep === 'promotion') {
-              // Opcional: se puede continuar sin seleccionar promo.
-              label = selectedPromotion ? 'Continuar con promoción' : 'Continuar sin promoción';
+              // Opcional: se puede continuar sin seleccionar cupon.
+              label = selectedPromotion ? 'Continuar con cupón' : 'Continuar sin cupón';
               onClick = () => setBookingStep('employee');
             } else if (bookingStep === 'employee') {
               disabled = !selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
