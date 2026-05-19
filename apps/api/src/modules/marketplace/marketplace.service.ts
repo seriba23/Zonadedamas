@@ -1735,7 +1735,14 @@ export class MarketplaceService {
       return { data: [], meta: { total: 0, page, perPage, totalPages: 0 } };
     }
 
-    const now = new Date();
+    // Las citas se guardan con startTime en "hora del negocio" interpretada
+    // como UTC raw (ver commit 5ab7496). Comparar con new Date() real UTC
+    // hace que citas de hoy aparezcan como "pasadas" por el offset de TZ.
+    // Ajustamos now restando el offset del tenant (CDMX UTC-6 = -6h).
+    // TODO: leer el offset real de Tenant.timezone cuando se soporte
+    // multi-region. Por ahora hardcoded a UTC-6.
+    const TENANT_OFFSET_HOURS = -6;
+    const now = new Date(Date.now() + TENANT_OFFSET_HOURS * 60 * 60 * 1000);
     const where: any = {
       clientId: { in: clientIds },
     };

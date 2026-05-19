@@ -216,7 +216,11 @@ export class ClientPortalService {
   // ─── APPOINTMENTS ────────────────────────────────────
 
   async getAppointments(clientId: string, tenantId: string, filter: 'upcoming' | 'past' | 'all' = 'all') {
-    const now = new Date();
+    // Las citas se guardan con startTime en "hora del negocio" interpretada
+    // como UTC raw. Ajustamos now al mismo sistema restando el offset del
+    // tenant (CDMX UTC-6). TODO: usar Tenant.timezone para multi-region.
+    const TENANT_OFFSET_HOURS = -6;
+    const now = new Date(Date.now() + TENANT_OFFSET_HOURS * 60 * 60 * 1000);
     const where: any = { clientId, tenantId };
 
     if (filter === 'upcoming') {
