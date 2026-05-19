@@ -216,6 +216,7 @@ model Tenant {
   galleryImages         TenantGalleryImage[]
   rewards               Reward[]
   rewardRedemptions     RewardRedemption[]
+  rewardReferrals       RewardReferral[]
   marketplaceFavorites  MarketplaceFavorite[]
   products              Product[]
   suppliers             Supplier[]
@@ -1243,23 +1244,35 @@ model Reward {
   tenantId       String    @map("tenant_id")
   name           String    @db.VarChar(200)
   description    String?   @db.Text
-  type           String    // SERVICIO | DESCUENTO
-  pointsRequired Int       @map("points_required")
+  type           String    // SERVICIO | DESCUENTO | TWO_FOR_ONE
+  pointsRequired Int?      @map("points_required")
+  // Para SERVICIO: el servicio que se regala (1 solo).
   serviceId      String?   @map("service_id")
+  // Para DESCUENTO/TWO_FOR_ONE: array de servicios donde aplica. Null = aplica a todos.
+  serviceIds     Json?     @map("service_ids")
   discountAmount Decimal?  @map("discount_amount") @db.Decimal(10, 2)
   discountMode   String?   @map("discount_mode") // FLAT | PERCENTAGE
+  // Migrado desde Promotion: rango de vigencia, codigo publico, monto minimo,
+  // bloquear pago con puntos, contador de usos.
+  startDate      DateTime? @map("start_date")
+  endDate        DateTime? @map("end_date")
+  code           String?   @db.VarChar(50)
+  minAmount      Decimal?  @map("min_amount") @db.Decimal(10, 2)
+  allowPointPayment Boolean @default(true) @map("allow_point_payment")
   isActive       Boolean   @default(true) @map("is_active")
   maxRedemptions Int?      @map("max_redemptions")
   timesRedeemed  Int       @default(0) @map("times_redeemed")
-  validUntil     DateTime? @map("valid_until")
+  validUntil     DateTime? @map("valid_until") // legacy — preferir endDate
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   service     Service?            @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   redemptions RewardRedemption[]
+  referrals   RewardReferral[]
 
   @@index([tenantId, isActive])
+  @@index([code])
   @@map("rewards")
 }
 
@@ -1284,6 +1297,34 @@ model RewardRedemption {
   @@index([clientId])
   @@index([code])
   @@map("reward_redemptions")
+}
+
+// ─── REWARD REFERRALS (2x1, sistema de referidos) ────
+// Migrado desde PromotionReferral. Cuando un cliente reserva un Reward de
+// tipo TWO_FOR_ONE, se genera un RewardReferral con un codigo unico que
+// puede compartir con un amigo. Al amigo entrar con ?ref=CODE se valida y
+// se aplica el descuento.
+model RewardReferral {
+  id                    String    @id @default(uuid())
+  tenantId              String    @map("tenant_id")
+  rewardId              String    @map("reward_id")
+  appointmentId         String    @map("appointment_id")
+  serviceIds            Json      @map("service_ids")
+  code                  String    @unique @db.VarChar(12)
+  generatedByClientId   String    @map("generated_by_client_id")
+  redeemedByClientId    String?   @map("redeemed_by_client_id")
+  redeemedAppointmentId String?   @map("redeemed_appointment_id")
+  status                String    @default("ACTIVE") // ACTIVE | USED | EXPIRED
+  expiresAt             DateTime? @map("expires_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  usedAt                DateTime? @map("used_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reward Reward @relation(fields: [rewardId], references: [id])
+
+  @@index([tenantId])
+  @@index([code])
+  @@map("reward_referrals")
 }
 
 // ─── MARKETPLACE FAVORITES ────────────────────────
