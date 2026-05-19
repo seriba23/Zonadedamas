@@ -56,7 +56,7 @@ interface AvailableSlot {
   employeeId: string;
 }
 
-type BookingStep = null | 'location' | 'service' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
+type BookingStep = null | 'location' | 'service' | 'promotion' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
 
 interface BizPromotion {
   id: string;
@@ -234,7 +234,7 @@ export default function BusinessDetailPage() {
   );
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedBundle, setSelectedBundle] = useState<any>(null);
-  const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes' | 'ofertas'>('servicios');
+  const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes'>('servicios');
   const [selectedPromotion, setSelectedPromotion] = useState<BizPromotion | null>(null);
   const [referralCodeInput, setReferralCodeInput] = useState('');
   const [earnedReferralCode, setEarnedReferralCode] = useState<string | null>(null);
@@ -674,6 +674,19 @@ export default function BusinessDetailPage() {
   const bizBundles: any[] = biz?.bundles || [];
   const bizPromotions: BizPromotion[] = (biz?.promotions || []).map((p: any) => ({ ...p, value: Number(p.value), serviceIds: Array.isArray(p.serviceIds) ? p.serviceIds : [] }));
   const employees: BizEmployee[] = biz?.employees || [];
+
+  // Promociones que aplican a los servicios actualmente seleccionados.
+  // Una promo aplica si: (a) tiene serviceIds vacio = aplica a todos los
+  // servicios, o (b) al menos uno de sus serviceIds esta en
+  // selectedServiceIds. El step "Promociones" solo aparece si hay >= 1.
+  const applicablePromotions = (() => {
+    if (selectedServiceIds.length === 0) return [];
+    return bizPromotions.filter((p) => {
+      const pIds = p.serviceIds || [];
+      if (pIds.length === 0) return true; // aplica a todos
+      return pIds.some((id) => selectedServiceIds.includes(id));
+    });
+  })();
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
   const basePrice = selectedBundle
     ? Number(selectedBundle.bundlePrice)
@@ -1389,7 +1402,12 @@ export default function BusinessDetailPage() {
                   if ((biz?.locations || []).length > 1) setBookingStep('location');
                   else closeBooking();
                 }
-                else if (bookingStep === 'employee') setBookingStep('service');
+                else if (bookingStep === 'promotion') setBookingStep('service');
+                else if (bookingStep === 'employee') {
+                  // back desde employee: si hubo promos aplicables vuelve
+                  // al step promotion, sino directo a service.
+                  setBookingStep(applicablePromotions.length > 0 ? 'promotion' : 'service');
+                }
                 else if (bookingStep === 'datetime') {
                   if (bookEmployeeId) setBookingStep('service'); // came from professional profile
                   else setBookingStep('employee');
@@ -1442,6 +1460,7 @@ export default function BusinessDetailPage() {
               {[
                 ...(biz?.locations?.length > 1 ? [{ key: 'location', label: 'Sucursal' }] : []),
                 { key: 'service', label: 'Servicio' },
+                ...(applicablePromotions.length > 0 ? [{ key: 'promotion', label: 'Promociones' }] : []),
                 ...(!bookEmployeeId ? [{ key: 'employee', label: 'Profesional' }] : []),
                 { key: 'datetime', label: 'Horario' },
                 ...(biz?.shopEnabled ? [{ key: 'products', label: 'Productos' }] : []),
@@ -1622,8 +1641,8 @@ export default function BusinessDetailPage() {
                     Selecciona el servicio
                   </h2>
 
-                  {/* Tabs: Servicios | Paquetes | Ofertas */}
-                  {(bizBundles.length > 0 || bizPromotions.length > 0) && (
+                  {/* Tabs: Servicios | Paquetes (las Promociones son ahora un step aparte) */}
+                  {bizBundles.length > 0 && (
                     <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
                       <button
                         onClick={() => { setServiceTab('servicios'); if (selectedBundle) { setSelectedBundle(null); setSelectedServiceIds([]); } }}
@@ -1633,26 +1652,14 @@ export default function BusinessDetailPage() {
                       >
                         Servicios
                       </button>
-                      {bizBundles.length > 0 && (
-                        <button
-                          onClick={() => setServiceTab('paquetes')}
-                          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                            serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          Paquetes
-                        </button>
-                      )}
-                      {bizPromotions.length > 0 && (
-                        <button
-                          onClick={() => setServiceTab('ofertas')}
-                          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                            serviceTab === 'ofertas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          Ofertas
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setServiceTab('paquetes')}
+                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                          serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Paquetes
+                      </button>
                     </div>
                   )}
 
@@ -1722,100 +1729,6 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Ofertas / Promociones */}
-                  {serviceTab === 'ofertas' && bizPromotions.length > 0 && (
-                    <div className="grid gap-3 mb-4">
-                      {bizPromotions.map((promo) => {
-                        const promoSvcIds = promo.serviceIds || [];
-                        const promoServices = promoSvcIds.length > 0
-                          ? services.filter((s) => promoSvcIds.includes(s.id))
-                          : [];
-                        const isSelected = selectedPromotion?.id === promo.id;
-                        const endDate = new Date(promo.endDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-
-                        const isTwoForOne = promo.type === 'TWO_FOR_ONE';
-                        const discountLabel = promo.type === 'PERCENTAGE'
-                          ? `${promo.value}% de descuento`
-                          : promo.type === 'FIXED_AMOUNT'
-                            ? `${formatCurrency(promo.value, bizCurrency)} de descuento`
-                            : 'Paga uno y regala el mismo servicio a un amigo totalmente gratis';
-
-                        return (
-                          <button
-                            key={promo.id}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedPromotion(null);
-                                setSelectedServiceIds([]);
-                                setSelectedBundle(null);
-                              } else {
-                                setSelectedPromotion(promo);
-                                setSelectedCoupon(null);
-                                if (promo.allowPointPayment === false) setPayWithPoints(false);
-                                if (promoSvcIds.length > 0) {
-                                  setSelectedServiceIds(promoSvcIds);
-                                  setSelectedBundle(null);
-                                }
-                              }
-                            }}
-                            className="w-full text-left rounded-xl border-2 overflow-hidden transition-all"
-                            style={isSelected ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT } : { borderColor: '#e5e7eb', backgroundColor: '#fff' }}
-                          >
-                            {/* Header con descuento */}
-                            <div className="px-4 py-3 flex items-center justify-between">
-                              <div className="min-w-0">
-                                <p className="font-medium text-gray-900">{promo.name}</p>
-                                {promo.description && (
-                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
-                                )}
-                              </div>
-                              <span
-                                className="flex-shrink-0 ml-3 px-3 py-1.5 rounded-lg text-sm font-bold text-white"
-                                style={{ backgroundColor: TEAL }}
-                              >
-                                {promo.type === 'PERCENTAGE' ? `-${promo.value}%` : promo.type === 'TWO_FOR_ONE' ? '2×1' : `-${formatCurrency(promo.value, bizCurrency)}`}
-                              </span>
-                            </div>
-
-                            {/* Servicios aplicables */}
-                            {promoServices.length > 0 && (
-                              <div className="px-4 pb-2">
-                                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Aplica a</p>
-                                <div className="space-y-1">
-                                  {promoServices.map((s) => (
-                                    <div key={s.id} className="flex items-center gap-2">
-                                      <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                      </svg>
-                                      <span className="text-sm text-gray-700">{s.name}</span>
-                                      <span className="text-xs text-gray-400 ml-auto">{formatCurrency(Number(s.price), bizCurrency)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {promoSvcIds.length === 0 && (
-                              <div className="px-4 pb-2">
-                                <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                                  <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                  Aplica a todos los servicios
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Footer: vigencia + descuento info */}
-                            <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
-                              <span className="text-[11px] text-gray-400">Válida hasta {endDate}</span>
-                              <span className="text-xs font-semibold" style={{ color: TEAL }}>{discountLabel}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
                   {/* Servicios individuales */}
                   {serviceTab === 'servicios' && (
                     hasSubcategories ? (
@@ -1867,6 +1780,103 @@ export default function BusinessDetailPage() {
                 </div>
                 );
               })()}
+
+              {/* Step 2.5: Promociones (solo aparece si hay promos aplicables
+                  a los servicios seleccionados). Es opcional — el usuario
+                  puede continuar sin seleccionar una. */}
+              {bookingStep === 'promotion' && (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                    Promociones disponibles
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Estas promociones aplican a los servicios que seleccionaste. Podés
+                    elegir una o continuar sin promoción.
+                  </p>
+                  <div className="grid gap-3 mb-4">
+                    {applicablePromotions.map((promo) => {
+                      const promoSvcIds = promo.serviceIds || [];
+                      const promoServices = promoSvcIds.length > 0
+                        ? services.filter((s) => promoSvcIds.includes(s.id))
+                        : [];
+                      const isSelected = selectedPromotion?.id === promo.id;
+                      const endDate = new Date(promo.endDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+                      const discountLabel = promo.type === 'PERCENTAGE'
+                        ? `${promo.value}% de descuento`
+                        : promo.type === 'FIXED_AMOUNT'
+                          ? `${formatCurrency(promo.value, bizCurrency)} de descuento`
+                          : 'Paga uno y regala el mismo servicio a un amigo totalmente gratis';
+
+                      return (
+                        <button
+                          key={promo.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedPromotion(null);
+                            } else {
+                              setSelectedPromotion(promo);
+                              setSelectedCoupon(null);
+                              if (promo.allowPointPayment === false) setPayWithPoints(false);
+                            }
+                          }}
+                          className="w-full text-left rounded-xl border-2 overflow-hidden transition-all"
+                          style={isSelected ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT } : { borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                        >
+                          {/* Header con descuento */}
+                          <div className="px-4 py-3 flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900">{promo.name}</p>
+                              {promo.description && (
+                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
+                              )}
+                            </div>
+                            <span
+                              className="flex-shrink-0 ml-3 px-3 py-1.5 rounded-lg text-sm font-bold text-white"
+                              style={{ backgroundColor: TEAL }}
+                            >
+                              {promo.type === 'PERCENTAGE' ? `-${promo.value}%` : promo.type === 'TWO_FOR_ONE' ? '2×1' : `-${formatCurrency(promo.value, bizCurrency)}`}
+                            </span>
+                          </div>
+
+                          {/* Servicios aplicables */}
+                          {promoServices.length > 0 && (
+                            <div className="px-4 pb-2">
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Aplica a</p>
+                              <div className="space-y-1">
+                                {promoServices.map((s) => (
+                                  <div key={s.id} className="flex items-center gap-2">
+                                    <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span className="text-sm text-gray-700">{s.name}</span>
+                                    <span className="text-xs text-gray-400 ml-auto">{formatCurrency(Number(s.price), bizCurrency)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {promoSvcIds.length === 0 && (
+                            <div className="px-4 pb-2">
+                              <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Aplica a todos los servicios
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Footer: vigencia + descuento info */}
+                          <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
+                            <span className="text-[11px] text-gray-400">Válida hasta {endDate}</span>
+                            <span className="text-xs font-semibold" style={{ color: TEAL }}>{discountLabel}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Step 2: Employee */}
               {bookingStep === 'employee' && (
@@ -2496,7 +2506,7 @@ export default function BusinessDetailPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
                             </svg>
-                            Oferta: {selectedPromotion.name}
+                            Promoción: {selectedPromotion.name}
                           </span>
                           <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, bizCurrency)}</span>
                         </div>
@@ -2722,6 +2732,12 @@ export default function BusinessDetailPage() {
 
             if (bookingStep === 'service') {
               disabled = selectedServiceIds.length === 0;
+              // Si hay promociones que aplican a estos servicios, mostramos
+              // step "Promociones" antes de seguir al empleado. Sino, salto.
+              onClick = () => setBookingStep(applicablePromotions.length > 0 ? 'promotion' : 'employee');
+            } else if (bookingStep === 'promotion') {
+              // Opcional: se puede continuar sin seleccionar promo.
+              label = selectedPromotion ? 'Continuar con promoción' : 'Continuar sin promoción';
               onClick = () => setBookingStep('employee');
             } else if (bookingStep === 'employee') {
               disabled = !selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
@@ -2883,7 +2899,7 @@ export default function BusinessDetailPage() {
                       )}
                       {promoDiscount > 0 && selectedPromotion && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-green-600 font-medium">Oferta: {selectedPromotion.name}</span>
+                          <span className="text-green-600 font-medium">Promoción: {selectedPromotion.name}</span>
                           <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, bizCurrency)}</span>
                         </div>
                       )}
@@ -2928,7 +2944,7 @@ export default function BusinessDetailPage() {
                 <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
                 </svg>
-                <p className="text-sm text-green-700 font-medium">Oferta aplicada: {selectedPromotion.name}</p>
+                <p className="text-sm text-green-700 font-medium">Promoción aplicada: {selectedPromotion.name}</p>
               </div>
             )}
 
