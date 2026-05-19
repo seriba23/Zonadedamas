@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import dayjs from 'dayjs';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { formatTimeUtc } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -65,10 +65,10 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                 {/* Hora — col 1, row-span 2, centrada vertical */}
                 <div className="row-span-2 self-center text-center min-w-[42px]">
                   <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
-                    {dayjs(apt.startTime).format('HH:mm')}
+                    {formatTimeUtc(apt.startTime)}
                   </p>
                   <p className="text-[10px] text-[var(--text-muted)] tabular-nums mt-1">
-                    {dayjs(apt.endTime).format('HH:mm')}
+                    {formatTimeUtc(apt.endTime)}
                   </p>
                 </div>
 

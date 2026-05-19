@@ -952,11 +952,12 @@ export function AppointmentModal({
                   employeeId={appointment.employeeId}
                   onSelect={(empId, start, end) => {
                     // El availability endpoint devuelve "YYYY-MM-DDTHH:mm:00"
-                    // sin timezone. Lo parseamos como hora local y convertimos
-                    // a ISO con Z antes de guardar, para que el backend no lo
-                    // confunda con UTC y guarde la hora con offset equivocado.
-                    setNewStartTime(dayjs(start).toISOString());
-                    setNewEndTime(dayjs(end).toISOString());
+                    // sin TZ. Lo dejamos tal cual: el backend trabaja con
+                    // horas como "hora del negocio" en UTC raw, igual que
+                    // los slots. Convertir a UTC absoluto romperia la
+                    // comparacion con los slots al volver a consultar.
+                    setNewStartTime(start);
+                    setNewEndTime(end);
                   }}
                 />
                 {newStartTime && (
@@ -1218,9 +1219,10 @@ export function AppointmentModal({
                 initialDateTime={initialStartTime}
                 onSelect={(empId, start, end) => {
                   setSelectedEmployeeId(empId);
-                  // Parsea hora local y convierte a ISO con Z (ver nota en reschedule).
-                  setSelectedStartTime(dayjs(start).toISOString());
-                  setSelectedEndTime(dayjs(end).toISOString());
+                  // start/end vienen como "YYYY-MM-DDTHH:mm:00" sin TZ.
+                  // Se mandan tal cual al backend (ver nota en reschedule).
+                  setSelectedStartTime(start);
+                  setSelectedEndTime(end);
                 }}
                 onDateChange={(dateStr) => {
                   setActiveDate(dateStr);

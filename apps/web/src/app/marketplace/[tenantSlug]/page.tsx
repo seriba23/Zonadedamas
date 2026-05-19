@@ -497,11 +497,13 @@ export default function BusinessDetailPage() {
       const apptRes: any = await marketplaceApi.post(`/book/${tenantSlug}`, {
         serviceIds: selectedServiceIds,
         employeeId: selectedSlot?.employeeId || selectedEmployee?.id,
-        // selectedSlot.startTime viene como "YYYY-MM-DDTHH:mm:00" sin TZ.
-        // dayjs() lo parsea como hora local del browser y .toISOString()
-        // lo convierte a UTC absoluto con Z, para que el backend lo guarde
-        // bien y al display en local muestre la misma hora seleccionada.
-        startTime: selectedSlot?.startTime ? dayjs(selectedSlot.startTime).toISOString() : undefined,
+        // Mandamos el startTime tal cual viene del slot
+        // ("YYYY-MM-DDTHH:mm:00" sin TZ). El backend trabaja con horas como
+        // "hora del negocio" en UTC raw — los slots de availability tambien
+        // se generan asi. Si convirtieramos a UTC absoluto aqui, romperia
+        // la comparacion con los slots y permitiria reservar a la misma
+        // hora que una cita existente.
+        startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
         couponCode: selectedCoupon?.code || undefined,
         promotionId: selectedPromotion?.id || undefined,

@@ -1006,7 +1006,8 @@ export default function CalendarPage() {
                                     borderLeft: `2px solid ${apt.employee?.color || '#008080'}`,
                                   }}
                                 >
-                                  {dayjs(apt.startTime).format('H:mm')} {apt.client?.firstName || 'Cliente'}
+                                  {/* UTC raw para no shiftear: las citas se guardan como "hora del negocio" sin offset real */}
+                                  {new Date(apt.startTime).toISOString().substring(11, 16)} {apt.client?.firstName || 'Cliente'}
                                 </div>
                               );
                             })}
@@ -1058,10 +1059,11 @@ export default function CalendarPage() {
                       {/* Hora — col 1, row-span 2, centrada vertical entre las dos filas */}
                       <div className="row-span-2 self-center text-center min-w-[42px]">
                         <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
-                          {dayjs(apt.startTime).format('HH:mm')}
+                          {/* UTC raw: ver nota arriba */}
+                          {new Date(apt.startTime).toISOString().substring(11, 16)}
                         </p>
                         <p className="text-[10px] text-[var(--text-muted)] tabular-nums mt-1">
-                          {dayjs(apt.endTime).format('HH:mm')}
+                          {new Date(apt.endTime).toISOString().substring(11, 16)}
                         </p>
                       </div>
 

@@ -90,10 +90,10 @@ export default function PortalBookPage() {
       portalApi.post('/book', {
         employeeId: selectedEmployeeId,
         serviceIds: selectedServiceIds,
-        // selectedSlot.startTime es "YYYY-MM-DDTHH:mm:00" sin TZ. Convertir
-        // a UTC absoluto con dayjs().toISOString() para que se guarde bien
-        // y el display en local muestre la hora seleccionada.
-        startTime: selectedSlot?.startTime ? dayjs(selectedSlot.startTime).toISOString() : undefined,
+        // startTime tal cual ("YYYY-MM-DDTHH:mm:00" sin TZ) — ver nota en
+        // marketplace/page.tsx. El backend trabaja con horas del negocio
+        // en UTC raw, igual que los slots de availability.
+        startTime: selectedSlot?.startTime,
         notes: notes || undefined,
       }),
     onSuccess: () => {

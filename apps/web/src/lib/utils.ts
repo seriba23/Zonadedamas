@@ -32,6 +32,21 @@ export function formatTime(time: string): string {
   return `${displayHour}:${minutes} ${period}`;
 }
 
+/**
+ * Extrae "HH:mm" de un datetime ISO sin convertir TZ.
+ *
+ * Las citas se guardan con la hora "del negocio" interpretada como UTC raw,
+ * para mantener consistencia con la generacion de slots del backend
+ * (availability service). Usar dayjs/Date local convertiria a la TZ del
+ * browser y shiftearia el horario (ej. 9:00 AM se mostraria como 3:00 AM en
+ * UTC-6). Este helper lee el UTC tal cual, que coincide con la hora del
+ * negocio que el usuario seleccionó.
+ */
+export function formatTimeUtc(input: string | Date): string {
+  const iso = typeof input === 'string' ? input : input.toISOString();
+  return iso.substring(11, 16);
+}
+
 export function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }

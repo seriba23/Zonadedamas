@@ -98,8 +98,10 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 }
 
 function timeToMinutes(isoTime: string): number {
+  // UTC raw — las citas se guardan como "hora del negocio" interpretada
+  // como UTC (sin offset real), asi que leemos UTC para no shiftear.
   const d = new Date(isoTime);
-  return d.getHours() * 60 + d.getMinutes();
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
 
 function minutesToTimeStr(minutes: number): string {
@@ -845,8 +847,9 @@ export function CalendarView({
                 ? `${apt.employee.firstName} ${apt.employee.lastName.charAt(0)}.`
                 : '';
 
-              const startTimeStr = new Date(apt.startTime).toTimeString().slice(0, 5);
-              const endTimeStr = new Date(apt.endTime).toTimeString().slice(0, 5);
+              // UTC raw — ver nota en timeToMinutes
+              const startTimeStr = new Date(apt.startTime).toISOString().substring(11, 16);
+              const endTimeStr = new Date(apt.endTime).toISOString().substring(11, 16);
 
               return (
                 <div
