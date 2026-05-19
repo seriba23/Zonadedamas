@@ -180,18 +180,31 @@ export default function AppointmentDetailPage() {
                   )}
                 </div>
               ))}
-              {appt.redemption && Number(appt.discountAmount) > 0 && (
-                <div className="pt-2 mt-2 border-t border-gray-100">
-                  <div className="flex justify-between mb-1">
-                    <p className="text-sm text-gray-500">Subtotal</p>
-                    <p className="text-sm text-gray-500">${total}</p>
+              {Number(appt.discountAmount) > 0 && (() => {
+                // Nombre del cupón: redemption (puntos), o promoción extraída
+                // de las notas, o fallback genérico.
+                const fromRedemption = appt.redemption?.reward?.name;
+                const fromNotes = (() => {
+                  const m = (appt.notes || '').match(/\[Promoci[oó]n: ([^\]]+)\]/);
+                  if (m) return m[1];
+                  const r = (appt.notes || '').match(/\[C[oó]digo 2x1: [^—]+— Promoci[oó]n: ([^\]]+)\]/);
+                  if (r) return r[1];
+                  return null;
+                })();
+                const label = fromRedemption || fromNotes || 'Cupón aplicado';
+                return (
+                  <div className="pt-2 mt-2 border-t border-gray-100">
+                    <div className="flex justify-between mb-1">
+                      <p className="text-sm text-gray-500">Subtotal</p>
+                      <p className="text-sm text-gray-500">${total}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-green-600 font-medium">{label}</p>
+                      <p className="text-sm text-green-600 font-medium">-${Number(appt.discountAmount)}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <p className="text-sm text-green-600 font-medium">{appt.redemption.reward?.name}</p>
-                    <p className="text-sm text-green-600 font-medium">-${Number(appt.discountAmount)}</p>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between">
                 <p className="text-sm font-semibold text-gray-700">Total</p>
                 <p className="text-sm font-semibold text-gray-900">
