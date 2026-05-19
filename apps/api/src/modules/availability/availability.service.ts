@@ -258,9 +258,12 @@ export class AvailabilityService {
     employeeId: string,
     date: string,
   ): Promise<void> {
-    // Ahora hay multiples keys por fecha (una por totalDuration). Usamos
-    // pattern wildcard para limpiarlas todas.
-    const pattern = `avail:${tenantId}:${locationId}:${employeeId}:${date}:*`;
+    // El cache key usa locationId real cuando se filtra por location, o
+    // "all" cuando no. Para invalidar correctamente desde el create de
+    // appointment (que pasa locationId real), usamos wildcard tambien en
+    // la posicion de location, asi matcheamos la key con "all" ademas de
+    // la del propio locationId. Tambien wildcard al final por totalDuration.
+    const pattern = `avail:${tenantId}:*:${employeeId}:${date}:*`;
     await this.redis.delPattern(pattern).catch(() => {});
   }
 
