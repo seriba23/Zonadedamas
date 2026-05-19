@@ -2255,9 +2255,18 @@ export class MarketplaceService {
         'Esta recompensa ha alcanzado el máximo de canjes',
       );
     }
-    if (client.loyaltyPoints < reward.pointsRequired) {
+    // Guard: este endpoint solo canjea rewards basados en puntos. Despues
+    // del cambio a Reward unificado, hay rewards sin pointsRequired (los
+    // migrados desde Promotion). Esos no se canjean por aqui.
+    const pointsRequired = reward.pointsRequired;
+    if (pointsRequired == null) {
       throw new BadRequestException(
-        `Necesitas ${reward.pointsRequired} puntos. Tienes ${client.loyaltyPoints}.`,
+        'Esta recompensa no se canjea por puntos. Usá el flujo de cupones del booking.',
+      );
+    }
+    if (client.loyaltyPoints < pointsRequired) {
+      throw new BadRequestException(
+        `Necesitas ${pointsRequired} puntos. Tienes ${client.loyaltyPoints}.`,
       );
     }
 
@@ -2271,7 +2280,7 @@ export class MarketplaceService {
         });
         if (
           !freshClient ||
-          freshClient.loyaltyPoints < reward.pointsRequired
+          freshClient.loyaltyPoints < pointsRequired
         ) {
           throw new BadRequestException('Puntos insuficientes');
         }
@@ -2280,7 +2289,7 @@ export class MarketplaceService {
         await tx.client.update({
           where: { id: client.id },
           data: {
-            loyaltyPoints: { decrement: reward.pointsRequired },
+            loyaltyPoints: { decrement: pointsRequired },
           },
         });
 
@@ -2303,7 +2312,7 @@ export class MarketplaceService {
             tenantId: tenant.id,
             rewardId: reward.id,
             clientId: client.id,
-            pointsSpent: reward.pointsRequired,
+            pointsSpent: pointsRequired,
             code,
             expiresAt,
             status: 'ACTIVE',
@@ -2780,6 +2789,9 @@ export class MarketplaceService {
 
     const data = rewards.map((r) => {
       const client = clientByTenantId.get(r.tenantId);
+      // Rewards migrados desde Promotion no tienen pointsRequired. Para esos
+      // canRedeem es siempre true (se canjean en el booking, no por puntos).
+      const pr = r.pointsRequired ?? 0;
       return {
         id: r.id,
         name: r.name,
@@ -2791,8 +2803,8 @@ export class MarketplaceService {
         serviceName: r.service?.name ?? null,
         tenant: r.tenant,
         myPoints: client?.loyaltyPoints ?? 0,
-        canRedeem: (client?.loyaltyPoints ?? 0) >= r.pointsRequired,
-        pointsNeeded: Math.max(0, r.pointsRequired - (client?.loyaltyPoints ?? 0)),
+        canRedeem: (client?.loyaltyPoints ?? 0) >= pr,
+        pointsNeeded: Math.max(0, pr - (client?.loyaltyPoints ?? 0)),
       };
     });
 
