@@ -391,7 +391,7 @@ function AppointmentRow({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-700">
-            {formatCurrency(totalPrice)}
+            {rawFormatCurrency(totalPrice)}
           </span>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
