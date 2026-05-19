@@ -122,7 +122,10 @@ export default function BookingPage() {
         body: JSON.stringify({
           serviceIds: selectedServices.map((s) => s.id),
           employeeId: selectedSlot?.employeeId || selectedEmployee?.id,
-          startTime: selectedSlot?.startTime,
+          // selectedSlot.startTime es "YYYY-MM-DDTHH:mm:00" sin TZ. Convertir
+          // a UTC absoluto con dayjs().toISOString() para que se guarde bien
+          // y el display en local muestre la hora seleccionada.
+          startTime: selectedSlot?.startTime ? dayjs(selectedSlot.startTime).toISOString() : undefined,
           client: {
             firstName: details.firstName,
             lastName: details.lastName,
