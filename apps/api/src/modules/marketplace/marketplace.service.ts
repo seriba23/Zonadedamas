@@ -869,26 +869,40 @@ export class MarketplaceService {
       orderBy: { sortOrder: 'asc' },
     });
 
-    // Get active promotions (within date range, with uses available)
+    // Get active rewards (DESCUENTO/TWO_FOR_ONE) — antes era prisma.promotion,
+    // pero en Fase 1 unificamos los datos. Ahora leemos de rewards y mapeamos
+    // al mismo shape que esperaba el frontend (type=PERCENTAGE/FIXED_AMOUNT/
+    // TWO_FOR_ONE, value=discountAmount). Los rewards tipo SERVICIO (canje
+    // por puntos) NO se incluyen aqui — esos van por otro flujo.
     const now = new Date();
-    const promotions = await this.prisma.promotion.findMany({
+    const activeRewards = await this.prisma.reward.findMany({
       where: {
         tenantId: tenant.id,
         isActive: true,
-        startDate: { lte: now },
-        endDate: { gte: now },
+        type: { in: ['DESCUENTO', 'TWO_FOR_ONE'] },
+        // Filtros de vigencia (si tienen rango definido)
+        OR: [
+          { startDate: null, endDate: null },
+          {
+            AND: [
+              { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+              { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+            ],
+          },
+        ],
       },
       select: {
         id: true,
         name: true,
         description: true,
         type: true,
-        value: true,
+        discountAmount: true,
+        discountMode: true,
         code: true,
         startDate: true,
         endDate: true,
-        maxUses: true,
-        usedCount: true,
+        maxRedemptions: true,
+        timesRedeemed: true,
         serviceIds: true,
         minAmount: true,
         allowPointPayment: true,
@@ -896,10 +910,38 @@ export class MarketplaceService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Filter out promotions that reached max uses
-    const availablePromotions = promotions.filter(
-      (p) => p.maxUses == null || p.usedCount < p.maxUses,
-    );
+    // Mapear al shape que espera el frontend (compat con promotions):
+    // - Reward DESCUENTO + PERCENTAGE -> { type: 'PERCENTAGE', value: discountAmount }
+    // - Reward DESCUENTO + FLAT       -> { type: 'FIXED_AMOUNT', value: discountAmount }
+    // - Reward TWO_FOR_ONE            -> { type: 'TWO_FOR_ONE', value: 0 }
+    const availablePromotions = activeRewards
+      .filter((r) => r.maxRedemptions == null || r.timesRedeemed < r.maxRedemptions)
+      .map((r) => {
+        let mappedType: string = r.type;
+        let value: number = 0;
+        if (r.type === 'DESCUENTO') {
+          mappedType = r.discountMode === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED_AMOUNT';
+          value = Number(r.discountAmount || 0);
+        } else if (r.type === 'TWO_FOR_ONE') {
+          mappedType = 'TWO_FOR_ONE';
+          value = 0;
+        }
+        return {
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          type: mappedType,
+          value,
+          code: r.code,
+          startDate: r.startDate,
+          endDate: r.endDate,
+          maxUses: r.maxRedemptions,
+          usedCount: r.timesRedeemed,
+          serviceIds: r.serviceIds,
+          minAmount: r.minAmount,
+          allowPointPayment: r.allowPointPayment,
+        };
+      });
 
     // Get gallery images
     const gallery = await this.prisma.tenantGalleryImage.findMany({
@@ -2147,10 +2189,11 @@ export class MarketplaceService {
   }
 
   async getReferralInfo(code: string) {
-    const referral = await this.prisma.promotionReferral.findFirst({
+    // Antes leiamos de promotionReferral; ahora de rewardReferral.
+    const referral = await this.prisma.rewardReferral.findFirst({
       where: { code, status: 'ACTIVE' },
       include: {
-        promotion: { select: { name: true } },
+        reward: { select: { name: true } },
         tenant: { select: { name: true, slug: true } },
       },
     });
@@ -2180,7 +2223,7 @@ export class MarketplaceService {
         code: referral.code,
         status: referral.status,
         expiresAt: referral.expiresAt,
-        promotionName: referral.promotion.name,
+        promotionName: referral.reward.name, // mantengo el nombre del campo de respuesta por compat con frontend
         tenantName: referral.tenant.name,
         tenantSlug: referral.tenant.slug,
         generatedBy: client ? `${client.firstName} ${client.lastName || ''}`.trim() : null,
@@ -2200,16 +2243,18 @@ export class MarketplaceService {
       return { data: [] };
     }
 
-    const referrals = await this.prisma.promotionReferral.findMany({
+    // Antes leiamos promotionReferral; ahora rewardReferral.
+    const referrals = await this.prisma.rewardReferral.findMany({
       where: { generatedByClientId: { in: clientIds } },
       include: {
-        promotion: { select: { name: true, type: true, description: true } },
+        reward: { select: { name: true, type: true, description: true } },
         tenant: { select: { name: true, slug: true, logoUrl: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Resolve service names for each referral
+    // Resolve service names for each referral. Renombramos reward -> promotion
+    // en la respuesta para mantener compat con el frontend.
     const enriched = await Promise.all(
       referrals.map(async (ref) => {
         const svcIds: string[] = Array.isArray(ref.serviceIds) ? ref.serviceIds as string[] : [];
@@ -2221,7 +2266,7 @@ export class MarketplaceService {
           });
           serviceNames = svcs.map((s) => s.name);
         }
-        return { ...ref, serviceNames };
+        return { ...ref, promotion: ref.reward, serviceNames };
       }),
     );
 
@@ -2460,34 +2505,57 @@ export class MarketplaceService {
       }
     }
 
-    // Validate promotion if provided (mutually exclusive with coupon)
+    // Validate reward (antes "promotion") if provided. Mutuamente excluyente
+    // con coupon. dto.promotionId mantiene su nombre por compat de API; los IDs
+    // de reward y promotion coinciden por la migracion (Fase 1).
     let promotionRecord: any = null;
     if (dto.promotionId && !dto.couponCode) {
-      promotionRecord = await this.prisma.promotion.findFirst({
-        where: { id: dto.promotionId, tenantId: tenant.id, isActive: true },
+      const rawReward = await this.prisma.reward.findFirst({
+        where: {
+          id: dto.promotionId,
+          tenantId: tenant.id,
+          isActive: true,
+          type: { in: ['DESCUENTO', 'TWO_FOR_ONE'] },
+        },
       });
 
-      if (!promotionRecord) {
-        throw new BadRequestException('Promoción no encontrada');
+      if (!rawReward) {
+        throw new BadRequestException('Cupón no encontrado');
       }
 
+      // Mapear al "type logico" que usaba la promotion: PERCENTAGE /
+      // FIXED_AMOUNT / TWO_FOR_ONE. Mantiene la logica de calculo de
+      // descuento intacta.
+      const logicalType: string = rawReward.type === 'DESCUENTO'
+        ? (rawReward.discountMode === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED_AMOUNT')
+        : rawReward.type; // TWO_FOR_ONE pasa tal cual
+
+      promotionRecord = {
+        ...rawReward,
+        type: logicalType,
+        value: Number(rawReward.discountAmount || 0),
+        // Counter unificado: usar timesRedeemed/maxRedemptions de Reward
+        usedCount: rawReward.timesRedeemed,
+        maxUses: rawReward.maxRedemptions,
+      };
+
       const now = new Date();
-      if (now < promotionRecord.startDate) {
-        throw new BadRequestException('La promoción aún no ha comenzado');
+      if (rawReward.startDate && now < rawReward.startDate) {
+        throw new BadRequestException('El cupón aún no ha comenzado');
       }
-      if (now > promotionRecord.endDate) {
-        throw new BadRequestException('La promoción ha expirado');
+      if (rawReward.endDate && now > rawReward.endDate) {
+        throw new BadRequestException('El cupón ha expirado');
       }
-      if (promotionRecord.maxUses != null && promotionRecord.usedCount >= promotionRecord.maxUses) {
-        throw new BadRequestException('La promoción ha alcanzado el límite de usos');
+      if (rawReward.maxRedemptions != null && rawReward.timesRedeemed >= rawReward.maxRedemptions) {
+        throw new BadRequestException('El cupón ha alcanzado el límite de usos');
       }
 
       // Validate service compatibility
-      const promoServiceIds: string[] = Array.isArray(promotionRecord.serviceIds) ? promotionRecord.serviceIds : [];
+      const promoServiceIds: string[] = Array.isArray(rawReward.serviceIds) ? rawReward.serviceIds as string[] : [];
       if (promoServiceIds.length > 0) {
         const hasApplicable = dto.serviceIds.some((id) => promoServiceIds.includes(id));
         if (!hasApplicable) {
-          throw new BadRequestException('La promoción no aplica a los servicios seleccionados');
+          throw new BadRequestException('El cupón no aplica a los servicios seleccionados');
         }
       }
 
@@ -2502,28 +2570,33 @@ export class MarketplaceService {
       });
       const subtotal = promoServices.reduce((s, svc) => s + Number(svc.price), 0);
 
-      if (promotionRecord.minAmount && subtotal < Number(promotionRecord.minAmount)) {
-        throw new BadRequestException(`Monto mínimo requerido: ${promotionRecord.minAmount}`);
+      if (rawReward.minAmount && subtotal < Number(rawReward.minAmount)) {
+        throw new BadRequestException(`Monto mínimo requerido: ${rawReward.minAmount}`);
       }
 
-      if (promotionRecord.type === 'PERCENTAGE') {
-        discountAmount = Math.round(subtotal * Number(promotionRecord.value) / 100 * 100) / 100;
-      } else if (promotionRecord.type === 'FIXED_AMOUNT') {
-        discountAmount = Math.min(Number(promotionRecord.value), subtotal);
-      } else if (promotionRecord.type === 'TWO_FOR_ONE') {
-        // 2x1: No discount for the original booker — they pay full price
-        // A referral code will be generated post-booking for a friend
+      if (logicalType === 'PERCENTAGE') {
+        discountAmount = Math.round(subtotal * Number(rawReward.discountAmount || 0) / 100 * 100) / 100;
+      } else if (logicalType === 'FIXED_AMOUNT') {
+        discountAmount = Math.min(Number(rawReward.discountAmount || 0), subtotal);
+      } else if (logicalType === 'TWO_FOR_ONE') {
+        // 2x1: No discount for the original booker — they pay full price.
+        // A referral code will be generated post-booking for a friend.
         discountAmount = null;
       }
     }
 
-    // Validate referral code (from 2x1 promotion shared by a friend)
+    // Validate referral code (from 2x1 shared by a friend).
+    // Antes leiamos de promotionReferral; ahora leemos de rewardReferral
+    // (donde se generan los nuevos y donde la migration copio los viejos).
     let referralRecord: any = null;
     if (dto.referralCode && !dto.couponCode && !dto.promotionId) {
-      referralRecord = await this.prisma.promotionReferral.findFirst({
+      const rawRef = await this.prisma.rewardReferral.findFirst({
         where: { code: dto.referralCode, tenantId: tenant.id, status: 'ACTIVE' },
-        include: { promotion: true },
+        include: { reward: true },
       });
+      if (rawRef) {
+        referralRecord = { ...rawRef, promotion: rawRef.reward };
+      }
 
       if (!referralRecord) {
         throw new BadRequestException('Código de referido no válido o ya utilizado');
@@ -2632,12 +2705,13 @@ export class MarketplaceService {
       );
     }
 
-    // Increment promotion usedCount and save discount
+    // Increment reward counter (antes era promotion.usedCount) y guardar
+    // descuento en la cita.
     if (promotionRecord && appointment?.data?.id) {
       postOps.push(
-        this.prisma.promotion.update({
+        this.prisma.reward.update({
           where: { id: promotionRecord.id },
-          data: { usedCount: { increment: 1 } },
+          data: { timesRedeemed: { increment: 1 } },
         }),
       );
       if (discountAmount) {
@@ -2646,17 +2720,17 @@ export class MarketplaceService {
             where: { id: appointment.data.id },
             data: {
               discountAmount,
-              notes: `${appointment.data.notes || ''}\n[Promoción: ${promotionRecord.name}]`.trim(),
+              notes: `${appointment.data.notes || ''}\n[Cupón: ${promotionRecord.name}]`.trim(),
             },
           }),
         );
       }
     }
 
-    // Mark referral code as used
+    // Mark referral code as used (rewardReferral, antes promotionReferral)
     if (referralRecord && appointment?.data?.id) {
       postOps.push(
-        this.prisma.promotionReferral.update({
+        this.prisma.rewardReferral.update({
           where: { id: referralRecord.id },
           data: {
             status: 'USED',
@@ -2669,13 +2743,14 @@ export class MarketplaceService {
           where: { id: appointment.data.id },
           data: {
             discountAmount,
-            notes: `${appointment.data.notes || ''}\n[Código 2x1: ${referralRecord.code} — Promoción: ${referralRecord.promotion.name}]`.trim(),
+            notes: `${appointment.data.notes || ''}\n[Código 2x1: ${referralRecord.code} — Cupón: ${referralRecord.promotion.name}]`.trim(),
           },
         }),
       );
     }
 
-    // Generate referral code for TWO_FOR_ONE promotions
+    // Generate referral code for TWO_FOR_ONE rewards (post-booking).
+    // Antes creaba promotionReferral; ahora rewardReferral.
     let referralCode: string | null = null;
     if (promotionRecord?.type === 'TWO_FOR_ONE' && appointment?.data?.id) {
       const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -2686,10 +2761,10 @@ export class MarketplaceService {
 
       const promoSvcIds = Array.isArray(promotionRecord.serviceIds) ? promotionRecord.serviceIds : dto.serviceIds;
 
-      await this.prisma.promotionReferral.create({
+      await this.prisma.rewardReferral.create({
         data: {
           tenantId: tenant.id,
-          promotionId: promotionRecord.id,
+          rewardId: promotionRecord.id,
           appointmentId: appointment.data.id,
           serviceIds: promoSvcIds,
           code,
