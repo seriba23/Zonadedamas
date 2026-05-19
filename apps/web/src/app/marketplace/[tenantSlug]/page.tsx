@@ -1792,7 +1792,7 @@ export default function BusinessDetailPage() {
                     Cupones disponibles
                   </h2>
                   <p className="text-sm text-gray-500 mb-4">
-                    Estos cupones aplican a los servicios que seleccionaste. Podés
+                    Estos cupones aplican a los servicios que seleccionaste. Puedes
                     elegir uno o continuar sin cupón.
                   </p>
                   <div className="space-y-4 mb-4">
@@ -1880,7 +1880,7 @@ export default function BusinessDetailPage() {
                                 {promo.description ? (
                                   <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
                                 ) : isTwoForOne ? (
-                                  <p className="text-xs text-gray-500 mt-0.5">Paga uno y regalá el mismo servicio a un amigo gratis</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Paga uno y regala el mismo servicio a un amigo gratis</p>
                                 ) : null}
                                 {promoServices.length > 0 && (
                                   <p className="text-[11px] text-gray-400 mt-1 truncate">
@@ -2144,7 +2144,7 @@ export default function BusinessDetailPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span>
-                        Colocá un horario de tu preferencia y buscaremos coincidencias con la disponibilidad de tu profesional.
+                        Pon un horario de tu preferencia y buscaremos coincidencias con la disponibilidad de tu profesional.
                       </span>
                     </p>
                   )}
