@@ -1278,9 +1278,10 @@ export default function BusinessDetailPage() {
         )}
       </div>
 
-      {/* Floating CTA — sits above the bottom nav (bottom-20 = 5rem) */}
+      {/* Floating CTA — sits above the bottom nav (bottom-20 = 5rem).
+          z-40 para quedar por encima de las flechas del carousel de fotos. */}
       {!bookingStep && (
-        <div className="fixed bottom-20 left-0 right-0 px-4 pointer-events-none">
+        <div className="fixed bottom-20 left-0 right-0 px-4 pointer-events-none z-40">
           <div className="max-w-2xl mx-auto pointer-events-auto">
             <button
               onClick={handleBook}
@@ -1861,20 +1862,6 @@ export default function BusinessDetailPage() {
                           </span>
                         </div>
                       )}
-                      <div className="mb-3" />
-                      <button
-                        onClick={() => setBookingStep('employee')}
-                        className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors"
-                        style={{ backgroundColor: TEAL }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = TEAL_DARK)
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = TEAL)
-                        }
-                      >
-                        Continuar
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1929,24 +1916,6 @@ export default function BusinessDetailPage() {
                         );
                       })}
 
-                      <button
-                        onClick={() => {
-                          const allAssigned = selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
-                          if (!allAssigned) return;
-                          // Use the first employee as primary
-                          const primaryEmpId = serviceEmployeeMap[selectedServiceIds[0]];
-                          const primaryEmp = employees.find((e) => e.id === primaryEmpId) || null;
-                          setSelectedEmployee(primaryEmp);
-                          setAnyEmployee(false);
-                          setSelectedSlot(null);
-                          setBookingStep('datetime');
-                        }}
-                        disabled={!selectedServiceIds.every((sid) => serviceEmployeeMap[sid])}
-                        className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-colors"
-                        style={{ backgroundColor: '#008080' }}
-                      >
-                        Continuar
-                      </button>
                     </div>
                   ) : (
                     /* ─── Single employee: pick one for all ─── */
@@ -2110,7 +2079,7 @@ export default function BusinessDetailPage() {
                         type="time"
                         value={preferredTime}
                         onChange={(e) => setPreferredTime(e.target.value)}
-                        placeholder="Preferencia"
+                        placeholder="Hora preferida"
                         className="flex-1 text-sm bg-transparent focus:outline-none min-w-0 text-gray-700"
                       />
                       {preferredTime && (
@@ -2120,6 +2089,18 @@ export default function BusinessDetailPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Hint para el input de hora preferida (se entiende para que es) */}
+                  {!preferredTime && (
+                    <p className="text-[11px] text-gray-500 mb-3 px-1 flex items-start gap-1.5">
+                      <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>
+                        Colocá un horario de tu preferencia y buscaremos coincidencias con la disponibilidad de tu profesional.
+                      </span>
+                    </p>
+                  )}
 
                   {/* Preferred time feedback */}
                   {preferredTime && (() => {
@@ -2242,18 +2223,6 @@ export default function BusinessDetailPage() {
                       />
                     )}
                   </div>
-
-                  {selectedSlot && (
-                    <button
-                      onClick={() => setBookingStep(biz?.shopEnabled && shopProducts.length > 0 ? 'products' : 'confirm')}
-                      className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors mt-4"
-                      style={{ backgroundColor: TEAL }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
-                    >
-                      Continuar
-                    </button>
-                  )}
 
                   {/* Full calendar modal */}
                   {showFullCalendar && (
@@ -2380,12 +2349,6 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  <button onClick={() => setBookingStep('confirm')}
-                    className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors" style={{ backgroundColor: TEAL }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}>
-                    {bookingCart.length > 0 ? 'Continuar con productos' : 'Continuar sin productos'}
-                  </button>
                 </div>
               )}
 
@@ -2739,63 +2702,97 @@ export default function BusinessDetailPage() {
                     }
                   />
 
-                  {bookMutation.isError && (
-                    <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-                      {(bookMutation.error as any)?.message ||
-                        'Error al confirmar la reserva. Por favor intenta de nuevo.'}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => bookMutation.mutate()}
-                    disabled={bookMutation.isPending}
-                    className="w-full text-white py-3 rounded-xl font-medium text-sm disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                    style={{ backgroundColor: TEAL }}
-                    onMouseEnter={(e) => {
-                      if (!bookMutation.isPending)
-                        e.currentTarget.style.backgroundColor = TEAL_DARK;
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!bookMutation.isPending)
-                        e.currentTarget.style.backgroundColor = TEAL;
-                    }}
-                  >
-                    {bookMutation.isPending && (
-                      <svg
-                        className="animate-spin h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                    )}
-                    {bookMutation.isPending
-                      ? 'Confirmando...'
-                      : biz?.acceptsOnlinePayment
-                        ? 'Confirmar y Pagar'
-                        : 'Confirmar Reserva'}
-                  </button>
-                  {biz?.acceptsOnlinePayment && (
-                    <p className="text-center text-xs text-gray-400 mt-2">
-                      Serás redirigido a Stripe para completar el pago de forma segura
-                    </p>
-                  )}
                 </div>
               )}
             </div>
           </div>
+
+          {/* ─── Footer CTA pegajoso (un solo boton por step, igual estilo
+              que "Reservar cita" del perfil del negocio). En location y
+              employee-single el avance es al click directo, no muestra. */}
+          {(() => {
+            if (bookingStep === 'location') return null;
+            if (bookingStep === 'employee' && !isMultiEmployee) return null;
+
+            let label = 'Continuar';
+            let disabled = false;
+            let loading = false;
+            let onClick: (() => void) | undefined;
+            let errorMsg: string | null = null;
+
+            if (bookingStep === 'service') {
+              disabled = selectedServiceIds.length === 0;
+              onClick = () => setBookingStep('employee');
+            } else if (bookingStep === 'employee') {
+              disabled = !selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
+              onClick = () => {
+                const primaryEmpId = serviceEmployeeMap[selectedServiceIds[0]];
+                const primaryEmp = employees.find((e) => e.id === primaryEmpId) || null;
+                setSelectedEmployee(primaryEmp);
+                setAnyEmployee(false);
+                setSelectedSlot(null);
+                setBookingStep('datetime');
+              };
+            } else if (bookingStep === 'datetime') {
+              disabled = !selectedSlot;
+              onClick = () => setBookingStep(biz?.shopEnabled && shopProducts.length > 0 ? 'products' : 'confirm');
+            } else if (bookingStep === 'products') {
+              label = bookingCart.length > 0 ? 'Continuar con productos' : 'Continuar sin productos';
+              onClick = () => setBookingStep('confirm');
+            } else if (bookingStep === 'confirm') {
+              loading = bookMutation.isPending;
+              disabled = bookMutation.isPending || !selectedSlot;
+              label = bookMutation.isPending
+                ? 'Confirmando...'
+                : biz?.acceptsOnlinePayment
+                  ? 'Confirmar y Pagar'
+                  : 'Confirmar Reserva';
+              onClick = () => bookMutation.mutate();
+              if (bookMutation.isError) {
+                errorMsg = (bookMutation.error as any)?.message
+                  || 'Error al confirmar la reserva. Por favor intenta de nuevo.';
+              }
+            }
+
+            return (
+              <div
+                className="border-t border-gray-200 bg-white px-4 pt-3"
+                style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+              >
+                <div className="max-w-2xl mx-auto">
+                  {errorMsg && (
+                    <div className="mb-2 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs">
+                      {errorMsg}
+                    </div>
+                  )}
+                  <button
+                    onClick={onClick}
+                    disabled={disabled}
+                    className="w-full text-white py-3 rounded-2xl font-semibold text-sm transition-colors shadow-lg disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{
+                      backgroundColor: TEAL,
+                      boxShadow: disabled ? 'none' : '0 4px 16px rgba(0,128,128,0.4)',
+                    }}
+                    onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = TEAL_DARK; }}
+                    onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = TEAL; }}
+                  >
+                    {loading && (
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    )}
+                    {label}
+                  </button>
+                  {bookingStep === 'confirm' && biz?.acceptsOnlinePayment && !errorMsg && (
+                    <p className="text-center text-[11px] text-gray-400 mt-1.5">
+                      Serás redirigido a Stripe para completar el pago de forma segura
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
