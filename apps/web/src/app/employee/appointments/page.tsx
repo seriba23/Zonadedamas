@@ -17,6 +17,19 @@ interface AppointmentItem {
   durationSnapshot: number;
 }
 
+interface ProductReservation {
+  id: string;
+  quantity: number;
+  unitPrice: string | number;
+  product: { id: string; name: string; imageUrl: string | null };
+}
+
+interface AppointmentRedemption {
+  id: string;
+  code: string;
+  reward: { name: string; type: string; discountAmount?: string | number; discountMode?: string };
+}
+
 interface Appointment {
   id: string;
   startTime: string;
@@ -24,8 +37,11 @@ interface Appointment {
   status: string;
   notes: string | null;
   photoConsent: boolean | null;
+  discountAmount: string | number | null;
   client: { id: string; firstName: string; lastName: string; email?: string; phone?: string };
   items: AppointmentItem[];
+  productReservations?: ProductReservation[];
+  redemption?: AppointmentRedemption | null;
 }
 
 type RangeFilter = 'today' | 'week' | 'month' | 'custom';
@@ -279,27 +295,97 @@ export default function EmployeeAppointmentsPage() {
                 </div>
               </div>
 
-              {/* Services */}
-              <div className="border-t border-gray-100 pt-4 mb-4">
-                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">Servicios</p>
-                {selectedApt.items.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-1.5">
-                    <div>
-                      <p className="text-sm text-gray-700">{item.serviceNameSnapshot}</p>
-                      <p className="text-xs text-gray-400">{item.durationSnapshot} min</p>
+              {/* Services + Products + Discount + Total */}
+              {(() => {
+                const servicesSubtotal = selectedApt.items.reduce(
+                  (s, i) => s + Number(i.priceSnapshot),
+                  0,
+                );
+                const products = selectedApt.productReservations || [];
+                const productsSubtotal = products.reduce(
+                  (s, p) => s + Number(p.unitPrice) * p.quantity,
+                  0,
+                );
+                const discount = Number(selectedApt.discountAmount || 0);
+                const total = Math.max(0, servicesSubtotal + productsSubtotal - discount);
+
+                // Nombre del cupón si lo hay: del redemption o de las notas.
+                const couponLabel = (() => {
+                  if (selectedApt.redemption?.reward?.name) return selectedApt.redemption.reward.name;
+                  const m = (selectedApt.notes || '').match(/\[Cup[oó]n: ([^\]]+)\]/);
+                  if (m) return m[1];
+                  const p = (selectedApt.notes || '').match(/\[Promoci[oó]n: ([^\]]+)\]/);
+                  if (p) return p[1];
+                  const r = (selectedApt.notes || '').match(/\[C[oó]digo 2x1: [^—]+— (?:Cup[oó]n|Promoci[oó]n): ([^\]]+)\]/);
+                  if (r) return r[1];
+                  return discount > 0 ? 'Cupón aplicado' : null;
+                })();
+
+                return (
+                  <div className="border-t border-gray-100 pt-4 mb-4">
+                    {/* Servicios */}
+                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">Servicios</p>
+                    {selectedApt.items.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between py-1.5">
+                        <div>
+                          <p className="text-sm text-gray-700">{item.serviceNameSnapshot}</p>
+                          <p className="text-xs text-gray-400">{item.durationSnapshot} min</p>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatCurrency(Number(item.priceSnapshot))}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Productos */}
+                    {products.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-gray-500 mt-3 mb-2 uppercase">Productos</p>
+                        {products.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between py-1.5">
+                            <p className="text-sm text-gray-700">
+                              {p.quantity}× {p.product.name}
+                            </p>
+                            <span className="text-sm font-medium text-gray-900">
+                              {formatCurrency(Number(p.unitPrice) * p.quantity)}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {/* Desglose */}
+                    <div className="pt-3 mt-2 border-t border-gray-100 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Subtotal servicios</span>
+                        <span className="text-xs text-gray-700">{formatCurrency(servicesSubtotal)}</span>
+                      </div>
+                      {productsSubtotal > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Subtotal productos</span>
+                          <span className="text-xs text-gray-700">{formatCurrency(productsSubtotal)}</span>
+                        </div>
+                      )}
+                      {discount > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-green-600 font-medium">
+                            {couponLabel || 'Descuento'}
+                          </span>
+                          <span className="text-xs text-green-600 font-medium">
+                            -{formatCurrency(discount)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <span className="text-sm font-semibold text-gray-900">Total</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {formatCurrency(total)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-900">
-                      {formatCurrency(Number(item.priceSnapshot))}
-                    </span>
                   </div>
-                ))}
-                <div className="flex items-center justify-between pt-3 mt-2 border-t border-gray-100">
-                  <span className="text-sm font-semibold text-gray-900">Total</span>
-                  <span className="text-sm font-bold text-gray-900">
-                    {formatCurrency(selectedApt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0))}
-                  </span>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Notes */}
               {selectedApt.notes && (
@@ -358,10 +444,17 @@ function AppointmentRow({
   formatCurrency: (amount: number) => string;
 }) {
   const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
-  const totalPrice = apt.items.reduce(
+  const servicesSubtotal = apt.items.reduce(
     (sum, i) => sum + Number(i.priceSnapshot),
     0,
   );
+  const productsSubtotal = (apt.productReservations || []).reduce(
+    (sum, p) => sum + Number(p.unitPrice) * p.quantity,
+    0,
+  );
+  const discount = Number(apt.discountAmount || 0);
+  const totalPrice = Math.max(0, servicesSubtotal + productsSubtotal - discount);
+  const hasDiscount = discount > 0;
 
   return (
     <li
@@ -393,9 +486,16 @@ function AppointmentRow({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">
-            {formatCurrency(totalPrice)}
-          </span>
+          <div className="text-right">
+            {hasDiscount && (
+              <span className="block text-[10px] text-gray-400 line-through leading-none">
+                {formatCurrency(servicesSubtotal + productsSubtotal)}
+              </span>
+            )}
+            <span className={`text-sm font-medium ${hasDiscount ? 'text-green-600' : 'text-gray-700'}`}>
+              {formatCurrency(totalPrice)}
+            </span>
+          </div>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
           >

@@ -413,6 +413,20 @@ export class AppointmentsService {
           // hacer queries adicionales. Trae todos los pagos; el frontend
           // filtra por status=COMPLETED.
           payments: true,
+          // Productos reservados con la cita (para que el empleado vea lo
+          // que el cliente sumó al booking).
+          productReservations: {
+            include: { product: { select: { id: true, name: true, imageUrl: true } } },
+          },
+          // Cupón canjeado por puntos (si lo hay). discountAmount ya viene
+          // como campo escalar del appointment.
+          redemption: {
+            select: {
+              id: true,
+              code: true,
+              reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
+            },
+          },
         },
       }),
       this.prisma.appointment.count({ where }),
