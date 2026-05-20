@@ -316,4 +316,126 @@ export class RewardsService {
 
     return { data: redemption };
   }
+
+  // Listado de cupones (RewardRedemption) del tenant con filtros para el
+  // dashboard de admin. Distingue origen (gift vs canje), status, y permite
+  // filtrar por fecha de expiracion o de creacion.
+  async listRedemptions(
+    tenantId: string,
+    query: {
+      page?: number;
+      perPage?: number;
+      status?: string; // ACTIVE | USED | EXPIRED
+      source?: 'GIFT' | 'REDEEM'; // GIFT = pointsSpent=0; REDEEM = pointsSpent>0
+      expiresFrom?: string; // ISO date
+      expiresTo?: string;
+      createdFrom?: string;
+      createdTo?: string;
+      clientId?: string;
+      rewardId?: string;
+      search?: string; // busca en firstName/lastName/email del cliente y nombre del reward
+    },
+  ) {
+    const page = Math.max(1, query.page || 1);
+    const perPage = Math.min(100, Math.max(1, query.perPage || 20));
+    const skip = (page - 1) * perPage;
+
+    const where: any = { tenantId };
+    if (query.status && ['ACTIVE', 'USED', 'EXPIRED'].includes(query.status)) {
+      where.status = query.status;
+    }
+    if (query.source === 'GIFT') {
+      where.pointsSpent = 0;
+    } else if (query.source === 'REDEEM') {
+      where.pointsSpent = { gt: 0 };
+    }
+    if (query.expiresFrom || query.expiresTo) {
+      where.expiresAt = {};
+      if (query.expiresFrom) where.expiresAt.gte = new Date(query.expiresFrom);
+      if (query.expiresTo) {
+        // incluye todo el dia "expiresTo"
+        const to = new Date(query.expiresTo);
+        to.setHours(23, 59, 59, 999);
+        where.expiresAt.lte = to;
+      }
+    }
+    if (query.createdFrom || query.createdTo) {
+      where.createdAt = {};
+      if (query.createdFrom) where.createdAt.gte = new Date(query.createdFrom);
+      if (query.createdTo) {
+        const to = new Date(query.createdTo);
+        to.setHours(23, 59, 59, 999);
+        where.createdAt.lte = to;
+      }
+    }
+    if (query.clientId) where.clientId = query.clientId;
+    if (query.rewardId) where.rewardId = query.rewardId;
+    if (query.search) {
+      const s = query.search.trim();
+      if (s) {
+        where.OR = [
+          { client: { firstName: { contains: s } } },
+          { client: { lastName: { contains: s } } },
+          { client: { email: { contains: s } } },
+          { reward: { name: { contains: s } } },
+          { code: { contains: s } },
+        ];
+      }
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.rewardRedemption.findMany({
+        where,
+        include: {
+          reward: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              discountAmount: true,
+              discountMode: true,
+              pointsRequired: true,
+              service: { select: { id: true, name: true } },
+            },
+          },
+          client: {
+            select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
+          },
+          appointment: { select: { id: true, startTime: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: perPage,
+      }),
+      this.prisma.rewardRedemption.count({ where }),
+    ]);
+
+    // Resumen del tenant (totales sin filtros, sirven como contadores
+    // permanentes en el header del historial).
+    const [totalAll, totalActive, totalUsed, totalExpired, totalGifts] = await Promise.all([
+      this.prisma.rewardRedemption.count({ where: { tenantId } }),
+      this.prisma.rewardRedemption.count({ where: { tenantId, status: 'ACTIVE' } }),
+      this.prisma.rewardRedemption.count({ where: { tenantId, status: 'USED' } }),
+      this.prisma.rewardRedemption.count({ where: { tenantId, status: 'EXPIRED' } }),
+      this.prisma.rewardRedemption.count({ where: { tenantId, pointsSpent: 0 } }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage),
+        summary: {
+          totalAll,
+          totalActive,
+          totalUsed,
+          totalExpired,
+          totalGifts,
+          totalRedeemed: totalAll - totalGifts,
+        },
+      },
+    };
+  }
 }

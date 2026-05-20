@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
+import { RedemptionsHistory } from './redemptions-history';
 
 interface Reward {
   id: string;
@@ -69,6 +70,9 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   const [giftRewardId, setGiftRewardId] = useState('');
   const [giftClientIds, setGiftClientIds] = useState<string[]>([]);
   const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
+  // Tab activo: "catalogo" muestra los rewards del tenant; "historial" muestra
+  // todos los RewardRedemptions emitidos con filtros para auditoria.
+  const [activeTab, setActiveTab] = useState<'catalog' | 'history'>('catalog');
 
   const { data, isLoading } = useQuery({
     queryKey: ['rewards'],
@@ -205,6 +209,36 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
+        {/* Tabs: catálogo vs historial */}
+        <div className="flex items-center gap-2 mb-5 border-b border-gray-200">
+          <button
+            type="button"
+            onClick={() => setActiveTab('catalog')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'catalog'
+                ? 'border-[#008080] text-[#006666]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Catálogo
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'history'
+                ? 'border-[#008080] text-[#006666]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Historial de cupones
+          </button>
+        </div>
+
+        {activeTab === 'history' ? (
+          <RedemptionsHistory />
+        ) : (
+        <>
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-500">
             Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
@@ -275,6 +309,8 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
               />
             ))}
           </div>
+        )}
+        </>
         )}
       </div>
 

@@ -108,4 +108,38 @@ export class RewardsController {
     );
   }
 
+  // Historial completo de cupones del tenant (RewardRedemptions) con filtros
+  // para el dashboard de admin: status, origen (regalo vs canje), rangos de
+  // fecha (creacion / expiracion), cliente, reward, y busqueda libre.
+  @Get('redemptions/all')
+  @RequirePermissions('rewards.read')
+  listRedemptions(
+    @Request() req: any,
+    @Query('page') page?: string,
+    @Query('perPage') perPage?: string,
+    @Query('status') status?: string,
+    @Query('source') source?: string,
+    @Query('expiresFrom') expiresFrom?: string,
+    @Query('expiresTo') expiresTo?: string,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
+    @Query('clientId') clientId?: string,
+    @Query('rewardId') rewardId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.rewardsService.listRedemptions(req.user.tenantId, {
+      page: page ? Number(page) : undefined,
+      perPage: perPage ? Number(perPage) : undefined,
+      status,
+      source: source === 'GIFT' || source === 'REDEEM' ? source : undefined,
+      expiresFrom,
+      expiresTo,
+      createdFrom,
+      createdTo,
+      clientId,
+      rewardId,
+      search,
+    });
+  }
+
 }
