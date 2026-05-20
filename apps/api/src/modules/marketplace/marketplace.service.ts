@@ -2139,6 +2139,8 @@ export class MarketplaceService {
         pointsRequired: true,
         discountAmount: true,
         discountMode: true,
+        serviceIds: true,
+        code: true,
         maxRedemptions: true,
         timesRedeemed: true,
         validUntil: true,

@@ -62,15 +62,21 @@ interface BizPromotion {
   id: string;
   name: string;
   description?: string;
-  type: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'TWO_FOR_ONE';
-  value: number;
+  // Tipo unificado de Reward (origen real en BD)
+  type: 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE';
+  // Para DESCUENTO: PERCENTAGE | FLAT
+  discountMode?: 'PERCENTAGE' | 'FLAT' | null;
+  // Monto del descuento (para DESCUENTO)
+  discountAmount?: number | null;
   code?: string;
-  startDate: string;
-  endDate: string;
-  maxUses?: number;
-  usedCount: number;
+  startDate?: string;
+  endDate?: string;
+  validUntil?: string | null;
+  pointsRequired?: number | null;
+  maxRedemptions?: number | null;
+  timesRedeemed?: number;
   serviceIds?: string[];
-  minAmount?: number;
+  service?: { id: string; name: string } | null;
   allowPointPayment?: boolean;
 }
 
@@ -235,7 +241,10 @@ export default function BusinessDetailPage() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedBundle, setSelectedBundle] = useState<any>(null);
   const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes'>('servicios');
-  const [selectedPromotion, setSelectedPromotion] = useState<BizPromotion | null>(null);
+  // `selectedPromotion` ya no es state propio: se deriva de `selectedCoupon`
+  // (el RewardRedemption aplicado). Mantenemos la variable con el mismo
+  // nombre para no tocar todo el render del confirm/success, pero la fuente
+  // de verdad es selectedCoupon. Ver bloque que la calcula mas abajo.
   const [referralCodeInput, setReferralCodeInput] = useState('');
   const [earnedReferralCode, setEarnedReferralCode] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
@@ -505,8 +514,10 @@ export default function BusinessDetailPage() {
         // hora que una cita existente.
         startTime: selectedSlot?.startTime,
         notes: bookingNotes || undefined,
+        // selectedCoupon es un RewardRedemption: regalo, canje previo o
+        // canje recien hecho en el step "Cupones". Mandamos solo el codigo;
+        // ya no usamos promotionId porque todo cupon vive en RewardRedemption.
         couponCode: selectedCoupon?.code || undefined,
-        promotionId: selectedPromotion?.id || undefined,
         referralCode: referralCodeInput.trim() || undefined,
         payWithPoints: payWithPoints || undefined,
         serviceAssignments: assignments,
@@ -586,6 +597,57 @@ export default function BusinessDetailPage() {
     if (biz) setIsFavorited(!!biz.isFavorited);
   }, [biz]);
 
+  // Estado de feedback al canjear puntos por cupon dentro del step "Cupones"
+  const [redeemFeedback, setRedeemFeedback] = useState<{ name: string; code: string } | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+
+  // Limpiar feedback al salir del step "Cupones" o al cambiar servicios
+  useEffect(() => {
+    if (bookingStep !== 'promotion') {
+      setRedeemFeedback(null);
+      setRedeemError(null);
+    }
+  }, [bookingStep]);
+  useEffect(() => {
+    setRedeemFeedback(null);
+    setRedeemError(null);
+    // Si el cupon aplicado ya no aplica a los servicios elegidos, limpiarlo
+    // (solo el caso SERVICIO depende del set de servicios; DESCUENTO aplica
+    // siempre, TWO_FOR_ONE conserva su referral aunque cambien servicios).
+    setSelectedCoupon((current: any) => {
+      if (!current?.reward) return current;
+      const reward = current.reward;
+      if (reward.type === 'SERVICIO') {
+        const svcId = reward.service?.id || reward.serviceId;
+        if (!svcId || !selectedServiceIds.includes(svcId)) return null;
+      }
+      return current;
+    });
+  }, [selectedServiceIds]);
+
+  const redeemRewardMutation = useMutation({
+    mutationFn: ({ rewardId }: { rewardId: string }) =>
+      marketplaceApi.post<{ data: any }>('/rewards/redeem', { rewardId, tenantSlug }),
+    onSuccess: (res: any) => {
+      const redemption = res?.data?.data || res?.data || res;
+      if (redemption?.id) {
+        setSelectedCoupon(redemption);
+        setRedeemFeedback({
+          name: redemption.reward?.name || 'Cupon',
+          code: redemption.code || '',
+        });
+        setRedeemError(null);
+      }
+      queryClient.invalidateQueries({ queryKey: ['user-coupons', tenantSlug] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats-booking'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-biz-rewards', tenantSlug] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'No se pudo canjear el cupon';
+      setRedeemError(typeof msg === 'string' ? msg : 'No se pudo canjear el cupon');
+    },
+  });
+
   const favMutation = useMutation({
     mutationFn: () =>
       marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${tenantSlug}`),
@@ -634,7 +696,7 @@ export default function BusinessDetailPage() {
     const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
     setSelectedServiceIds([]);
     setSelectedBundle(null);
-    setSelectedPromotion(null);
+    setSelectedCoupon(null);
     setReferralCodeInput(savedRef || '');
     setEarnedReferralCode(null);
     setSelectedEmployee(null);
@@ -672,49 +734,123 @@ export default function BusinessDetailPage() {
   const bizCurrency: string = biz?.currency || 'USD';
   const services: BizService[] = biz?.services || [];
   const bizBundles: any[] = biz?.bundles || [];
-  const bizPromotions: BizPromotion[] = (biz?.promotions || []).map((p: any) => ({ ...p, value: Number(p.value), serviceIds: Array.isArray(p.serviceIds) ? p.serviceIds : [] }));
+  // Catalogo de rewards del negocio (canjeables por puntos). Fuente: endpoint
+  // /:tenantSlug/rewards. Lo mapeamos al shape BizPromotion porque el resto
+  // del flow del booking ya razona con ese shape.
+  const bizPromotions: BizPromotion[] = (bizRewards || []).map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    type: r.type as BizPromotion['type'],
+    discountMode: r.discountMode,
+    discountAmount: r.discountAmount == null ? null : Number(r.discountAmount),
+    code: r.code,
+    validUntil: r.validUntil,
+    pointsRequired: r.pointsRequired,
+    maxRedemptions: r.maxRedemptions,
+    timesRedeemed: r.timesRedeemed,
+    serviceIds: Array.isArray(r.serviceIds) ? r.serviceIds : [],
+    service: r.service || null,
+  }));
   const employees: BizEmployee[] = biz?.employees || [];
+  const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
 
-  // Cupones del negocio aplicables a los servicios actualmente seleccionados.
-  // Una promo aplica solo si tiene al menos un service explicito en
-  // serviceIds y ese service esta entre los seleccionados. Las que tienen
-  // serviceIds vacios se consideran NO configuradas y NO aparecen (asi se
-  // evitan cupones como "Cupon $10" sin servicios que aparecian para todos).
+  // IDs de rewards que el usuario ya canjeo y siguen activos — evitamos
+  // mostrarlos como canjeables (ya estan en "Tus cupones").
+  const userActiveRewardIds = new Set(
+    (userCoupons as any[])
+      .filter((r: any) => r?.status === 'ACTIVE' && r?.rewardId)
+      .map((r: any) => r.rewardId as string),
+  );
+
+  // Cupones del negocio (catalogo) aplicables a los servicios elegidos.
+  // - SERVICIO: aplica si reward.service.id esta entre los servicios elegidos.
+  // - DESCUENTO/TWO_FOR_ONE: aplica solo si serviceIds tiene IDs explicitos
+  //   que matchean. Si serviceIds vacios se considera NO configurada y NO
+  //   aparece (evita cupones "globales" que confunden).
   const applicablePromotions = (() => {
     if (selectedServiceIds.length === 0) return [];
-    return bizPromotions.filter((p) => {
-      const pIds = p.serviceIds || [];
-      if (pIds.length === 0) return false;
-      return pIds.some((id) => selectedServiceIds.includes(id));
-    });
+    return bizPromotions
+      .filter((p) => !userActiveRewardIds.has(p.id))
+      .filter((p) => {
+        if (p.type === 'SERVICIO') {
+          return !!p.service?.id && selectedServiceIds.includes(p.service.id);
+        }
+        const pIds = p.serviceIds || [];
+        if (pIds.length === 0) return false;
+        return pIds.some((id) => selectedServiceIds.includes(id));
+      });
   })();
-  const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
+
+  // Cupones del USUARIO activos que aplican (regalos del negocio o canjes
+  // previos). Mismo criterio que los del catalogo: SERVICIO por service.id,
+  // DESCUENTO siempre aplica. No filtramos TWO_FOR_ONE de userCoupons porque
+  // esos se manejan como referrals separados.
+  const userApplicableCoupons = (userCoupons as any[]).filter((r: any) => {
+    const reward = r?.reward;
+    if (!reward) return false;
+    if (r.expiresAt && new Date(r.expiresAt) < new Date()) return false;
+    if (selectedServiceIds.length === 0) return false;
+    if (reward.type === 'SERVICIO') {
+      return !!reward.service?.id && selectedServiceIds.includes(reward.service.id);
+    }
+    if (reward.type === 'DESCUENTO') return true;
+    return false;
+  });
+
   const basePrice = selectedBundle
     ? Number(selectedBundle.bundlePrice)
     : selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const totalPointsEarned = selectedServices.reduce((sum, s) => sum + (s.pointsReward || 0), 0);
 
-  // Calculate promotion discount
+  // Descuento del cupon aplicado. La fuente de verdad ahora es selectedCoupon
+  // (RewardRedemption ya en posesion del cliente). selectedPromotion se deriva
+  // de selectedCoupon mas abajo para mantener compat con render existente.
   const promoDiscount = (() => {
-    if (!selectedPromotion || selectedServiceIds.length === 0) return 0;
-    const promoSvcIds = selectedPromotion.serviceIds || [];
-    const applicableServices = promoSvcIds.length > 0
-      ? selectedServices.filter((s) => promoSvcIds.includes(s.id))
-      : selectedServices;
-    if (applicableServices.length === 0) return 0;
-    const subtotal = applicableServices.reduce((sum, s) => sum + Number(s.price), 0);
-    if (selectedPromotion.type === 'PERCENTAGE') {
-      return Math.round(subtotal * selectedPromotion.value / 100 * 100) / 100;
-    } else if (selectedPromotion.type === 'FIXED_AMOUNT') {
-      return Math.min(selectedPromotion.value, subtotal);
-    } else if (selectedPromotion.type === 'TWO_FOR_ONE') {
-      // No discount for the original booker — they pay full price and get a code for a friend
+    const reward = (selectedCoupon as any)?.reward;
+    if (!reward || selectedServiceIds.length === 0) return 0;
+    if (reward.type === 'SERVICIO') {
+      const svcId = reward.service?.id || reward.serviceId;
+      const svc = selectedServices.find((s) => s.id === svcId);
+      return svc ? Number(svc.price) : 0;
+    }
+    if (reward.type === 'DESCUENTO') {
+      const subtotal = selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
+      const amt = Number(reward.discountAmount || 0);
+      if (reward.discountMode === 'PERCENTAGE') {
+        return Math.round((subtotal * amt) / 100 * 100) / 100;
+      }
+      return Math.min(amt, subtotal);
+    }
+    if (reward.type === 'TWO_FOR_ONE') {
+      // El bookeador original paga completo y recibe codigo para un amigo
       return 0;
     }
     return 0;
   })();
   const totalPrice = basePrice - promoDiscount;
+
+  // Valor derivado: BizPromotion-like construido desde selectedCoupon.reward,
+  // para que el resto del render (confirm/success/CTA) siga refiriendose a
+  // `selectedPromotion` sin necesidad de refactor masivo.
+  const selectedPromotion: BizPromotion | null = (() => {
+    const reward = (selectedCoupon as any)?.reward;
+    if (!reward) return null;
+    return {
+      id: (selectedCoupon as any).id,
+      name: reward.name,
+      description: reward.description,
+      type: reward.type,
+      discountMode: reward.discountMode,
+      discountAmount: reward.discountAmount == null ? null : Number(reward.discountAmount),
+      code: (selectedCoupon as any).code,
+      pointsRequired: reward.pointsRequired,
+      serviceIds: Array.isArray(reward.serviceIds) ? reward.serviceIds : [],
+      service: reward.service || null,
+      allowPointPayment: reward.allowPointPayment ?? true,
+    };
+  })();
 
   // Filter employees: show those who can do ALL services, OR at least ONE if multi-employee needed
   const employeesWithAll = employees.filter((emp) =>
@@ -1407,7 +1543,7 @@ export default function BusinessDetailPage() {
                 else if (bookingStep === 'employee') {
                   // back desde employee: si hubo promos aplicables vuelve
                   // al step promotion, sino directo a service.
-                  setBookingStep(applicablePromotions.length > 0 ? 'promotion' : 'service');
+                  setBookingStep((applicablePromotions.length > 0 || userApplicableCoupons.length > 0) ? 'promotion' : 'service');
                 }
                 else if (bookingStep === 'datetime') {
                   if (bookEmployeeId) setBookingStep('service'); // came from professional profile
@@ -1461,7 +1597,7 @@ export default function BusinessDetailPage() {
               {[
                 ...(biz?.locations?.length > 1 ? [{ key: 'location', label: 'Sucursal' }] : []),
                 { key: 'service', label: 'Servicio' },
-                ...(applicablePromotions.length > 0 ? [{ key: 'promotion', label: 'Cupones' }] : []),
+                ...((applicablePromotions.length > 0 || userApplicableCoupons.length > 0) ? [{ key: 'promotion', label: 'Cupones' }] : []),
                 ...(!bookEmployeeId ? [{ key: 'employee', label: 'Profesional' }] : []),
                 { key: 'datetime', label: 'Horario' },
                 ...(biz?.shopEnabled ? [{ key: 'products', label: 'Productos' }] : []),
@@ -1683,7 +1819,7 @@ export default function BusinessDetailPage() {
                               } else {
                                 setSelectedServiceIds(bundleServiceIds);
                                 setSelectedBundle(bundle);
-                                setSelectedPromotion(null);
+                                setSelectedCoupon(null);
                               }
                             }}
                             className="w-full text-left p-4 rounded-xl border-2 transition-all"
@@ -1782,136 +1918,257 @@ export default function BusinessDetailPage() {
                 );
               })()}
 
-              {/* Step "Cupones" — aparece solo si hay cupones que aplican a
-                  los servicios seleccionados. Estilo "ticket" con stub +
-                  perforaciones (mismo que /marketplace/coupons). 2x1 va con
-                  stub morado, descuentos con stub teal. Es opcional. */}
+              {/* Step "Cupones".
+                  Dos secciones:
+                  - "Tus cupones": RewardRedemption ACTIVE del cliente que
+                    aplican a los servicios elegidos (regalos del negocio o
+                    canjes previos). Boton APLICAR/QUITAR.
+                  - "Canjea con puntos": catalogo de rewards del negocio que
+                    aplican. Boton CANJEAR (X pts). Al canjear se descuentan
+                    puntos, se crea un RewardRedemption y queda aplicado a la
+                    cita. */}
               {bookingStep === 'promotion' && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                    Cupones disponibles
-                  </h2>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Estos cupones aplican a los servicios que seleccionaste. Puedes
-                    elegir uno o continuar sin cupón.
-                  </p>
-                  <div className="space-y-4 mb-4">
-                    {applicablePromotions.map((promo) => {
-                      const promoSvcIds = promo.serviceIds || [];
-                      const promoServices = services.filter((s) => promoSvcIds.includes(s.id));
-                      const isSelected = selectedPromotion?.id === promo.id;
-                      const endDate = new Date(promo.endDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-                      const isTwoForOne = promo.type === 'TWO_FOR_ONE';
-                      const stubColor = isTwoForOne ? '#7c3aed' : TEAL;
-                      const stubBg = isTwoForOne ? 'bg-purple-50' : 'bg-teal-50';
-                      const stubText = isTwoForOne ? 'text-purple-600' : 'text-[#008080]';
-                      // Label del stub (valor grande a la izquierda)
-                      const stubLabel = promo.type === 'PERCENTAGE'
-                        ? `-${promo.value}%`
-                        : promo.type === 'TWO_FOR_ONE'
-                          ? '2×1'
-                          : `-${formatCurrency(promo.value, bizCurrency)}`;
-                      const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
-
-                      return (
-                        <button
-                          key={promo.id}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedPromotion(null);
-                            } else {
-                              setSelectedPromotion(promo);
-                              setSelectedCoupon(null);
-                              if (promo.allowPointPayment === false) setPayWithPoints(false);
-                            }
-                          }}
-                          className="relative w-full text-left transition-transform active:scale-[0.99]"
-                          style={{ opacity: 1 }}
-                        >
-                          {/* Card */}
-                          <div
-                            className="bg-white rounded-2xl overflow-hidden shadow-md flex"
-                            style={{
-                              minHeight: 110,
-                              outline: isSelected ? `2px solid ${stubColor}` : 'none',
-                              outlineOffset: isSelected ? 2 : 0,
-                            }}
-                          >
-                            {/* Stub izquierdo (valor grande) */}
-                            <div
-                              className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
-                              style={{ backgroundColor: stubColor }}
-                            >
-                              <span
-                                className="text-white font-black leading-tight text-center break-all w-full px-2"
-                                style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
-                              >
-                                {stubLabel}
-                              </span>
-                              <span className="text-white/70 text-[9px] uppercase tracking-wider">
-                                {isTwoForOne ? 'regalo' : 'descuento'}
-                              </span>
-                              {/* Perforaciones */}
-                              <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
-                              <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
-                            </div>
-
-                            {/* Separador perforado */}
-                            <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
-                              {Array.from({ length: 9 }).map((_, i) => (
-                                <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
-                              ))}
-                            </div>
-
-                            {/* Contenido principal */}
-                            <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
-                              <div>
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-sm font-bold text-gray-900 leading-tight truncate">
-                                    {promo.name}
-                                  </p>
-                                  {isSelected && (
-                                    <span className={`text-[10px] font-bold ${stubBg} ${stubText} px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider`}>
-                                      Aplicado
-                                    </span>
-                                  )}
-                                </div>
-                                {promo.description ? (
-                                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{promo.description}</p>
-                                ) : isTwoForOne ? (
-                                  <p className="text-xs text-gray-500 mt-0.5">Paga uno y regala el mismo servicio a un amigo gratis</p>
-                                ) : null}
-                                {promoServices.length > 0 && (
-                                  <p className="text-[11px] text-gray-400 mt-1 truncate">
-                                    Aplica a: {promoServices.map((s) => s.name).join(', ')}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="flex items-center justify-between mt-2 gap-2">
-                                <div
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
-                                  style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}
-                                >
-                                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  <span className="text-[10px] font-semibold whitespace-nowrap">Vence {endDate}</span>
-                                </div>
-                                <span
-                                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white"
-                                  style={{ backgroundColor: isSelected ? '#9ca3af' : stubColor, letterSpacing: '0.05em' }}
-                                >
-                                  {isSelected ? 'QUITAR' : 'APLICAR'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Cupones
+                    </h2>
+                    <div
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+                      style={{ backgroundColor: TEAL_LIGHT, color: TEAL_DARK }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs font-bold">{myPointsHere.toLocaleString()} pts</span>
+                    </div>
                   </div>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Solo se muestran los cupones que aplican a los servicios que
+                    seleccionaste. Puedes elegir uno o continuar sin cupón.
+                  </p>
+
+                  {/* Feedback de canje */}
+                  {redeemFeedback && (
+                    <div className="mb-4 p-3 rounded-xl border-2" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
+                      <p className="text-sm font-semibold" style={{ color: TEAL_DARK }}>
+                        ¡Canjeado! {redeemFeedback.name}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: TEAL_DARK }}>
+                        Código: <span className="font-mono font-bold">{redeemFeedback.code}</span> · Aplicado a tu cita.
+                      </p>
+                    </div>
+                  )}
+                  {redeemError && (
+                    <div className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50">
+                      <p className="text-sm text-red-700">{redeemError}</p>
+                    </div>
+                  )}
+
+                  {/* Helper para construir el "stub" de una card de cupon */}
+                  {(() => null)()}
+
+                  {/* Seccion A: Tus cupones */}
+                  {userApplicableCoupons.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                        Tus cupones
+                      </p>
+                      <div className="space-y-3">
+                        {userApplicableCoupons.map((r: any) => {
+                          const reward = r.reward;
+                          const isSelected = selectedCoupon?.id === r.id;
+                          const isGift = (r.pointsSpent ?? 0) === 0;
+                          const stubColor = isGift ? '#7c3aed' : TEAL;
+                          const stubLabel = reward.type === 'SERVICIO'
+                            ? 'GRATIS'
+                            : reward.discountMode === 'PERCENTAGE'
+                              ? `-${Number(reward.discountAmount || 0)}%`
+                              : `-${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)}`;
+                          const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
+                          const valueDescription = reward.type === 'SERVICIO'
+                            ? (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')
+                            : reward.discountMode === 'PERCENTAGE'
+                              ? `${Number(reward.discountAmount || 0)}% de descuento`
+                              : `${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)} de descuento`;
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedCoupon(null);
+                                } else {
+                                  setSelectedCoupon(r);
+                                  setPayWithPoints(false);
+                                }
+                              }}
+                              className="relative w-full text-left transition-transform active:scale-[0.99]"
+                            >
+                              <div
+                                className="bg-white rounded-2xl overflow-hidden shadow-md flex"
+                                style={{
+                                  minHeight: 110,
+                                  outline: isSelected ? `2px solid ${stubColor}` : 'none',
+                                  outlineOffset: isSelected ? 2 : 0,
+                                }}
+                              >
+                                <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
+                                  <span className="text-white font-black leading-tight text-center break-all w-full px-2" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
+                                    {stubLabel}
+                                  </span>
+                                  <span className="text-white/70 text-[9px] uppercase tracking-wider">
+                                    {isGift ? 'regalo' : 'tuyo'}
+                                  </span>
+                                  <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                                  <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                                </div>
+                                <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                                  {Array.from({ length: 9 }).map((_, i) => (
+                                    <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                                  ))}
+                                </div>
+                                <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+                                  <div>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                                        {reward.name}
+                                      </p>
+                                      {isSelected && (
+                                        <span className="text-[10px] font-bold bg-teal-50 text-[#008080] px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider">
+                                          Aplicado
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{valueDescription}</p>
+                                    {r.expiresAt && (
+                                      <p className="text-[11px] text-gray-400 mt-1">
+                                        Vence {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-end mt-2">
+                                    <span
+                                      className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white"
+                                      style={{ backgroundColor: isSelected ? '#9ca3af' : stubColor, letterSpacing: '0.05em' }}
+                                    >
+                                      {isSelected ? 'QUITAR' : 'APLICAR'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Seccion B: Canjea con puntos */}
+                  {applicablePromotions.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                        Canjea con puntos
+                      </p>
+                      <div className="space-y-3">
+                        {applicablePromotions.map((promo) => {
+                          const points = promo.pointsRequired ?? 0;
+                          const canAfford = points > 0 && myPointsHere >= points;
+                          const missing = Math.max(0, points - myPointsHere);
+                          const isTwoForOne = promo.type === 'TWO_FOR_ONE';
+                          const isFreeService = promo.type === 'SERVICIO';
+                          const stubColor = isTwoForOne ? '#7c3aed' : TEAL;
+                          const subLabel = isTwoForOne ? '2×1' : isFreeService ? 'Servicio gratis' : (promo.discountMode === 'PERCENTAGE' ? `${Number(promo.discountAmount || 0)}% off` : `${formatCurrency(Number(promo.discountAmount || 0), bizCurrency)} menos`);
+                          const promoSvcIds = promo.serviceIds || [];
+                          const promoServices = promo.type === 'SERVICIO' && promo.service?.id
+                            ? services.filter((s) => s.id === promo.service!.id)
+                            : services.filter((s) => promoSvcIds.includes(s.id));
+                          const endDate = promo.validUntil
+                            ? new Date(promo.validUntil).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+                            : null;
+                          const isRedeeming = redeemRewardMutation.isPending && (redeemRewardMutation.variables as any)?.rewardId === promo.id;
+
+                          return (
+                            <div
+                              key={promo.id}
+                              className={`relative w-full ${canAfford ? '' : 'opacity-60'}`}
+                            >
+                              <div
+                                className="bg-white rounded-2xl overflow-hidden shadow-md flex"
+                                style={{ minHeight: 110 }}
+                              >
+                                <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
+                                  <span className="text-white font-black leading-tight text-center w-full px-1" style={{ fontSize: points >= 1000 ? '0.95rem' : '1.05rem' }}>
+                                    {points.toLocaleString()}
+                                  </span>
+                                  <span className="text-white/70 text-[9px] uppercase tracking-wider">
+                                    pts
+                                  </span>
+                                  <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                                  <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                                </div>
+                                <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                                  {Array.from({ length: 9 }).map((_, i) => (
+                                    <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                                  ))}
+                                </div>
+                                <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+                                  <div>
+                                    <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                                      {promo.name}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                                      {promo.description || subLabel}
+                                    </p>
+                                    {promoServices.length > 0 && (
+                                      <p className="text-[11px] text-gray-400 mt-1 truncate">
+                                        Aplica a: {promoServices.map((s) => s.name).join(', ')}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between mt-2 gap-2">
+                                    {endDate ? (
+                                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0" style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}>
+                                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span className="text-[10px] font-semibold whitespace-nowrap">Vence {endDate}</span>
+                                      </div>
+                                    ) : <span />}
+                                    {canAfford ? (
+                                      <button
+                                        type="button"
+                                        disabled={isRedeeming}
+                                        onClick={() => {
+                                          setRedeemError(null);
+                                          redeemRewardMutation.mutate({ rewardId: promo.id });
+                                        }}
+                                        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white disabled:opacity-60"
+                                        style={{ backgroundColor: stubColor, letterSpacing: '0.05em' }}
+                                      >
+                                        {isRedeeming ? 'CANJEANDO…' : 'CANJEAR'}
+                                      </button>
+                                    ) : (
+                                      <span className="flex-shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide bg-gray-100 text-gray-500 uppercase">
+                                        Te faltan {missing.toLocaleString()} pts
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mensaje cuando no hay cupones de ningun tipo */}
+                  {userApplicableCoupons.length === 0 && applicablePromotions.length === 0 && (
+                    <div className="text-center py-8 text-gray-400 text-sm">
+                      No hay cupones disponibles para los servicios elegidos.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2628,68 +2885,32 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Referral code input (from 2x1 promotions) */}
-                  {/* Applicable coupons — auto-detected */}
-                  {(() => {
-                    const applicableCoupons = userCoupons.filter((r: any) => {
-                      const reward = r.reward;
-                      if (!reward) return false;
-                      if (reward.type === 'DESCUENTO') return true;
-                      if (reward.type === 'SERVICIO' && reward.service?.id) return selectedServiceIds.includes(reward.service.id);
-                      return false;
-                    });
-
-                    if (applicableCoupons.length === 0 || selectedPromotion || payWithPoints) return null;
-
-                    return (
-                      <div className="border border-[#008080]/30 bg-teal-50/50 rounded-xl p-4 mb-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-                          </svg>
-                          <p className="text-sm font-semibold text-[#008080]">
-                            {selectedCoupon ? 'Cupón aplicado' : `Tienes ${applicableCoupons.length} cupón${applicableCoupons.length !== 1 ? 'es' : ''} disponible${applicableCoupons.length !== 1 ? 's' : ''}`}
+                  {/* Cupon aplicado: banner readonly (la seleccion se hace en
+                      el step "Cupones" anterior, este es solo confirmacion). */}
+                  {selectedCoupon && (
+                    <div className="border border-[#008080]/30 bg-teal-50/50 rounded-xl p-3 mb-4 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-[#008080] flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                      </svg>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-[#008080] truncate">
+                          Cupón aplicado: {selectedCoupon.reward?.name}
+                        </p>
+                        {selectedCoupon.code && (
+                          <p className="text-[11px] text-[#008080]/80">
+                            Código: <span className="font-mono">{selectedCoupon.code}</span>
                           </p>
-                        </div>
-                        <div className="space-y-2">
-                          {applicableCoupons.map((r: any) => {
-                            const reward = r.reward;
-                            const isSelected = selectedCoupon?.id === r.id;
-                            const label = reward?.type === 'DESCUENTO'
-                              ? (reward.discountMode === 'PERCENTAGE' ? `${Number(reward.discountAmount)}% de descuento` : `${formatCurrency(Number(reward.discountAmount), bizCurrency)} de descuento`)
-                              : (reward?.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis');
-
-                            return (
-                              <div
-                                key={r.id}
-                                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                                  isSelected ? 'border-[#008080] bg-white' : 'border-gray-200 bg-white'
-                                }`}
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <p className={`text-sm font-medium ${isSelected ? 'text-[#008080]' : 'text-gray-900'}`}>{reward?.name}</p>
-                                  <p className="text-[11px] text-gray-500">{label}</p>
-                                  {isSelected && (
-                                    <p className="text-[11px] text-[#008080] font-medium mt-0.5">Código: {r.code}</p>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => { setSelectedCoupon(isSelected ? null : r); if (!isSelected) { setSelectedPromotion(null); setPayWithPoints(false); } }}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
-                                    isSelected
-                                      ? 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                      : 'bg-[#008080] text-white hover:bg-[#006666]'
-                                  }`}
-                                >
-                                  {isSelected ? 'Quitar' : 'Canjear'}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        )}
                       </div>
-                    );
-                  })()}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCoupon(null)}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  )}
 
                   {/* Pay with points option */}
                   {(() => {
@@ -2769,9 +2990,12 @@ export default function BusinessDetailPage() {
 
             if (bookingStep === 'service') {
               disabled = selectedServiceIds.length === 0;
-              // Si hay promociones que aplican a estos servicios, mostramos
-              // step "Promociones" antes de seguir al empleado. Sino, salto.
-              onClick = () => setBookingStep(applicablePromotions.length > 0 ? 'promotion' : 'employee');
+              // Si hay cupones del catalogo o cupones propios que aplican a
+              // los servicios, mostramos step "Cupones" antes de seguir al
+              // empleado. Sino, salto.
+              onClick = () => setBookingStep(
+                (applicablePromotions.length > 0 || userApplicableCoupons.length > 0) ? 'promotion' : 'employee',
+              );
             } else if (bookingStep === 'promotion') {
               // Opcional: se puede continuar sin seleccionar cupon.
               label = selectedPromotion ? 'Continuar con cupón' : 'Continuar sin cupón';
