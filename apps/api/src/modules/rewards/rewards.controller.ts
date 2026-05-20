@@ -108,6 +108,19 @@ export class RewardsController {
     );
   }
 
+  // Retira un cupón emitido (RewardRedemption). Solo si NO está USED.
+  // Si fue canje con puntos, devuelve los puntos al cliente. Si fue regalo,
+  // simplemente se elimina. Audit logueado.
+  @Delete('redemptions/:id')
+  @RequirePermissions('rewards.delete')
+  removeRedemption(@Request() req: any, @Param('id') id: string) {
+    return this.rewardsService.removeRedemption(
+      req.user.tenantId,
+      id,
+      req.user.userId,
+    );
+  }
+
   // Historial completo de cupones del tenant (RewardRedemptions) con filtros
   // para el dashboard de admin: status, origen (regalo vs canje), rangos de
   // fecha (creacion / expiracion), cliente, reward, y busqueda libre.

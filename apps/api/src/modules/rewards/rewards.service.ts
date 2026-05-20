@@ -317,6 +317,75 @@ export class RewardsService {
     return { data: redemption };
   }
 
+  // Retira/elimina un RewardRedemption emitido. Reglas:
+  // - status === 'USED' -> rechazado (el cliente ya consumio el cupon).
+  // - Si fue canje por puntos (pointsSpent > 0), devolvemos esos puntos al
+  //   loyalty_points del cliente para que la operacion sea reversible.
+  // - Si fue regalo (pointsSpent === 0), simplemente se elimina.
+  // - Si el reward tenia timesRedeemed > 0 derivado de este redemption, lo
+  //   decrementamos para que no afecte maxRedemptions.
+  // - Audit log antes de borrar (mantiene trazabilidad aunque la fila se vaya).
+  async removeRedemption(
+    tenantId: string,
+    redemptionId: string,
+    userId: string,
+  ) {
+    const redemption = await this.prisma.rewardRedemption.findFirst({
+      where: { id: redemptionId, tenantId },
+      include: {
+        reward: { select: { id: true, name: true } },
+        client: { select: { id: true, firstName: true, lastName: true, loyaltyPoints: true } },
+      },
+    });
+    if (!redemption) throw new NotFoundException('Cupón no encontrado');
+    if (redemption.status === 'USED') {
+      throw new BadRequestException(
+        'No se puede eliminar un cupón que ya fue usado por el cliente',
+      );
+    }
+
+    // Audit ANTES del delete para que el snapshot quede aunque la fila se vaya
+    await this.audit.log({
+      tenantId,
+      userId,
+      action: 'DELETE',
+      entityType: 'RewardRedemption',
+      entityId: redemption.id,
+      newValues: {
+        code: redemption.code,
+        reward: redemption.reward.name,
+        client: `${redemption.client.firstName} ${redemption.client.lastName}`,
+        pointsSpent: redemption.pointsSpent,
+        status: redemption.status,
+        refunded: redemption.pointsSpent > 0,
+      },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      if (redemption.pointsSpent > 0) {
+        await tx.client.update({
+          where: { id: redemption.client.id },
+          data: { loyaltyPoints: { increment: redemption.pointsSpent } },
+        });
+      }
+      // Revertir contador de canjes del reward (si llego a contarse)
+      await tx.reward.update({
+        where: { id: redemption.reward.id },
+        data: { timesRedeemed: { decrement: 1 } },
+      }).catch(() => {
+        // Si timesRedeemed ya esta en 0 algunos DBs fallan; ignorable.
+      });
+      await tx.rewardRedemption.delete({ where: { id: redemption.id } });
+    });
+
+    return {
+      data: {
+        id: redemption.id,
+        refunded: redemption.pointsSpent > 0 ? redemption.pointsSpent : 0,
+      },
+    };
+  }
+
   // Listado de cupones (RewardRedemption) del tenant con filtros para el
   // dashboard de admin. Distingue origen (gift vs canje), status, y permite
   // filtrar por fecha de expiracion o de creacion.

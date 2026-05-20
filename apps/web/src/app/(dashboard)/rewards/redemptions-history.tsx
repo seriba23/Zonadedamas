@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { usePermissions } from '@/lib/hooks/use-permissions';
 
 interface Redemption {
   id: string;
@@ -108,8 +109,28 @@ function SourceBadge({ pointsSpent }: { pointsSpent: number }) {
 }
 
 export function RedemptionsHistory() {
+  const { hasPermission } = usePermissions();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [page, setPage] = useState(1);
+  const [confirmRemove, setConfirmRemove] = useState<Redemption | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const canRemove = hasPermission('rewards.delete');
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/rewards/redemptions/${id}`),
+    onSuccess: () => {
+      setConfirmRemove(null);
+      setRemoveError(null);
+      queryClient.invalidateQueries({ queryKey: ['rewards-redemptions'] });
+      queryClient.invalidateQueries({ queryKey: ['rewards'] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'No se pudo eliminar el cupón';
+      setRemoveError(typeof msg === 'string' ? msg : 'No se pudo eliminar el cupón');
+    },
+  });
 
   const queryString = (() => {
     const params = new URLSearchParams();
@@ -269,13 +290,14 @@ export function RedemptionsHistory() {
                 <Th>Creado</Th>
                 <Th>Vence</Th>
                 <Th>Usado</Th>
+                {canRemove && <Th>Acciones</Th>}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: canRemove ? 9 : 8 }).map((_, j) => (
                       <td key={j} className="px-3 py-3">
                         <div className="h-3 bg-gray-100 rounded animate-pulse" />
                       </td>
@@ -284,7 +306,7 @@ export function RedemptionsHistory() {
                 ))
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-12 text-center text-gray-400 text-sm">
+                  <td colSpan={canRemove ? 9 : 8} className="px-3 py-12 text-center text-gray-400 text-sm">
                     {hasActiveFilters ? 'No hay cupones que coincidan con los filtros.' : 'Aún no se han emitido cupones.'}
                   </td>
                 </tr>
@@ -334,12 +356,106 @@ export function RedemptionsHistory() {
                         ? new Date(r.usedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
                         : '—'}
                     </td>
+                    {canRemove && (
+                      <td className="px-3 py-3">
+                        {r.status === 'USED' ? (
+                          <span className="text-[10px] text-gray-400 italic">Ya usado</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRemoveError(null);
+                              setConfirmRemove(r);
+                            }}
+                            className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline whitespace-nowrap"
+                          >
+                            Retirar
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Modal de confirmación: retirar/eliminar cupón */}
+        {confirmRemove && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => !removeMutation.isPending && setConfirmRemove(null)}
+          >
+            <div
+              className="bg-white rounded-2xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3 bg-red-50">
+                <svg className="w-7 h-7 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+                ¿Retirar este cupón?
+              </h3>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                <span className="font-semibold">{confirmRemove.reward.name}</span>
+                <br />
+                Cliente: {confirmRemove.client.firstName} {confirmRemove.client.lastName}
+                <br />
+                Código: <span className="font-mono">{confirmRemove.code}</span>
+              </p>
+
+              {confirmRemove.pointsSpent > 0 ? (
+                <div className="rounded-xl p-3 mb-4 bg-teal-50 border border-teal-200">
+                  <p className="text-xs text-[#006666] text-center">
+                    <span className="font-semibold">Reembolso automático:</span> se devolverán{' '}
+                    <span className="font-bold">{confirmRemove.pointsSpent.toLocaleString()} pts</span>{' '}
+                    al saldo del cliente.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl p-3 mb-4 bg-purple-50 border border-purple-200">
+                  <p className="text-xs text-purple-700 text-center">
+                    Este cupón fue un regalo del negocio. Al retirarlo, simplemente desaparece de los cupones del cliente.
+                  </p>
+                </div>
+              )}
+
+              <div className="rounded-xl p-3 mb-4 bg-amber-50 border border-amber-200">
+                <p className="text-[11px] text-amber-800 text-center">
+                  Esta acción no se puede deshacer. Sí queda registro en el audit log.
+                </p>
+              </div>
+
+              {removeError && (
+                <div className="rounded-xl p-3 mb-3 bg-red-50 border border-red-200">
+                  <p className="text-xs text-red-700 text-center">{removeError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={removeMutation.isPending}
+                  onClick={() => setConfirmRemove(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={removeMutation.isPending}
+                  onClick={() => removeMutation.mutate(confirmRemove.id)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
+                >
+                  {removeMutation.isPending ? 'Retirando…' : 'Retirar cupón'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Paginación */}
         {meta && meta.totalPages > 1 && (
