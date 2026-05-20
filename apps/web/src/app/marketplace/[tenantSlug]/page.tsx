@@ -600,6 +600,16 @@ export default function BusinessDetailPage() {
   // Estado de feedback al canjear puntos por cupon dentro del step "Cupones"
   const [redeemFeedback, setRedeemFeedback] = useState<{ name: string; code: string } | null>(null);
   const [redeemError, setRedeemError] = useState<string | null>(null);
+  // Modal de confirmacion antes de canjear (evita canjes accidentales).
+  // `applies` indica si el cupon aplica a la cita actual o queda guardado
+  // para una proxima reserva.
+  const [redeemConfirm, setRedeemConfirm] = useState<{
+    rewardId: string;
+    name: string;
+    points: number;
+    applies: boolean;
+    valueLabel: string;
+  } | null>(null);
 
   // Limpiar feedback al salir del step "Cupones" o al cambiar servicios
   useEffect(() => {
@@ -789,6 +799,11 @@ export default function BusinessDetailPage() {
   type AnnotatedReward = BizPromotion & { appliesToSelection: boolean };
   const annotatedPromotions: AnnotatedReward[] = bizPromotions
     .filter((p) => !userActiveRewardIds.has(p.id))
+    // Rewards sin pointsRequired valido (null o <= 0) no son canjeables por
+    // puntos — generalmente vienen de la migracion vieja de promotions sin
+    // configurar. Los escondemos del catalogo: el admin debe asignar costo
+    // en /dashboard/rewards para que aparezcan. Evita el bug "Te faltan 0 pts".
+    .filter((p) => typeof p.pointsRequired === 'number' && p.pointsRequired > 0)
     .map((p) => ({ ...p, appliesToSelection: rewardAppliesToSelection(p) }))
     .sort((a, b) => {
       // Los aplicables van primero; dentro de cada grupo, ordenamos por
@@ -2078,14 +2093,32 @@ export default function BusinessDetailPage() {
                                   )}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{valueDescription}</p>
+                                {/* Origen del cupon: regalo del negocio o canje propio */}
+                                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                  {isGift ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700">
+                                      🎁 Regalo
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                      style={{ backgroundColor: TEAL_LIGHT, color: TEAL_DARK }}
+                                    >
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Canjeaste {Number(r.pointsSpent || 0).toLocaleString()} pts
+                                    </span>
+                                  )}
+                                  {r.expiresAt && (
+                                    <span className="text-[10px] text-gray-400">
+                                      Vence {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                                    </span>
+                                  )}
+                                </div>
                                 {!applies && reward.type === 'SERVICIO' && reward.service?.name && (
                                   <p className="text-[11px] text-gray-400 mt-1 truncate">
                                     Solo para: {reward.service.name}
-                                  </p>
-                                )}
-                                {r.expiresAt && (
-                                  <p className="text-[11px] text-gray-400 mt-1">
-                                    Vence {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                                   </p>
                                 )}
                               </div>
@@ -2154,7 +2187,24 @@ export default function BusinessDetailPage() {
                       const isTwoForOne = promo.type === 'TWO_FOR_ONE';
                       const isFreeService = promo.type === 'SERVICIO';
                       const stubColor = isTwoForOne ? '#7c3aed' : TEAL;
-                      const subLabel = isTwoForOne ? '2×1' : isFreeService ? 'Servicio gratis' : (promo.discountMode === 'PERCENTAGE' ? `${Number(promo.discountAmount || 0)}% off` : `${formatCurrency(Number(promo.discountAmount || 0), bizCurrency)} menos`);
+                      // Stub muestra el VALOR del cupon (lo que da). El costo
+                      // en puntos va abajo como pill destacada (siempre
+                      // visible, independiente del stub).
+                      const stubLabel = isFreeService
+                        ? 'GRATIS'
+                        : isTwoForOne
+                          ? '2×1'
+                          : promo.discountMode === 'PERCENTAGE'
+                            ? `-${Number(promo.discountAmount || 0)}%`
+                            : `-${formatCurrency(Number(promo.discountAmount || 0), bizCurrency)}`;
+                      const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
+                      const valueDescription = isFreeService
+                        ? (promo.service?.name ? `${promo.service.name} gratis` : 'Servicio gratis')
+                        : isTwoForOne
+                          ? 'Paga uno y regala el mismo servicio a un amigo gratis'
+                          : promo.discountMode === 'PERCENTAGE'
+                            ? `${Number(promo.discountAmount || 0)}% de descuento`
+                            : `${formatCurrency(Number(promo.discountAmount || 0), bizCurrency)} de descuento`;
                       const promoSvcIds = promo.serviceIds || [];
                       const promoServices = promo.type === 'SERVICIO' && promo.service?.id
                         ? services.filter((s) => s.id === promo.service!.id)
@@ -2166,14 +2216,16 @@ export default function BusinessDetailPage() {
                       return (
                         <div
                           key={promo.id}
-                          className={`relative w-full ${applies && canAfford ? '' : 'opacity-60'}`}
+                          className={`relative w-full ${applies && canAfford ? '' : 'opacity-70'}`}
                         >
-                          <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 110 }}>
+                          <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 120 }}>
                             <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
-                              <span className="text-white font-black leading-tight text-center w-full px-1" style={{ fontSize: points >= 1000 ? '0.95rem' : '1.05rem' }}>
-                                {points.toLocaleString()}
+                              <span className="text-white font-black leading-tight text-center break-all w-full px-2" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
+                                {stubLabel}
                               </span>
-                              <span className="text-white/70 text-[9px] uppercase tracking-wider">pts</span>
+                              <span className="text-white/70 text-[9px] uppercase tracking-wider">
+                                {isTwoForOne ? 'regalo' : 'descuento'}
+                              </span>
                               <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
                               <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
                             </div>
@@ -2188,30 +2240,45 @@ export default function BusinessDetailPage() {
                                   {promo.name}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                  {promo.description || subLabel}
+                                  {promo.description || valueDescription}
                                 </p>
+                                {/* Costo en puntos siempre visible */}
+                                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                    style={{ backgroundColor: TEAL_LIGHT, color: TEAL_DARK }}
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {points.toLocaleString()} pts
+                                  </span>
+                                  {endDate && (
+                                    <span className="text-[10px] text-gray-400">
+                                      Vence {endDate}
+                                    </span>
+                                  )}
+                                </div>
                                 {promoServices.length > 0 && (
                                   <p className="text-[11px] text-gray-400 mt-1 truncate">
                                     {applies ? 'Aplica a' : 'Solo para'}: {promoServices.map((s) => s.name).join(', ')}
                                   </p>
                                 )}
                               </div>
-                              <div className="flex items-center justify-between mt-2 gap-2">
-                                {endDate ? (
-                                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0" style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}>
-                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span className="text-[10px] font-semibold whitespace-nowrap">Vence {endDate}</span>
-                                  </div>
-                                ) : <span />}
+                              <div className="flex items-center justify-end mt-2">
                                 {canAfford ? (
                                   <button
                                     type="button"
                                     disabled={isRedeeming}
                                     onClick={() => {
                                       setRedeemError(null);
-                                      redeemRewardMutation.mutate({ rewardId: promo.id });
+                                      setRedeemConfirm({
+                                        rewardId: promo.id,
+                                        name: promo.name,
+                                        points,
+                                        applies,
+                                        valueLabel: valueDescription,
+                                      });
                                     }}
                                     className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white disabled:opacity-60"
                                     style={{ backgroundColor: stubColor, letterSpacing: '0.05em' }}
@@ -2262,6 +2329,80 @@ export default function BusinessDetailPage() {
                   {annotatedUserCoupons.length === 0 && annotatedPromotions.length === 0 && (
                     <div className="text-center py-8 text-gray-400 text-sm">
                       Este negocio aún no tiene cupones.
+                    </div>
+                  )}
+
+                  {/* Modal de confirmacion antes de canjear (catalogo).
+                      Aviso distinto si el cupon NO aplica a la cita actual:
+                      en ese caso queda guardado para una proxima reserva. */}
+                  {redeemConfirm && (
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                      onClick={() => setRedeemConfirm(null)}
+                    >
+                      <div
+                        className="bg-white rounded-2xl p-6 max-w-sm w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: TEAL_LIGHT }}>
+                          <svg className="w-8 h-8" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+                          ¿Canjear este cupón?
+                        </h3>
+                        <p className="text-sm text-gray-600 text-center mb-4">
+                          <span className="font-semibold">{redeemConfirm.name}</span>
+                          <br />
+                          {redeemConfirm.valueLabel}
+                        </p>
+                        <div className="rounded-xl p-3 mb-4" style={{ backgroundColor: TEAL_LIGHT }}>
+                          <p className="text-xs text-center" style={{ color: TEAL_DARK }}>
+                            Se descontarán de tu saldo:
+                          </p>
+                          <p className="text-2xl font-bold text-center" style={{ color: TEAL_DARK }}>
+                            {redeemConfirm.points.toLocaleString()} pts
+                          </p>
+                          <p className="text-[11px] text-center mt-0.5" style={{ color: TEAL_DARK }}>
+                            Saldo actual: {myPointsHere.toLocaleString()} pts
+                          </p>
+                        </div>
+                        {!redeemConfirm.applies && (
+                          <div className="rounded-xl p-3 mb-4 bg-amber-50 border border-amber-200">
+                            <p className="text-xs text-amber-800 text-center">
+                              <span className="font-semibold">Aviso:</span> Este cupón no aplica a los servicios que elegiste. Quedará guardado en <span className="font-semibold">"Tus cupones"</span> para una próxima reserva.
+                            </p>
+                          </div>
+                        )}
+                        {redeemConfirm.applies && (
+                          <p className="text-xs text-gray-500 text-center mb-4">
+                            Se aplicará automáticamente a esta cita.
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRedeemConfirm(null)}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={redeemRewardMutation.isPending}
+                            onClick={() => {
+                              const id = redeemConfirm.rewardId;
+                              setRedeemConfirm(null);
+                              redeemRewardMutation.mutate({ rewardId: id });
+                            }}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                            style={{ backgroundColor: TEAL }}
+                          >
+                            {redeemRewardMutation.isPending ? 'Canjeando…' : 'Canjear'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
