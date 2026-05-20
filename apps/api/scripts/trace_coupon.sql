@@ -22,7 +22,7 @@ SELECT
   ua.email           AS performed_by_email,
   ua.first_name      AS performed_by_first_name,
   ua.last_name       AS performed_by_last_name,
-  al.new_values      AS audit_payload,
+  al.after_data      AS audit_payload,
   al.created_at      AS audit_created_at
 FROM reward_redemptions rr
 JOIN rewards r ON r.id = rr.reward_id
