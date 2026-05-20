@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -29,7 +30,12 @@ export class CreateRewardDto {
 
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  serviceId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  serviceIds?: string[];
 
   @IsOptional()
   @IsNumber()

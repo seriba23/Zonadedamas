@@ -83,6 +83,11 @@ export class RewardsService {
       }
     }
 
+    // Unificacion serviceId / serviceIds:
+    //  - SERVICIO con un solo servicio se mantiene en serviceId (compat).
+    //  - SERVICIO con varios (o vacio) y DESCUENTO usan serviceIds (JSON).
+    const serviceIdsArr = Array.isArray(dto.serviceIds) ? dto.serviceIds : [];
+    const useSingularFK = dto.type === 'SERVICIO' && !!dto.serviceId && serviceIdsArr.length === 0;
     const reward = await this.prisma.reward.create({
       data: {
         tenantId,
@@ -90,7 +95,8 @@ export class RewardsService {
         description: dto.description,
         type: dto.type,
         pointsRequired: dto.pointsRequired,
-        serviceId: dto.type === 'SERVICIO' ? dto.serviceId : null,
+        serviceId: useSingularFK ? dto.serviceId : null,
+        serviceIds: serviceIdsArr,
         discountAmount:
           dto.type === 'DESCUENTO' ? dto.discountAmount : null,
         discountMode: dto.type === 'DESCUENTO' ? dto.discountMode : null,
@@ -143,6 +149,9 @@ export class RewardsService {
           pointsRequired: dto.pointsRequired,
         }),
         ...(dto.serviceId !== undefined && { serviceId: dto.serviceId }),
+        ...(dto.serviceIds !== undefined && {
+          serviceIds: Array.isArray(dto.serviceIds) ? dto.serviceIds : [],
+        }),
         ...(dto.discountAmount !== undefined && {
           discountAmount: dto.discountAmount,
         }),

@@ -2179,6 +2179,7 @@ export class MarketplaceService {
             discountAmount: true,
             discountMode: true,
             serviceId: true,
+            serviceIds: true,
             service: { select: { id: true, name: true, price: true } },
           },
         },

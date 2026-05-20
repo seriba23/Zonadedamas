@@ -775,20 +775,27 @@ export default function BusinessDetailPage() {
 
   // Helper: dado un reward (o reward dentro de un redemption) y los servicios
   // elegidos, indica si aplica al booking actual.
-  // - SERVICIO: aplica si service.id (o serviceId singular) esta entre los
-  //   servicios elegidos.
-  // - DESCUENTO/TWO_FOR_ONE: aplica si serviceIds tiene IDs explicitos que
-  //   matchean. serviceIds vacio = "no configurado" = NO aplica (regla
-  //   intencional: no queremos cupones "globales" sin scope).
+  // Reglas:
+  // - Si serviceIds (plural) tiene IDs explicitos: aplica si alguno matchea
+  //   los servicios elegidos.
+  // - Si tipo SERVICIO y solo hay serviceId (singular): aplica si ese ID esta
+  //   en los servicios elegidos.
+  // - Si serviceIds vacio Y no hay serviceId singular: el cupon esta marcado
+  //   como "todos los servicios", aplica a cualquier seleccion.
   const rewardAppliesToSelection = (reward: any): boolean => {
     if (!reward || selectedServiceIds.length === 0) return false;
-    if (reward.type === 'SERVICIO') {
-      const svcId = reward.service?.id || reward.serviceId;
-      return !!svcId && selectedServiceIds.includes(svcId);
+    const idsPlural: string[] = Array.isArray(reward.serviceIds) ? reward.serviceIds : [];
+    const idSingular: string | undefined = reward.service?.id || reward.serviceId || undefined;
+    const allIds = new Set<string>(idsPlural.filter(Boolean));
+    if (idSingular) allIds.add(idSingular);
+    if (allIds.size === 0) {
+      // Marcado como "aplica a todos"
+      return true;
     }
-    const ids: string[] = Array.isArray(reward.serviceIds) ? reward.serviceIds : [];
-    if (ids.length === 0) return false;
-    return ids.some((id) => selectedServiceIds.includes(id));
+    for (const id of allIds) {
+      if (selectedServiceIds.includes(id)) return true;
+    }
+    return false;
   };
 
   // Catalogo de rewards del negocio. Mostramos TODOS (no filtramos por
@@ -828,11 +835,9 @@ export default function BusinessDetailPage() {
     })
     .map((r: any) => {
       const reward = r.reward;
-      // DESCUENTO siempre aplica (no ata a servicios especificos); SERVICIO
-      // depende de los servicios elegidos.
-      const applies = reward.type === 'DESCUENTO'
-        ? selectedServiceIds.length > 0
-        : rewardAppliesToSelection(reward);
+      // Usamos el mismo helper para todos los tipos: respeta serviceIds y
+      // serviceId; vacio = aplica a todos los servicios.
+      const applies = rewardAppliesToSelection(reward);
       return { ...r, appliesToSelection: applies };
     })
     .sort((a: any, b: any) => {

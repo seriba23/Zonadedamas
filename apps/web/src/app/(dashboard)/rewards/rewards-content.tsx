@@ -14,7 +14,8 @@ interface Reward {
   description?: string;
   type: 'SERVICIO' | 'DESCUENTO';
   pointsRequired: number;
-  serviceId?: string;
+  serviceId?: string | null;
+  serviceIds?: string[] | null;
   discountAmount?: number;
   discountMode?: 'FLAT' | 'PERCENTAGE';
   isActive: boolean;
@@ -29,7 +30,7 @@ interface RewardForm {
   description: string;
   type: 'SERVICIO' | 'DESCUENTO';
   pointsRequired: number | string;
-  serviceId: string;
+  serviceIds: string[]; // multi-select; vacio = todos los servicios
   discountAmount: number | string;
   discountMode: 'FLAT' | 'PERCENTAGE';
   isActive: boolean;
@@ -48,13 +49,135 @@ const defaultForm: RewardForm = {
   description: '',
   type: 'SERVICIO',
   pointsRequired: '',
-  serviceId: '',
+  serviceIds: [],
   discountAmount: '',
   discountMode: 'PERCENTAGE',
   isActive: true,
   maxRedemptions: '',
   validUntil: '',
 };
+
+// Multi-select de servicios con buscador. Selección vacia significa "todos
+// los servicios" — se interpreta como "el cupon aplica a cualquiera del
+// catalogo del tenant".
+function ServicesMultiSelect({
+  services,
+  value,
+  onChange,
+}: {
+  services: ServiceOption[];
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const filtered = search.trim()
+    ? services.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
+    : services;
+  const selectedSet = new Set(value);
+  const selectedNames = services
+    .filter((s) => selectedSet.has(s.id))
+    .map((s) => s.name);
+
+  const toggle = (id: string) => {
+    if (selectedSet.has(id)) {
+      onChange(value.filter((v) => v !== id));
+    } else {
+      onChange([...value, id]);
+    }
+  };
+
+  const summary = value.length === 0
+    ? 'Todos los servicios'
+    : value.length === 1
+      ? selectedNames[0] || '1 servicio'
+      : `${value.length} servicios seleccionados`;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="input-field text-left flex items-center justify-between w-full"
+      >
+        <span className={value.length === 0 ? 'text-gray-500' : 'text-gray-900'}>{summary}</span>
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          {/* Backdrop para cerrar */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-hidden flex flex-col">
+            <div className="p-2 border-b border-gray-100">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar servicio…"
+                className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008080]/30"
+                autoFocus
+              />
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${value.length === 0 ? 'bg-teal-50' : ''}`}
+              >
+                <span className={value.length === 0 ? 'font-semibold text-[#008080]' : 'text-gray-700'}>
+                  Todos los servicios
+                </span>
+                {value.length === 0 && (
+                  <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                )}
+              </button>
+              {filtered.length === 0 ? (
+                <p className="px-3 py-4 text-xs text-gray-400 text-center">Sin resultados</p>
+              ) : (
+                filtered.map((svc) => {
+                  const isSel = selectedSet.has(svc.id);
+                  return (
+                    <button
+                      key={svc.id}
+                      type="button"
+                      onClick={() => toggle(svc.id)}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${isSel ? 'bg-teal-50' : ''}`}
+                    >
+                      <span className={isSel ? 'font-medium text-[#008080]' : 'text-gray-700'}>
+                        {svc.name}
+                      </span>
+                      {isSel && (
+                        <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {value.length > 0 && (
+              <div className="p-2 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[11px] text-gray-500">{value.length} seleccionado(s)</span>
+                <button
+                  type="button"
+                  onClick={() => onChange([])}
+                  className="text-[11px] text-red-600 hover:underline font-medium"
+                >
+                  Limpiar
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   const { hasPermission } = usePermissions();
@@ -148,12 +271,21 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
 
   function openEdit(reward: Reward) {
     setEditingReward(reward);
+    // Hidrata el multi-select desde cualquiera de los dos campos del modelo
+    // (serviceId singular para SERVICIO o serviceIds array para los demas).
+    const ids: string[] = [];
+    if (reward.serviceId) ids.push(reward.serviceId);
+    if (Array.isArray(reward.serviceIds)) {
+      for (const id of reward.serviceIds) {
+        if (!ids.includes(id)) ids.push(id);
+      }
+    }
     setForm({
       name: reward.name,
       description: reward.description || '',
       type: reward.type,
       pointsRequired: reward.pointsRequired,
-      serviceId: reward.serviceId || '',
+      serviceIds: ids,
       discountAmount: reward.discountAmount ?? '',
       discountMode: reward.discountMode || 'PERCENTAGE',
       isActive: reward.isActive,
@@ -192,12 +324,24 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
       validUntil: form.validUntil || null,
     };
 
+    // Unificamos serviceId / serviceIds en un solo set de servicios:
+    // - SERVICIO con 1 servicio: serviceId singular (compat con BD)
+    // - SERVICIO con varios servicios o ninguno: serviceIds array
+    // - DESCUENTO / TWO_FOR_ONE: serviceIds array siempre
+    const selectedIds = form.serviceIds.filter(Boolean);
     if (form.type === 'SERVICIO') {
-      payload.serviceId = form.serviceId || null;
+      if (selectedIds.length === 1) {
+        payload.serviceId = selectedIds[0];
+        payload.serviceIds = [];
+      } else {
+        payload.serviceId = null;
+        payload.serviceIds = selectedIds; // vacio significa "todos"
+      }
       payload.discountAmount = null;
       payload.discountMode = null;
     } else {
       payload.serviceId = null;
+      payload.serviceIds = selectedIds;
       payload.discountAmount = Number(form.discountAmount) || 0;
       payload.discountMode = form.discountMode;
     }
@@ -382,28 +526,25 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
               </div>
             </div>
 
-            {form.type === 'SERVICIO' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Servicio vinculado
-                </label>
-                <select
-                  value={form.serviceId}
-                  onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="">Cualquier servicio</option>
-                  {services.map((svc) => (
-                    <option key={svc.id} value={svc.id}>
-                      {svc.name} ({formatCurrency(svc.price)})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-400 mt-1">
-                  El servicio que el cliente recibe gratis al canjear
-                </p>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Servicios vinculados
+              </label>
+              <ServicesMultiSelect
+                services={services}
+                value={form.serviceIds}
+                onChange={(ids) => setForm((f) => ({ ...f, serviceIds: ids }))}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                {form.type === 'SERVICIO'
+                  ? form.serviceIds.length === 0
+                    ? 'Dejar vacío significa que el cupón aplica a todos los servicios del catálogo.'
+                    : form.serviceIds.length === 1
+                      ? 'El servicio que el cliente recibe gratis al canjear.'
+                      : 'El cliente podrá usar el cupón en cualquiera de los servicios seleccionados.'
+                  : 'Servicios donde el cupón se puede aplicar (vacío = todos).'}
+              </p>
+            </div>
 
             {form.type === 'DESCUENTO' && (
               <div className="grid grid-cols-3 gap-4">

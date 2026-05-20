@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -32,7 +33,12 @@ export class UpdateRewardDto {
 
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  serviceId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  serviceIds?: string[];
 
   @IsOptional()
   @IsNumber()
