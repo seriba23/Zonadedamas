@@ -71,6 +71,10 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
   const avatarUrl = user.avatarUrl ? resolveImageUrl(user.avatarUrl) : null;
 
   const handleSubmit = async () => {
+    if (!user.phone && phoneNumber && phoneNumber.length !== 10) {
+      setError('El teléfono debe tener exactamente 10 dígitos.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -100,7 +104,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
           </div>
 
           <h1 className="text-xl font-bold text-gray-900 mb-3">
-            ¡Hola{user.firstName ? `, ${user.firstName}` : ''}! Bienvenid@ a Siliba
+            ¡Hola{user.firstName ? `, ${user.firstName}` : ''}! Bienvenido a Siliba
           </h1>
 
           <p className="text-sm text-gray-500 leading-relaxed mb-8">
@@ -176,16 +180,19 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
 
         <div className="space-y-4">
 
-          {/* Phone — only if not already provided */}
+          {/* Phone — only if not already provided.
+              min-w-0 en el wrapper + flex-shrink en el select para evitar
+              que el bloque se desborde del modal en pantallas estrechas.
+              El input acepta solo 10 digitos (validacion local MX). */}
           {!user.phone && (
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Teléfono</label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 min-w-0">
                 <select
                   value={countryCode}
                   onChange={(e) => setCountryCode(e.target.value)}
-                  className="px-2 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none bg-white"
-                  style={{ '--tw-ring-color': TEAL } as any}
+                  className="px-2 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none bg-white flex-shrink-0"
+                  style={{ '--tw-ring-color': TEAL, maxWidth: 110 } as any}
                 >
                   {COUNTRY_CODES.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -196,13 +203,19 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
                 <input
                   type="tel"
                   inputMode="numeric"
+                  maxLength={10}
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                  placeholder="Número de teléfono"
-                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="10 dígitos"
+                  className="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
                   style={{ '--tw-ring-color': TEAL } as any}
                 />
               </div>
+              {phoneNumber.length > 0 && phoneNumber.length < 10 && (
+                <p className="text-[11px] text-amber-700 mt-1">
+                  El teléfono debe tener 10 dígitos.
+                </p>
+              )}
             </div>
           )}
 

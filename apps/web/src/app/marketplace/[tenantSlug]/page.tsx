@@ -1076,7 +1076,10 @@ export default function BusinessDetailPage() {
   }
 
   return (
-    <div className="min-h-screen pb-36 safe-top">
+    {/* Sin safe-top: la imagen de portada debe llegar hasta el borde superior
+        de la pantalla. El header con el boton de favoritos ya respeta la
+        safe area en su propio bloque. */}
+    <div className="min-h-screen pb-36">
       {/* Payment cancelled banner */}
       {paymentStatus === 'cancelled' && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">
@@ -1210,58 +1213,110 @@ export default function BusinessDetailPage() {
                           ).id
                         : null;
 
-                    return locsWithDist.map((loc: any) => (
-                      <div
-                        key={loc.id}
-                        className={`flex items-start gap-3 rounded-xl p-3 border transition-colors ${
-                          loc.id === nearestId
-                            ? 'border-teal-200 bg-teal-50/60'
-                            : 'border-gray-100 bg-gray-50/50'
-                        }`}
-                      >
-                        <div
-                          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                          style={{ backgroundColor: loc.id === nearestId ? '#e0f2f1' : '#f3f4f6' }}
+                    return locsWithDist.map((loc: any) => {
+                      // Click en la card (fuera del icono y telefono) abre el
+                      // wizard de reserva con esta sucursal preseleccionada.
+                      const handleCardClick = () => {
+                        if (!isAuthenticated) {
+                          router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+                          return;
+                        }
+                        setSelectedLocationId(loc.id);
+                        setSelectedServiceIds([]);
+                        setSelectedBundle(null);
+                        setSelectedCoupon(null);
+                        setSelectedEmployee(null);
+                        setAnyEmployee(false);
+                        setSelectedDate(dayjs());
+                        setSelectedSlot(null);
+                        setBookingNotes('');
+                        setBookingCart([]);
+                        setPreferredTime('');
+                        setServiceTab('servicios');
+                        setBookingStep('service');
+                      };
+
+                      // Click en el icono de pin → Google Maps con destino
+                      // la sucursal (coords o address) y origen las coords
+                      // del cliente si las tenemos.
+                      const handleMapClick = (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        const dest =
+                          loc.latitude != null && loc.longitude != null
+                            ? `${loc.latitude},${loc.longitude}`
+                            : encodeURIComponent(`${loc.name} ${loc.address || ''}`.trim());
+                        const params = new URLSearchParams({ api: '1', destination: dest });
+                        if (userGps) {
+                          params.set('origin', `${userGps.lat},${userGps.lng}`);
+                        }
+                        window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank');
+                      };
+
+                      return (
+                        <button
+                          key={loc.id}
+                          type="button"
+                          onClick={handleCardClick}
+                          className={`w-full text-left flex items-start gap-3 rounded-xl p-3 border transition-colors hover:shadow-sm ${
+                            loc.id === nearestId
+                              ? 'border-teal-200 bg-teal-50/60 hover:bg-teal-50'
+                              : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
+                          }`}
                         >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            style={{ color: loc.id === nearestId ? TEAL : '#9ca3af' }}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={2}
-                            stroke="currentColor"
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={handleMapClick}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMapClick(e as any); } }}
+                            title="Ver en Google Maps"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 cursor-pointer hover:opacity-80"
+                            style={{ backgroundColor: loc.id === nearestId ? '#e0f2f1' : '#f3f4f6' }}
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold text-gray-800">{loc.name}</span>
-                            {loc.id === nearestId && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: TEAL }}>
-                                Más cercana
-                              </span>
+                            <svg
+                              className="w-3.5 h-3.5"
+                              style={{ color: loc.id === nearestId ? TEAL : '#9ca3af' }}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={2}
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                            </svg>
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-gray-800">{loc.name}</span>
+                              {loc.id === nearestId && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: TEAL }}>
+                                  Más cercana
+                                </span>
+                              )}
+                              {loc.distKm !== null && (
+                                <span className="text-[11px] text-gray-400">
+                                  {loc.distKm < 1
+                                    ? `${Math.round(loc.distKm * 1000)} m`
+                                    : `${loc.distKm.toFixed(1)} km`}
+                                </span>
+                              )}
+                            </div>
+                            {loc.address && (
+                              <p className="text-xs text-gray-500 mt-0.5 truncate">{loc.address}</p>
                             )}
-                            {loc.distKm !== null && (
-                              <span className="text-[11px] text-gray-400">
-                                {loc.distKm < 1
-                                  ? `${Math.round(loc.distKm * 1000)} m`
-                                  : `${loc.distKm.toFixed(1)} km`}
-                              </span>
+                            {loc.phone && (
+                              <a
+                                href={`tel:${loc.phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs mt-0.5 inline-block hover:underline"
+                                style={{ color: TEAL }}
+                              >
+                                {loc.phone}
+                              </a>
                             )}
                           </div>
-                          {loc.address && (
-                            <p className="text-xs text-gray-500 mt-0.5 truncate">{loc.address}</p>
-                          )}
-                          {loc.phone && (
-                            <a href={`tel:${loc.phone}`} className="text-xs mt-0.5 block" style={{ color: TEAL }}>
-                              {loc.phone}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ));
+                        </button>
+                      );
+                    });
                   })()}
                 </div>
               </div>

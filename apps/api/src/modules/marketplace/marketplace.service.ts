@@ -2283,13 +2283,16 @@ export class MarketplaceService {
   ) {
     const tenant = await this.tenantsService.findBySlug(tenantSlug);
 
-    // Find client for this tenant
+    // Find client for this tenant. Si el usuario nunca ha hecho una cita
+    // aqui, no hay Client → no tiene puntos. El error original sonaba a
+    // "tu cuenta no existe" lo cual confunde al cliente del marketplace.
+    // Reframe del mensaje en terminos de puntos para ser util.
     const client = await this.prisma.client.findFirst({
       where: { tenantId: tenant.id, userId: marketplaceUserId },
     });
     if (!client) {
-      throw new NotFoundException(
-        'No tienes una cuenta de cliente en este negocio',
+      throw new BadRequestException(
+        `No cuentas con puntos suficientes. Agenda servicios con ${tenant.name} para ganar puntos y canjearlos por recompensas.`,
       );
     }
 
