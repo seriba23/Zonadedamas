@@ -1330,50 +1330,91 @@ export default function BusinessDetailPage() {
           </div>
         )}
 
-        {/* Rewards */}
+        {/* Cupones del negocio (catalogo). Estilo ticket consistente con
+            el step "Cupones" del booking: stub con valor (2×1/GRATIS/-%/$),
+            pill con costo en puntos, sub-label del tipo. */}
         {bizRewards.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Recompensas</h2>
-            <div className="space-y-2">
-              {bizRewards.map((reward: any) => (
-                <div key={reward.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900 truncate">{reward.name}</p>
-                      <span className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
-                        reward.type === 'SERVICIO' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        {reward.type === 'SERVICIO' ? 'Servicio' : 'Descuento'}
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Cupones</h2>
+            <div className="space-y-3">
+              {bizRewards.map((reward: any) => {
+                const points = Number(reward.pointsRequired || 0);
+                const isTwoForOne = reward.type === 'TWO_FOR_ONE';
+                const isFreeService = reward.type === 'SERVICIO';
+                const stubColor = isTwoForOne ? '#7c3aed' : TEAL;
+                const stubLabel = isTwoForOne
+                  ? '2×1'
+                  : isFreeService
+                    ? 'GRATIS'
+                    : reward.discountMode === 'PERCENTAGE'
+                      ? (Number(reward.discountAmount || 0) >= 100 ? 'GRATIS' : `-${Number(reward.discountAmount || 0)}%`)
+                      : `-${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)}`;
+                const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
+                const stubSub = isTwoForOne ? 'regalo' : isFreeService ? 'servicio' : 'descuento';
+                const valueDescription = isTwoForOne
+                  ? 'Paga uno y regala el mismo servicio a un amigo'
+                  : isFreeService
+                    ? (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')
+                    : reward.discountMode === 'PERCENTAGE'
+                      ? `${Number(reward.discountAmount || 0)}% de descuento`
+                      : `${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)} de descuento`;
+                return (
+                  <div key={reward.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex" style={{ minHeight: 110 }}>
+                    {/* Stub */}
+                    <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
+                      <span className="text-white font-black leading-tight text-center break-all w-full px-2" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
+                        {stubLabel}
                       </span>
+                      <span className="text-white/70 text-[9px] uppercase tracking-wider">{stubSub}</span>
+                      <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                      <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
                     </div>
-                    {reward.description && (
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{reward.description}</p>
-                    )}
+                    {/* Separador */}
+                    <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                      {Array.from({ length: 9 }).map((_, i) => (
+                        <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                      ))}
+                    </div>
+                    {/* Contenido */}
+                    <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{reward.description || valueDescription}</p>
+                        <div className="mt-1.5">
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                            style={{ backgroundColor: TEAL_LIGHT, color: TEAL_DARK }}
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {points.toLocaleString()} pts
+                          </span>
+                        </div>
+                      </div>
+                      {isAuthenticated && (
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => {
+                              if (confirm(`¿Canjear "${reward.name}" por ${points} puntos?`)) {
+                                redeemMutation.mutate(reward.id);
+                              }
+                            }}
+                            disabled={redeemMutation.isPending}
+                            className="px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white disabled:opacity-60"
+                            style={{ backgroundColor: stubColor, letterSpacing: '0.05em' }}
+                          >
+                            CANJEAR
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                    <span className="text-xs font-semibold" style={{ color: TEAL }}>{reward.pointsRequired} pts</span>
-                    {isAuthenticated && (
-                      <button
-                        onClick={() => {
-                          if (confirm(`¿Canjear "${reward.name}" por ${reward.pointsRequired} puntos?`)) {
-                            redeemMutation.mutate(reward.id);
-                          }
-                        }}
-                        disabled={redeemMutation.isPending}
-                        className="px-3 py-1 text-xs font-medium text-white rounded-full transition-colors"
-                        style={{ backgroundColor: TEAL }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = TEAL_DARK)}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = TEAL)}
-                      >
-                        Canjear
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {redeemMutation.isError && (
-              <div className="mt-2 p-2 rounded-lg bg-red-50 text-red-700 text-xs">
+              <div className="mt-3 p-2 rounded-lg bg-red-50 text-red-700 text-xs">
                 {(redeemMutation.error as any)?.message || 'Error al canjear'}
               </div>
             )}
@@ -3127,32 +3168,70 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Cupon aplicado: banner readonly (la seleccion se hace en
-                      el step "Cupones" anterior, este es solo confirmacion). */}
-                  {selectedCoupon && (
-                    <div className="border border-[#008080]/30 bg-teal-50/50 rounded-xl p-3 mb-4 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-[#008080] flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-                      </svg>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-[#008080] truncate">
-                          Cupón aplicado: {selectedCoupon.reward?.name}
+                  {/* Cupón aplicado: ticket compacto readonly. Mismo look que
+                      las cards del step "Cupones" — stub con el valor del
+                      cupón, contenido principal con nombre + código. */}
+                  {selectedCoupon && (() => {
+                    const reward = selectedCoupon.reward;
+                    if (!reward) return null;
+                    const isTwoForOne = reward.type === 'TWO_FOR_ONE';
+                    const isGift = (selectedCoupon.pointsSpent ?? 0) === 0;
+                    const stubColor = isTwoForOne || isGift ? '#7c3aed' : TEAL;
+                    const stubLabel = isTwoForOne
+                      ? '2×1'
+                      : reward.type === 'SERVICIO'
+                        ? 'GRATIS'
+                        : reward.discountMode === 'PERCENTAGE'
+                          ? (Number(reward.discountAmount || 0) >= 100 ? 'GRATIS' : `-${Number(reward.discountAmount || 0)}%`)
+                          : `-${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)}`;
+                    const stubFontSize = stubLabel.length <= 4 ? '1rem' : stubLabel.length <= 6 ? '0.75rem' : '0.625rem';
+                    const stubSub = isTwoForOne ? 'regalo' : reward.type === 'SERVICIO' ? 'servicio' : 'descuento';
+                    return (
+                      <div className="mb-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                          Cupón aplicado
                         </p>
-                        {selectedCoupon.code && (
-                          <p className="text-[11px] text-[#008080]/80">
-                            Código: <span className="font-mono">{selectedCoupon.code}</span>
-                          </p>
-                        )}
+                        <div
+                          className="bg-white rounded-xl overflow-hidden shadow-sm flex"
+                          style={{ minHeight: 72, outline: `2px solid ${stubColor}`, outlineOffset: 0 }}
+                        >
+                          {/* Stub izquierdo */}
+                          <div className="w-16 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
+                            <span className="text-white font-black leading-tight text-center break-all w-full px-1" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
+                              {stubLabel}
+                            </span>
+                            <span className="text-white/70 text-[8px] uppercase tracking-wider">{stubSub}</span>
+                            <div className="absolute -right-2 -top-2 w-4 h-4 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                            <div className="absolute -right-2 -bottom-2 w-4 h-4 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                          </div>
+                          {/* Separador perforado */}
+                          <div className="flex flex-col items-center justify-center w-3 flex-shrink-0 gap-[2px] py-2">
+                            {Array.from({ length: 7 }).map((_, i) => (
+                              <div key={i} className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                            ))}
+                          </div>
+                          {/* Contenido */}
+                          <div className="flex-1 py-2 pr-3 flex items-center justify-between gap-2 min-w-0">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-gray-900 truncate">{reward.name}</p>
+                              {selectedCoupon.code && (
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                  Código <span className="font-mono font-semibold" style={{ color: stubColor }}>{selectedCoupon.code}</span>
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCoupon(null)}
+                              className="text-[11px] font-medium text-gray-400 hover:text-red-600 flex-shrink-0 px-2 py-1"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCoupon(null)}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Pay with points option */}
                   {(() => {
