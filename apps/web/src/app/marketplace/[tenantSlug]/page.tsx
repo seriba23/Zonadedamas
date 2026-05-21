@@ -2904,8 +2904,24 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Date selector + Calendar + Preferred time — unified row */}
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 mb-4">
+                  {/* Hint del selector de horario — arriba para que el
+                      usuario entienda primero qué hace el input antes de
+                      verlo. Cuando ya hay hora elegida desaparece. */}
+                  {!preferredTime && (
+                    <p className="text-xs text-gray-600 mb-2 px-1 flex items-start gap-1.5">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>
+                        Pon un horario de tu preferencia y buscaremos coincidencias con la disponibilidad de tu profesional.
+                      </span>
+                    </p>
+                  )}
+
+                  {/* Date selector + Calendar + Preferred time — unified row.
+                      Hora preferida ocupa 1.4fr y se destaca en teal cuando
+                      está vacía para empujar al usuario a usarlo. */}
+                  <div className="grid grid-cols-[1fr_auto_1.4fr] items-stretch gap-2 mb-4">
                     {/* Date selector */}
                     <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-2 py-2">
                       <button
@@ -2939,35 +2955,42 @@ export default function BusinessDetailPage() {
                       </svg>
                     </button>
 
-                    {/* Preferred time */}
-                    <div className="relative flex items-center bg-white border border-gray-200 rounded-xl px-2 py-2">
-                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      <input
-                        type="time"
-                        value={preferredTime}
-                        onChange={(e) => setPreferredTime(e.target.value)}
-                        placeholder="Hora preferida"
-                        className="flex-1 text-sm bg-transparent focus:outline-none min-w-0 text-gray-700"
-                      />
+                    {/* Preferred time — destacado en teal cuando vacío para
+                        animar al usuario a usarlo (es la palanca clave para
+                        encontrar el mejor horario). */}
+                    <label
+                      className="relative flex items-center bg-white rounded-xl px-3 py-2 cursor-pointer transition-colors"
+                      style={{
+                        border: preferredTime ? `2px solid ${TEAL}` : `2px solid ${TEAL}`,
+                        backgroundColor: preferredTime ? '#fff' : TEAL_LIGHT,
+                      }}
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0 mr-2" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-[10px] uppercase tracking-wider font-bold" style={{ color: TEAL_DARK }}>
+                          Hora preferida
+                        </span>
+                        <input
+                          type="time"
+                          value={preferredTime}
+                          onChange={(e) => setPreferredTime(e.target.value)}
+                          className="w-full text-sm bg-transparent focus:outline-none text-gray-900 font-semibold"
+                          style={{ minHeight: 18 }}
+                        />
+                      </div>
                       {preferredTime && (
-                        <button onClick={() => setPreferredTime('')} className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-1">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setPreferredTime(''); }}
+                          className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       )}
-                    </div>
+                    </label>
                   </div>
-
-                  {/* Hint para el input de hora preferida (se entiende para que es) */}
-                  {!preferredTime && (
-                    <p className="text-[11px] text-gray-500 mb-3 px-1 flex items-start gap-1.5">
-                      <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>
-                        Pon un horario de tu preferencia y buscaremos coincidencias con la disponibilidad de tu profesional.
-                      </span>
-                    </p>
-                  )}
 
                   {/* Preferred time feedback */}
                   {preferredTime && (() => {
@@ -3469,7 +3492,7 @@ export default function BusinessDetailPage() {
                         </p>
                         <div
                           className="bg-white rounded-2xl overflow-hidden shadow-md flex"
-                          style={{ minHeight: 110, outline: `2px solid ${stubColor}`, outlineOffset: 2 }}
+                          style={{ minHeight: 110 }}
                         >
                           {/* Stub izquierdo — mismas medidas que cards del step */}
                           <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
