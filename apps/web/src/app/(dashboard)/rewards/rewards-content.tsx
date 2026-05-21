@@ -897,14 +897,31 @@ function CouponAdminCard({
   onEdit: () => void;
 }) {
   const isDiscount = reward.type === 'DESCUENTO';
+  const isTwoForOne = reward.type === 'TWO_FOR_ONE';
   const active = reward.isActive;
-  const stubColor = active ? '#008080' : '#9ca3af';
+  // Morado para 2×1 (mismo look que la vista del cliente); teal por defecto;
+  // gris cuando esta inactivo.
+  const stubColor = !active ? '#9ca3af' : isTwoForOne ? '#7c3aed' : '#008080';
 
-  const valueLabel = isDiscount
-    ? (reward.discountMode === 'PERCENTAGE'
-      ? `-${Number(reward.discountAmount ?? 0)}%`
-      : `$${reward.discountAmount ?? 0}`)
-    : 'GRATIS';
+  // El stub muestra el valor del cupon (lo que el cliente recibe). "GRATIS"
+  // solo aplica a SERVICIO (servicio gratis al canjear puntos) y a
+  // DESCUENTO con 100% (cita completamente gratis). 2×1 usa su propio
+  // label "2×1" porque conceptualmente no es "gratis".
+  let valueLabel: string;
+  if (isTwoForOne) {
+    valueLabel = '2×1';
+  } else if (isDiscount) {
+    const amt = Number(reward.discountAmount ?? 0);
+    if (reward.discountMode === 'PERCENTAGE') {
+      valueLabel = amt >= 100 ? 'GRATIS' : `-${amt}%`;
+    } else {
+      valueLabel = `$${amt}`;
+    }
+  } else {
+    // SERVICIO
+    valueLabel = 'GRATIS';
+  }
+  const subLabel = isTwoForOne ? 'regalo' : isDiscount ? 'descuento' : 'servicio';
   const stubFontSize =
     valueLabel.length <= 4 ? '1.125rem' : valueLabel.length <= 6 ? '0.875rem' : '0.75rem';
 
@@ -929,7 +946,7 @@ function CouponAdminCard({
             {valueLabel}
           </span>
           <span className="text-white/70 text-[9px] uppercase tracking-wider">
-            {isDiscount ? 'descuento' : 'servicio'}
+            {subLabel}
           </span>
 
           {/* Perforaciones */}

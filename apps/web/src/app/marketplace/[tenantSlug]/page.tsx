@@ -2029,18 +2029,30 @@ export default function BusinessDetailPage() {
                       const applies = r.appliesToSelection;
                       const isSelected = selectedCoupon?.id === r.id;
                       const isGift = (r.pointsSpent ?? 0) === 0;
-                      const stubColor = isGift ? '#7c3aed' : TEAL;
-                      const stubLabel = reward.type === 'SERVICIO'
-                        ? 'GRATIS'
-                        : reward.discountMode === 'PERCENTAGE'
-                          ? `-${Number(reward.discountAmount || 0)}%`
-                          : `-${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)}`;
+                      const isTwoForOne = reward.type === 'TWO_FOR_ONE';
+                      // Morado para 2x1 o regalo del negocio; teal para canjes propios.
+                      const stubColor = isTwoForOne || isGift ? '#7c3aed' : TEAL;
+                      // El label del stub refleja el VALOR del cupon.
+                      // - 2x1: literal "2×1" (no es gratis, es 2 por uno).
+                      // - SERVICIO: "GRATIS" (regala el servicio).
+                      // - DESCUENTO 100%: "GRATIS" tambien (cita gratis efectiva).
+                      // - DESCUENTO PERCENTAGE: "-N%".
+                      // - DESCUENTO FLAT: monto formateado.
+                      const stubLabel = isTwoForOne
+                        ? '2×1'
+                        : reward.type === 'SERVICIO'
+                          ? 'GRATIS'
+                          : reward.discountMode === 'PERCENTAGE'
+                            ? (Number(reward.discountAmount || 0) >= 100 ? 'GRATIS' : `-${Number(reward.discountAmount || 0)}%`)
+                            : `-${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)}`;
                       const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
-                      const valueDescription = reward.type === 'SERVICIO'
-                        ? (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')
-                        : reward.discountMode === 'PERCENTAGE'
-                          ? `${Number(reward.discountAmount || 0)}% de descuento`
-                          : `${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)} de descuento`;
+                      const valueDescription = isTwoForOne
+                        ? 'Paga uno y regala el mismo servicio a un amigo'
+                        : reward.type === 'SERVICIO'
+                          ? (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')
+                          : reward.discountMode === 'PERCENTAGE'
+                            ? `${Number(reward.discountAmount || 0)}% de descuento`
+                            : `${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)} de descuento`;
                       // Si no aplica, solo info: sin click, sin botón.
                       const containerProps: any = applies
                         ? {
@@ -2075,7 +2087,7 @@ export default function BusinessDetailPage() {
                                 {stubLabel}
                               </span>
                               <span className="text-white/70 text-[9px] uppercase tracking-wider">
-                                {isGift ? 'regalo' : 'tuyo'}
+                                {isTwoForOne ? 'regalo' : isGift ? 'regalo' : 'tuyo'}
                               </span>
                               <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
                               <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
@@ -2229,7 +2241,7 @@ export default function BusinessDetailPage() {
                                 {stubLabel}
                               </span>
                               <span className="text-white/70 text-[9px] uppercase tracking-wider">
-                                {isTwoForOne ? 'regalo' : 'descuento'}
+                                {isTwoForOne ? 'regalo' : isFreeService ? 'servicio' : 'descuento'}
                               </span>
                               <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
                               <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
