@@ -3035,17 +3035,6 @@ export default function BusinessDetailPage() {
                         <span className="text-gray-500">Subtotal servicios</span>
                         <span className="font-medium text-gray-900">{formatCurrency(basePrice, bizCurrency)}</span>
                       </div>
-                      {promoDiscount > 0 && selectedPromotion && (
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-green-600 font-medium flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-                            </svg>
-                            Promoción: {selectedPromotion.name}
-                          </span>
-                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, bizCurrency)}</span>
-                        </div>
-                      )}
                       {bookingCart.length > 0 && (
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-500">Productos</span>
@@ -3399,12 +3388,6 @@ export default function BusinessDetailPage() {
                           <span className="text-gray-500">{formatCurrency(basePrice, bizCurrency)}</span>
                         </div>
                       )}
-                      {promoDiscount > 0 && selectedPromotion && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-green-600 font-medium">Promoción: {selectedPromotion.name}</span>
-                          <span className="text-green-600 font-medium">-{formatCurrency(promoDiscount, bizCurrency)}</span>
-                        </div>
-                      )}
                       {disc > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-green-600 font-medium">Cupón: {selectedCoupon.reward?.name}</span>
@@ -3437,16 +3420,6 @@ export default function BusinessDetailPage() {
                     <span className="font-bold text-amber-800">+{totalPointsEarned} pts</span>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Promotion applied info */}
-            {selectedPromotion && !earnedReferralCode && (
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
-                <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-                </svg>
-                <p className="text-sm text-green-700 font-medium">Promoción aplicada: {selectedPromotion.name}</p>
               </div>
             )}
 
