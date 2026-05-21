@@ -2772,16 +2772,60 @@ export default function BusinessDetailPage() {
                                 <p className="text-xs text-gray-500 mb-2 leading-snug">
                                   Contamos con varios profesionales que realizan <span className="font-semibold text-gray-700">{svc.name}</span>. Selecciona a uno de tu agrado o continúa sin elegir y te asignaremos al mejor disponible.
                                 </p>
-                                <select
-                                  value={assignedId}
-                                  onChange={(e) => setServiceEmployeeMap((m) => ({ ...m, [sid]: e.target.value }))}
-                                  className="input-field text-sm"
+                                {/* Pills de profesionales — estilo /calendar.
+                                    Primera pill = "Cualquiera" (limpia el
+                                    selector). Resto: avatar + nombre. */}
+                                <div
+                                  className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 -mx-1 px-1"
+                                  style={{ scrollbarWidth: 'thin' }}
                                 >
-                                  <option value="">Cualquier profesional disponible</option>
-                                  {canDo.map((emp) => (
-                                    <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
-                                  ))}
-                                </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => setServiceEmployeeMap((m) => {
+                                      const next = { ...m };
+                                      delete next[sid];
+                                      return next;
+                                    })}
+                                    className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                      !assignedId
+                                        ? 'bg-[#008080] text-white border-[#008080]'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <span className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+                                    Cualquiera
+                                  </button>
+                                  {canDo.map((emp) => {
+                                    const isSel = assignedId === emp.id;
+                                    return (
+                                      <button
+                                        key={emp.id}
+                                        type="button"
+                                        onClick={() => setServiceEmployeeMap((m) => ({ ...m, [sid]: emp.id }))}
+                                        className={`flex-shrink-0 inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                                          isSel
+                                            ? 'bg-[#008080] text-white border-[#008080]'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        <span
+                                          className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden text-[10px] font-bold flex-shrink-0"
+                                          style={{
+                                            backgroundColor: `${emp.color || '#008080'}25`,
+                                            color: emp.color || '#008080',
+                                          }}
+                                        >
+                                          {emp.avatarUrl ? (
+                                            <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                                          ) : (
+                                            `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`
+                                          )}
+                                        </span>
+                                        {emp.firstName}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </>
                             )}
                           </div>
