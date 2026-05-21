@@ -1,4 +1,13 @@
-import { IsArray, IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class MarketplaceServiceAssignment {
+  @IsUUID('4')
+  serviceId: string;
+
+  @IsUUID('4')
+  employeeId: string;
+}
 
 export class MarketplaceBookDto {
   @IsArray()
@@ -30,4 +39,12 @@ export class MarketplaceBookDto {
   @IsOptional()
   @IsBoolean()
   payWithPoints?: boolean;
+
+  // Multi-empleado: opcional. Si presente, cada item indica qué empleado
+  // realiza qué servicio. Se delega tal cual a AppointmentsService.create.
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MarketplaceServiceAssignment)
+  serviceAssignments?: MarketplaceServiceAssignment[];
 }

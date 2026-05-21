@@ -2660,7 +2660,10 @@ export class MarketplaceService {
       }
     }
 
-    // Delegate to AppointmentsService
+    // Delegate to AppointmentsService.
+    // Si vienen serviceAssignments (multi-empleado), las pasamos para que
+    // cada servicio quede ligado a su profesional. employeeId queda como
+    // "primario" (en general el primero del map).
     const appointment = await this.appointmentsService.create(
       {
         locationId: employee.locationId,
@@ -2670,6 +2673,7 @@ export class MarketplaceService {
         startTime: dto.startTime,
         notes: dto.notes,
         source: 'ONLINE',
+        serviceAssignments: dto.serviceAssignments,
       },
       tenant.id,
     );
