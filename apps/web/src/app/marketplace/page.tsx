@@ -325,7 +325,13 @@ export default function MarketplacePage() {
         {/* ── Header (sticky) ──
             Una sola fila compacta: search (flex-1) + rayo + ajustes +
             corazón. La categoría se elige dentro del modal de Filtros. */}
-        <div className="bg-gray-50 px-4 pt-10 pb-3 safe-top sticky top-0 z-30">
+        {/* paddingTop con max() para garantizar al menos 2.5rem sobre el
+            borde superior (en desktop env(safe-area-inset-top)=0 y la clase
+            .safe-top sobrescribia el pt-10 de Tailwind). */}
+        <div
+          className="bg-gray-50 px-4 pb-3 sticky top-0 z-30"
+          style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top))' }}
+        >
           <div className="max-w-2xl mx-auto">
             {/* Search + filters en un renglon */}
             <div className="flex items-center gap-2 mb-2.5">
