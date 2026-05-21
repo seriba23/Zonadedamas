@@ -2389,11 +2389,12 @@ export default function BusinessDetailPage() {
                           className={`relative w-full text-left transition-transform ${applies ? 'active:scale-[0.99]' : ''} ${applies ? '' : 'opacity-50'}`}
                         >
                           <div
-                            className="bg-white rounded-2xl overflow-hidden shadow-md flex"
+                            className="bg-white rounded-2xl overflow-hidden flex"
                             style={{
                               minHeight: 110,
                               outline: isSelected ? `2px solid ${stubColor}` : 'none',
                               outlineOffset: isSelected ? 2 : 0,
+                              boxShadow: '0 0 14px rgba(0, 0, 0, 0.08)',
                             }}
                           >
                             <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
@@ -2549,7 +2550,7 @@ export default function BusinessDetailPage() {
                           key={promo.id}
                           className={`relative w-full ${applies && canAfford ? '' : 'opacity-70'}`}
                         >
-                          <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 120 }}>
+                          <div className="bg-white rounded-2xl overflow-hidden flex" style={{ minHeight: 120, boxShadow: '0 0 14px rgba(0, 0, 0, 0.08)' }}>
                             <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
                               <span className="text-white font-black leading-tight text-center break-all w-full px-2" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
                                 {stubLabel}
@@ -3544,8 +3545,8 @@ export default function BusinessDetailPage() {
                           Cupón aplicado
                         </p>
                         <div
-                          className="bg-white rounded-2xl overflow-hidden shadow-md flex"
-                          style={{ minHeight: 110 }}
+                          className="bg-white rounded-2xl overflow-hidden flex"
+                          style={{ minHeight: 110, boxShadow: '0 0 14px rgba(0, 0, 0, 0.08)' }}
                         >
                           {/* Stub izquierdo — mismas medidas que cards del step */}
                           <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
