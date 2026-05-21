@@ -323,16 +323,17 @@ export default function ProfessionalsPage() {
             )}
           </div>
 
-          {/* Tabs: Negocios | Profesionales */}
-          <div className="flex border-b border-gray-200">
+          {/* Selector Negocios | Profesionales — segmentado, mismo estilo
+              que "Servicios | Paquetes" del booking. */}
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
             <button
               onClick={() => router.push('/marketplace')}
-              className="flex-1 pb-1.5 text-[13px] font-medium border-b-2 border-transparent text-gray-500"
+              className="flex-1 px-4 py-2 text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-50"
             >
               Negocios
             </button>
             <button
-              className="flex-1 pb-1.5 text-[13px] font-medium border-b-2 border-[#008080] text-[#008080]"
+              className="flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 bg-[#008080] text-white"
             >
               Profesionales
             </button>

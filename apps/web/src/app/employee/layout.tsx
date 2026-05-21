@@ -459,11 +459,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   return (
     <div className="flex h-screen bg-gray-50">
       <EmployeeSidebar />
-      {/* safe-top en el wrapper del contenido para que el banner o el main
-          tengan el padding superior unificado del proyecto
-          (max(1.75rem, env(safe-area-inset-top))). La sidebar mantiene su
-          propio top — no se ve afectada porque es hermana, no hija. */}
-      <div className="flex-1 flex flex-col lg:ml-64 min-w-0 safe-top">
+      <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
         {profileIncomplete && (
           <div className="bg-teal-50 border-b border-teal-200 px-4 py-2.5">
             <div className="flex items-center justify-between max-w-7xl mx-auto gap-3">

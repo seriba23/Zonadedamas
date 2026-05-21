@@ -397,19 +397,21 @@ export default function MarketplacePage() {
               )}
             </div>
 
-            {/* Tabs: Negocios | Profesionales */}
-            <div className="flex border-b border-gray-200">
+            {/* Selector Negocios | Profesionales — mismo estilo segmentado
+                que el selector "Servicios | Paquetes" del booking, para
+                mantener coherencia visual entre las distintas vistas. */}
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
               <button
                 onClick={() => { setViewTab('negocios'); }}
-                className={`flex-1 pb-1.5 text-[13px] font-medium border-b-2 transition-colors ${
-                  viewTab === 'negocios' ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500'
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  viewTab === 'negocios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Negocios
               </button>
               <button
                 onClick={() => { setViewTab('profesionales'); router.push('/marketplace/professionals'); }}
-                className="flex-1 pb-1.5 text-[13px] font-medium border-b-2 border-transparent text-gray-500"
+                className="flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
               >
                 Profesionales
               </button>
