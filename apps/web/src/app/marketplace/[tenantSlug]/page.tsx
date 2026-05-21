@@ -2768,16 +2768,21 @@ export default function BusinessDetailPage() {
                                 <span className="text-sm text-gray-700">{assigned.firstName} {assigned.lastName}</span>
                               </div>
                             ) : (
-                              <select
-                                value={assignedId}
-                                onChange={(e) => setServiceEmployeeMap((m) => ({ ...m, [sid]: e.target.value }))}
-                                className="input-field text-sm"
-                              >
-                                <option value="">Seleccionar profesional...</option>
-                                {canDo.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
-                                ))}
-                              </select>
+                              <>
+                                <p className="text-xs text-gray-500 mb-2 leading-snug">
+                                  Contamos con varios profesionales que realizan <span className="font-semibold text-gray-700">{svc.name}</span>. Selecciona a uno de tu agrado o continúa sin elegir y te asignaremos al mejor disponible.
+                                </p>
+                                <select
+                                  value={assignedId}
+                                  onChange={(e) => setServiceEmployeeMap((m) => ({ ...m, [sid]: e.target.value }))}
+                                  className="input-field text-sm"
+                                >
+                                  <option value="">Cualquier profesional disponible</option>
+                                  {canDo.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                                  ))}
+                                </select>
+                              </>
                             )}
                           </div>
                         );
@@ -3635,9 +3640,26 @@ export default function BusinessDetailPage() {
               label = selectedPromotion ? 'Continuar con cupón' : 'Continuar sin cupón';
               onClick = () => setBookingStep('employee');
             } else if (bookingStep === 'employee') {
-              disabled = !selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
+              // Permitimos continuar aunque no se haya elegido profesional
+              // para todos los servicios — auto-asignamos al primer
+              // profesional disponible para cada uno. Etiqueta cambia para
+              // que el usuario sepa qué va a pasar.
+              const allAssigned = selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
+              disabled = false;
+              label = allAssigned ? 'Continuar' : 'Continuar sin elegir';
               onClick = () => {
-                const primaryEmpId = serviceEmployeeMap[selectedServiceIds[0]];
+                // Completar las asignaciones faltantes con el primer empleado
+                // capaz para cada servicio.
+                const filled: Record<string, string> = { ...serviceEmployeeMap };
+                for (const sid of selectedServiceIds) {
+                  if (filled[sid]) continue;
+                  const candidates = employees.filter((emp) =>
+                    emp.employeeServices?.some((es) => es.serviceId === sid),
+                  );
+                  if (candidates.length > 0) filled[sid] = candidates[0].id;
+                }
+                setServiceEmployeeMap(filled);
+                const primaryEmpId = filled[selectedServiceIds[0]];
                 const primaryEmp = employees.find((e) => e.id === primaryEmpId) || null;
                 setSelectedEmployee(primaryEmp);
                 setAnyEmployee(false);
