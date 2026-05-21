@@ -8,12 +8,14 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Categorías ordenadas alfabéticamente por label (es-MX). "Todos" siempre
+// primero porque es la opción "sin filtro", no una categoría más.
 const CATEGORIES = [
   { value: '', label: 'Todos' },
-  { value: 'SALON', label: 'Salón' },
   { value: 'BARBERIA', label: 'Barbería' },
-  { value: 'SPA', label: 'SPA' },
   { value: 'CLINICA', label: 'Clínica' },
+  { value: 'SALON', label: 'Salón' },
+  { value: 'SPA', label: 'SPA' },
   { value: 'TATUAJES', label: 'Tatuajes' },
 ];
 
@@ -323,7 +325,7 @@ export default function MarketplacePage() {
         {/* ── Header (sticky) ──
             Una sola fila compacta: search (flex-1) + rayo + ajustes +
             corazón. La categoría se elige dentro del modal de Filtros. */}
-        <div className="bg-gray-50 px-4 pt-6 pb-3 safe-top sticky top-0 z-30">
+        <div className="bg-gray-50 px-4 pt-10 pb-3 safe-top sticky top-0 z-30">
           <div className="max-w-2xl mx-auto">
             {/* Search + filters en un renglon */}
             <div className="flex items-center gap-2 mb-2.5">

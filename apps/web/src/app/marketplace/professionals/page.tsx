@@ -61,7 +61,10 @@ export default function ProfessionalsPage() {
     queryKey: ['professions-catalog'],
     queryFn: () => marketplaceApi.get<{ data: string[] }>('/professions'),
   });
-  const professions: string[] = (professionsData as any)?.data || [];
+  // Ordenadas alfabéticamente (locale es) para el modal de Filtros.
+  const professions: string[] = [...((professionsData as any)?.data || [])].sort((a, b) =>
+    a.localeCompare(b, 'es', { sensitivity: 'base' }),
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-professionals', debouncedSearch, filterJobTitle, coords?.lat, coords?.lng],
@@ -248,7 +251,7 @@ export default function ProfessionalsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header (sticky) — mismo layout que negocios */}
-      <div className="bg-gray-50 px-4 pt-6 pb-3 safe-top sticky top-0 z-30">
+      <div className="bg-gray-50 px-4 pt-10 pb-3 safe-top sticky top-0 z-30">
         <div className="max-w-2xl mx-auto">
           {/* Search + filters en un renglon */}
           <div className="flex items-center gap-2 mb-2.5">
