@@ -744,6 +744,61 @@ export default function BusinessDetailPage() {
     setBookingStep(null);
   };
 
+  // Helpers para abrir el wizard ya con un servicio o paquete preseleccionado.
+  // Se usan desde el listado de servicios del perfil del negocio.
+  const startBookingWithService = (serviceId: string) => {
+    if (!isAuthenticated) {
+      const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
+      const redirect = savedRef
+        ? `/marketplace/${tenantSlug}%3Fref%3D${savedRef}`
+        : `/marketplace/${tenantSlug}`;
+      router.push(`/marketplace/login?redirect=${redirect}`);
+      return;
+    }
+    const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
+    setSelectedServiceIds([serviceId]);
+    setSelectedBundle(null);
+    setSelectedCoupon(null);
+    setReferralCodeInput(savedRef || '');
+    setEarnedReferralCode(null);
+    setSelectedEmployee(null);
+    setAnyEmployee(false);
+    setSelectedDate(dayjs());
+    setSelectedSlot(null);
+    setBookingNotes('');
+    setBookingCart([]);
+    setSelectedLocationId(null);
+    setPreferredTime('');
+    setServiceTab('servicios');
+    const locations = biz?.locations || [];
+    setBookingStep(locations.length > 1 ? 'location' : 'service');
+  };
+
+  const startBookingWithBundle = (bundle: any) => {
+    if (!isAuthenticated) {
+      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      return;
+    }
+    const ids: string[] = Array.isArray(bundle.serviceIds) ? bundle.serviceIds : [];
+    const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
+    setSelectedServiceIds(ids);
+    setSelectedBundle(bundle);
+    setSelectedCoupon(null);
+    setReferralCodeInput(savedRef || '');
+    setEarnedReferralCode(null);
+    setSelectedEmployee(null);
+    setAnyEmployee(false);
+    setSelectedDate(dayjs());
+    setSelectedSlot(null);
+    setBookingNotes('');
+    setBookingCart([]);
+    setSelectedLocationId(null);
+    setPreferredTime('');
+    setServiceTab('paquetes');
+    const locations = biz?.locations || [];
+    setBookingStep(locations.length > 1 ? 'location' : 'service');
+  };
+
   // Gallery carousel
   const gallery: { id: string; imageUrl: string; caption?: string }[] = biz?.gallery || [];
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -1252,8 +1307,14 @@ export default function BusinessDetailPage() {
           </div>
         )}
 
-        {/* Services grouped by subcategory */}
-        {services.length > 0 && (() => {
+        {/* Servicios y paquetes del negocio.
+            Misma anatomía visual que el step "Servicio" del wizard:
+            - Tabs "Servicios | Paquetes" (solo si hay bundles).
+            - Tarjetas con borde-2, descripción, precio + duración y pill
+              "Canjeable por X puntos" si aplica.
+            - Click en cualquier tarjeta abre el wizard con la selección
+              preestablecida (servicio único o bundle completo). */}
+        {(services.length > 0 || bizBundles.length > 0) && (() => {
           const grouped: Record<string, BizService[]> = {};
           services.forEach((s) => {
             const key = s.subcategory || 'Otros';
@@ -1263,46 +1324,142 @@ export default function BusinessDetailPage() {
           const groups = Object.entries(grouped);
           const hasSubcategories = groups.length > 1 || groups[0]?.[0] !== 'Otros';
 
+          const renderServiceTile = (s: BizService) => (
+            <button
+              key={s.id}
+              onClick={() => startBookingWithService(s.id)}
+              className="w-full text-left p-4 rounded-xl border-2 transition-all hover:border-[#008080]/40"
+              style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">{s.name}</p>
+                  {s.description && (
+                    <p className="text-sm text-gray-500">{s.description}</p>
+                  )}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-semibold text-gray-900">
+                    {formatCurrency(Number(s.price), bizCurrency)}
+                  </p>
+                  <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
+                </div>
+              </div>
+              {s.redeemableWithPoints && s.pointsRequired && (
+                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
+                  <svg className="w-3.5 h-3.5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-xs font-medium" style={{ color: TEAL }}>Canjeable por {s.pointsRequired} puntos</span>
+                </div>
+              )}
+            </button>
+          );
+
+          const renderBundleTile = (bundle: any) => {
+            const bundleServiceIds: string[] = Array.isArray(bundle.serviceIds) ? bundle.serviceIds : [];
+            const bundleServices = bundleServiceIds
+              .map((id: string) => services.find((s) => s.id === id))
+              .filter(Boolean) as any[];
+            const originalPrice = bundleServices.reduce((sum, s) => sum + Number(s.price), 0);
+            return (
+              <button
+                key={bundle.id}
+                onClick={() => startBookingWithBundle(bundle)}
+                className="w-full text-left p-4 rounded-xl border-2 transition-all hover:border-[#008080]/40"
+                style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-medium text-gray-900">{bundle.name}</p>
+                  <div className="text-right">
+                    {originalPrice > Number(bundle.bundlePrice) && (
+                      <span className="text-xs text-gray-400 line-through mr-2">
+                        {formatCurrency(originalPrice, bizCurrency)}
+                      </span>
+                    )}
+                    <span className="font-bold" style={{ color: TEAL }}>
+                      {formatCurrency(Number(bundle.bundlePrice), bizCurrency)}
+                    </span>
+                  </div>
+                </div>
+                {bundle.description && (
+                  <p className="text-xs text-gray-500 mb-3">{bundle.description}</p>
+                )}
+                <div className="space-y-1.5 mb-3">
+                  {bundleServices.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700">{s.name}</span>
+                      </div>
+                      <span className="text-xs text-gray-400">{s.durationMinutes} min</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <span className="text-xs text-gray-400">{bundle.totalDuration} min total</span>
+                  {bundle.savingsPercent && Number(bundle.savingsPercent) > 0 && (
+                    <span className="text-xs font-semibold text-green-600">Ahorras {Number(bundle.savingsPercent)}%</span>
+                  )}
+                </div>
+              </button>
+            );
+          };
+
           return (
             <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Servicios</h2>
-              {hasSubcategories ? (
-                <div className="space-y-4">
-                  {groups.map(([subcategory, svcList]) => (
-                    <div key={subcategory}>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                        {subcategory}
-                      </p>
-                      <div className="space-y-2 pl-3 border-l-2 border-gray-100">
-                        {svcList.map((s) => (
-                          <div key={s.id} className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{s.name}</p>
-                              <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
-                            </div>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(Number(s.price), bizCurrency)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+              <h2 className="text-sm font-semibold text-gray-900 mb-3">
+                {bizBundles.length > 0 ? 'Servicios y paquetes' : 'Servicios'}
+              </h2>
+              {/* Tabs Servicios | Paquetes (solo si hay paquetes) */}
+              {bizBundles.length > 0 && (
+                <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
+                  <button
+                    onClick={() => setServiceTab('servicios')}
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                      serviceTab === 'servicios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Servicios
+                  </button>
+                  <button
+                    onClick={() => setServiceTab('paquetes')}
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                      serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Paquetes
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {services.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{s.name}</p>
-                        <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {formatCurrency(Number(s.price), bizCurrency)}
-                      </span>
-                    </div>
-                  ))}
+              )}
+              {/* Paquetes */}
+              {serviceTab === 'paquetes' && bizBundles.length > 0 && (
+                <div className="grid gap-3">
+                  {bizBundles.map(renderBundleTile)}
                 </div>
+              )}
+              {/* Servicios individuales con/sin subcategorías */}
+              {serviceTab === 'servicios' && services.length > 0 && (
+                hasSubcategories ? (
+                  <div className="space-y-5">
+                    {groups.map(([subcategory, svcList]) => (
+                      <div key={subcategory}>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                          {subcategory}
+                        </p>
+                        <div className="grid gap-3">
+                          {svcList.map(renderServiceTile)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {services.map(renderServiceTile)}
+                  </div>
+                )
               )}
             </div>
           );

@@ -204,6 +204,16 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   const [giftRewardId, setGiftRewardId] = useState('');
   const [giftClientIds, setGiftClientIds] = useState<string[]>([]);
   const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
+  // Confirmacion intermedia antes de disparar el loop de envios. Evita que
+  // el admin regale por accidente.
+  const [giftConfirm, setGiftConfirm] = useState<{
+    rewardId: string;
+    rewardName: string;
+    clientIds: string[];
+    clientNames: string[];
+  } | null>(null);
+  const [giftSending, setGiftSending] = useState(false);
+  const [giftError, setGiftError] = useState<string | null>(null);
   // Tab activo: "catalogo" muestra los rewards del tenant; "historial" muestra
   // todos los RewardRedemptions emitidos con filtros para auditoria.
   const [activeTab, setActiveTab] = useState<'catalog' | 'history'>('catalog');
@@ -855,27 +865,119 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
               </div>
             )}
             <button
-              onClick={async () => {
+              onClick={() => {
                 if (!giftRewardId || giftClientIds.length === 0) return;
-                let sent = 0;
-                for (const clientId of giftClientIds) {
-                  try {
-                    await api.post('/api/rewards/gift', { rewardId: giftRewardId, clientId });
-                    sent++;
-                  } catch (err) {
-                    console.error('Error gifting to client:', clientId, err);
-                  }
-                }
-                setGiftSuccess(`Cupón enviado a ${sent} cliente${sent !== 1 ? 's' : ''}`);
-                setGiftClientIds([]);
+                const rw = rewards.find((r) => r.id === giftRewardId);
+                const names = clients
+                  .filter((c) => giftClientIds.includes(c.id))
+                  .map((c) => `${c.firstName} ${c.lastName}`);
+                setGiftError(null);
+                setGiftConfirm({
+                  rewardId: giftRewardId,
+                  rewardName: rw?.name || 'Cupón',
+                  clientIds: [...giftClientIds],
+                  clientNames: names,
+                });
               }}
-              disabled={!giftRewardId || giftClientIds.length === 0 || giftMutation.isPending}
+              disabled={!giftRewardId || giftClientIds.length === 0 || giftSending}
               className="btn-primary w-full"
             >
               {`Regalar cupón (${giftClientIds.length})`}
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* Modal confirmación regalar cupón.
+          Mismo estilo que redeemBizConfirm del marketplace pero con paleta
+          morada porque la accion es "regalo". Resume cupón + lista de
+          clientes antes de disparar los POST. */}
+      {giftConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
+          onClick={() => !giftSending && setGiftConfirm(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 bg-purple-50">
+              <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+              ¿Regalar este cupón?
+            </h3>
+            <p className="text-sm text-gray-600 text-center mb-4">
+              <span className="font-semibold">{giftConfirm.rewardName}</span>
+            </p>
+            <div className="rounded-xl p-3 mb-4 bg-purple-50 border border-purple-200">
+              <p className="text-xs text-purple-700 text-center mb-2">
+                Se enviará a <span className="font-bold">{giftConfirm.clientIds.length}</span> cliente{giftConfirm.clientIds.length !== 1 ? 's' : ''}:
+              </p>
+              <div className="text-xs text-purple-900 text-center">
+                {giftConfirm.clientNames.slice(0, 3).map((n) => (
+                  <p key={n} className="truncate">• {n}</p>
+                ))}
+                {giftConfirm.clientNames.length > 3 && (
+                  <p className="text-purple-600 mt-1">y {giftConfirm.clientNames.length - 3} más</p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-xl p-3 mb-4 bg-amber-50 border border-amber-200">
+              <p className="text-[11px] text-amber-800 text-center">
+                El cupón quedará activo <span className="font-semibold">30 días</span> en cada cliente. Esta acción no consume puntos del cliente.
+              </p>
+            </div>
+            {giftError && (
+              <div className="rounded-xl p-3 mb-3 bg-red-50 border border-red-200">
+                <p className="text-xs text-red-700 text-center">{giftError}</p>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={giftSending}
+                onClick={() => setGiftConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={giftSending}
+                onClick={async () => {
+                  setGiftSending(true);
+                  setGiftError(null);
+                  let sent = 0;
+                  let failed = 0;
+                  for (const clientId of giftConfirm.clientIds) {
+                    try {
+                      await api.post('/api/rewards/gift', { rewardId: giftConfirm.rewardId, clientId });
+                      sent++;
+                    } catch (err) {
+                      failed++;
+                      console.error('Error gifting to client:', clientId, err);
+                    }
+                  }
+                  setGiftSending(false);
+                  if (sent > 0) {
+                    setGiftSuccess(`Cupón enviado a ${sent} cliente${sent !== 1 ? 's' : ''}${failed > 0 ? ` (${failed} fallaron)` : ''}`);
+                    setGiftClientIds([]);
+                    setGiftConfirm(null);
+                    queryClient.invalidateQueries({ queryKey: ['rewards-redemptions'] });
+                  } else {
+                    setGiftError('No se pudo regalar el cupón a ningún cliente');
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-60"
+              >
+                {giftSending ? 'Regalando…' : 'Regalar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
