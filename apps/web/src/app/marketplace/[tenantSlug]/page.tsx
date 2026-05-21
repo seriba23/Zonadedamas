@@ -5,6 +5,8 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+dayjs.locale('es');
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
@@ -259,6 +261,14 @@ export default function BusinessDetailPage() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [preferredTime, setPreferredTime] = useState('');
   const [showFullCalendar, setShowFullCalendar] = useState(false);
+  // Modal explicativo de "Hora preferida" (estado del icono a la izquierda
+  // del selector de fecha en el step `datetime`).
+  const [showPreferredTimeModal, setShowPreferredTimeModal] = useState(false);
+  // Auto-avance: cuando el dia actual no tiene slots, avanzamos un dia y
+  // contamos saltos hasta encontrar disponibilidad (max 14 dias). Mostramos
+  // un mini-toast la primera vez que saltamos para que el cliente sepa.
+  const [autoAdvanceCount, setAutoAdvanceCount] = useState(0);
+  const [autoAdvancedFromHoy, setAutoAdvancedFromHoy] = useState(false);
   const [userGps, setUserGps] = useState<{ lat: number; lng: number } | null>(null);
 
   // Try to get user location for "nearest branch" hint
@@ -456,6 +466,38 @@ export default function BusinessDetailPage() {
 
   // All employees' slots (for cross-employee suggestion)
   const allEmpSlots = flattenSlots(allEmpSlotsData).filter((s) => new Date(s.startTime) > now);
+
+  // Auto-avance al proximo dia con slots disponibles. Solo aplica cuando
+  // el cliente esta en el step datetime y la query de slots termino sin
+  // resultados. Cuenta saltos para no entrar en loop infinito y avisa una
+  // sola vez ("Saltamos a X porque hoy no hay disponibilidad").
+  // Si el usuario YA selecciono una fecha manualmente (cambio dia o uso
+  // el calendario), no auto-avanzamos para respetar su decision.
+  useEffect(() => {
+    if (bookingStep !== 'datetime') return;
+    if (slotsLoading) return;
+    if (uniqueSlots.length > 0) return;
+    if (autoAdvanceCount >= 14) return;
+    // Si nunca hemos auto-avanzado y la fecha no es hoy, asumimos que el
+    // usuario ya eligio (no auto-avanzar). Si SI estamos auto-avanzando,
+    // seguimos hasta tope.
+    if (autoAdvanceCount === 0 && !selectedDate.isSame(dayjs(), 'day')) return;
+    if (autoAdvanceCount === 0 && selectedDate.isSame(dayjs(), 'day')) {
+      setAutoAdvancedFromHoy(true);
+    }
+    setAutoAdvanceCount((c) => c + 1);
+    setSelectedDate((d) => d.add(1, 'day'));
+    setSelectedSlot(null);
+  }, [bookingStep, slotsLoading, uniqueSlots.length, autoAdvanceCount]);
+
+  // Cuando el cliente cambia de step o sale del booking, reseteamos el
+  // contador y el banner para futuras visitas al step datetime.
+  useEffect(() => {
+    if (bookingStep !== 'datetime') {
+      setAutoAdvanceCount(0);
+      setAutoAdvancedFromHoy(false);
+    }
+  }, [bookingStep]);
 
   // Business rewards
   const { data: bizRewardsData } = useQuery({
@@ -837,6 +879,17 @@ export default function BusinessDetailPage() {
   }));
   const employees: BizEmployee[] = biz?.employees || [];
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
+
+  // Si el cliente entro desde el perfil de un profesional (con
+  // ?bookEmployee=ID), filtramos los servicios para mostrar solo los que
+  // ese empleado realiza. Asi se evita que elija un servicio que el
+  // profesional no atiende. En el resto de casos mostramos todo el
+  // catalogo del negocio.
+  const selectableServices: BizService[] = selectedEmployee
+    ? services.filter((s) =>
+        selectedEmployee.employeeServices?.some((es) => es.serviceId === s.id),
+      )
+    : services;
 
   // IDs de rewards que el usuario ya canjeo y siguen activos — evitamos
   // mostrarlos como canjeables (ya estan en "Tus cupones").
@@ -1608,6 +1661,65 @@ export default function BusinessDetailPage() {
         {/* Modal de confirmacion al canjear desde "Cupones" del negocio.
             Identico al del step "Cupones" del booking. El cupon canjeado
             queda guardado en "Tus cupones" del cliente para uso posterior. */}
+        {/* Modal explicativo de "Hora preferida". Reemplaza el input inline
+            por un boton de icono mas un popup con explicacion clara y un
+            input time dentro. Mantiene el formulario de fecha mas grande. */}
+        {showPreferredTimeModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => setShowPreferredTimeModal(false)}
+          >
+            <div
+              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: TEAL_LIGHT }}>
+                <svg className="w-7 h-7" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+                Hora preferida
+              </h3>
+              <p className="text-sm text-gray-600 text-center mb-4 leading-relaxed">
+                Ingresa una hora aproximada y buscaremos el slot disponible más cercano. Si el profesional no tiene esa hora exacta, te mostramos el horario libre más próximo y un profesional alternativo si aplica.
+              </p>
+              <label className="block">
+                <span className="block text-[11px] uppercase tracking-wider font-bold mb-1.5" style={{ color: TEAL_DARK }}>
+                  ¿A qué hora te queda mejor?
+                </span>
+                <input
+                  type="time"
+                  value={preferredTime}
+                  onChange={(e) => setPreferredTime(e.target.value)}
+                  className="w-full px-3 py-3 border-2 rounded-xl text-base font-semibold text-gray-900 focus:outline-none"
+                  style={{ borderColor: TEAL }}
+                  autoFocus
+                />
+              </label>
+              <div className="flex gap-2 mt-4">
+                {preferredTime && (
+                  <button
+                    type="button"
+                    onClick={() => { setPreferredTime(''); setShowPreferredTimeModal(false); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
+                    Quitar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPreferredTimeModal(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
+                  style={{ backgroundColor: TEAL }}
+                >
+                  {preferredTime ? 'Aplicar' : 'Cerrar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {redeemBizConfirm && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
@@ -2027,6 +2139,27 @@ export default function BusinessDetailPage() {
 
                 return (
                   <div>
+                    {/* Resumen del servicio o paquete preseleccionado para
+                        que el cliente confirme visualmente sin scrollear. */}
+                    {(selectedBundle || selectedServices.length > 0) && (
+                      <div className="flex items-start gap-2 p-3 mb-4 rounded-xl border" style={{ backgroundColor: TEAL_LIGHT, borderColor: 'rgba(0,128,128,0.3)' }}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: TEAL }}>
+                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEAL_DARK }}>
+                            {selectedBundle ? 'Paquete elegido' : selectedServices.length === 1 ? 'Servicio elegido' : 'Servicios elegidos'}
+                          </p>
+                          <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                            {selectedBundle
+                              ? selectedBundle.name
+                              : selectedServices.map((s) => s.name).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <h2 className="text-lg font-semibold text-gray-900 mb-1">Selecciona la sucursal</h2>
                     <p className="text-sm text-gray-500 mb-4">¿A cuál sucursal deseas ir?</p>
                     <div className="grid gap-3">
@@ -2075,10 +2208,14 @@ export default function BusinessDetailPage() {
                 );
               })()}
 
-              {/* Step 1: Services */}
+              {/* Step 1: Services.
+                  Si entramos desde el perfil de un profesional, usamos
+                  `selectableServices` que ya viene filtrado a los servicios
+                  que ese empleado realiza (evita ofrecer servicios que no
+                  atiende). */}
               {bookingStep === 'service' && (() => {
                 const grouped: Record<string, BizService[]> = {};
-                [...services].sort((a, b) => a.name.localeCompare(b.name, 'es')).forEach((s) => {
+                [...selectableServices].sort((a, b) => a.name.localeCompare(b.name, 'es')).forEach((s) => {
                   const key = s.subcategory || 'Otros';
                   if (!grouped[key]) grouped[key] = [];
                   grouped[key].push(s);
@@ -2249,9 +2386,14 @@ export default function BusinessDetailPage() {
                       </div>
                     ) : (
                       <div className="grid gap-3">
-                        {services.map(renderServiceButton)}
+                        {selectableServices.map(renderServiceButton)}
                       </div>
                     )
+                  )}
+                  {selectableServices.length === 0 && selectedEmployee && (
+                    <div className="text-center py-8 text-gray-400 text-sm">
+                      Este profesional aún no tiene servicios configurados.
+                    </div>
                   )}
 
                   {selectedServiceIds.length > 0 && (
@@ -2958,92 +3100,90 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Hint del selector de horario — arriba para que el
-                      usuario entienda primero qué hace el input antes de
-                      verlo. Cuando ya hay hora elegida desaparece. */}
-                  {!preferredTime && (
-                    <p className="text-xs text-gray-600 mb-2 px-1 flex items-start gap-1.5">
-                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  {/* Banner: hicimos auto-avance porque hoy no habia slots */}
+                  {autoAdvancedFromHoy && uniqueSlots.length > 0 && (
+                    <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+                      <svg className="w-4 h-4 flex-shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span>
-                        Pon un horario de tu preferencia y buscaremos coincidencias con la disponibilidad de tu profesional.
-                      </span>
-                    </p>
+                      <p className="text-xs text-amber-800">
+                        Hoy no hay disponibilidad. Saltamos al <span className="font-semibold">{selectedDate.format('dddd D [de] MMMM')}</span>.
+                      </p>
+                    </div>
                   )}
 
-                  {/* Date selector + Calendar + Preferred time — unified row.
-                      Hora preferida ocupa 1.4fr y se destaca en teal cuando
-                      está vacía para empujar al usuario a usarlo. */}
-                  <div className="grid grid-cols-[1fr_auto_1.4fr] items-stretch gap-2 mb-4">
-                    {/* Date selector */}
-                    <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-2 py-2">
+                  {/* Selector fecha/hora — layout:
+                      [Icono hora preferida] [Selector fecha XL] [Calendario].
+                      Las flechas del selector son grandes para mejor touch.
+                      El nombre del día va en español con día de la semana. */}
+                  <div className="grid grid-cols-[auto_1fr_auto] items-stretch gap-2 mb-4">
+                    {/* Hora preferida — icono botón. Al pulsar abre modal
+                        explicativo con un input time dentro. Cuando ya hay
+                        hora seleccionada, el icono va en fondo teal sólido
+                        con un dot pequeño para indicar "preferencia activa". */}
+                    <button
+                      type="button"
+                      onClick={() => setShowPreferredTimeModal(true)}
+                      title="Hora preferida"
+                      className="relative w-12 h-12 flex items-center justify-center rounded-xl border-2 transition-colors"
+                      style={preferredTime
+                        ? { borderColor: TEAL, backgroundColor: TEAL, color: '#fff' }
+                        : { borderColor: TEAL, backgroundColor: TEAL_LIGHT, color: TEAL_DARK }
+                      }
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {preferredTime && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-white" />
+                      )}
+                    </button>
+
+                    {/* Date selector — ocupa todo el ancho disponible. */}
+                    <div className="flex items-center bg-white border border-gray-200 rounded-xl px-1">
                       <button
                         disabled={selectedDate.isSame(dayjs(), 'day')}
                         onClick={() => { setSelectedDate((d) => d.subtract(1, 'day')); setSelectedSlot(null); }}
-                        className="p-1 rounded-lg hover:bg-gray-100 disabled:opacity-30 flex-shrink-0"
+                        className="w-10 h-12 flex items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-30 flex-shrink-0"
+                        aria-label="Día anterior"
                       >
-                        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                       </button>
-                      <div className="flex-1 text-center min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {selectedDate.isSame(dayjs(), 'day') ? 'Hoy' : selectedDate.isSame(dayjs().add(1, 'day'), 'day') ? 'Mañana' : selectedDate.format('ddd D')}
+                      <div className="flex-1 text-center min-w-0 px-1">
+                        {/* Linea 1: nombre del dia + numero (capitalizado). */}
+                        <p className="text-base font-bold text-gray-900 truncate leading-tight">
+                          {(() => {
+                            if (selectedDate.isSame(dayjs(), 'day')) return 'Hoy';
+                            if (selectedDate.isSame(dayjs().add(1, 'day'), 'day')) return 'Mañana';
+                            // dayjs en español: 'lunes 21 de mayo'. Capitalizamos el dia de semana.
+                            const formatted = selectedDate.format('dddd D [de] MMMM');
+                            return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+                          })()}
                         </p>
-                        <p className="text-[10px] text-gray-400 truncate">{selectedDate.format('MMM YYYY')}</p>
+                        {/* Linea 2: año (subtitulo). */}
+                        <p className="text-[11px] text-gray-400 truncate leading-tight">
+                          {selectedDate.format('YYYY')}
+                        </p>
                       </div>
                       <button
                         onClick={() => { setSelectedDate((d) => d.add(1, 'day')); setSelectedSlot(null); }}
-                        className="p-1 rounded-lg hover:bg-gray-100 flex-shrink-0"
+                        className="w-10 h-12 flex items-center justify-center rounded-lg hover:bg-gray-100 flex-shrink-0"
+                        aria-label="Día siguiente"
                       >
-                        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                       </button>
                     </div>
 
                     {/* Calendar button */}
                     <button
                       onClick={() => setShowFullCalendar(true)}
-                      className="w-11 flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
+                      title="Abrir calendario"
+                      className="w-12 h-12 flex items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
                     >
                       <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
                       </svg>
                     </button>
-
-                    {/* Preferred time — destacado en teal cuando vacío para
-                        animar al usuario a usarlo (es la palanca clave para
-                        encontrar el mejor horario). */}
-                    <label
-                      className="relative flex items-center bg-white rounded-xl px-3 py-2 cursor-pointer transition-colors"
-                      style={{
-                        border: preferredTime ? `2px solid ${TEAL}` : `2px solid ${TEAL}`,
-                        backgroundColor: preferredTime ? '#fff' : TEAL_LIGHT,
-                      }}
-                    >
-                      <svg className="w-5 h-5 flex-shrink-0 mr-2" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="flex-1 min-w-0">
-                        <span className="block text-[10px] uppercase tracking-wider font-bold" style={{ color: TEAL_DARK }}>
-                          Hora preferida
-                        </span>
-                        <input
-                          type="time"
-                          value={preferredTime}
-                          onChange={(e) => setPreferredTime(e.target.value)}
-                          className="w-full text-sm bg-transparent focus:outline-none text-gray-900 font-semibold"
-                          style={{ minHeight: 18 }}
-                        />
-                      </div>
-                      {preferredTime && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.preventDefault(); setPreferredTime(''); }}
-                          className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      )}
-                    </label>
                   </div>
 
                   {/* Preferred time feedback */}
@@ -3142,6 +3282,16 @@ export default function BusinessDetailPage() {
                       </div>
                     );
                   })()}
+
+                  {/* Mensaje cuando llegamos a 14 dias sin slots */}
+                  {autoAdvanceCount >= 14 && uniqueSlots.length === 0 && (
+                    <div className="mb-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                      <p className="text-sm font-semibold text-amber-800">Sin disponibilidad próxima</p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Este profesional no tiene horarios disponibles en los próximos 14 días. Prueba con otro profesional o revisa más tarde.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Slot grid */}
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

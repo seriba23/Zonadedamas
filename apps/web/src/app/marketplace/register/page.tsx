@@ -6,74 +6,8 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import Link from 'next/link';
 
-const COUNTRY_CODES = [
-  { code: '+52', flag: '🇲🇽', name: 'México' },
-  { code: '+1', flag: '🇺🇸', name: 'EE.UU.' },
-  { code: '+1', flag: '🇨🇦', name: 'Canadá' },
-  { code: '+34', flag: '🇪🇸', name: 'España' },
-  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
-  { code: '+56', flag: '🇨🇱', name: 'Chile' },
-  { code: '+51', flag: '🇵🇪', name: 'Perú' },
-  { code: '+58', flag: '🇻🇪', name: 'Venezuela' },
-  { code: '+593', flag: '🇪🇨', name: 'Ecuador' },
-  { code: '+502', flag: '🇬🇹', name: 'Guatemala' },
-  { code: '+503', flag: '🇸🇻', name: 'El Salvador' },
-  { code: '+504', flag: '🇭🇳', name: 'Honduras' },
-  { code: '+505', flag: '🇳🇮', name: 'Nicaragua' },
-  { code: '+506', flag: '🇨🇷', name: 'Costa Rica' },
-  { code: '+507', flag: '🇵🇦', name: 'Panamá' },
-  { code: '+591', flag: '🇧🇴', name: 'Bolivia' },
-  { code: '+595', flag: '🇵🇾', name: 'Paraguay' },
-  { code: '+598', flag: '🇺🇾', name: 'Uruguay' },
-  { code: '+55', flag: '🇧🇷', name: 'Brasil' },
-];
-
-function PhoneInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (full: string) => void;
-}) {
-  const [countryCode, setCountryCode] = useState('+52');
-  const [local, setLocal] = useState('');
-
-  function handleLocalChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const digits = e.target.value.replace(/[^\d\s\-()]/g, '');
-    setLocal(digits);
-    onChange(`${countryCode} ${digits}`.trim());
-  }
-
-  function handleCodeChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    setCountryCode(e.target.value);
-    onChange(`${e.target.value} ${local}`.trim());
-  }
-
-  return (
-    <div className="flex rounded-lg border border-gray-300 bg-white overflow-hidden focus-within:ring-2 focus-within:border-[#008080]" style={{ '--tw-ring-color': 'rgba(0,128,128,0.3)' } as React.CSSProperties}>
-      <select
-        value={countryCode}
-        onChange={handleCodeChange}
-        className="border-r border-gray-200 bg-gray-50 text-sm text-gray-700 px-2 py-2.5 focus:outline-none cursor-pointer"
-        style={{ minWidth: 72 }}
-      >
-        {COUNTRY_CODES.map((c, i) => (
-          <option key={i} value={c.code}>
-            {c.flag} {c.code}
-          </option>
-        ))}
-      </select>
-      <input
-        type="tel"
-        value={local}
-        onChange={handleLocalChange}
-        className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-transparent"
-        placeholder="55 1234 5678"
-      />
-    </div>
-  );
-}
+// PhoneInput y COUNTRY_CODES eliminados: el teléfono se pide en el
+// CompleteProfileModal post-creación junto con género/fecha/alergias.
 
 function MarketplaceRegisterPageInner() {
   const { register, socialLogin } = useMarketplaceAuth();
@@ -81,13 +15,16 @@ function MarketplaceRegisterPageInner() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
 
+  // Phone se elimina del form de registro normal: el CompleteProfileModal
+  // lo pide después junto con birthDate/género/alergias en una sola pasada
+  // para evitar la duplicación que reportó el usuario (le pedíamos teléfono
+  // en el form y otra vez en el popup post-creación).
   const [form, setForm] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    phone: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -124,7 +61,6 @@ function MarketplaceRegisterPageInner() {
         password: form.password,
         firstName: form.firstName,
         lastName: form.lastName,
-        phone: form.phone || undefined,
       });
       router.push(redirect || '/marketplace');
     } catch (err: any) {
@@ -195,16 +131,6 @@ function MarketplaceRegisterPageInner() {
               onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.3)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
               placeholder="tu@email.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Teléfono <span className="text-gray-400">(opcional)</span>
-            </label>
-            <PhoneInput
-              value={form.phone}
-              onChange={(v) => updateField('phone', v)}
             />
           </div>
 
