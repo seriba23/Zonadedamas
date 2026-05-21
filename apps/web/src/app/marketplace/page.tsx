@@ -63,7 +63,8 @@ export default function MarketplacePage() {
   const [availableNow, setAvailableNow] = useState(false);
   const searchParams = useSearchParams();
   const shopOnly = searchParams.get('shop') === '1';
-  const [showCategorySheet, setShowCategorySheet] = useState(false);
+  // showCategorySheet eliminado: la categoría se elige dentro del modal de
+  // Filtros (showFiltersSheet) junto con el ordenamiento.
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
   // Detección silenciosa de GPS — usa @capacitor/geolocation en nativo, fallback web
@@ -283,10 +284,11 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* "NUEVO" — triángulo relleno esquina inferior derecha */}
+        {/* "NUEVO" — triángulo relleno esquina inferior derecha.
+            z-10 para que NUNCA se monte sobre el header sticky (z-30). */}
         {biz.completedAppointments < 10 && (
           <div
-            className="absolute bottom-0 right-0 z-20"
+            className="absolute bottom-0 right-0 z-10"
             style={{
               width: 70,
               height: 70,
@@ -318,28 +320,83 @@ export default function MarketplacePage() {
 
       <div>
 
-        {/* ── Header (sticky) ── */}
-        <div className="bg-gray-50 px-4 pt-8 pb-3 safe-top sticky top-0 z-20">
+        {/* ── Header (sticky) ──
+            Una sola fila compacta: search (flex-1) + rayo + ajustes +
+            corazón. La categoría se elige dentro del modal de Filtros. */}
+        <div className="bg-gray-50 px-4 pt-6 pb-3 safe-top sticky top-0 z-30">
           <div className="max-w-2xl mx-auto">
-            {/* Search */}
-            <div className="relative mb-2.5">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar negocio o servicio..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
-                style={{ ['--tw-ring-color' as any]: '#008080' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
-              />
+            {/* Search + filters en un renglon */}
+            <div className="flex items-center gap-2 mb-2.5">
+              {/* Search compacto */}
+              <div className="relative flex-1 min-w-0">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar negocio o servicio..."
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ ['--tw-ring-color' as any]: '#008080' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#008080'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
+                />
+              </div>
+
+              {/* Rayo — Disponible ahora (solo icono) */}
+              <button
+                onClick={() => setAvailableNow(!availableNow)}
+                title="Disponible ahora"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                style={availableNow
+                  ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {/* Ajustes/Filtros — incluye categoria y ordenamiento */}
+              <button
+                onClick={() => setShowFiltersSheet(true)}
+                title="Filtros"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                style={sortBy || category
+                  ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                </svg>
+                {(sortBy || category) && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
+                )}
+              </button>
+
+              {/* Favoritos */}
+              {isAuthenticated && (
+                <button
+                  onClick={() => { setShowFavoritesOnly((prev) => !prev); setCategory(''); }}
+                  title="Favoritos"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                  style={showFavoritesOnly
+                    ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                    : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                  }
+                >
+                  <svg className="w-4 h-4" fill={showFavoritesOnly ? 'white' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             {/* Tabs: Negocios | Profesionales */}
-            <div className="flex border-b border-gray-200 mb-2.5">
+            <div className="flex border-b border-gray-200">
               <button
                 onClick={() => { setViewTab('negocios'); }}
                 className={`flex-1 pb-1.5 text-[13px] font-medium border-b-2 transition-colors ${
@@ -356,75 +413,7 @@ export default function MarketplacePage() {
               </button>
             </div>
 
-            {/* Filter bar */}
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
-
-              {/* Disponible ahora */}
-              <button
-                onClick={() => setAvailableNow(!availableNow)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
-                style={availableNow
-                  ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
-                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                }
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                </svg>
-                Disponible ahora
-              </button>
-
-              {/* Categoría */}
-              <button
-                onClick={() => setShowCategorySheet(true)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 flex-shrink-0"
-                style={category
-                  ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
-                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                }
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                </svg>
-                {category ? CATEGORIES.find(c => c.value === category)?.label : 'Categoría'}
-              </button>
-
-              {/* Filtros — solo icono, punto rojo cuando activo */}
-              <button
-                onClick={() => setShowFiltersSheet(true)}
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
-                style={sortBy
-                  ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
-                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                }
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-                </svg>
-                {sortBy && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
-                )}
-              </button>
-
-              {/* Favoritos */}
-              {isAuthenticated && (
-                <button
-                  onClick={() => { setShowFavoritesOnly((prev) => !prev); setCategory(''); }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-                  style={showFavoritesOnly
-                    ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
-                    : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                  }
-                >
-                  <svg className="w-4 h-4" fill={showFavoritesOnly ? 'white' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Contador de resultados — dentro del header sticky para que
-                siempre se vea junto a la barra de busqueda y los filtros. */}
+            {/* Contador de resultados — dentro del header sticky */}
             {!isLoading && businesses.length > 0 && (
               <p className="text-xs text-gray-400 mt-2">
                 {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
@@ -477,37 +466,9 @@ export default function MarketplacePage() {
           )}
         </div>
 
-        {/* ── Bottom sheets ── */}
-        {showCategorySheet && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
-            <div className="absolute inset-0 bg-black/40" onClick={() => setShowCategorySheet(false)} />
-            <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
-              <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-gray-900">Categoría</h3>
-                <button onClick={() => setShowCategorySheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <div className="px-4 py-3 space-y-1 max-h-72 overflow-y-auto">
-                {[{ value: '', label: 'Todas las categorías' }, ...CATEGORIES.slice(1)].map((cat) => (
-                  <button
-                    key={cat.value}
-                    onClick={() => { setCategory(cat.value); setShowFavoritesOnly(false); setShowCategorySheet(false); }}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-colors"
-                    style={category === cat.value ? { backgroundColor: '#e0f2f1', color: '#008080', fontWeight: 600 } : { color: '#374151' }}
-                  >
-                    <span>{cat.label}</span>
-                    {category === cat.value && (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-              <div className="px-4 py-4" />
-            </div>
-          </div>
-        )}
+        {/* ── Bottom sheets ──
+            La categoria vive dentro del modal de Filtros (showFiltersSheet)
+            para concentrar todas las opciones en un mismo lugar. */}
 
         {showFiltersSheet && (
           <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
@@ -521,9 +482,9 @@ export default function MarketplacePage() {
                 </button>
               </div>
               <div className="px-5 py-4">
-                {sortBy && (
+                {(sortBy || category) && (
                   <button
-                    onClick={() => setSortBy('')}
+                    onClick={() => { setSortBy(''); setCategory(''); }}
                     className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
                     style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
                   >
@@ -531,6 +492,25 @@ export default function MarketplacePage() {
                     Limpiar filtros
                   </button>
                 )}
+
+                {/* Categoría */}
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Categoría</p>
+                <div className="flex flex-wrap gap-1.5 mb-5">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      onClick={() => { setCategory(cat.value); setShowFavoritesOnly(false); }}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                      style={category === cat.value
+                        ? { backgroundColor: '#008080', color: 'white', borderColor: '#008080' }
+                        : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                      }
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ordenar por</p>
                 <div className="space-y-1">
                   {[
@@ -539,7 +519,7 @@ export default function MarketplacePage() {
                   ].map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => { toggleSort(opt.value as SortBy); setShowFiltersSheet(false); }}
+                      onClick={() => toggleSort(opt.value as SortBy)}
                       className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-colors"
                       style={sortBy === opt.value ? { backgroundColor: '#e0f2f1', color: '#008080', fontWeight: 600 } : { color: '#374151' }}
                     >
