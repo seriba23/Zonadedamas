@@ -83,9 +83,30 @@ export class RewardsService {
       }
     }
 
+    if (dto.type === 'TWO_FOR_ONE') {
+      // 2x1 necesita serviceIds explicitos para saber a que se aplica;
+      // sin ellos no podemos generar un referral util.
+      const arr = Array.isArray(dto.serviceIds) ? dto.serviceIds : [];
+      if (arr.length === 0) {
+        throw new BadRequestException(
+          'Los cupones 2×1 deben tener al menos un servicio asociado',
+        );
+      }
+    }
+
+    // Codigo unico por tenant (si se proporciono)
+    if (dto.code) {
+      const dup = await this.prisma.reward.findFirst({
+        where: { tenantId, code: dto.code, isActive: true },
+      });
+      if (dup) {
+        throw new BadRequestException('Ya existe un cupón con ese código');
+      }
+    }
+
     // Unificacion serviceId / serviceIds:
     //  - SERVICIO con un solo servicio se mantiene en serviceId (compat).
-    //  - SERVICIO con varios (o vacio) y DESCUENTO usan serviceIds (JSON).
+    //  - SERVICIO con varios (o vacio) y DESCUENTO/TWO_FOR_ONE usan serviceIds.
     const serviceIdsArr = Array.isArray(dto.serviceIds) ? dto.serviceIds : [];
     const useSingularFK = dto.type === 'SERVICIO' && !!dto.serviceId && serviceIdsArr.length === 0;
     const reward = await this.prisma.reward.create({
@@ -100,6 +121,11 @@ export class RewardsService {
         discountAmount:
           dto.type === 'DESCUENTO' ? dto.discountAmount : null,
         discountMode: dto.type === 'DESCUENTO' ? dto.discountMode : null,
+        code: dto.code || null,
+        minAmount: dto.minAmount ?? null,
+        allowPointPayment: dto.allowPointPayment ?? true,
+        startDate: dto.startDate ? new Date(dto.startDate) : null,
+        endDate: dto.endDate ? new Date(dto.endDate) : null,
         isActive: dto.isActive ?? true,
         maxRedemptions: dto.maxRedemptions,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
@@ -157,6 +183,17 @@ export class RewardsService {
         }),
         ...(dto.discountMode !== undefined && {
           discountMode: dto.discountMode,
+        }),
+        ...(dto.code !== undefined && { code: dto.code || null }),
+        ...(dto.minAmount !== undefined && { minAmount: dto.minAmount }),
+        ...(dto.allowPointPayment !== undefined && {
+          allowPointPayment: dto.allowPointPayment,
+        }),
+        ...(dto.startDate !== undefined && {
+          startDate: dto.startDate ? new Date(dto.startDate) : null,
+        }),
+        ...(dto.endDate !== undefined && {
+          endDate: dto.endDate ? new Date(dto.endDate) : null,
         }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.maxRedemptions !== undefined && {
@@ -324,6 +361,37 @@ export class RewardsService {
     });
 
     return { data: redemption };
+  }
+
+  // Valida un codigo publico de cupon (uso interno, tipico para cajeros
+  // que ingresan el codigo manual en POS). Devuelve el reward si esta
+  // vigente y dentro de maxRedemptions. Equivalente al viejo
+  // PromotionsService.validateCode.
+  async validateCode(tenantId: string, code: string) {
+    if (!code || !code.trim()) {
+      throw new BadRequestException('Código requerido');
+    }
+    const reward = await this.prisma.reward.findFirst({
+      where: { tenantId, code: code.trim(), isActive: true },
+      include: { service: { select: { id: true, name: true } } },
+    });
+    if (!reward) {
+      throw new NotFoundException('Código no válido');
+    }
+    const now = new Date();
+    if (reward.startDate && reward.startDate > now) {
+      throw new BadRequestException('Este cupón aún no está vigente');
+    }
+    if (reward.endDate && reward.endDate < now) {
+      throw new BadRequestException('Este cupón ya expiró');
+    }
+    if (reward.validUntil && reward.validUntil < now) {
+      throw new BadRequestException('Este cupón ya expiró');
+    }
+    if (reward.maxRedemptions && reward.timesRedeemed >= reward.maxRedemptions) {
+      throw new BadRequestException('Este cupón alcanzó el máximo de canjes');
+    }
+    return { data: reward };
   }
 
   // Retira/elimina un RewardRedemption emitido. Reglas:

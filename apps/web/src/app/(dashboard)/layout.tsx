@@ -138,7 +138,6 @@ function getSectionTitle(pathname: string): string {
   if (pathname.startsWith('/services/')) return 'Detalle del servicio';
   if (pathname === '/services') return 'Servicios';
   if (pathname.startsWith('/bundles')) return 'Paquetes';
-  if (pathname.startsWith('/promotions')) return 'Promociones';
   if (pathname.startsWith('/rewards')) return 'Cupones';
   if (pathname.startsWith('/inventory')) return 'Inventario';
   if (pathname.startsWith('/suppliers')) return 'Proveedores';

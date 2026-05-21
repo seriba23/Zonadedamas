@@ -23,8 +23,8 @@ export class UpdateRewardDto {
   description?: string;
 
   @IsOptional()
-  @IsIn(['SERVICIO', 'DESCUENTO'])
-  type?: 'SERVICIO' | 'DESCUENTO';
+  @IsIn(['SERVICIO', 'DESCUENTO', 'TWO_FOR_ONE'])
+  type?: 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE';
 
   @IsOptional()
   @IsInt()
@@ -48,6 +48,27 @@ export class UpdateRewardDto {
   @IsOptional()
   @IsIn(['FLAT', 'PERCENTAGE'])
   discountMode?: 'FLAT' | 'PERCENTAGE';
+
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minAmount?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  allowPointPayment?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 
   @IsOptional()
   @IsBoolean()

@@ -4,15 +4,16 @@ import { useState } from 'react';
 import { ServicesContent } from './services-content';
 import { BundlesContent } from '../bundles/bundles-content';
 import { RewardsContent } from '../rewards/rewards-content';
-import { PromotionsContent } from '../promotions/promotions-content';
 
-type ServicePageTab = 'servicios' | 'paquetes' | 'cupones' | 'promociones';
+// Tabs de la pagina /services. La pestaña "Promociones" se eliminó porque
+// las promociones (incluyendo 2×1) ahora viven en Cupones (rewards) como
+// type='TWO_FOR_ONE'. Ver rewards/rewards-content.tsx.
+type ServicePageTab = 'servicios' | 'paquetes' | 'cupones';
 
 const SERVICE_PAGE_TABS: { key: ServicePageTab; label: string }[] = [
   { key: 'servicios', label: 'Servicios' },
   { key: 'paquetes', label: 'Paquetes' },
   { key: 'cupones', label: 'Cupones' },
-  { key: 'promociones', label: 'Promociones' },
 ];
 
 export default function ServicesPage() {
@@ -41,7 +42,6 @@ export default function ServicesPage() {
         {activeTab === 'servicios' && <ServicesContent />}
         {activeTab === 'paquetes' && <BundlesContent embedded />}
         {activeTab === 'cupones' && <RewardsContent embedded />}
-        {activeTab === 'promociones' && <PromotionsContent embedded />}
       </div>
     </div>
   );

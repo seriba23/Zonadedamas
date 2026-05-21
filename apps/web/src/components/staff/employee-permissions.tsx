@@ -41,8 +41,7 @@ const ADMIN_MODULES = [
   { key: 'employees', label: 'Personal', desc: 'Gestionar empleados y horarios' },
   { key: 'reports', label: 'Reportes', desc: 'Ver estadisticas e ingresos' },
   { key: 'inventory', label: 'Inventario', desc: 'Productos y proveedores' },
-  { key: 'promotions', label: 'Promociones', desc: 'Cupones y ofertas' },
-  { key: 'rewards', label: 'Cupones', desc: 'Programa de fidelidad' },
+  { key: 'rewards', label: 'Cupones', desc: 'Cupones, descuentos, 2×1 y fidelidad' },
   { key: 'resources', label: 'Recursos', desc: 'Salas y equipamiento' },
   { key: 'locations', label: 'Sucursales', desc: 'Gestionar ubicaciones' },
 ];

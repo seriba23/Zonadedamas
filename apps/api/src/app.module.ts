@@ -31,7 +31,9 @@ import { StripeModule } from './modules/stripe/stripe.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ProductsModule } from './modules/products/products.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
-import { PromotionsModule } from './modules/promotions/promotions.module';
+// PromotionsModule eliminado: la funcionalidad migró a RewardsModule
+// (incluyendo el tipo TWO_FOR_ONE). Las tablas legacy `promotions` y
+// `promotion_referrals` se conservan en BD como respaldo pero sin API.
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ServiceBundlesModule } from './modules/service-bundles/service-bundles.module';
 import { ShopModule } from './modules/shop/shop.module';
@@ -80,7 +82,6 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     ReportsModule,
     ProductsModule,
     SuppliersModule,
-    PromotionsModule,
     AttendanceModule,
     ServiceBundlesModule,
     ShopModule,

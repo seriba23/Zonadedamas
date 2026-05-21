@@ -108,6 +108,14 @@ export class RewardsController {
     );
   }
 
+  // Valida un codigo publico de cupon (no consumio puntos del cliente).
+  // Sirve para que el POS lo verifique antes de aplicarlo en una cita.
+  @Post('validate-code')
+  @RequirePermissions('rewards.read')
+  validateCode(@Request() req: any, @Body() body: { code: string }) {
+    return this.rewardsService.validateCode(req.user.tenantId, body?.code);
+  }
+
   // Retira un cupón emitido (RewardRedemption). Solo si NO está USED.
   // Si fue canje con puntos, devuelve los puntos al cliente. Si fue regalo,
   // simplemente se elimina. Audit logueado.

@@ -12,12 +12,17 @@ interface Reward {
   id: string;
   name: string;
   description?: string;
-  type: 'SERVICIO' | 'DESCUENTO';
+  type: 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE';
   pointsRequired: number;
   serviceId?: string | null;
   serviceIds?: string[] | null;
   discountAmount?: number;
   discountMode?: 'FLAT' | 'PERCENTAGE';
+  code?: string | null;
+  minAmount?: number | null;
+  allowPointPayment?: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
   isActive: boolean;
   maxRedemptions?: number;
   timesRedeemed: number;
@@ -28,11 +33,14 @@ interface Reward {
 interface RewardForm {
   name: string;
   description: string;
-  type: 'SERVICIO' | 'DESCUENTO';
+  type: 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE';
   pointsRequired: number | string;
   serviceIds: string[]; // multi-select; vacio = todos los servicios
   discountAmount: number | string;
   discountMode: 'FLAT' | 'PERCENTAGE';
+  code: string;
+  minAmount: number | string;
+  allowPointPayment: boolean;
   isActive: boolean;
   maxRedemptions: number | string;
   validUntil: string;
@@ -52,6 +60,9 @@ const defaultForm: RewardForm = {
   serviceIds: [],
   discountAmount: '',
   discountMode: 'PERCENTAGE',
+  code: '',
+  minAmount: '',
+  allowPointPayment: true,
   isActive: true,
   maxRedemptions: '',
   validUntil: '',
@@ -288,6 +299,9 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
       serviceIds: ids,
       discountAmount: reward.discountAmount ?? '',
       discountMode: reward.discountMode || 'PERCENTAGE',
+      code: reward.code || '',
+      minAmount: reward.minAmount ?? '',
+      allowPointPayment: reward.allowPointPayment ?? true,
       isActive: reward.isActive,
       maxRedemptions: reward.maxRedemptions ?? '',
       validUntil: reward.validUntil ? reward.validUntil.split('T')[0] : '',
@@ -339,12 +353,27 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
       }
       payload.discountAmount = null;
       payload.discountMode = null;
-    } else {
+    } else if (form.type === 'DESCUENTO') {
       payload.serviceId = null;
       payload.serviceIds = selectedIds;
       payload.discountAmount = Number(form.discountAmount) || 0;
       payload.discountMode = form.discountMode;
+    } else if (form.type === 'TWO_FOR_ONE') {
+      // 2x1 requiere serviceIds explicitos (validacion backend)
+      if (selectedIds.length === 0) {
+        setFormError('Los cupones 2×1 deben tener al menos un servicio asociado');
+        return;
+      }
+      payload.serviceId = null;
+      payload.serviceIds = selectedIds;
+      payload.discountAmount = null;
+      payload.discountMode = null;
     }
+
+    // Campos compartidos por todos los tipos
+    payload.code = form.code.trim() || null;
+    payload.minAmount = form.minAmount ? Number(form.minAmount) : null;
+    payload.allowPointPayment = form.allowPointPayment;
 
     saveMutation.mutate(payload);
   }
@@ -500,13 +529,14 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                   onChange={(e) =>
                     setForm((f) => ({
                       ...f,
-                      type: e.target.value as 'SERVICIO' | 'DESCUENTO',
+                      type: e.target.value as 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE',
                     }))
                   }
                   className="input-field"
                 >
                   <option value="SERVICIO">Servicio gratis</option>
                   <option value="DESCUENTO">Descuento</option>
+                  <option value="TWO_FOR_ONE">2×1 (paga uno, regala uno)</option>
                 </select>
               </div>
               <div>
@@ -528,7 +558,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Servicios vinculados
+                Servicios vinculados {form.type === 'TWO_FOR_ONE' && <span className="text-red-500">*</span>}
               </label>
               <ServicesMultiSelect
                 services={services}
@@ -542,9 +572,19 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                     : form.serviceIds.length === 1
                       ? 'El servicio que el cliente recibe gratis al canjear.'
                       : 'El cliente podrá usar el cupón en cualquiera de los servicios seleccionados.'
-                  : 'Servicios donde el cupón se puede aplicar (vacío = todos).'}
+                  : form.type === 'TWO_FOR_ONE'
+                    ? 'Servicios donde aplica el 2×1. Al canjear, el cliente recibe un código para regalar el mismo servicio a un amigo.'
+                    : 'Servicios donde el cupón se puede aplicar (vacío = todos).'}
               </p>
             </div>
+
+            {form.type === 'TWO_FOR_ONE' && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+                <p className="text-xs text-purple-800">
+                  <span className="font-semibold">Cómo funciona:</span> al canjear este cupón con puntos, el cliente paga su cita normal y recibe un código único para regalar el mismo servicio a un amigo. El amigo usa el código al reservar y recibe el servicio gratis.
+                </p>
+              </div>
+            )}
 
             {form.type === 'DESCUENTO' && (
               <div className="grid grid-cols-3 gap-4">
@@ -595,6 +635,38 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Código público
+                </label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                  className="input-field font-mono"
+                  placeholder="Ej: VERANO2026"
+                  maxLength={50}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Opcional. Útil para promociones con código que el cliente ingresa.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Monto mínimo de cita
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.minAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, minAmount: e.target.value }))}
+                  className="input-field"
+                  placeholder="Sin mínimo"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">El cupón solo aplica si el total supera este monto.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Máx. canjes
                 </label>
                 <input
@@ -623,6 +695,20 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                 />
               </div>
             </div>
+
+            <label className="flex items-center justify-between cursor-pointer">
+              <p className="text-sm font-medium text-gray-700">Combinable con "pagar con puntos"</p>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={form.allowPointPayment}
+                  onChange={(e) => setForm((f) => ({ ...f, allowPointPayment: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+              </div>
+            </label>
 
             <label className="flex items-center justify-between cursor-pointer">
               <p className="text-sm font-medium text-gray-700">Activo</p>
