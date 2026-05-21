@@ -679,6 +679,17 @@ export default function BusinessDetailPage() {
   };
 
   const [redeemResult, setRedeemResult] = useState<{ code: string; name: string } | null>(null);
+  // Modal de confirmacion para canjear desde la seccion "Cupones" del negocio
+  // (panel publico, antes del booking). Mismo estilo que el modal del step
+  // "Cupones" pero invoca otra mutation (no aplica a una cita en curso).
+  const [redeemBizConfirm, setRedeemBizConfirm] = useState<{
+    rewardId: string;
+    name: string;
+    points: number;
+    valueLabel: string;
+    isTwoForOne: boolean;
+  } | null>(null);
+  const [redeemBizError, setRedeemBizError] = useState<string | null>(null);
 
   const redeemMutation = useMutation({
     mutationFn: (rewardId: string) =>
@@ -689,8 +700,15 @@ export default function BusinessDetailPage() {
     onSuccess: (res: any) => {
       const result = res?.data || res;
       setRedeemResult({ code: result.code, name: result.reward?.name || 'Recompensa' });
+      setRedeemBizConfirm(null);
+      setRedeemBizError(null);
       queryClient.invalidateQueries({ queryKey: ['marketplace-biz-rewards', tenantSlug] });
       queryClient.invalidateQueries({ queryKey: ['marketplace-my-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['user-coupons', tenantSlug] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'No se pudo canjear el cupón';
+      setRedeemBizError(typeof msg === 'string' ? msg : 'No se pudo canjear el cupón');
     },
   });
 
@@ -1396,9 +1414,14 @@ export default function BusinessDetailPage() {
                         <div className="flex justify-end mt-2">
                           <button
                             onClick={() => {
-                              if (confirm(`¿Canjear "${reward.name}" por ${points} puntos?`)) {
-                                redeemMutation.mutate(reward.id);
-                              }
+                              setRedeemBizError(null);
+                              setRedeemBizConfirm({
+                                rewardId: reward.id,
+                                name: reward.name,
+                                points,
+                                valueLabel: valueDescription,
+                                isTwoForOne,
+                              });
                             }}
                             disabled={redeemMutation.isPending}
                             className="px-3 py-1.5 rounded-lg text-xs font-black tracking-wide text-white disabled:opacity-60"
@@ -1418,6 +1441,95 @@ export default function BusinessDetailPage() {
                 {(redeemMutation.error as any)?.message || 'Error al canjear'}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Modal de confirmacion al canjear desde "Cupones" del negocio.
+            Identico al del step "Cupones" del booking. El cupon canjeado
+            queda guardado en "Tus cupones" del cliente para uso posterior. */}
+        {redeemBizConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => !redeemMutation.isPending && setRedeemBizConfirm(null)}
+          >
+            <div
+              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4"
+                style={{ backgroundColor: redeemBizConfirm.isTwoForOne ? '#f3e8ff' : TEAL_LIGHT }}
+              >
+                <svg
+                  className="w-8 h-8"
+                  style={{ color: redeemBizConfirm.isTwoForOne ? '#7c3aed' : TEAL }}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+                ¿Canjear este cupón?
+              </h3>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                <span className="font-semibold">{redeemBizConfirm.name}</span>
+                <br />
+                {redeemBizConfirm.valueLabel}
+              </p>
+              <div
+                className="rounded-xl p-3 mb-4"
+                style={{ backgroundColor: redeemBizConfirm.isTwoForOne ? '#f3e8ff' : TEAL_LIGHT }}
+              >
+                <p
+                  className="text-xs text-center"
+                  style={{ color: redeemBizConfirm.isTwoForOne ? '#5b21b6' : TEAL_DARK }}
+                >
+                  Se descontarán de tu saldo:
+                </p>
+                <p
+                  className="text-2xl font-bold text-center"
+                  style={{ color: redeemBizConfirm.isTwoForOne ? '#5b21b6' : TEAL_DARK }}
+                >
+                  {redeemBizConfirm.points.toLocaleString()} pts
+                </p>
+                <p
+                  className="text-[11px] text-center mt-0.5"
+                  style={{ color: redeemBizConfirm.isTwoForOne ? '#5b21b6' : TEAL_DARK }}
+                >
+                  Saldo actual: {myPointsHere.toLocaleString()} pts
+                </p>
+              </div>
+              <p className="text-xs text-gray-500 text-center mb-4">
+                El cupón quedará guardado en <span className="font-semibold">Tus cupones</span> y lo podrás usar al reservar.
+              </p>
+              {redeemBizError && (
+                <div className="rounded-xl p-3 mb-3 bg-red-50 border border-red-200">
+                  <p className="text-xs text-red-700 text-center">{redeemBizError}</p>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={redeemMutation.isPending}
+                  onClick={() => setRedeemBizConfirm(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={redeemMutation.isPending}
+                  onClick={() => redeemMutation.mutate(redeemBizConfirm.rewardId)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
+                  style={{ backgroundColor: redeemBizConfirm.isTwoForOne ? '#7c3aed' : TEAL }}
+                >
+                  {redeemMutation.isPending ? 'Canjeando…' : 'Canjear'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -3168,9 +3280,9 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Cupón aplicado: ticket compacto readonly. Mismo look que
-                      las cards del step "Cupones" — stub con el valor del
-                      cupón, contenido principal con nombre + código. */}
+                  {/* Cupón aplicado: ticket readonly con las MISMAS
+                      proporciones que las cards del step "Cupones" (w-20
+                      stub, w-4 separador con 9 puntos, minHeight 110). */}
                   {selectedCoupon && (() => {
                     const reward = selectedCoupon.reward;
                     if (!reward) return null;
@@ -3184,49 +3296,70 @@ export default function BusinessDetailPage() {
                         : reward.discountMode === 'PERCENTAGE'
                           ? (Number(reward.discountAmount || 0) >= 100 ? 'GRATIS' : `-${Number(reward.discountAmount || 0)}%`)
                           : `-${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)}`;
-                    const stubFontSize = stubLabel.length <= 4 ? '1rem' : stubLabel.length <= 6 ? '0.75rem' : '0.625rem';
+                    const stubFontSize = stubLabel.length <= 4 ? '1.125rem' : stubLabel.length <= 6 ? '0.875rem' : '0.75rem';
                     const stubSub = isTwoForOne ? 'regalo' : reward.type === 'SERVICIO' ? 'servicio' : 'descuento';
+                    const valueDescription = isTwoForOne
+                      ? 'Paga uno y regala el mismo servicio a un amigo'
+                      : reward.type === 'SERVICIO'
+                        ? (reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis')
+                        : reward.discountMode === 'PERCENTAGE'
+                          ? `${Number(reward.discountAmount || 0)}% de descuento`
+                          : `${formatCurrency(Number(reward.discountAmount || 0), bizCurrency)} de descuento`;
                     return (
                       <div className="mb-4">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">
                           Cupón aplicado
                         </p>
                         <div
-                          className="bg-white rounded-xl overflow-hidden shadow-sm flex"
-                          style={{ minHeight: 72, outline: `2px solid ${stubColor}`, outlineOffset: 0 }}
+                          className="bg-white rounded-2xl overflow-hidden shadow-md flex"
+                          style={{ minHeight: 110, outline: `2px solid ${stubColor}`, outlineOffset: 2 }}
                         >
-                          {/* Stub izquierdo */}
-                          <div className="w-16 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
-                            <span className="text-white font-black leading-tight text-center break-all w-full px-1" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
+                          {/* Stub izquierdo — mismas medidas que cards del step */}
+                          <div className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative" style={{ backgroundColor: stubColor }}>
+                            <span className="text-white font-black leading-tight text-center break-all w-full px-2" style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}>
                               {stubLabel}
                             </span>
-                            <span className="text-white/70 text-[8px] uppercase tracking-wider">{stubSub}</span>
-                            <div className="absolute -right-2 -top-2 w-4 h-4 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
-                            <div className="absolute -right-2 -bottom-2 w-4 h-4 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                            <span className="text-white/70 text-[9px] uppercase tracking-wider">{stubSub}</span>
+                            <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                            <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
                           </div>
-                          {/* Separador perforado */}
-                          <div className="flex flex-col items-center justify-center w-3 flex-shrink-0 gap-[2px] py-2">
-                            {Array.from({ length: 7 }).map((_, i) => (
-                              <div key={i} className="w-[2px] h-[2px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                          {/* Separador perforado — 9 puntos como en el step */}
+                          <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                            {Array.from({ length: 9 }).map((_, i) => (
+                              <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
                             ))}
                           </div>
                           {/* Contenido */}
-                          <div className="flex-1 py-2 pr-3 flex items-center justify-between gap-2 min-w-0">
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-gray-900 truncate">{reward.name}</p>
+                          <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+                            <div>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                                  {reward.name}
+                                </p>
+                                <span
+                                  className="text-[10px] font-bold bg-teal-50 text-[#008080] px-2 py-0.5 rounded-full flex-shrink-0 uppercase tracking-wider"
+                                  style={isTwoForOne ? { backgroundColor: '#f3e8ff', color: '#7c3aed' } : undefined}
+                                >
+                                  Aplicado
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{valueDescription}</p>
                               {selectedCoupon.code && (
-                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                <p className="text-[11px] text-gray-500 mt-1">
                                   Código <span className="font-mono font-semibold" style={{ color: stubColor }}>{selectedCoupon.code}</span>
                                 </p>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedCoupon(null)}
-                              className="text-[11px] font-medium text-gray-400 hover:text-red-600 flex-shrink-0 px-2 py-1"
-                            >
-                              Quitar
-                            </button>
+                            <div className="flex items-center justify-end mt-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCoupon(null)}
+                                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-black tracking-wide bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                style={{ letterSpacing: '0.05em' }}
+                              >
+                                QUITAR
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
