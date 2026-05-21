@@ -244,9 +244,13 @@ function DashboardLayoutContent({
     <div className="flex h-[100dvh]" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
-        {/* Topbar (mobile + desktop) — titulo centrado a TODO el viewport en mobile. */}
+        {/* Topbar (mobile + desktop) — titulo centrado a TODO el viewport en mobile.
+            `safe-top` aplica el padding superior unificado del proyecto
+            (max(1.75rem, env(safe-area-inset-top))) para que coincida con
+            las pantallas del marketplace. Solo afecta padding-top — el
+            padding-bottom se mantiene en py-2.5/md:py-3. */}
         <header
-          className="relative sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3"
+          className="relative sticky top-0 z-20 flex items-center px-3 md:px-6 pb-2.5 md:pb-3 safe-top"
           style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}
         >
           <button
