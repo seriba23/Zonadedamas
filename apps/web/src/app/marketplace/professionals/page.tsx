@@ -228,8 +228,8 @@ export default function ProfessionalsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header — identical to negocios */}
-      <div className="bg-gray-50 px-4 pt-5 pb-2 safe-top">
+      {/* Header (sticky) — identical to negocios */}
+      <div className="bg-gray-50 px-4 pt-8 pb-3 safe-top sticky top-0 z-20">
         <div className="max-w-2xl mx-auto">
           {/* Search */}
           <div className="relative mb-2.5">
@@ -296,6 +296,13 @@ export default function ProfessionalsPage() {
               </button>
             )}
           </div>
+
+          {/* Contador dentro del header sticky */}
+          {!isLoading && professionals.length > 0 && (
+            <p className="text-xs text-gray-400 mt-2">
+              {professionals.length} profesional{professionals.length !== 1 ? 'es' : ''}
+            </p>
+          )}
         </div>
       </div>
 
@@ -317,12 +324,9 @@ export default function ProfessionalsPage() {
             </p>
           </div>
         ) : (
-          <>
-            <p className="text-xs text-gray-400 mb-3">{professionals.length} profesional{professionals.length !== 1 ? 'es' : ''}</p>
-            <div className="grid grid-cols-1 gap-3">
-              {professionals.map((pro) => renderCard(pro))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 gap-3">
+            {professionals.map((pro) => renderCard(pro))}
+          </div>
         )}
       </div>
 

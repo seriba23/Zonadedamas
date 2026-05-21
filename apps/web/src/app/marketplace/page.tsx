@@ -318,8 +318,8 @@ export default function MarketplacePage() {
 
       <div>
 
-        {/* ── Header ── */}
-        <div className="bg-gray-50 px-4 pt-5 pb-2 safe-top">
+        {/* ── Header (sticky) ── */}
+        <div className="bg-gray-50 px-4 pt-8 pb-3 safe-top sticky top-0 z-20">
           <div className="max-w-2xl mx-auto">
             {/* Search */}
             <div className="relative mb-2.5">
@@ -422,18 +422,19 @@ export default function MarketplacePage() {
                 </button>
               )}
             </div>
+
+            {/* Contador de resultados — dentro del header sticky para que
+                siempre se vea junto a la barra de busqueda y los filtros. */}
+            {!isLoading && businesses.length > 0 && (
+              <p className="text-xs text-gray-400 mt-2">
+                {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
+              </p>
+            )}
           </div>
         </div>
 
         {/* ── Cards ── */}
         <div className="max-w-2xl mx-auto w-full px-4 pt-2 pb-24">
-          {/* Results count */}
-          {!isLoading && businesses.length > 0 && (
-            <p className="text-xs text-gray-400 mb-2">
-              {businesses.length} negocio{businesses.length !== 1 ? 's' : ''}
-            </p>
-          )}
-
           {isLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: '#008080' }} />
