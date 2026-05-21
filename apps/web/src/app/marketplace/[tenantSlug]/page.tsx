@@ -954,7 +954,11 @@ export default function BusinessDetailPage() {
     }
     return 0;
   })();
-  const totalPrice = basePrice - promoDiscount;
+  // totalPrice = subtotal de servicios SIN descuentos aplicados. El
+  // descuento del cupón (`promoDiscount` / `disc`) se resta una sola vez
+  // dentro del bloque de "Confirmar reserva" para calcular `finalTotal`.
+  // Antes era `basePrice - promoDiscount` y se duplicaba con `disc`.
+  const totalPrice = basePrice;
 
   // Valor derivado: BizPromotion-like construido desde selectedCoupon.reward,
   // para que el resto del render (confirm/success/CTA) siga refiriendose a
