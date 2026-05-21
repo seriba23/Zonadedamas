@@ -3827,14 +3827,83 @@ export default function BusinessDetailPage() {
                     </span>
                   </div>
                 )}
-                {!anyEmployee && selectedEmployee && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Profesional:</span>
-                    <span className="font-medium">
-                      {selectedEmployee.firstName} {selectedEmployee.lastName}
-                    </span>
-                  </div>
-                )}
+                {/* Profesionales: en multi-empleado mostramos todos los
+                    asignados con su avatar y los servicios que harán.
+                    En single-empleado mostramos solo el seleccionado. */}
+                {(() => {
+                  // Multi-empleado: si hay mapping y los serviceIds usan más
+                  // de un profesional distinto, agrupamos por profesional.
+                  const assignedEmpIds = selectedServiceIds
+                    .map((sid) => serviceEmployeeMap[sid])
+                    .filter(Boolean) as string[];
+                  const uniqueEmpIds = [...new Set(assignedEmpIds)];
+                  const isMulti = uniqueEmpIds.length > 1;
+
+                  if (isMulti) {
+                    return (
+                      <div className="pt-2 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-2">Profesionales</p>
+                        <div className="space-y-2">
+                          {uniqueEmpIds.map((empId) => {
+                            const emp = employees.find((e) => e.id === empId);
+                            if (!emp) return null;
+                            const empSvcs = selectedServices.filter(
+                              (s) => serviceEmployeeMap[s.id] === empId,
+                            );
+                            return (
+                              <div key={empId} className="flex items-center gap-2">
+                                <div
+                                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
+                                  style={{ backgroundColor: emp.color }}
+                                >
+                                  {emp.avatarUrl ? (
+                                    <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <>{emp.firstName[0]}{emp.lastName[0]}</>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {emp.firstName} {emp.lastName}
+                                  </p>
+                                  <p className="text-[11px] text-gray-500 truncate">
+                                    {empSvcs.map((s) => s.name).join(', ')}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Single-empleado: render compacto con avatar también.
+                  if (!anyEmployee && selectedEmployee) {
+                    return (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Profesional:</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden"
+                            style={{ backgroundColor: selectedEmployee.color }}
+                          >
+                            {selectedEmployee.avatarUrl ? (
+                              <img src={`${API_URL}${selectedEmployee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <>{selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}</>
+                            )}
+                          </div>
+                          <span className="font-medium truncate">
+                            {selectedEmployee.firstName} {selectedEmployee.lastName}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
                 {(() => {
                   let disc = 0;
                   if (selectedCoupon?.reward) {
