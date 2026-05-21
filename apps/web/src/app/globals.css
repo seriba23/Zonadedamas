@@ -43,9 +43,14 @@ html[data-theme="dark"] {
   }
 }
 
-/* Safe area utilities for notch/status bar devices */
+/* Safe area utilities for notch/status bar devices.
+   `safe-top` aplica un padding superior MÍNIMO (1.75rem = 28px) y toma el
+   inset del sistema si es mayor (mobile con notch). Esto garantiza que las
+   pantallas tengan aire arriba aun en navegadores sin safe area (desktop,
+   mobile sin notch), donde antes env(safe-area-inset-top) era 0 y la barra
+   superior tocaba el borde de la pantalla. */
 .safe-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(1.75rem, env(safe-area-inset-top));
 }
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
