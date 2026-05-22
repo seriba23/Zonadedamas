@@ -85,12 +85,16 @@ export default function MarketplaceAppointmentsPage() {
   const purchases: any[] = (purchasesData as any)?.data || [];
   const pendingPayments: any[] = (paymentsData as any)?.data || [];
 
-  const upcoming = appointments.filter((a) =>
-    ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status),
-  );
-  const past = appointments.filter((a) =>
-    ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status),
-  );
+  // Próximas: ascendente (la más cercana al ahora arriba).
+  // Historial: descendente (la más reciente arriba).
+  // Comparamos strings raw (substring 0..19) para no convertir TZ.
+  const rawIso = (s: string | undefined) => (s || '').substring(0, 19);
+  const upcoming = appointments
+    .filter((a) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status))
+    .sort((a, b) => rawIso(a.startTime).localeCompare(rawIso(b.startTime)));
+  const past = appointments
+    .filter((a) => ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status))
+    .sort((a, b) => rawIso(b.startTime).localeCompare(rawIso(a.startTime)));
 
   if (authLoading) return null;
 

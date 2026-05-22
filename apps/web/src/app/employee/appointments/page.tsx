@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
+import { formatCurrency as rawFormatCurrency, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -478,10 +478,10 @@ function AppointmentRow({
   const totalPrice = Math.max(0, servicesSubtotal + productsSubtotal - discount);
   const hasDiscount = discount > 0;
 
-  // Iniciales y color del cliente (placeholder teal por defecto, no hay
-  // color de cliente como en empleados).
+  // Avatar del cliente: foto si existe, fallback a iniciales sobre teal.
   const initials = `${apt.client.firstName?.[0] || ''}${apt.client.lastName?.[0] || ''}`.toUpperCase();
   const clientColor = '#008080';
+  const clientAvatarUrl = resolveImageUrl((apt.client as any).avatarUrl);
 
   // Fecha desglosada (mismo formato que marketplace card).
   // No usamos new Date(...) porque convierte a TZ del browser. La hora
@@ -524,12 +524,16 @@ function AppointmentRow({
 
       {/* Main content */}
       <div className="flex items-center gap-3">
-        {/* Avatar del cliente */}
+        {/* Avatar del cliente: foto si existe, fallback a iniciales */}
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden flex-shrink-0 ring-2 ring-white shadow"
           style={{ backgroundColor: clientColor }}
         >
-          {initials || (
+          {clientAvatarUrl ? (
+            <img src={clientAvatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : initials ? (
+            initials
+          ) : (
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
             </svg>
