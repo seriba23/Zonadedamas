@@ -485,8 +485,14 @@ export class MarketplaceService {
     }
 
     if (search) {
-      conditions.push('(t.name LIKE ? OR EXISTS (SELECT 1 FROM services s WHERE s.tenant_id = t.id AND s.is_active = true AND s.name LIKE ?))');
-      params.push(`%${search}%`, `%${search}%`);
+      // Busqueda multi-campo: nombre del negocio, categoria (business_type),
+      // direccion, o nombre/subcategoria de cualquier servicio activo.
+      conditions.push(
+        `(t.name LIKE ? OR t.business_type LIKE ? OR t.address LIKE ? ` +
+        `OR EXISTS (SELECT 1 FROM services s WHERE s.tenant_id = t.id AND s.is_active = true AND (s.name LIKE ? OR s.subcategory LIKE ? OR s.category LIKE ?)))`,
+      );
+      const like = `%${search}%`;
+      params.push(like, like, like, like, like, like);
     }
 
     if (availableToday) {
@@ -1080,10 +1086,17 @@ export class MarketplaceService {
 
     if (search) {
       const cleanSearch = search.replace('#', '').trim();
+      // Busqueda multi-campo: nombre, apellido, especialidad (jobTitle),
+      // bio, servicios que realiza el profesional y categoria del negocio
+      // donde trabaja. Permite encontrar profesionales por lo que ofrecen,
+      // no solo por su nombre.
       where.OR = [
         { firstName: { contains: cleanSearch } },
         { lastName: { contains: cleanSearch } },
         { jobTitle: { contains: cleanSearch } },
+        { bio: { contains: cleanSearch } },
+        { employeeServices: { some: { service: { name: { contains: cleanSearch } } } } },
+        { tenant: { businessType: { contains: cleanSearch } } },
       ];
     }
 
@@ -1096,7 +1109,8 @@ export class MarketplaceService {
         where,
         skip,
         take: perPage,
-        orderBy: { createdAt: 'desc' },
+        // Orden alfabetico por nombre + apellido (es-MX).
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
         select: {
           id: true,
           firstName: true,
