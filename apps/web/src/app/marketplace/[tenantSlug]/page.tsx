@@ -2217,25 +2217,86 @@ export default function BusinessDetailPage() {
 
                 return (
                   <div>
-                    {/* Resumen del servicio o paquete preseleccionado para
-                        que el cliente confirme visualmente sin scrollear. */}
-                    {(selectedBundle || selectedServices.length > 0) && (
-                      <div className="flex items-start gap-2 p-3 mb-4 rounded-xl border" style={{ backgroundColor: TEAL_LIGHT, borderColor: 'rgba(0,128,128,0.3)' }}>
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: TEAL }}>
-                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                          </svg>
+                    {/* Tarjeta(s) del servicio/paquete elegido — replica el
+                        look de las del listado del perfil. Borde teal para
+                        indicar "seleccionada" sin necesidad de un mensaje
+                        explicito arriba. */}
+                    {selectedBundle && (() => {
+                      const ids: string[] = Array.isArray(selectedBundle.serviceIds) ? selectedBundle.serviceIds : [];
+                      const svcs = ids.map((id: string) => services.find((s) => s.id === id)).filter(Boolean) as any[];
+                      const originalPrice = svcs.reduce((sum, s) => sum + Number(s.price), 0);
+                      return (
+                        <div className="w-full text-left p-4 rounded-xl border-2 mb-4" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-gray-900">{selectedBundle.name}</p>
+                            <div className="text-right">
+                              {originalPrice > Number(selectedBundle.bundlePrice) && (
+                                <span className="text-xs text-gray-400 line-through mr-2">
+                                  {formatCurrency(originalPrice, bizCurrency)}
+                                </span>
+                              )}
+                              <span className="font-bold" style={{ color: TEAL }}>
+                                {formatCurrency(Number(selectedBundle.bundlePrice), bizCurrency)}
+                              </span>
+                            </div>
+                          </div>
+                          {selectedBundle.description && (
+                            <p className="text-xs text-gray-500 mb-3">{selectedBundle.description}</p>
+                          )}
+                          <div className="space-y-1.5 mb-3">
+                            {svcs.map((s) => (
+                              <div key={s.id} className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  <span className="text-sm text-gray-700">{s.name}</span>
+                                </div>
+                                <span className="text-xs text-gray-400">{s.durationMinutes} min</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <span className="text-xs text-gray-400">{selectedBundle.totalDuration} min total</span>
+                            {selectedBundle.savingsPercent && Number(selectedBundle.savingsPercent) > 0 && (
+                              <span className="text-xs font-semibold text-green-600">Ahorras {Number(selectedBundle.savingsPercent)}%</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEAL_DARK }}>
-                            {selectedBundle ? 'Paquete elegido' : selectedServices.length === 1 ? 'Servicio elegido' : 'Servicios elegidos'}
-                          </p>
-                          <p className="text-sm font-semibold text-gray-900 mt-0.5">
-                            {selectedBundle
-                              ? selectedBundle.name
-                              : selectedServices.map((s) => s.name).join(', ')}
-                          </p>
-                        </div>
+                      );
+                    })()}
+                    {!selectedBundle && selectedServices.length > 0 && (
+                      <div className="space-y-3 mb-4">
+                        {selectedServices.map((s) => (
+                          <div
+                            key={s.id}
+                            className="w-full text-left p-4 rounded-xl border-2"
+                            style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">{s.name}</p>
+                                {s.description && (
+                                  <p className="text-sm text-gray-500">{s.description}</p>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-semibold text-gray-900">
+                                  {formatCurrency(Number(s.price), bizCurrency)}
+                                </p>
+                                <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
+                              </div>
+                            </div>
+                            {s.redeemableWithPoints && s.pointsRequired && (
+                              <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
+                                <svg className="w-3.5 h-3.5" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs font-medium" style={{ color: TEAL }}>Canjeable por {s.pointsRequired} puntos</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                     <h2 className="text-lg font-semibold text-gray-900 mb-1">Selecciona la sucursal</h2>
@@ -2359,29 +2420,12 @@ export default function BusinessDetailPage() {
                     Selecciona el servicio
                   </h2>
 
-                  {/* Resumen del servicio/paquete preseleccionado — se
-                      mantiene visible al avanzar al step "service" para que
-                      el cliente no pierda referencia de lo que eligió en el
-                      step anterior (location o desde el listado del perfil). */}
-                  {(selectedBundle || selectedServices.length > 0) && (
-                    <div className="flex items-start gap-2 p-3 mb-4 rounded-xl border" style={{ backgroundColor: TEAL_LIGHT, borderColor: 'rgba(0,128,128,0.3)' }}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: TEAL }}>
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEAL_DARK }}>
-                          {selectedBundle ? 'Paquete elegido' : selectedServices.length === 1 ? 'Servicio elegido' : 'Servicios elegidos'}
-                        </p>
-                        <p className="text-sm font-semibold text-gray-900 mt-0.5">
-                          {selectedBundle
-                            ? selectedBundle.name
-                            : selectedServices.map((s) => s.name).join(', ')}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  {/* Step "service": el listado abajo ya marca con borde
+                      teal la card del servicio seleccionado, asi que no
+                      necesitamos un resumen aparte arriba. La unica
+                      excepcion es cuando hay multiples servicios elegidos
+                      (no fits en el listado normalmente porque cada card
+                      esta separada). Lo dejamos minimo. */}
 
                   {/* Tabs: Servicios | Paquetes (las Promociones son ahora un step aparte) */}
                   {bizBundles.length > 0 && (
