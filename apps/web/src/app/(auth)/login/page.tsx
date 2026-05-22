@@ -534,7 +534,7 @@ function LoginPageInner() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-2xl">
         {/* Logo — mismo tamaño/posicion que en el selector de perfil para
             mantener consistencia visual en todo el flujo de auth. */}
         <div className="text-center mb-8">
@@ -559,38 +559,38 @@ function LoginPageInner() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-2 md:space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-[10px] md:text-sm font-medium text-gray-700 mb-0.5 md:mb-1.5">Correo electrónico</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
               <input
                 id="email" type="email" autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className={`input-field text-xs md:text-base py-1 md:py-2 ${errors.email ? 'border-red-400' : ''}`}
+                className={`input-field text-base py-2 ${errors.email ? 'border-red-400' : ''}`}
                 placeholder="correo@ejemplo.com"
               />
-              {errors.email && <p className="mt-0.5 text-[10px] md:text-xs text-red-600">{errors.email}</p>}
+              {errors.email && <p className="mt-0.5 text-xs text-red-600">{errors.email}</p>}
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-[10px] md:text-sm font-medium text-gray-700 mb-0.5 md:mb-1.5">Contraseña</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
               <input
                 id="password" type="password" autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                className={`input-field text-xs md:text-base py-1 md:py-2 ${errors.password ? 'border-red-400' : ''}`}
+                className={`input-field text-base py-2 ${errors.password ? 'border-red-400' : ''}`}
                 placeholder="••••••••"
               />
-              {errors.password && <p className="mt-0.5 text-[10px] md:text-xs text-red-600">{errors.password}</p>}
+              {errors.password && <p className="mt-0.5 text-xs text-red-600">{errors.password}</p>}
             </div>
 
             <div className="text-center">
-              <Link href="/forgot-password" className="text-[10px] md:text-sm text-primary-600 hover:text-primary-700 font-medium">
+              <Link href="/forgot-password" className="text-base text-primary-600 hover:text-primary-700 font-medium">
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-1 md:py-2.5 text-xs md:text-base">
+            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-2.5 text-base">
               {isLoading && (
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -602,12 +602,12 @@ function LoginPageInner() {
           </form>
         </div>
 
-        <p className="text-center mt-2 text-[10px] md:mt-6 md:text-sm text-gray-500">
+        <p className="text-center mt-6 text-base text-gray-500">
           ¿No tienes cuenta?{' '}
           <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Crear cuenta</Link>
         </p>
 
-        <p className="text-center mt-1 text-[9px] md:mt-4 md:text-xs text-gray-400">
+        <p className="text-center mt-4 text-xs text-gray-400">
           &copy; {new Date().getFullYear()} Siliba. Todos los derechos reservados.
         </p>
       </div>
