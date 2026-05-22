@@ -172,13 +172,13 @@ export class MarketplaceController {
   @Get('my-appointments')
   async getMyAppointments(
     @Req() req: any,
-    @Query('filter') filter: string = 'upcoming',
+    @Query('filter') filter: string = 'all',
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '20',
   ) {
     return this.marketplaceService.getMyAppointments(
       req.user.marketplaceUserId,
-      filter as 'upcoming' | 'past',
+      filter as 'upcoming' | 'past' | 'all',
       parseInt(page, 10) || 1,
       Math.min(parseInt(perPage, 10) || 20, 100),
     );

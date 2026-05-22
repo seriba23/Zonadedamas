@@ -64,7 +64,7 @@ export default function MarketplaceAppointmentsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
-    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments'),
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments?filter=all&perPage=100'),
     enabled: isAuthenticated && tab === 'citas',
   });
 

@@ -1778,7 +1778,7 @@ export class MarketplaceService {
 
   async getMyAppointments(
     marketplaceUserId: string,
-    filter: 'upcoming' | 'past',
+    filter: 'upcoming' | 'past' | 'all',
     page: number,
     perPage: number,
   ) {
@@ -1865,15 +1865,15 @@ export class MarketplaceService {
     const filtered = allAppts.filter((appt) => {
       const isUp = apptIsUpcoming(appt);
       const isClosed = ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(appt.status as string);
-      if (filter === 'upcoming') {
-        return isUp && !isClosed;
-      }
-      return !isUp || isClosed;
+      if (filter === 'upcoming') return isUp && !isClosed;
+      if (filter === 'past') return !isUp || isClosed;
+      return true; // 'all': sin filtro
     });
 
     filtered.sort((a, b) => {
       const aStr = toRawIso(a.startTime);
       const bStr = toRawIso(b.startTime);
+      // upcoming asc; past/all desc (más reciente primero)
       return filter === 'upcoming'
         ? aStr.localeCompare(bStr)
         : bStr.localeCompare(aStr);
