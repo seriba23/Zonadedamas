@@ -1792,80 +1792,98 @@ export class MarketplaceService {
       return { data: [], meta: { total: 0, page, perPage, totalPages: 0 } };
     }
 
-    // Las citas se guardan con startTime en "hora del negocio" interpretada
-    // como UTC raw (ver commit 5ab7496). Comparar con new Date() real UTC
-    // hace que citas de hoy aparezcan como "pasadas" por el offset de TZ.
-    // Ajustamos now restando el offset del tenant (CDMX UTC-6 = -6h).
-    // TODO: leer el offset real de Tenant.timezone cuando se soporte
-    // multi-region. Por ahora hardcoded a UTC-6.
-    const TENANT_OFFSET_HOURS = -6;
-    const now = new Date(Date.now() + TENANT_OFFSET_HOURS * 60 * 60 * 1000);
-    const where: any = {
-      clientId: { in: clientIds },
-    };
-
+    // Las citas se guardan con startTime en "hora del negocio" raw, sin
+    // offset real. Para clasificar upcoming/past necesitamos el "now en
+    // hora del negocio" de cada sucursal (Location.timezone). Por eso
+    // traemos todas las citas (filtradas solo por cliente + status), y
+    // hacemos el upcoming/past en memoria con la TZ propia de cada cita.
+    const baseWhere: any = { clientId: { in: clientIds } };
     if (filter === 'upcoming') {
-      where.startTime = { gte: now };
-      where.status = { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] };
-    } else {
-      where.OR = [
-        { startTime: { lt: now } },
-        { status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW'] } },
-      ];
+      baseWhere.status = { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] };
     }
 
-    const [appointments, total] = await Promise.all([
-      this.prisma.appointment.findMany({
-        where,
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              logoUrl: true,
-              address: true,
-              locations: {
-                where: { isActive: true },
-                select: { id: true, name: true, address: true, latitude: true, longitude: true },
-                take: 1,
-                orderBy: { createdAt: 'asc' },
-              },
-            },
-          },
-          employee: {
-            select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
-          },
-          items: {
-            select: {
-              id: true,
-              serviceNameSnapshot: true,
-              priceSnapshot: true,
-              durationSnapshot: true,
-            },
-          },
-          payments: {
-            select: { id: true, status: true, paymentMethod: true, totalAmount: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          redemption: {
-            select: {
-              id: true,
-              code: true,
-              reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
+    const allAppts = await this.prisma.appointment.findMany({
+      where: baseWhere,
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+            address: true,
+            timezone: true,
+            locations: {
+              where: { isActive: true },
+              select: { id: true, name: true, address: true, latitude: true, longitude: true, timezone: true },
+              take: 1,
+              orderBy: { createdAt: 'asc' },
             },
           },
         },
-        orderBy: { startTime: filter === 'upcoming' ? 'asc' : 'desc' },
-        skip: (page - 1) * perPage,
-        take: perPage,
-      }),
-      this.prisma.appointment.count({ where }),
-    ]);
+        location: {
+          select: { id: true, name: true, address: true, timezone: true },
+        },
+        employee: {
+          select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
+        },
+        items: {
+          select: {
+            id: true,
+            serviceNameSnapshot: true,
+            priceSnapshot: true,
+            durationSnapshot: true,
+          },
+        },
+        payments: {
+          select: { id: true, status: true, paymentMethod: true, totalAmount: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        redemption: {
+          select: {
+            id: true,
+            code: true,
+            reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
+          },
+        },
+      },
+    });
+
+    // Filtrado upcoming/past con TZ por sucursal.
+    const apptIsUpcoming = (appt: any): boolean => {
+      const tz =
+        appt.location?.timezone ||
+        appt.tenant?.locations?.[0]?.timezone ||
+        appt.tenant?.timezone ||
+        'America/Mexico_City';
+      const nowStr = nowInTz(tz); // "YYYY-MM-DDTHH:mm:ss"
+      const apptStr = toRawIso(appt.startTime);
+      return apptStr >= nowStr;
+    };
+
+    const filtered = allAppts.filter((appt) => {
+      const isUp = apptIsUpcoming(appt);
+      const isClosed = ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(appt.status as string);
+      if (filter === 'upcoming') {
+        return isUp && !isClosed;
+      }
+      return !isUp || isClosed;
+    });
+
+    filtered.sort((a, b) => {
+      const aStr = toRawIso(a.startTime);
+      const bStr = toRawIso(b.startTime);
+      return filter === 'upcoming'
+        ? aStr.localeCompare(bStr)
+        : bStr.localeCompare(aStr);
+    });
+
+    const total = filtered.length;
+    const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
     return {
-      data: appointments,
+      data: paged,
       meta: {
         total,
         page,
@@ -2917,4 +2935,33 @@ export class MarketplaceService {
 
     return { data };
   }
+}
+
+// ─── TZ helpers (hora del negocio) ──────────────────────────────────
+// Las citas se guardan con startTime en "hora del negocio" raw, sin
+// offset. Para comparar contra "ahora" necesitamos el now expresado en
+// la TZ de la sucursal en formato 'YYYY-MM-DDTHH:mm:ss', y luego una
+// simple comparación de strings.
+
+function nowInTz(timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+  } catch {
+    return new Date().toISOString().substring(0, 19);
+  }
+}
+
+function toRawIso(d: Date | string | null | undefined): string {
+  if (!d) return '';
+  if (typeof d === 'string') return d.substring(0, 19);
+  // Las citas se guardan en UTC raw (sin offset real). Las "leemos" como
+  // si fueran TZ-naive: toISOString sin TZ shift es lo que queremos.
+  return d.toISOString().substring(0, 19);
 }

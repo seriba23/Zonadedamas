@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import Link from 'next/link';
+import { formatBookingDateTime } from '@/lib/booking-time';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -194,7 +195,7 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                       </svg>
                       <span className="group-hover:underline">
-                        Cita del {new Date(r.appointment.startTime).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        Cita del {formatBookingDateTime(r.appointment.startTime)}
                       </span>
                     </Link>
                   )}

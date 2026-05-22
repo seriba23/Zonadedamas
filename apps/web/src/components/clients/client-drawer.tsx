@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/drawer';
 import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { formatDate, formatCurrency, formatTime } from '@/lib/utils';
+import { formatBookingTime } from '@/lib/booking-time';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -362,9 +363,7 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm font-medium text-gray-900">
                       {formatDate(apt.startTime)},{' '}
-                      {formatTime(
-                        new Date(apt.startTime).toTimeString().slice(0, 5),
-                      )}
+                      {formatTime(formatBookingTime(apt.startTime))}
                     </p>
                     <AppointmentStatusBadge status={apt.status.toLowerCase()} />
                   </div>

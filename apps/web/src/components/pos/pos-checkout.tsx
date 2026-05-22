@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Modal } from '@/components/ui/modal';
+import { formatBookingTime } from '@/lib/booking-time';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -298,7 +299,7 @@ export function PosCheckout({ onComplete }: PosCheckoutProps) {
                         <p className="text-sm font-medium text-gray-900">
                           {apt.client ? `${apt.client.firstName} ${apt.client.lastName}` : 'Cliente'}
                         </p>
-                        <p className="text-xs text-gray-500">{new Date(apt.startTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-xs text-gray-500">{formatBookingTime(apt.startTime)}</p>
                       </div>
                       {apt.items?.length > 0 && (
                         <p className="text-xs text-gray-400">{apt.items.map((i: any) => i.serviceNameSnapshot).join(', ')}</p>

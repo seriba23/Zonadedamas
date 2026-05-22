@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiResponse } from '@/lib/api';
 import { StarRating } from './star-rating';
+import { formatBookingDate } from '@/lib/booking-time';
 
 interface Client {
   id: string;
@@ -140,11 +141,7 @@ export function ReviewForm({ employeeId, onClose, onSuccess }: ReviewFormProps) 
               <option value="">Seleccionar cita...</option>
               {appointments.map((apt) => (
                 <option key={apt.id} value={apt.id}>
-                  {new Date(apt.startTime).toLocaleDateString('es', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}{' '}
+                  {formatBookingDate(apt.startTime, 'short')}{' '}
                   - {apt.items.map((i) => i.serviceNameSnapshot).join(', ')}
                 </option>
               ))}

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+import { formatBookingTime, formatBookingDate } from '@/lib/booking-time';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -29,10 +30,9 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 };
 
 function formatDateTime(dateStr: string) {
-  const d = new Date(dateStr);
   return {
-    date: d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-    time: d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+    date: formatBookingDate(dateStr, 'long'),
+    time: formatBookingTime(dateStr),
   };
 }
 
@@ -68,7 +68,7 @@ export default function AppointmentDetailPage() {
 
   const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
   const { date, time } = formatDateTime(appt.startTime);
-  const endTime = new Date(appt.endTime || appt.startTime).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  const endTime = formatBookingTime(appt.endTime || appt.startTime);
   const total = appt.items?.reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0) ?? 0;
   const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + Number(i.durationSnapshot || 0), 0) ?? 0;
 

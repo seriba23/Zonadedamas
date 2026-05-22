@@ -10,6 +10,7 @@ dayjs.locale('es');
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
+import { isBookingUpcoming } from '@/lib/booking-time';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -469,12 +470,14 @@ export default function BusinessDetailPage() {
     ? Array.from(new Map(slots.map((s) => [s.startTime, s])).values())
     : slots;
 
-  // Filter out past slots when selected date is today
-  const now = new Date();
-  const uniqueSlots = deduped.filter((s) => new Date(s.startTime) > now);
+  // Filter out past slots when selected date is today.
+  // Comparamos en TZ del negocio (no del browser). El slot está en "hora
+  // del negocio" raw, igual que el lado backend lo guarda.
+  const businessTz = (biz as any)?.timezone || (biz as any)?.location?.timezone || null;
+  const uniqueSlots = deduped.filter((s) => isBookingUpcoming(s.startTime, businessTz));
 
   // All employees' slots (for cross-employee suggestion)
-  const allEmpSlots = flattenSlots(allEmpSlotsData).filter((s) => new Date(s.startTime) > now);
+  const allEmpSlots = flattenSlots(allEmpSlotsData).filter((s) => isBookingUpcoming(s.startTime, businessTz));
 
   // Auto-avance al proximo dia con slots disponibles. Solo aplica cuando
   // el cliente esta en el step datetime y la query de slots termino sin

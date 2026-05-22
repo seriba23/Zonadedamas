@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
 import { formatDate, formatTime, resolveImageUrl } from '@/lib/utils';
+import { formatBookingTime } from '@/lib/booking-time';
 import dayjs from 'dayjs';
 import { useCurrency } from '@/lib/hooks/use-currency';
 
@@ -495,13 +496,9 @@ export function AppointmentModal({
               <AppointmentStatusBadge status={appointment.status.toLowerCase()} />
               <p className="text-sm text-[var(--text-secondary)]">
                 {formatDate(appointment.startTime)},{' '}
-                {formatTime(
-                  new Date(appointment.startTime).toTimeString().slice(0, 5),
-                )}
+                {formatTime(formatBookingTime(appointment.startTime))}
                 {' – '}
-                {formatTime(
-                  new Date(appointment.endTime).toTimeString().slice(0, 5),
-                )}
+                {formatTime(formatBookingTime(appointment.endTime))}
               </p>
             </div>
 
@@ -827,11 +824,7 @@ export function AppointmentModal({
                       <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                         <p className="text-sm text-green-800 font-medium">
                           Disponible justo despues de la cita a las{' '}
-                          {formatTime(
-                            new Date(checkAfterResult.immediateSlot.startTime)
-                              .toTimeString()
-                              .slice(0, 5),
-                          )}
+                          {formatTime(formatBookingTime(checkAfterResult.immediateSlot.startTime))}
                         </p>
                         <button
                           onClick={() =>
@@ -854,11 +847,7 @@ export function AppointmentModal({
                         <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
                           <p className="text-sm text-blue-800 font-medium">
                             Disponible hoy a las{' '}
-                            {formatTime(
-                              new Date(checkAfterResult.immediateSlot.startTime)
-                                .toTimeString()
-                                .slice(0, 5),
-                            )}
+                            {formatTime(formatBookingTime(checkAfterResult.immediateSlot.startTime))}
                           </p>
                           <button
                             onClick={() =>
@@ -871,11 +860,7 @@ export function AppointmentModal({
                           >
                             {addServicesMutation.isPending
                               ? 'Agendando...'
-                              : `Agendar a las ${formatTime(
-                                  new Date(checkAfterResult.immediateSlot.startTime)
-                                    .toTimeString()
-                                    .slice(0, 5),
-                                )}`}
+                              : `Agendar a las ${formatTime(formatBookingTime(checkAfterResult.immediateSlot.startTime))}`}
                           </button>
                         </div>
                       )}

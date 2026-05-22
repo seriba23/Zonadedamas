@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatCurrency } from '@/lib/utils';
+import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -49,13 +50,11 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 };
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+  return formatBookingDate(dateStr, 'weekday-short');
 }
 
 function formatTime(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  return formatBookingTime(dateStr);
 }
 
 export default function MarketplaceAppointmentsPage() {
@@ -265,7 +264,7 @@ export default function MarketplaceAppointmentsPage() {
                   </div>
                   {p.appointment?.startTime && (
                     <p className="text-xs text-gray-500">
-                      Cita del {new Date(p.appointment.startTime).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      Cita del {formatBookingDate(p.appointment.startTime, 'short')}
                     </p>
                   )}
                   <div className="mt-2 flex items-center justify-between text-xs">
@@ -330,7 +329,7 @@ function PurchaseCard({ purchase }: { purchase: any }) {
                   El producto debe ser pagado el día de tu cita:{' '}
                   <span className="font-semibold">
                     {purchase.appointment?.startTime
-                      ? new Date(purchase.appointment.startTime).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                      ? formatBookingDate(purchase.appointment.startTime, 'long')
                       : 'próxima cita'}
                   </span>
                 </p>
@@ -362,11 +361,10 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
   const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
   const empColor = appt.employee?.color || '#008080';
-  const d = new Date(appt.startTime);
-  const day = d.toLocaleDateString('es-MX', { day: 'numeric' });
-  const month = d.toLocaleDateString('es-MX', { month: 'short' }).toUpperCase();
+  const day = formatBookingDay(appt.startTime);
+  const month = formatBookingMonthShort(appt.startTime);
   const time = formatTime(appt.startTime);
-  const weekday = d.toLocaleDateString('es-MX', { weekday: 'long' });
+  const weekday = formatBookingWeekday(appt.startTime);
 
   return (
     <button

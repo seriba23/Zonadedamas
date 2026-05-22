@@ -9,6 +9,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 import { DatePicker } from '@/components/ui/date-picker';
 import { CloseAppointmentWizard } from './close-wizard';
+import { formatBookingTime, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
 
 interface AppointmentItem {
   serviceId: string;
@@ -483,11 +484,12 @@ function AppointmentRow({
   const clientColor = '#008080';
 
   // Fecha desglosada (mismo formato que marketplace card).
-  const d = new Date(apt.startTime);
-  const day = d.toLocaleDateString('es-MX', { day: 'numeric' });
-  const month = d.toLocaleDateString('es-MX', { month: 'short' }).toUpperCase();
-  const time = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-  const weekday = d.toLocaleDateString('es-MX', { weekday: 'long' });
+  // No usamos new Date(...) porque convierte a TZ del browser. La hora
+  // se muestra siempre como "hora del negocio" (raw).
+  const day = formatBookingDay(apt.startTime);
+  const month = formatBookingMonthShort(apt.startTime);
+  const time = formatBookingTime(apt.startTime);
+  const weekday = formatBookingWeekday(apt.startTime);
 
   // Nombre del cupón si lo hay (mismo fallback que el detalle)
   const couponLabel = (() => {

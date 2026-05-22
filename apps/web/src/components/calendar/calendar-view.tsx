@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link';
 import dayjs, { type Dayjs } from 'dayjs';
 import { formatTime } from '@/lib/utils';
+import { formatBookingTime } from '@/lib/booking-time';
 
 interface AppointmentItem {
   serviceNameSnapshot: string;
@@ -847,9 +848,8 @@ export function CalendarView({
                 ? `${apt.employee.firstName} ${apt.employee.lastName.charAt(0)}.`
                 : '';
 
-              // UTC raw — ver nota en timeToMinutes
-              const startTimeStr = new Date(apt.startTime).toISOString().substring(11, 16);
-              const endTimeStr = new Date(apt.endTime).toISOString().substring(11, 16);
+              const startTimeStr = formatBookingTime(apt.startTime);
+              const endTimeStr = formatBookingTime(apt.endTime);
 
               return (
                 <div

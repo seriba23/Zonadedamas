@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
 import { formatDate, resolveImageUrl } from '@/lib/utils';
+import { formatBookingTime } from '@/lib/booking-time';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -1006,8 +1007,7 @@ export default function CalendarPage() {
                                     borderLeft: `2px solid ${apt.employee?.color || '#008080'}`,
                                   }}
                                 >
-                                  {/* UTC raw para no shiftear: las citas se guardan como "hora del negocio" sin offset real */}
-                                  {new Date(apt.startTime).toISOString().substring(11, 16)} {apt.client?.firstName || 'Cliente'}
+                                  {formatBookingTime(apt.startTime)} {apt.client?.firstName || 'Cliente'}
                                 </div>
                               );
                             })}
@@ -1059,11 +1059,10 @@ export default function CalendarPage() {
                       {/* Hora — col 1, row-span 2, centrada vertical entre las dos filas */}
                       <div className="row-span-2 self-center text-center min-w-[42px]">
                         <p className="text-sm font-bold text-primary-600 tabular-nums leading-none">
-                          {/* UTC raw: ver nota arriba */}
-                          {new Date(apt.startTime).toISOString().substring(11, 16)}
+                          {formatBookingTime(apt.startTime)}
                         </p>
                         <p className="text-[10px] text-[var(--text-muted)] tabular-nums mt-1">
-                          {new Date(apt.endTime).toISOString().substring(11, 16)}
+                          {formatBookingTime(apt.endTime)}
                         </p>
                       </div>
 
