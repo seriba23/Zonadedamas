@@ -85,25 +85,11 @@ function LoginPageInner() {
       const businessUser = result.business?.user || result.user;
       const anyUser = businessUser || (result as any).client?.user || result.user;
 
-      // Si vino con ?redirect explicito y matchea un perfil que el usuario
-      // tiene, lo respetamos sin pasar por el selector (deep link).
-      const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
-      const wantsBusiness =
-        redirectAfterLogin && !redirectAfterLogin.startsWith('/marketplace');
-      if (redirectAfterLogin) {
-        if (wantsMarketplace && profiles.includes('client')) {
-          router.push(redirectAfterLogin);
-          return;
-        }
-        if (wantsBusiness && businessUser) {
-          router.push(redirectAfterLogin);
-          return;
-        }
-      }
-
-      // SIEMPRE mostrar el selector despues del login (incluso con un solo
-      // perfil). El usuario lo pidio asi para poder elegir conscientemente
-      // cada vez como quiere ingresar (cliente / profesional / administrador).
+      // SIEMPRE mostrar el selector despues del login. El usuario quiere
+      // elegir conscientemente cada vez como entrar (cliente / profesional
+      // / administrador), aunque solo tenga un perfil. El parametro
+      // ?redirect se aplica DESPUES del selector cuando el usuario hace
+      // click en el rol correspondiente.
       if (profiles.length >= 1 && anyUser) {
         setAvailableProfiles(profiles);
         setRoleChoice(anyUser);
@@ -162,22 +148,9 @@ function LoginPageInner() {
         marketplaceApi.setSession(result.client.accessToken, result.client.refreshToken);
       }
 
-      // Deep link: si hay ?redirect que matchea un perfil disponible, saltar
-      // el selector y mandar directo. Sin redirect, el flow muestra el
-      // selector siempre.
-      if (redirectAfterLogin) {
-        if (wantsMarketplace && profiles.includes('client')) {
-          router.push(redirectAfterLogin);
-          return;
-        }
-        if (wantsBusiness && businessUser) {
-          router.push(redirectAfterLogin);
-          return;
-        }
-      }
-
-      // SIEMPRE mostrar el selector despues del login (incluso con un solo
-      // perfil). Consistente con el flow de login por credenciales.
+      // SIEMPRE mostrar el selector despues del social login.
+      // El usuario quiere elegir conscientemente cada vez. El redirect
+      // se aplica al hacer click en el rol correspondiente del selector.
       const anyUser = businessUser || (result as any).client?.user || result.user;
       if (profiles.length >= 1 && anyUser) {
         setAvailableProfiles(profiles);
@@ -270,11 +243,20 @@ function LoginPageInner() {
   // (asi no se cierra la puerta a que un cliente despues quiera ser
   // emprendedor/independiente/admin sin tener que cerrar sesion).
   if (roleChoice) {
+    // Si el usuario llego al login con ?redirect que apunta a una zona
+    // compatible con el rol elegido, lo respetamos al hacer click.
+    const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
+    const wantsBusiness =
+      redirectAfterLogin && !redirectAfterLogin.startsWith('/marketplace');
     const goOrRegister = (profile: 'admin' | 'professional' | 'client', registerType: string) => {
       if (availableProfiles.includes(profile)) {
-        if (profile === 'admin') router.push('/home');
-        else if (profile === 'professional') router.push('/employee');
-        else router.push('/marketplace');
+        if (profile === 'admin') {
+          router.push(wantsBusiness ? redirectAfterLogin! : '/home');
+        } else if (profile === 'professional') {
+          router.push(wantsBusiness ? redirectAfterLogin! : '/employee');
+        } else {
+          router.push(wantsMarketplace ? redirectAfterLogin! : '/marketplace');
+        }
       } else {
         router.push(`/register?type=${registerType}`);
       }
