@@ -1303,6 +1303,31 @@ export class MarketplaceService {
       take: 10,
     });
 
+    // Lista completa de servicios que el profesional realiza, para mostrar
+    // en una seccion dedicada del perfil. Incluye duracion y precio para
+    // que el cliente pueda elegir.
+    const allServices = await this.prisma.employeeService.findMany({
+      where: { employeeId, service: { isActive: true } },
+      include: {
+        service: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            durationMinutes: true,
+            price: true,
+            currency: true,
+            category: true,
+            subcategory: true,
+          },
+        },
+      },
+    });
+    const services = allServices
+      .map((es) => es.service)
+      .filter(Boolean)
+      .sort((a: any, b: any) => a.name.localeCompare(b.name, 'es'));
+
     return {
       data: {
         ...employee,
@@ -1314,6 +1339,7 @@ export class MarketplaceService {
           : null,
         totalReviews: ratingAgg._count.id,
         portfolio,
+        services,
         topServices: finalTopServices,
         reviews: reviews.map((r) => ({
           id: r.id,

@@ -534,11 +534,12 @@ function LoginPageInner() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
-      <div className="w-full max-w-[300px] md:max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-2 md:mb-8">
-          <h1 className="text-base md:text-3xl font-bold text-primary-600">Siliba</h1>
-          <p className="hidden md:block mt-1 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
+      <div className="w-full max-w-md">
+        {/* Logo — mismo tamaño/posicion que en el selector de perfil para
+            mantener consistencia visual en todo el flujo de auth. */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-[#008080]">Siliba</h1>
+          <p className="mt-2 text-gray-500 text-sm">Tu confianza, en manos de profesionales</p>
         </div>
 
         {/* Card */}

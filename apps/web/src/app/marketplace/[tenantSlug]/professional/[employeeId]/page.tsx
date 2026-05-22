@@ -28,6 +28,16 @@ interface Professional {
   averageRating: number | null;
   totalReviews: number;
   portfolio: PortfolioItem[];
+  services: {
+    id: string;
+    name: string;
+    description?: string | null;
+    durationMinutes: number;
+    price: number;
+    currency?: string;
+    category?: string | null;
+    subcategory?: string | null;
+  }[];
   topServices: { serviceName: string; count: number }[];
   reviews: {
     id: string;
@@ -278,39 +288,73 @@ export default function ProfessionalProfilePage() {
       <div className="relative z-10 bg-gray-50 min-h-screen pb-20">
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
 
+          {/* Servicios que ofrece — listado completo del catálogo del
+              empleado. Click en una tarjeta abre el booking con ese
+              servicio + este profesional preseleccionados. */}
+          {pro.services && pro.services.length > 0 && (
+            <section>
+              <h2 className="text-base font-semibold text-gray-900 mb-3">
+                Servicios de {pro.firstName}{' '}
+                <span className="text-xs text-gray-400 font-normal">({pro.services.length})</span>
+              </h2>
+              <div className="grid gap-3">
+                {pro.services.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => router.push(`/marketplace/${tenantSlug}?bookEmployee=${employeeId}&service=${s.id}`)}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all hover:border-[#008080]/40"
+                    style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900">{s.name}</p>
+                        {s.description && (
+                          <p className="text-sm text-gray-500 line-clamp-2">{s.description}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-semibold text-gray-900">
+                          {new Intl.NumberFormat('es-MX', { style: 'currency', currency: s.currency || 'MXN' }).format(Number(s.price))}
+                        </p>
+                        <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* ─── Tabs + swiper horizontal: Trabajos | Comentarios ─── */}
           <div
             ref={sectionsAnchorRef}
             style={{ scrollMarginTop: 'calc(env(safe-area-inset-top) + 4.5rem)' }}
           >
-            {/* Tabs sticky-ish (no fixed, scroll normal) */}
-            <div className="flex items-center gap-1 mb-3 border-b border-gray-200">
+            {/* Tabs Trabajos | Comentarios — estilo segmentado estandar */}
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-3">
               <button
                 type="button"
                 onClick={() => goToSection(0)}
-                className={`flex-1 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                  activeSection === 0
-                    ? 'text-[#008080] border-[#008080]'
-                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeSection === 0 ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                Trabajos de {pro.firstName}
+                Trabajos
                 {pro.portfolio.length > 0 && (
-                  <span className="ml-1.5 text-[10px] text-gray-400 font-normal">({pro.portfolio.length})</span>
+                  <span className={`ml-1.5 text-[10px] font-normal ${activeSection === 0 ? 'text-white/70' : 'text-gray-400'}`}>({pro.portfolio.length})</span>
                 )}
               </button>
               <button
                 type="button"
                 onClick={() => goToSection(1)}
-                className={`flex-1 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                  activeSection === 1
-                    ? 'text-[#008080] border-[#008080]'
-                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                  activeSection === 1 ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Comentarios
                 {pro.reviews.length > 0 && (
-                  <span className="ml-1.5 text-[10px] text-gray-400 font-normal">({pro.reviews.length})</span>
+                  <span className={`ml-1.5 text-[10px] font-normal ${activeSection === 1 ? 'text-white/70' : 'text-gray-400'}`}>({pro.reviews.length})</span>
                 )}
               </button>
             </div>

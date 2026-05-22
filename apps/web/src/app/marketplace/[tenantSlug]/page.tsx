@@ -1744,7 +1744,7 @@ export default function BusinessDetailPage() {
             input time dentro. Mantiene el formulario de fecha mas grande. */}
         {showPreferredTimeModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
             onClick={() => setShowPreferredTimeModal(false)}
           >
             <div
@@ -3295,19 +3295,20 @@ export default function BusinessDetailPage() {
                       >
                         <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                       </button>
-                      <div className="flex-1 text-center min-w-0 px-1">
-                        {/* Linea 1: nombre del dia + numero (capitalizado). */}
-                        <p className="text-base font-bold text-gray-900 truncate leading-tight">
+                      <div className="flex-1 text-center min-w-0 px-1 overflow-hidden">
+                        {/* Linea 1: dia + numero. Formato compacto ('lun. 22
+                            may.') para que quepa con flechas grandes sin
+                            desbordar y empujar el icono del calendario. */}
+                        <p className="text-sm font-bold text-gray-900 truncate leading-tight">
                           {(() => {
                             if (selectedDate.isSame(dayjs(), 'day')) return 'Hoy';
                             if (selectedDate.isSame(dayjs().add(1, 'day'), 'day')) return 'Mañana';
-                            // dayjs en español: 'lunes 21 de mayo'. Capitalizamos el dia de semana.
-                            const formatted = selectedDate.format('dddd D [de] MMMM');
+                            const formatted = selectedDate.format('ddd D MMM');
                             return formatted.charAt(0).toUpperCase() + formatted.slice(1);
                           })()}
                         </p>
                         {/* Linea 2: año (subtitulo). */}
-                        <p className="text-[11px] text-gray-400 truncate leading-tight">
+                        <p className="text-[10px] text-gray-400 truncate leading-tight">
                           {selectedDate.format('YYYY')}
                         </p>
                       </div>

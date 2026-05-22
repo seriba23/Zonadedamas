@@ -966,29 +966,7 @@ export default function MarketplaceSettingsPage() {
                 </select>
               </div>
 
-              {/* Language */}
-              <div className="px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">Idioma</p>
-                  <p className="text-xs text-gray-400">Idioma de la aplicación</p>
-                </div>
-                <div className="flex gap-1.5">
-                  {LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => updateField('language', lang.code)}
-                      className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                      style={
-                        settings.language === lang.code
-                          ? { backgroundColor: TEAL, color: 'white' }
-                          : { backgroundColor: '#f3f4f6', color: '#6b7280' }
-                      }
-                    >
-                      {lang.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Idioma: oculto en V1, se reactiva cuando soporte multi-idioma. */}
 
               {/* Currency */}
               <div className="px-4 py-3 flex items-center justify-between">

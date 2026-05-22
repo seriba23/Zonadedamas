@@ -61,7 +61,7 @@ function formatTime(dateStr: string) {
 export default function MarketplaceAppointmentsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
-  const [tab, setTab] = useState<'citas' | 'compras'>('citas');
+  const [tab, setTab] = useState<'citas' | 'compras' | 'pagos'>('citas');
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
@@ -75,8 +75,16 @@ export default function MarketplaceAppointmentsPage() {
     enabled: isAuthenticated && tab === 'compras',
   });
 
+  const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
+    queryKey: ['marketplace-my-payments-pending'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any[] }>('/my-payments?status=PENDING&perPage=50'),
+    enabled: isAuthenticated && tab === 'pagos',
+  });
+
   const appointments: any[] = (data as any)?.data || [];
   const purchases: any[] = (purchasesData as any)?.data || [];
+  const pendingPayments: any[] = (paymentsData as any)?.data || [];
 
   const upcoming = appointments.filter((a) =>
     ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status),
@@ -117,7 +125,9 @@ export default function MarketplaceAppointmentsPage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 pb-0 safe-top">
         <div className="max-w-2xl mx-auto pt-2 flex items-center justify-between mb-2">
-          <h1 className="text-lg font-bold text-gray-900">{tab === 'citas' ? 'Mis citas' : 'Mis compras'}</h1>
+          <h1 className="text-lg font-bold text-gray-900">
+            {tab === 'citas' ? 'Mis citas' : tab === 'compras' ? 'Mis compras' : 'Pagos pendientes'}
+          </h1>
           {tab === 'citas' && (
             <button
               onClick={() => router.push('/marketplace')}
@@ -131,7 +141,7 @@ export default function MarketplaceAppointmentsPage() {
             </button>
           )}
         </div>
-        {/* Tabs Citas | Compras — estilo segmentado estandar del proyecto */}
+        {/* Tabs Citas | Compras | Pagos — estilo segmentado estandar */}
         <div className="max-w-2xl mx-auto flex rounded-lg border border-gray-300 overflow-hidden">
           <button
             onClick={() => setTab('citas')}
@@ -148,6 +158,14 @@ export default function MarketplaceAppointmentsPage() {
             }`}
           >
             Compras
+          </button>
+          <button
+            onClick={() => setTab('pagos')}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+              tab === 'pagos' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Pagos
           </button>
         </div>
       </div>
@@ -192,7 +210,7 @@ export default function MarketplaceAppointmentsPage() {
               )}
             </div>
           )
-        ) : (
+        ) : tab === 'compras' ? (
           // ───── Compras tab ─────
           purchasesLoading ? (
             <div className="text-center py-12">
@@ -212,6 +230,54 @@ export default function MarketplaceAppointmentsPage() {
             <div className="space-y-3">
               {purchases.map((p) => (
                 <PurchaseCard key={p.id} purchase={p} />
+              ))}
+            </div>
+          )
+        ) : (
+          // ───── Pagos tab — pagos pendientes que faltan que el negocio
+          // confirme. Lista compacta orientada a recordatorio. ─────
+          paymentsLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: TEAL }} />
+            </div>
+          ) : pendingPayments.length === 0 ? (
+            <div className="text-center py-16 flex flex-col items-center gap-4">
+              <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375" />
+              </svg>
+              <p className="text-gray-500">No tienes pagos pendientes</p>
+              <p className="text-xs text-gray-400 max-w-[280px]">Aquí veras los pagos que aún no han sido confirmados por el negocio.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                Pagos pendientes de confirmación por parte del negocio. El sistema de pagos integrado llega en una próxima versión.
+              </p>
+              {pendingPayments.map((p: any) => (
+                <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {p.tenant?.name || p.appointment?.tenant?.name || 'Pago'}
+                    </p>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">
+                      Pendiente
+                    </span>
+                  </div>
+                  {p.appointment?.startTime && (
+                    <p className="text-xs text-gray-500">
+                      Cita del {new Date(p.appointment.startTime).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-gray-500">{p.paymentMethod || 'Por cobrar'}</span>
+                    <span className="font-bold" style={{ color: TEAL }}>
+                      {formatCurrency(Number(p.totalAmount || p.amount || 0), p.currency || 'MXN')}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    {new Date(p.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
               ))}
             </div>
           )
