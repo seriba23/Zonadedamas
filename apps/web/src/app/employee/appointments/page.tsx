@@ -479,9 +479,12 @@ function AppointmentRow({
   const hasDiscount = discount > 0;
 
   // Avatar del cliente: foto si existe, fallback a iniciales sobre teal.
+  // Si el cliente registró cuenta en el portal, su foto está en user.avatarUrl.
   const initials = `${apt.client.firstName?.[0] || ''}${apt.client.lastName?.[0] || ''}`.toUpperCase();
   const clientColor = '#008080';
-  const clientAvatarUrl = resolveImageUrl((apt.client as any).avatarUrl);
+  const clientAvatarUrl = resolveImageUrl(
+    (apt.client as any).avatarUrl || (apt.client as any).user?.avatarUrl,
+  );
 
   // Fecha desglosada (mismo formato que marketplace card).
   // No usamos new Date(...) porque convierte a TZ del browser. La hora

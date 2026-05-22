@@ -406,7 +406,18 @@ export class AppointmentsService {
         take: perPage,
         orderBy: { startTime: 'asc' },
         include: {
-          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          client: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              // Si el cliente registró su cuenta en el portal, su foto vive
+              // en users.avatar_url, no en clients.avatar_url. Traemos ambas
+              // y el frontend hace fallback.
+              user: { select: { avatarUrl: true } },
+            },
+          },
           employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
           items: { select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true, commissionSnapshot: true } },
           // Para que el frontend pueda filtrar pagadas vs no pagadas sin
