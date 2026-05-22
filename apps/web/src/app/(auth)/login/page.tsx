@@ -28,20 +28,19 @@ function LoginPageInner() {
   // el selector de perfiles (admin/empleado/cliente) o redirigir directo.
   const skipAutoRedirect = useRef(false);
 
-  // Si ya hay sesion activa (entro a /login estando logueado), redirigir.
+  // Si ya hay sesion activa Y el usuario entro con un ?redirect explicito,
+  // respetar ese destino. Sin redirect explicito, NO hacer auto-redirect:
+  // mostrar el form para que el usuario decida (login como cliente vs admin
+  // vs empleado) en cada visita a /login. Esto evita que un usuario con
+  // sesion de cliente nunca pueda volver a elegir entrar como admin.
   useEffect(() => {
     if (authLoading) return;
     if (skipAutoRedirect.current) return;
-    if (isAuthenticated && user) {
-      const isAdmin = user.isAdmin === true || user.permissions?.includes('employees.create');
-      // Si el redirect apunta al marketplace pero solo tenemos sesion business
-      // (no marketplace), no auto-redirigir — el marketplace guard nos
-      // mandaria de vuelta aqui causando un loop. Mostramos el form para que
-      // el usuario inicie sesion como cliente.
-      const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
-      if (wantsMarketplace) return;
-      router.replace(redirectAfterLogin || (isAdmin ? '/home' : '/employee'));
-    }
+    if (!isAuthenticated || !user) return;
+    if (!redirectAfterLogin) return; // sin redirect explicito -> mostrar form
+    const wantsMarketplace = redirectAfterLogin.startsWith('/marketplace');
+    if (wantsMarketplace) return; // marketplace guard se encarga
+    router.replace(redirectAfterLogin);
   }, [authLoading, isAuthenticated, user, redirectAfterLogin, router]);
 
   const [form, setForm] = useState({ email: '', password: '' });

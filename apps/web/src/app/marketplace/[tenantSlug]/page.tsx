@@ -191,6 +191,15 @@ export default function BusinessDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useParams();
+
+  // Scroll a top al montar / al recargar. El browser intenta restaurar la
+  // posicion anterior y, con el header sticky, deja la pagina desplazada
+  // unos px haciendo que la portada no se vea completa. Lo forzamos a 0.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, []);
   const searchParams = useSearchParams();
   const tenantSlug = params.tenantSlug as string;
   const bookEmployeeId = searchParams.get('bookEmployee');
@@ -1236,20 +1245,34 @@ export default function BusinessDetailPage() {
                         setBookingStep('service');
                       };
 
-                      // Click en el icono de pin → Google Maps con destino
-                      // la sucursal (coords o address) y origen las coords
-                      // del cliente si las tenemos.
+                      // Click en el icono de pin → Google Maps.
+                      // Si hay coords precisas guardadas en la sucursal, las
+                      // usamos directamente (mas confiable). Si no, usamos
+                      // solo la direccion (sin el name del negocio, que
+                      // puede confundir el geocoder de Google).
                       const handleMapClick = (e: React.MouseEvent) => {
                         e.stopPropagation();
-                        const dest =
-                          loc.latitude != null && loc.longitude != null
-                            ? `${loc.latitude},${loc.longitude}`
-                            : encodeURIComponent(`${loc.name} ${loc.address || ''}`.trim());
-                        const params = new URLSearchParams({ api: '1', destination: dest });
-                        if (userGps) {
-                          params.set('origin', `${userGps.lat},${userGps.lng}`);
+                        let url: string;
+                        if (loc.latitude != null && loc.longitude != null) {
+                          // Cuando tenemos coords reales, abrimos en modo
+                          // direcciones (dir/) con destination=lat,lng.
+                          const params = new URLSearchParams({
+                            api: '1',
+                            destination: `${loc.latitude},${loc.longitude}`,
+                          });
+                          if (userGps) {
+                            params.set('origin', `${userGps.lat},${userGps.lng}`);
+                          }
+                          url = `https://www.google.com/maps/dir/?${params.toString()}`;
+                        } else if (loc.address) {
+                          // Sin coords: usamos solo la direccion en el
+                          // modo de busqueda (q=). Google la geocodifica y
+                          // el usuario pulsa "ir aqui" desde alli.
+                          url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}`;
+                        } else {
+                          url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.name)}`;
                         }
-                        window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank');
+                        window.open(url, '_blank');
                       };
 
                       return (
@@ -2335,6 +2358,30 @@ export default function BusinessDetailPage() {
                   <h2 className="text-lg font-semibold text-gray-900 mb-3">
                     Selecciona el servicio
                   </h2>
+
+                  {/* Resumen del servicio/paquete preseleccionado — se
+                      mantiene visible al avanzar al step "service" para que
+                      el cliente no pierda referencia de lo que eligió en el
+                      step anterior (location o desde el listado del perfil). */}
+                  {(selectedBundle || selectedServices.length > 0) && (
+                    <div className="flex items-start gap-2 p-3 mb-4 rounded-xl border" style={{ backgroundColor: TEAL_LIGHT, borderColor: 'rgba(0,128,128,0.3)' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: TEAL }}>
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEAL_DARK }}>
+                          {selectedBundle ? 'Paquete elegido' : selectedServices.length === 1 ? 'Servicio elegido' : 'Servicios elegidos'}
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                          {selectedBundle
+                            ? selectedBundle.name
+                            : selectedServices.map((s) => s.name).join(', ')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Tabs: Servicios | Paquetes (las Promociones son ahora un step aparte) */}
                   {bizBundles.length > 0 && (
