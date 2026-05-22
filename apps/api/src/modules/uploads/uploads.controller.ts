@@ -46,7 +46,7 @@ export class UploadsController {
     @Param('filename') filename: string,
     @Res() res: Response,
   ) {
-    if (!['avatars', 'portfolio', 'results', 'products', 'resources'].includes(folder)) {
+    if (!['avatars', 'portfolio', 'results', 'products', 'resources', 'payments'].includes(folder)) {
       throw new NotFoundException('Carpeta no válida');
     }
     this.sendFile(folder, filename, res);

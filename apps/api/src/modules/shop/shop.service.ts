@@ -226,6 +226,7 @@ export class ShopService {
             appointmentId: dto.appointmentId || null,
             notes: dto.notes,
             userId: marketplaceUserId,
+            paymentProofUrl: dto.paymentProofUrl || null,
           },
           include: {
             product: { select: { id: true, name: true, imageUrl: true } },
@@ -324,6 +325,7 @@ export class ShopService {
               appointmentId: dto.appointmentId || null,
               notes: dto.notes,
               userId: marketplaceUserId,
+              paymentProofUrl: dto.paymentProofUrl || null,
             },
             include: {
               product: { select: { id: true, name: true, imageUrl: true } },

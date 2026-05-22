@@ -62,6 +62,10 @@ export class CreateReservationDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentProofUrl?: string;
 }
 
 export class CreateBatchReservationDto {
@@ -100,4 +104,8 @@ export class CreateBatchReservationDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentProofUrl?: string;
 }

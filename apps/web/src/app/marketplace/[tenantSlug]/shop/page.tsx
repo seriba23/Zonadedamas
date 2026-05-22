@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
+import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
@@ -60,7 +61,7 @@ export default function ShopPage() {
   const params = useParams();
   const router = useRouter();
   const tenantSlug = params.tenantSlug as string;
-  const { user, isAuthenticated } = useMarketplaceAuth();
+  const { user, isAuthenticated, refreshUser } = useMarketplaceAuth();
 
   // UI state
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
@@ -70,6 +71,10 @@ export default function ShopPage() {
   const [page, setPage] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+  const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
+  const [paymentProofUploading, setPaymentProofUploading] = useState(false);
 
   // Cart
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -157,20 +162,67 @@ export default function ShopPage() {
       setCart([]);
       setShowSuccess(true);
       setFormError('');
+      setPaymentProofFile(null);
+      setPaymentProofUrl(null);
     },
     onError: (err: any) => setFormError(err.message || 'Error al apartar'),
   });
 
-  const handleCheckout = () => {
+  // Sube la captura del comprobante SPEI y devuelve la URL persistida.
+  const uploadPaymentProofIfNeeded = async (): Promise<string | null> => {
+    if (!paymentProofFile) return paymentProofUrl;
+    if (paymentProofUrl) return paymentProofUrl;
+    setPaymentProofUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', paymentProofFile);
+      const r = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/upload-payment-proof`, {
+        method: 'POST',
+        body: fd,
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo subir el comprobante');
+      }
+      const j = await r.json();
+      const url: string = j?.data?.paymentProofUrl;
+      setPaymentProofUrl(url);
+      return url;
+    } finally {
+      setPaymentProofUploading(false);
+    }
+  };
+
+  const handleCheckout = async () => {
     setFormError('');
+
+    // Validación de perfil incompleto: si el cliente está autenticado pero
+    // su teléfono es inválido (<7 chars), abrimos el modal de completar
+    // perfil en vez de mandar el error técnico del backend.
+    if (isAuthenticated && user && (!user.phone || user.phone.replace(/\D/g, '').length < 7)) {
+      setShowCompleteProfile(true);
+      return;
+    }
     if (!isAuthenticated) {
       if (!form.customerName.trim()) return setFormError('Ingresa tu nombre');
-      if (!form.customerPhone.trim()) return setFormError('Ingresa tu telefono');
+      if (!form.customerPhone.trim() || form.customerPhone.replace(/\D/g, '').length < 7) return setFormError('Ingresa un teléfono válido (mínimo 7 dígitos)');
     }
     if (!form.fulfillmentType) return setFormError('Selecciona forma de entrega');
     if (!form.preferredPaymentMethod) return setFormError('Selecciona forma de pago');
     const address = getShippingAddress();
     if (form.fulfillmentType === 'SHIPPING' && !address?.trim()) return setFormError('Ingresa tu direccion de envio');
+    if (form.preferredPaymentMethod === 'SPEI' && !paymentProofFile && !paymentProofUrl) {
+      return setFormError('Sube la captura de pantalla de la transferencia para confirmar el apartado');
+    }
+
+    let proofUrl: string | null = paymentProofUrl;
+    if (form.preferredPaymentMethod === 'SPEI') {
+      try {
+        proofUrl = await uploadPaymentProofIfNeeded();
+      } catch (err: any) {
+        return setFormError(err?.message || 'No se pudo subir el comprobante');
+      }
+    }
 
     reserveMutation.mutate({
       items: cart.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
@@ -181,6 +233,7 @@ export default function ShopPage() {
       preferredPaymentMethod: form.preferredPaymentMethod,
       shippingAddress: address?.trim() || undefined,
       notes: form.notes.trim() || undefined,
+      paymentProofUrl: proofUrl || undefined,
     });
   };
 
@@ -403,18 +456,21 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Cart Drawer */}
+      {/* Cart Drawer — header + body scrollable + footer sticky (boton
+          siempre visible, mismo posicionamiento que "Reservar cita"). */}
       {showCart && !showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowCart(false)}>
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto pb-24 sm:pb-0" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Carrito ({cartCount})</h3>
-                <button onClick={() => setShowCart(false)} className="p-1 text-gray-400 hover:text-gray-600">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-shrink-0">
+              <h3 className="text-lg font-bold text-gray-900">Carrito ({cartCount})</h3>
+              <button onClick={() => setShowCart(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-5 pb-4">
               {cart.length === 0 ? (
                 <div className="text-center py-10">
                   <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
@@ -453,53 +509,60 @@ export default function ShopPage() {
                   </div>
 
                   {/* Total */}
-                  <div className="border-t border-gray-100 pt-3 mb-4">
+                  <div className="border-t border-gray-100 pt-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Subtotal</span>
                       <span className="font-semibold text-gray-900">{fc(cartTotal)}</span>
                     </div>
                   </div>
-
-                  <button onClick={() => {
-                    setShowCheckout(true);
-                    if (isAuthenticated && user) {
-                      setForm((f) => ({ ...f, customerName: `${user.firstName} ${user.lastName}`, customerPhone: user.phone || '', customerEmail: user.email || '', }));
-                    }
-                    if (settings) {
-                      const hasSomeShipping = cart.some((c) => c.product.shippingEnabled);
-                      const fulfillOpts = settings.fulfillmentOptions.filter((o) => o === 'PICKUP' || (o === 'SHIPPING' && hasSomeShipping));
-                      if (fulfillOpts.length === 1) setForm((f) => ({ ...f, fulfillmentType: fulfillOpts[0] }));
-                      if (settings.paymentMethods.length === 1) setForm((f) => ({ ...f, preferredPaymentMethod: settings.paymentMethods[0] }));
-                    }
-                  }}
-                    className="w-full py-3 text-white text-sm font-semibold rounded-xl transition-colors" style={{ backgroundColor: TEAL }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}>
-                    Proceder al pago · {fc(cartTotal)}
-                  </button>
                 </>
               )}
             </div>
+
+            {/* Footer sticky con el CTA */}
+            {cart.length > 0 && (
+              <div className="px-4 py-3 border-t border-gray-100 bg-white flex-shrink-0">
+                <button onClick={() => {
+                  setShowCheckout(true);
+                  if (isAuthenticated && user) {
+                    setForm((f) => ({ ...f, customerName: `${user.firstName} ${user.lastName}`, customerPhone: user.phone || '', customerEmail: user.email || '', }));
+                  }
+                  if (settings) {
+                    const hasSomeShipping = cart.some((c) => c.product.shippingEnabled);
+                    const fulfillOpts = settings.fulfillmentOptions.filter((o) => o === 'PICKUP' || (o === 'SHIPPING' && hasSomeShipping));
+                    if (fulfillOpts.length === 1) setForm((f) => ({ ...f, fulfillmentType: fulfillOpts[0] }));
+                    if (settings.paymentMethods.length === 1) setForm((f) => ({ ...f, preferredPaymentMethod: settings.paymentMethods[0] }));
+                  }
+                }}
+                  className="w-full py-3 text-white text-sm font-semibold rounded-2xl transition-colors shadow-lg" style={{ backgroundColor: TEAL, boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}>
+                  Proceder al pago · {fc(cartTotal)}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Checkout Modal — el panel deja un padding-bottom amplio para que
-          el boton "Confirmar apartado" no quede oculto detras del bottom nav. */}
+      {/* Checkout Modal — flex-col con header + body scrollable + footer
+          sticky. El boton "Confirmar apartado" queda siempre visible. */}
       {showCheckout && settings && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowCheckout(false)}>
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto pb-24 sm:pb-0" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">Confirmar apartado</h3>
-                  <p className="text-xs text-gray-500">{cartCount} producto{cartCount !== 1 ? 's' : ''}</p>
-                </div>
-                <button onClick={() => setShowCheckout(false)} className="p-1 text-gray-400 hover:text-gray-600">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                </button>
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Confirmar apartado</h3>
+                <p className="text-xs text-gray-500">{cartCount} producto{cartCount !== 1 ? 's' : ''}</p>
               </div>
+              <button onClick={() => setShowCheckout(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
+            {/* Body scrollable */}
+            <div className="flex-1 overflow-y-auto px-5 pb-4">
               {/* Order Summary */}
               <div className="rounded-lg border border-gray-100 p-3 mb-4">
                 <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-2">Resumen</p>
@@ -613,7 +676,7 @@ export default function ShopPage() {
                 </div>
               </div>
 
-              {/* SPEI Info */}
+              {/* SPEI Info + captura del comprobante */}
               {form.preferredPaymentMethod === 'SPEI' && settings.speiInfo && (
                 <div className="mb-4 rounded-lg p-3 border" style={{ backgroundColor: TEAL_LIGHT, borderColor: `${TEAL}30` }}>
                   <p className="text-xs font-semibold mb-2" style={{ color: TEAL }}>Datos para transferencia</p>
@@ -622,15 +685,52 @@ export default function ShopPage() {
                     {settings.speiInfo.holderName && <div className="flex justify-between"><span className="text-gray-500">Titular:</span><span className="font-medium">{settings.speiInfo.holderName}</span></div>}
                     {settings.speiInfo.clabe && <div className="flex justify-between"><span className="text-gray-500">CLABE:</span><span className="font-mono font-medium tracking-wider">{settings.speiInfo.clabe}</span></div>}
                   </div>
-                  <div className="mt-3 pt-2 border-t" style={{ borderColor: `${TEAL}20` }}>
-                    <div className="flex items-start gap-1.5">
-                      <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                      </svg>
-                      <p className="text-[10px] text-gray-600 leading-relaxed">
-                        Una vez realizada la transferencia, deberas enviar una <span className="font-semibold">captura de pantalla</span> del comprobante de pago al negocio. Tu apartado sera confirmado por el administrador al verificar el pago.
-                      </p>
-                    </div>
+
+                  {/* Captura del comprobante */}
+                  <div className="mt-3 pt-3 border-t" style={{ borderColor: `${TEAL}20` }}>
+                    <label className="block text-[11px] font-semibold mb-2" style={{ color: TEAL }}>Sube la captura de tu transferencia *</label>
+                    {paymentProofFile ? (
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 rounded-lg overflow-hidden border border-gray-200 bg-white">
+                          <img src={URL.createObjectURL(paymentProofFile)} alt="Comprobante" className="w-full max-h-40 object-contain" />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setPaymentProofFile(null); setPaymentProofUrl(null); }}
+                          className="p-1.5 rounded-full bg-white border border-gray-200 text-gray-500 hover:text-red-500"
+                          title="Quitar captura"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors hover:bg-white" style={{ borderColor: `${TEAL}40` }}>
+                        <svg className="w-5 h-5" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        <span className="text-xs font-medium" style={{ color: TEAL }}>Seleccionar imagen del comprobante</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              if (f.size > 5 * 1024 * 1024) {
+                                setFormError('La imagen no puede pesar más de 5MB');
+                                return;
+                              }
+                              setPaymentProofFile(f);
+                              setPaymentProofUrl(null);
+                              setFormError('');
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                    <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+                      Realiza la transferencia con los datos de arriba y sube la captura. El administrador confirmará tu apartado al verificar el pago.
+                    </p>
                   </div>
                 </div>
               )}
@@ -646,17 +746,33 @@ export default function ShopPage() {
                 Al apartar, el negocio se pondra en contacto contigo para coordinar el pago y la entrega. Siliba no procesa pagos de productos.
               </div>
 
-              {formError && <div className="rounded-lg p-3 mb-4 bg-red-50 text-red-700 text-xs">{formError}</div>}
+              {formError && <div className="rounded-lg p-3 mb-2 bg-red-50 text-red-700 text-xs">{formError}</div>}
+            </div>
 
-              <button onClick={handleCheckout} disabled={reserveMutation.isPending}
-                className="w-full py-3 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50" style={{ backgroundColor: TEAL }}
-                onMouseEnter={(e) => { if (!reserveMutation.isPending) e.currentTarget.style.backgroundColor = TEAL_DARK; }}
-                onMouseLeave={(e) => { if (!reserveMutation.isPending) e.currentTarget.style.backgroundColor = TEAL; }}>
-                {reserveMutation.isPending ? 'Apartando...' : `Confirmar apartado · ${fc(cartTotal)}`}
+            {/* Footer sticky con el CTA */}
+            <div className="px-4 py-3 border-t border-gray-100 bg-white flex-shrink-0">
+              <button onClick={handleCheckout} disabled={reserveMutation.isPending || paymentProofUploading}
+                className="w-full py-3 text-white text-sm font-semibold rounded-2xl transition-colors disabled:opacity-50 shadow-lg" style={{ backgroundColor: TEAL, boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
+                onMouseEnter={(e) => { if (!reserveMutation.isPending && !paymentProofUploading) e.currentTarget.style.backgroundColor = TEAL_DARK; }}
+                onMouseLeave={(e) => { if (!reserveMutation.isPending && !paymentProofUploading) e.currentTarget.style.backgroundColor = TEAL; }}>
+                {paymentProofUploading ? 'Subiendo comprobante...' : reserveMutation.isPending ? 'Apartando...' : `Confirmar apartado · ${fc(cartTotal)}`}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de completar perfil — aparece cuando el cliente intenta
+          comprar pero su perfil tiene telefono invalido. */}
+      {showCompleteProfile && user && (
+        <CompleteProfileModal
+          user={user as any}
+          onComplete={() => {
+            setShowCompleteProfile(false);
+            refreshUser();
+          }}
+          onSkip={() => setShowCompleteProfile(false)}
+        />
       )}
 
       {/* Filtros (categorías) — bottom sheet */}

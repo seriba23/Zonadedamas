@@ -21,7 +21,7 @@ const UPLOADS_BASE = path.resolve(process.cwd(), '..', '..', 'uploads');
 export class UploadsService {
   constructor() {
     // Ensure upload directories exist
-    for (const folder of ['avatars', 'portfolio', 'documents', 'results', 'products']) {
+    for (const folder of ['avatars', 'portfolio', 'documents', 'results', 'products', 'payments']) {
       const dir = path.join(UPLOADS_BASE, folder);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -47,7 +47,7 @@ export class UploadsService {
 
   async saveFile(
     file: MulterFile,
-    folder: 'avatars' | 'portfolio' | 'documents' | 'results' | 'products' | 'resources',
+    folder: 'avatars' | 'portfolio' | 'documents' | 'results' | 'products' | 'resources' | 'payments',
   ): Promise<string> {
     this.validateFile(file, folder);
 
@@ -62,7 +62,7 @@ export class UploadsService {
 
   async deleteFile(fileUrl: string): Promise<void> {
     // Extract folder/filename from URL like /api/uploads/avatars/uuid.jpg
-    const match = fileUrl.match(/\/api\/uploads\/(avatars|portfolio|documents|results|products)\/(.+)$/);
+    const match = fileUrl.match(/\/api\/uploads\/(avatars|portfolio|documents|results|products|payments)\/(.+)$/);
     if (!match) return;
 
     const [, folder, filename] = match;

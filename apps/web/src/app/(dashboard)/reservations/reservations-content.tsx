@@ -209,6 +209,35 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
                   {r.notes && (
                     <p className="text-xs text-gray-400 mb-3 italic">"{r.notes}"</p>
                   )}
+
+                  {/* Comprobante de pago — subido por el cliente cuando paga por
+                      SPEI. El admin lo verifica antes de mover la reservation
+                      a CONFIRMED. */}
+                  {r.paymentProofUrl && (
+                    <div className="mb-3">
+                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Comprobante de pago
+                      </p>
+                      <a
+                        href={`${API_URL}${r.paymentProofUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block rounded-lg border border-gray-200 overflow-hidden hover:border-[#008080] transition-colors"
+                      >
+                        <img
+                          src={`${API_URL}${r.paymentProofUrl}`}
+                          alt="Comprobante de pago"
+                          className="max-h-40 object-contain"
+                        />
+                      </a>
+                      <p className="text-[10px] text-gray-400 mt-1">Toca la imagen para abrirla en grande.</p>
+                    </div>
+                  )}
+                  {!r.paymentProofUrl && r.preferredPaymentMethod === 'SPEI' && r.status === 'PENDING' && (
+                    <p className="text-[11px] text-amber-600 mb-3">
+                      ⚠ El cliente aún no ha subido el comprobante de transferencia.
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions bar */}

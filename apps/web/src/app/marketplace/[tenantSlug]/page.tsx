@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 dayjs.locale('es');
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
 import { isBookingUpcoming } from '@/lib/booking-time';
@@ -188,7 +189,8 @@ function SlotGrid({
 }
 
 export default function BusinessDetailPage() {
-  const { isAuthenticated, user } = useMarketplaceAuth();
+  const { isAuthenticated, user, refreshUser } = useMarketplaceAuth();
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useParams();
@@ -775,6 +777,14 @@ export default function BusinessDetailPage() {
       router.push(`/marketplace/login?redirect=${redirect}`);
       return;
     }
+    // Si el usuario salto el flujo de completar perfil, su telefono puede
+    // estar vacio o invalido. Abrimos el modal para que lo complete antes
+    // de iniciar el wizard.
+    const cleanPhone = (user?.phone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 7) {
+      setShowCompleteProfile(true);
+      return;
+    }
     const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
     setSelectedServiceIds([]);
     setSelectedBundle(null);
@@ -807,6 +817,11 @@ export default function BusinessDetailPage() {
         ? `/marketplace/${tenantSlug}%3Fref%3D${savedRef}`
         : `/marketplace/${tenantSlug}`;
       router.push(`/marketplace/login?redirect=${redirect}`);
+      return;
+    }
+    const cleanPhone = (user?.phone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 7) {
+      setShowCompleteProfile(true);
       return;
     }
     const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
@@ -4414,6 +4429,20 @@ export default function BusinessDetailPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Modal de completar perfil — se abre cuando el cliente intenta
+          reservar pero su telefono esta incompleto. Reemplaza el error
+          tecnico del backend con un flujo guiado. */}
+      {showCompleteProfile && user && (
+        <CompleteProfileModal
+          user={user as any}
+          onComplete={() => {
+            setShowCompleteProfile(false);
+            refreshUser();
+          }}
+          onSkip={() => setShowCompleteProfile(false)}
+        />
       )}
     </div>
   );
