@@ -1129,21 +1129,41 @@ export default function BusinessDetailPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <button
-          onClick={handleToggleFavorite}
-          className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
-          title={isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos'}
-        >
-          <svg
-            className="w-5 h-5"
-            fill={isFavorited ? '#008080' : 'none'}
-            stroke={isFavorited ? '#008080' : '#6b7280'}
-            viewBox="0 0 24 24"
-            strokeWidth={2}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {biz.shopEnabled && (
+            <Link
+              href={`/marketplace/${tenantSlug}/shop`}
+              className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
+              title="Tienda"
+            >
+              <svg
+                className="w-5 h-5"
+                style={{ color: TEAL }}
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+              </svg>
+            </Link>
+          )}
+          <button
+            onClick={handleToggleFavorite}
+            className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
+            title={isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos'}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-          </svg>
-        </button>
+            <svg
+              className="w-5 h-5"
+              fill={isFavorited ? '#008080' : 'none'}
+              stroke={isFavorited ? '#008080' : '#6b7280'}
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 -mt-6 relative">
@@ -1375,23 +1395,6 @@ export default function BusinessDetailPage() {
             </p>
             <p className="text-xs text-gray-500 mt-1">Reseñas</p>
           </button>
-          {/* Shop button - second row centered */}
-          {biz.shopEnabled && (
-            <div className="col-span-3 flex justify-center">
-              <Link
-                href={`/marketplace/${tenantSlug}/shop`}
-                className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 px-6 py-3 text-center transition-all hover:shadow-md hover:border-[#008080]/30"
-              >
-                <svg className="w-5 h-5" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
-                </svg>
-                <span className="text-sm font-semibold" style={{ color: TEAL }}>Tienda</span>
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-              </Link>
-            </div>
-          )}
         </div>
 
         {/* Gallery Carousel */}

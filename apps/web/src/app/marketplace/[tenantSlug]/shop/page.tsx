@@ -69,6 +69,7 @@ export default function ShopPage() {
   const [mainImageIdx, setMainImageIdx] = useState(0);
   const [page, setPage] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
   // Cart
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -193,7 +194,7 @@ export default function ShopPage() {
   // ─── Render ──────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-3">
@@ -219,31 +220,37 @@ export default function ShopPage() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4">
-        {/* Search */}
-        <div className="relative mb-3">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Buscar producto..." className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent"
-            onFocus={(e) => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.boxShadow = `0 0 0 2px rgba(0,128,128,0.25)`; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
-          />
-        </div>
-
-        {/* Categories */}
-        {categories.length > 0 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            <button onClick={() => { setSelectedCategory(null); setPage(1); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 ${!selectedCategory ? 'text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-              style={!selectedCategory ? { backgroundColor: TEAL } : undefined}>Todos</button>
-            {categories.map((cat) => (
-              <button key={cat} onClick={() => { setSelectedCategory(cat); setPage(1); }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 ${selectedCategory === cat ? 'text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                style={selectedCategory === cat ? { backgroundColor: TEAL } : undefined}>{cat}</button>
-            ))}
+        {/* Search + filtros (icono) — mismo patron que /marketplace */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1 min-w-0">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Buscar producto..." className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+              onFocus={(e) => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.boxShadow = `0 0 0 2px rgba(0,128,128,0.25)`; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
+            />
           </div>
-        )}
+          {categories.length > 0 && (
+            <button
+              onClick={() => setShowFiltersSheet(true)}
+              title="Filtros"
+              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+              style={selectedCategory
+                ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+              }
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+              </svg>
+              {selectedCategory && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
+              )}
+            </button>
+          )}
+        </div>
 
         {/* Product Grid */}
         {isLoading ? (
@@ -317,12 +324,14 @@ export default function ShopPage() {
         )}
       </div>
 
-      {/* Floating cart bar */}
+      {/* Floating cart bar — encima del bottom nav, mismo patron que
+          "Reservar cita" del perfil del negocio. */}
       {cartCount > 0 && !showCart && !showCheckout && !selectedProduct && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-white border-t border-gray-200 shadow-lg">
-          <div className="max-w-lg mx-auto">
+        <div className="fixed bottom-20 left-0 right-0 px-4 pointer-events-none z-40">
+          <div className="max-w-lg mx-auto pointer-events-auto">
             <button onClick={() => setShowCart(true)}
-              className="w-full py-3 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: TEAL }}>
+              className="w-full py-3 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-lg"
+              style={{ backgroundColor: TEAL, boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
@@ -335,7 +344,7 @@ export default function ShopPage() {
       {/* Product Detail Modal */}
       {selectedProduct && !showCart && !showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setSelectedProduct(null)}>
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto pb-24 sm:pb-0" onClick={(e) => e.stopPropagation()}>
             {(() => {
               const imgs = getAllImages(selectedProduct);
               return imgs.length > 0 ? (
@@ -397,7 +406,7 @@ export default function ShopPage() {
       {/* Cart Drawer */}
       {showCart && !showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowCart(false)}>
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto pb-24 sm:pb-0" onClick={(e) => e.stopPropagation()}>
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900">Carrito ({cartCount})</h3>
@@ -475,10 +484,11 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Checkout Modal */}
+      {/* Checkout Modal — el panel deja un padding-bottom amplio para que
+          el boton "Confirmar apartado" no quede oculto detras del bottom nav. */}
       {showCheckout && settings && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowCheckout(false)}>
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto pb-24 sm:pb-0" onClick={(e) => e.stopPropagation()}>
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -645,6 +655,61 @@ export default function ShopPage() {
                 {reserveMutation.isPending ? 'Apartando...' : `Confirmar apartado · ${fc(cartTotal)}`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros (categorías) — bottom sheet */}
+      {showFiltersSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFiltersSheet(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
+            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900">Filtros</h3>
+              <button onClick={() => setShowFiltersSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              {selectedCategory && (
+                <button
+                  onClick={() => { setSelectedCategory(null); setPage(1); }}
+                  className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
+                  style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  Limpiar filtros
+                </button>
+              )}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Categoría</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => { setSelectedCategory(null); setPage(1); setShowFiltersSheet(false); }}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                  style={!selectedCategory
+                    ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                    : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                  }
+                >
+                  Todos
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => { setSelectedCategory(cat); setPage(1); setShowFiltersSheet(false); }}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                    style={selectedCategory === cat
+                      ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                      : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                    }
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="px-4 py-4" />
           </div>
         </div>
       )}
