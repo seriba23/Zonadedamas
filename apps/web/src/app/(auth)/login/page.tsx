@@ -83,41 +83,34 @@ function LoginPageInner() {
       const result = await login(form.email, form.password);
       const profiles = result.profiles || [];
       const businessUser = result.business?.user || result.user;
+      const anyUser = businessUser || (result as any).client?.user || result.user;
 
-      // Multiple profiles → show selector
-      if (profiles.length > 1) {
-        if (businessUser) {
-          setAvailableProfiles(profiles);
-          setRoleChoice(businessUser);
-        } else {
-          router.push('/marketplace');
-        }
-        return;
-      }
-
-      // Single profile — route directly. Respect redirect only when the
-      // saved target matches the profile the user actually has (otherwise
-      // it would loop the user back to a section they can't access).
+      // Si vino con ?redirect explicito y matchea un perfil que el usuario
+      // tiene, lo respetamos sin pasar por el selector (deep link).
       const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
       const wantsBusiness =
         redirectAfterLogin && !redirectAfterLogin.startsWith('/marketplace');
+      if (redirectAfterLogin) {
+        if (wantsMarketplace && profiles.includes('client')) {
+          router.push(redirectAfterLogin);
+          return;
+        }
+        if (wantsBusiness && businessUser) {
+          router.push(redirectAfterLogin);
+          return;
+        }
+      }
 
-      if (profiles.includes('client') && !businessUser) {
-        const target = wantsMarketplace ? redirectAfterLogin! : '/marketplace';
-        router.push(target);
+      // SIEMPRE mostrar el selector despues del login (incluso con un solo
+      // perfil). El usuario lo pidio asi para poder elegir conscientemente
+      // cada vez como quiere ingresar (cliente / profesional / administrador).
+      if (profiles.length >= 1 && anyUser) {
+        setAvailableProfiles(profiles);
+        setRoleChoice(anyUser);
         return;
       }
 
-      if (businessUser) {
-        const perms = businessUser.permissions ?? [];
-        const isAdmin = (businessUser as any).isAdmin === true || perms.includes('employees.create');
-        const fallback = isAdmin ? '/home' : '/employee';
-        const target = wantsBusiness ? redirectAfterLogin! : fallback;
-        router.push(target);
-        return;
-      }
-
-      // Fallback
+      // Fallback (no deberia llegar aqui si el login fue exitoso).
       router.push('/');
     } catch (err: any) {
       setApiError(err?.message || 'Credenciales incorrectas. Intenta de nuevo.');
@@ -169,26 +162,26 @@ function LoginPageInner() {
         marketplaceApi.setSession(result.client.accessToken, result.client.refreshToken);
       }
 
-      // Multiple profiles → show selector when there is a business profile.
-      if (profiles.length > 1 && businessUser) {
+      // Deep link: si hay ?redirect que matchea un perfil disponible, saltar
+      // el selector y mandar directo. Sin redirect, el flow muestra el
+      // selector siempre.
+      if (redirectAfterLogin) {
+        if (wantsMarketplace && profiles.includes('client')) {
+          router.push(redirectAfterLogin);
+          return;
+        }
+        if (wantsBusiness && businessUser) {
+          router.push(redirectAfterLogin);
+          return;
+        }
+      }
+
+      // SIEMPRE mostrar el selector despues del login (incluso con un solo
+      // perfil). Consistente con el flow de login por credenciales.
+      const anyUser = businessUser || (result as any).client?.user || result.user;
+      if (profiles.length >= 1 && anyUser) {
         setAvailableProfiles(profiles);
-        setRoleChoice(businessUser);
-        return;
-      }
-
-      // Client-only account: redirect to marketplace.
-      if (profiles.includes('client') && !businessUser) {
-        router.push(wantsMarketplace ? redirectAfterLogin! : '/marketplace');
-        return;
-      }
-
-      if (businessUser) {
-        const perms = businessUser.permissions ?? [];
-        const isAdmin = businessUser.isAdmin === true || perms.includes('employees.create');
-        const hasEmp = !!businessUser.employeeId;
-        if (hasEmp && profiles.length > 1) { setRoleChoice(businessUser); return; }
-        const fallback = isAdmin ? '/home' : '/employee';
-        router.push(wantsBusiness ? redirectAfterLogin! : fallback);
+        setRoleChoice(anyUser);
         return;
       }
 
