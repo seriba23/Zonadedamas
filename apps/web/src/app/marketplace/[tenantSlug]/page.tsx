@@ -1075,10 +1075,10 @@ export default function BusinessDetailPage() {
     );
   }
 
+  // Sin safe-top: la imagen de portada debe llegar hasta el borde superior
+  // de la pantalla. El header con el boton de favoritos ya respeta la
+  // safe area en su propio bloque.
   return (
-    {/* Sin safe-top: la imagen de portada debe llegar hasta el borde superior
-        de la pantalla. El header con el boton de favoritos ya respeta la
-        safe area en su propio bloque. */}
     <div className="min-h-screen pb-36">
       {/* Payment cancelled banner */}
       {paymentStatus === 'cancelled' && (
