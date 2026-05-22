@@ -80,9 +80,12 @@ SET @existing = (
 
 -- Solo procedemos si hay menos de 10 ya seedeadas.
 -- Generamos 10 appointments en un INSERT...SELECT a partir de tmp_reviews.
+-- Las columnas total_amount/currency no existen en `appointments` — el
+-- total se deriva de appointment_items. Tampoco usamos discount_amount
+-- ni points_spent (quedan en su default 0/NULL).
 INSERT INTO appointments (
   id, tenant_id, client_id, employee_id, location_id,
-  status, start_time, end_time, total_amount, currency,
+  status, start_time, end_time,
   source, notes, created_at, updated_at
 )
 SELECT
@@ -91,7 +94,6 @@ SELECT
   'COMPLETED',
   DATE_SUB(NOW(), INTERVAL (r.idx * 3) DAY),
   DATE_ADD(DATE_SUB(NOW(), INTERVAL (r.idx * 3) DAY), INTERVAL @svcDur MINUTE),
-  @svcPrice, 'MXN',
   'ONLINE', '__maria_seed__',
   DATE_SUB(NOW(), INTERVAL (r.idx * 3) DAY),
   DATE_SUB(NOW(), INTERVAL (r.idx * 3) DAY)
