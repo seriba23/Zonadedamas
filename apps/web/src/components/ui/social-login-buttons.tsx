@@ -180,7 +180,7 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
         type="button"
         onClick={handleGoogle}
         disabled={disabled || loading !== null}
-        className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-base font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-white border border-gray-300 rounded-lg text-base font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
       >
         {loading === 'google' ? (
           <svg className="animate-spin h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24">
@@ -202,7 +202,7 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
         type="button"
         onClick={handleFacebook}
         disabled={disabled || loading !== null}
-        className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-[#1877F2] border border-[#1877F2] rounded-lg text-base font-medium text-white hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
+        className="w-full flex items-center justify-center gap-3 px-4 py-2 bg-[#1877F2] border border-[#1877F2] rounded-lg text-base font-medium text-white hover:bg-[#166FE5] disabled:opacity-50 transition-colors"
       >
         {loading === 'facebook' ? (
           <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">

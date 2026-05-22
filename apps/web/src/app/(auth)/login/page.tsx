@@ -264,28 +264,49 @@ function LoginPageInner() {
     const hasAdmin = availableProfiles.includes('admin');
     const hasProfessional = availableProfiles.includes('professional');
     const hasClient = availableProfiles.includes('client');
+    const initials = `${(roleChoice.firstName || '')[0] || ''}${(roleChoice.lastName || '')[0] || ''}`.toUpperCase();
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3 md:py-6">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#008080]">Siliba</h1>
-            <p className="mt-2 text-gray-500 text-sm">Hola, {roleChoice.firstName}</p>
+          <div className="text-center mb-4">
+            <h1 className="text-2xl font-bold text-[#008080]">Siliba</h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">¿Cómo deseas ingresar?</h2>
-            <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+            {/* Header con avatar + nombre — consistente con el flow social
+                login. Reduce ambiguedad: el usuario siempre se ve "como
+                quien" esta ingresando. */}
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+              <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
+                {(roleChoice as any).avatarUrl ? (
+                  <img src={(roleChoice as any).avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-base font-bold" style={{ color: '#008080' }}>{initials || '?'}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-gray-900 truncate">
+                  {roleChoice.firstName}{roleChoice.lastName ? ` ${roleChoice.lastName}` : ''}
+                </p>
+                {(roleChoice as any).email && (
+                  <p className="text-xs text-gray-500 truncate">{(roleChoice as any).email}</p>
+                )}
+              </div>
+            </div>
 
-            <div className="space-y-3">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">¿Cómo deseas ingresar?</h2>
+            <p className="text-xs text-gray-500 mb-4">Selecciona el modo en el que quieres trabajar hoy</p>
+
+            <div className="space-y-2">
               {/* Orden solicitado: Cliente → Profesional → Administrador. */}
 
               {/* Cliente */}
               <button
                 onClick={() => goOrRegister('client', 'client')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                     </svg>
@@ -307,10 +328,10 @@ function LoginPageInner() {
               {/* Profesional independiente */}
               <button
                 onClick={() => goOrRegister('professional', 'individual')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
@@ -332,10 +353,10 @@ function LoginPageInner() {
               {/* Administrador (dueño de negocio) */}
               <button
                 onClick={() => goOrRegister('admin', 'business')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
@@ -559,14 +580,14 @@ function LoginPageInner() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
               <input
                 id="email" type="email" autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className={`input-field text-base py-2 ${errors.email ? 'border-red-400' : ''}`}
+                className={`input-field text-base py-1.5 ${errors.email ? 'border-red-400' : ''}`}
                 placeholder="correo@ejemplo.com"
               />
               {errors.email && <p className="mt-0.5 text-xs text-red-600">{errors.email}</p>}
@@ -578,7 +599,7 @@ function LoginPageInner() {
                 id="password" type="password" autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                className={`input-field text-base py-2 ${errors.password ? 'border-red-400' : ''}`}
+                className={`input-field text-base py-1.5 ${errors.password ? 'border-red-400' : ''}`}
                 placeholder="••••••••"
               />
               {errors.password && <p className="mt-0.5 text-xs text-red-600">{errors.password}</p>}
@@ -590,7 +611,7 @@ function LoginPageInner() {
               </Link>
             </div>
 
-            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-2.5 text-base">
+            <button type="submit" disabled={isLoading} className="w-full btn-primary flex items-center justify-center gap-2 py-2 text-base">
               {isLoading && (
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
