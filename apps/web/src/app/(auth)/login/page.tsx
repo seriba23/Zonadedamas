@@ -277,26 +277,28 @@ function LoginPageInner() {
             <p className="text-sm text-gray-500 mb-6">Selecciona el modo en el que quieres trabajar hoy</p>
 
             <div className="space-y-3">
-              {/* Administrador (dueño de negocio) */}
+              {/* Orden solicitado: Cliente → Profesional → Administrador. */}
+
+              {/* Cliente */}
               <button
-                onClick={() => goOrRegister('admin', 'business')}
+                onClick={() => goOrRegister('client', 'client')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900">Administrador</p>
-                      {!hasAdmin && (
+                      <p className="font-semibold text-gray-900">Cliente</p>
+                      {!hasClient && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">Crear</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {hasAdmin ? `Gestionar ${roleChoice.tenantName || 'mi negocio'}` : 'Crea tu empresa y administra tu negocio'}
+                      {hasClient ? 'Explorar, reservar y comprar' : 'Crea tu cuenta de cliente para reservar'}
                     </p>
                   </div>
                 </div>
@@ -327,26 +329,26 @@ function LoginPageInner() {
                 </div>
               </button>
 
-              {/* Cliente */}
+              {/* Administrador (dueño de negocio) */}
               <button
-                onClick={() => goOrRegister('client', 'client')}
+                onClick={() => goOrRegister('admin', 'business')}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900">Cliente</p>
-                      {!hasClient && (
+                      <p className="font-semibold text-gray-900">Administrador</p>
+                      {!hasAdmin && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">Crear</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {hasClient ? 'Explorar, reservar y comprar' : 'Crea tu cuenta de cliente para reservar'}
+                      {hasAdmin ? `Gestionar ${roleChoice.tenantName || 'mi negocio'}` : 'Crea tu empresa y administra tu negocio'}
                     </p>
                   </div>
                 </div>
