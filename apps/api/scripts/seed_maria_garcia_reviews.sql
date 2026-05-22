@@ -101,17 +101,18 @@ FROM tmp_reviews r
 WHERE @existing < 10;
 
 -- Insert appointment_items (uno por appointment recién creado, con el
--- servicio seleccionado).
+-- servicio seleccionado). El modelo NO tiene created_at — tiene
+-- start_time / end_time alineados a los del appointment padre.
 INSERT INTO appointment_items (
   id, appointment_id, service_id, employee_id,
   service_name_snapshot, price_snapshot, duration_snapshot,
-  created_at
+  start_time, end_time
 )
 SELECT
   CONCAT('seed_item_', LPAD(r.idx, 2, '0'), '_', SUBSTRING(MD5(RAND()), 1, 8)),
   a.id, @svcId, @empId,
   @svcName, @svcPrice, @svcDur,
-  a.created_at
+  a.start_time, a.end_time
 FROM tmp_reviews r
 JOIN appointments a
   ON a.tenant_id = @tenantId
