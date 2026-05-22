@@ -499,32 +499,21 @@ export class MarketplaceService {
     }
 
     if (availableNow) {
-      // Business must be open RIGHT NOW + at least one active employee working now
+      // Criterio mas permisivo (alineado con profesionales): el negocio
+      // tiene horario para HOY con is_open=true Y al menos un empleado
+      // activo. No exigimos que la hora actual caiga dentro del horario
+      // (eso era demasiado estricto y dejaba "0 resultados" en escenarios
+      // razonables, p.ej. justo antes de abrir o cerrando hoy temprano).
       conditions.push(`EXISTS (
         SELECT 1 FROM business_hours bh
         WHERE bh.tenant_id = t.id
           AND bh.day_of_week = ${dayOfWeekExpr}
           AND bh.is_open = true
-          AND CURTIME() >= bh.open_time
-          AND CURTIME() < bh.close_time
       )`);
       conditions.push(`EXISTS (
-        SELECT 1 FROM employee_schedules es
-        JOIN employees e ON e.id = es.employee_id AND e.is_active = true
+        SELECT 1 FROM employees e
         WHERE e.tenant_id = t.id
-          AND es.day_of_week = ${dayOfWeekExpr}
-          AND es.is_working = true
-          AND es.effective_from <= CURDATE()
-          AND (es.effective_until IS NULL OR es.effective_until >= CURDATE())
-          AND CURTIME() >= es.start_time
-          AND CURTIME() < es.end_time
-          AND NOT EXISTS (
-            SELECT 1 FROM appointments a
-            WHERE a.employee_id = e.id
-              AND a.status IN ('PENDING', 'CONFIRMED')
-              AND a.start_time <= NOW()
-              AND a.end_time > NOW()
-          )
+          AND e.is_active = true
       )`);
     }
 
@@ -574,33 +563,19 @@ export class MarketplaceService {
     // Add filter params after GPS params
     mainParams.push(...params);
 
-    // Subquery to detect if business has immediate availability
+    // Subquery para badge hasImmediateAvailability en la lista. Misma logica
+    // permisiva que el filtro: abierto hoy + al menos un empleado activo.
     const availableNowSelect = `(
       EXISTS (
         SELECT 1 FROM business_hours bh2
         WHERE bh2.tenant_id = t.id
           AND bh2.day_of_week = ${dayOfWeekExpr}
           AND bh2.is_open = true
-          AND CURTIME() >= bh2.open_time
-          AND CURTIME() < bh2.close_time
       )
       AND EXISTS (
-        SELECT 1 FROM employee_schedules es2
-        JOIN employees e2 ON e2.id = es2.employee_id AND e2.is_active = true
+        SELECT 1 FROM employees e2
         WHERE e2.tenant_id = t.id
-          AND es2.day_of_week = ${dayOfWeekExpr}
-          AND es2.is_working = true
-          AND es2.effective_from <= CURDATE()
-          AND (es2.effective_until IS NULL OR es2.effective_until >= CURDATE())
-          AND CURTIME() >= es2.start_time
-          AND CURTIME() < es2.end_time
-          AND NOT EXISTS (
-            SELECT 1 FROM appointments a2
-            WHERE a2.employee_id = e2.id
-              AND a2.status IN ('PENDING', 'CONFIRMED')
-              AND a2.start_time <= NOW()
-              AND a2.end_time > NOW()
-          )
+          AND e2.is_active = true
       )
     ) as hasImmediateAvailability`;
 
