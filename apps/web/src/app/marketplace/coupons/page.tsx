@@ -112,20 +112,25 @@ export default function MarketplaceCouponsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-gray-200 px-4">
-        <div className="max-w-2xl mx-auto flex gap-1">
-          {(['cupones', 'puntos'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                tab === t ? 'border-[#008080] text-[#008080]' : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t === 'cupones' ? 'Cupones' : 'Mis puntos'}
-            </button>
-          ))}
+      {/* Tabs Cupones | Mis puntos — estilo segmentado estandar del proyecto */}
+      <div className="px-4 py-3">
+        <div className="max-w-2xl mx-auto flex rounded-lg border border-gray-300 overflow-hidden">
+          <button
+            onClick={() => setTab('cupones')}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'cupones' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Cupones
+          </button>
+          <button
+            onClick={() => setTab('puntos')}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+              tab === 'puntos' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Mis puntos
+          </button>
         </div>
       </div>
 

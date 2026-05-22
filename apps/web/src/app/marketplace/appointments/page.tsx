@@ -131,19 +131,21 @@ export default function MarketplaceAppointmentsPage() {
             </button>
           )}
         </div>
-        {/* Tabs */}
-        <div className="max-w-2xl mx-auto flex gap-1 -mb-px">
+        {/* Tabs Citas | Compras — estilo segmentado estandar del proyecto */}
+        <div className="max-w-2xl mx-auto flex rounded-lg border border-gray-300 overflow-hidden">
           <button
             onClick={() => setTab('citas')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === 'citas' ? '' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-            style={tab === 'citas' ? { borderColor: TEAL, color: TEAL } : undefined}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'citas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
           >
             Citas
           </button>
           <button
             onClick={() => setTab('compras')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === 'compras' ? '' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-            style={tab === 'compras' ? { borderColor: TEAL, color: TEAL } : undefined}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+              tab === 'compras' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
           >
             Compras
           </button>
