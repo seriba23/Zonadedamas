@@ -228,15 +228,6 @@ export class MarketplaceController {
     );
   }
 
-  // Pagos unificados: combina pagos de citas con apartados de productos
-  // en un solo stream ordenado por fecha. Lo consume el tab "Pagos" del
-  // cliente para mostrar Pendientes vs Historial.
-  @UseGuards(MarketplaceJwtGuard)
-  @Get('my-payments-all')
-  async getMyPaymentsAll(@Req() req: any) {
-    return this.marketplaceService.getMyPaymentsAll(req.user.marketplaceUserId);
-  }
-
   // Cliente sube/reemplaza la captura del comprobante de pago en una
   // cita propia. Valida que la cita pertenece al usuario marketplace.
   @UseGuards(MarketplaceJwtGuard)
