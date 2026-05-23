@@ -64,16 +64,26 @@ export default function MarketplaceAppointmentsPage() {
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
   const [tab, setTab] = useState<'citas' | 'compras' | 'pagos'>('citas');
 
+  // Cache 30s + sin refetch en focus/mount evita ráfagas de requests
+  // cuando el usuario alterna entre las pestañas Citas/Compras/Pagos.
+  const sharedQueryOpts = {
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  } as const;
+
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments?filter=all&perPage=100'),
     enabled: isAuthenticated && tab === 'citas',
+    ...sharedQueryOpts,
   });
 
   const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
     queryKey: ['marketplace-my-purchases'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-purchases'),
     enabled: isAuthenticated && tab === 'compras',
+    ...sharedQueryOpts,
   });
 
   // Pagos unificados: stream combinado de pagos de citas + apartados.
@@ -81,6 +91,7 @@ export default function MarketplaceAppointmentsPage() {
     queryKey: ['marketplace-my-payments-all'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-payments-all'),
     enabled: isAuthenticated && tab === 'pagos',
+    ...sharedQueryOpts,
   });
 
   const appointments: any[] = (data as any)?.data || [];

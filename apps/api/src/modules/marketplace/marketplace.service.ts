@@ -1804,22 +1804,21 @@ export class MarketplaceService {
 
     const allAppts = await this.prisma.appointment.findMany({
       where: baseWhere,
-      include: {
+      // Select explicito + relaciones minimas. La sucursal viene en
+      // location (directa); no es necesario duplicar locations del tenant.
+      select: {
+        id: true,
+        status: true,
+        startTime: true,
+        endTime: true,
+        notes: true,
+        discountAmount: true,
+        paymentProofUrl: true,
+        createdAt: true,
         tenant: {
           select: {
-            id: true,
-            name: true,
-            slug: true,
-            logoUrl: true,
-            address: true,
-            timezone: true,
-            businessPhone: true,
-            locations: {
-              where: { isActive: true },
-              select: { id: true, name: true, address: true, latitude: true, longitude: true, timezone: true },
-              take: 1,
-              orderBy: { createdAt: 'asc' },
-            },
+            id: true, name: true, slug: true, logoUrl: true,
+            timezone: true, businessPhone: true,
           },
         },
         location: {
@@ -1829,12 +1828,7 @@ export class MarketplaceService {
           select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
         },
         items: {
-          select: {
-            id: true,
-            serviceNameSnapshot: true,
-            priceSnapshot: true,
-            durationSnapshot: true,
-          },
+          select: { id: true, serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true },
         },
         payments: {
           select: { id: true, status: true, paymentMethod: true, totalAmount: true },
@@ -1855,7 +1849,6 @@ export class MarketplaceService {
     const apptIsUpcoming = (appt: any): boolean => {
       const tz =
         appt.location?.timezone ||
-        appt.tenant?.locations?.[0]?.timezone ||
         appt.tenant?.timezone ||
         'America/Mexico_City';
       const nowStr = nowInTz(tz); // "YYYY-MM-DDTHH:mm:ss"
@@ -2163,58 +2156,61 @@ export class MarketplaceService {
     });
     const clientIds = clients.map((c) => c.id);
 
-    // Citas: payments del modulo de pagos (relacionados a appointment)
-    const appointmentPayments = clientIds.length === 0 ? [] : await this.prisma.payment.findMany({
-      where: { clientId: { in: clientIds } },
-      select: {
-        id: true,
-        amount: true,
-        totalAmount: true,
-        currency: true,
-        paymentMethod: true,
-        status: true,
-        createdAt: true,
-        tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
-        appointment: {
-          select: {
-            id: true,
-            startTime: true,
-            paymentProofUrl: true,
-            items: { select: { serviceNameSnapshot: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
+    // Citas + payments en paralelo. Combinamos: para cada cita, si tiene
+    // Payment lo usamos como "registro de pago"; si no, la cita misma
+    // funciona como pago pendiente para que el cliente pueda subir
+    // comprobante. Esto evita el findMany con `payments: { none }` que
+    // es caro sin indice.
+    const [appointmentsList, paymentsList] = clientIds.length === 0
+      ? [[], []] as const
+      : await Promise.all([
+          this.prisma.appointment.findMany({
+            where: {
+              clientId: { in: clientIds },
+              status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS', 'COMPLETED'] as any },
+            },
+            select: {
+              id: true,
+              startTime: true,
+              status: true,
+              discountAmount: true,
+              paymentProofUrl: true,
+              createdAt: true,
+              tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
+              items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+          }),
+          this.prisma.payment.findMany({
+            where: { clientId: { in: clientIds } },
+            select: {
+              id: true,
+              appointmentId: true,
+              amount: true,
+              totalAmount: true,
+              currency: true,
+              paymentMethod: true,
+              status: true,
+              createdAt: true,
+              tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
+              appointment: {
+                select: {
+                  id: true,
+                  startTime: true,
+                  paymentProofUrl: true,
+                  items: { select: { serviceNameSnapshot: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+          }),
+        ]);
 
-    // Citas SIN registro Payment (el cliente reservo pero el negocio aun no
-    // creo el cobro). Las incluimos como "pago pendiente" para que el
-    // cliente pueda subir comprobante.
-    const appointmentsWithoutPayment = clientIds.length === 0 ? [] : await this.prisma.appointment.findMany({
-      where: {
-        clientId: { in: clientIds },
-        payments: { none: {} },
-        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS', 'COMPLETED'] as any },
-      },
-      select: {
-        id: true,
-        startTime: true,
-        status: true,
-        discountAmount: true,
-        paymentProofUrl: true,
-        createdAt: true,
-        tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
-        items: {
-          select: {
-            serviceNameSnapshot: true,
-            priceSnapshot: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
+    const appointmentPayments = paymentsList;
+    const appointmentIdsWithPayment = new Set(paymentsList.map((p) => p.appointmentId).filter(Boolean) as string[]);
+    const appointmentsWithoutPayment = appointmentsList.filter((a) => !appointmentIdsWithPayment.has(a.id));
 
     // Compras (apartados de productos) — filtradas por userId del usuario marketplace
     const reservations = await this.prisma.productReservation.findMany({
