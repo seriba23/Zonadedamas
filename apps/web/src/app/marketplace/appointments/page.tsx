@@ -309,9 +309,11 @@ function PurchaseCard({ purchase }: { purchase: any }) {
             </div>
           )}
 
-          {/* Comprobante de transferencia (SPEI): si no se subió en el
-              checkout, permite subirlo ahora. Si ya se subió, muestra link. */}
-          {purchase.preferredPaymentMethod === 'SPEI' && purchase.status !== 'CANCELLED' && (
+          {/* Comprobante de pago: disponible para cualquier método. El
+              cliente puede subir captura aunque haya elegido efectivo
+              o tarjeta — útil cuando termina pagando por transferencia
+              improvisada o quiere dejar evidencia del cargo. */}
+          {purchase.status !== 'CANCELLED' && purchase.status !== 'DELIVERED' && (
             <PaymentProofSection purchase={purchase} />
           )}
         </div>
@@ -384,17 +386,17 @@ function PaymentProofSection({ purchase }: { purchase: any }) {
 
   return (
     <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-      <p className="text-[11px] text-amber-800 mb-2 font-medium">
-        ⚠ Falta tu comprobante de transferencia
+      <p className="text-[11px] text-amber-800 mb-1 font-medium">
+        Pago pendiente
       </p>
       <p className="text-[10px] text-amber-700 mb-2 leading-relaxed">
-        Sube la captura para que el negocio confirme tu apartado y se genere el ticket.
+        Sube la captura de tu pago (transferencia, depósito o cargo) para que el negocio confirme tu apartado.
       </p>
       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008080] text-white text-[11px] font-medium hover:bg-[#006666] transition-colors cursor-pointer">
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
         </svg>
-        {uploadMutation.isPending ? 'Subiendo...' : 'Subir captura'}
+        {uploadMutation.isPending ? 'Subiendo...' : 'Subir comprobante'}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
