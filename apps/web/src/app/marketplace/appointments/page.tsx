@@ -7,6 +7,8 @@ import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatCurrency } from '@/lib/utils';
 import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
+import { WhatsAppButton } from '@/components/ui/whatsapp-button';
+import { buildPurchaseMessage, buildAppointmentMessage, buildPaymentMessage } from '@/lib/whatsapp';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -355,9 +357,24 @@ function PaymentCard({ payment }: { payment: any }) {
           Ver comprobante
         </a>
       )}
-      <p className="text-[10px] text-gray-400 mt-2">
-        {new Date(payment.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-      </p>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-gray-400">
+          {payment.code && <span className="font-mono font-semibold text-gray-500">#{payment.code} · </span>}
+          {new Date(payment.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+        </p>
+        <WhatsAppButton
+          phone={payment.tenant?.businessPhone}
+          message={buildPaymentMessage({
+            tenantName: payment.tenant?.name || 'el negocio',
+            kind: payment.kind,
+            code: payment.code,
+            reservationId: payment.reservationId,
+            appointmentId: payment.appointmentId,
+            description: payment.description,
+          })}
+          variant="icon-only"
+        />
+      </div>
     </div>
   );
 }
@@ -395,7 +412,22 @@ function PurchaseCard({ purchase }: { purchase: any }) {
           {purchase.shippingAddress && (
             <p className="text-[10px] text-gray-400 mt-2 truncate">📍 {purchase.shippingAddress}</p>
           )}
-          <p className="text-[10px] text-gray-400 mt-1">{new Date(purchase.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="text-[10px] text-gray-400">
+              {purchase.code && <span className="font-mono font-semibold text-gray-500">#{purchase.code} · </span>}
+              {new Date(purchase.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+            <WhatsAppButton
+              phone={purchase.tenant?.businessPhone}
+              message={buildPurchaseMessage({
+                tenantName: purchase.tenant?.name || 'el negocio',
+                productName: purchase.product?.name,
+                code: purchase.code,
+                reservationId: purchase.id,
+              })}
+              variant="icon-only"
+            />
+          </div>
 
           {/* Leyenda según si tiene cita asociada o no */}
           {purchase.status === 'PENDING' && (
@@ -411,18 +443,19 @@ function PurchaseCard({ purchase }: { purchase: any }) {
                 </p>
               ) : (
                 <div className="flex items-center justify-between gap-2 flex-1">
-                  <p className="text-[11px] text-teal-800">
+                  <p className="text-[11px] text-teal-800 flex-1">
                     Contacta al negocio para coordinar la entrega y pago de tu producto
                   </p>
-                  <button
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008080] text-white text-[11px] font-medium hover:bg-[#006666] transition-colors"
-                    onClick={() => {/* Fase 2: abrir chat con negocio */}}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                    </svg>
-                    Mensaje
-                  </button>
+                  <WhatsAppButton
+                    phone={purchase.tenant?.businessPhone}
+                    message={buildPurchaseMessage({
+                      tenantName: purchase.tenant?.name || 'el negocio',
+                      productName: purchase.product?.name,
+                      code: purchase.code,
+                      reservationId: purchase.id,
+                    })}
+                    label="WhatsApp"
+                  />
                 </div>
               )}
             </div>
@@ -629,6 +662,23 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
           </div>
         );
       })()}
+
+      {/* WhatsApp directo al negocio + referencia corta de la cita */}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-gray-400 font-mono">#{(appt.id || '').substring(0, 8).toUpperCase()}</p>
+        <div onClick={(e) => e.stopPropagation()}>
+          <WhatsAppButton
+            phone={appt.tenant?.businessPhone}
+            message={buildAppointmentMessage({
+              tenantName: appt.tenant?.name || 'el negocio',
+              serviceName: services,
+              startTime: appt.startTime,
+              appointmentId: appt.id,
+            })}
+            variant="icon-only"
+          />
+        </div>
+      </div>
     </button>
   );
 }

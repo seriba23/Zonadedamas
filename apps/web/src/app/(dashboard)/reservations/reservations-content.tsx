@@ -148,6 +148,9 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="text-sm font-semibold text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
+                        {r.code && (
+                          <span className="font-mono text-[10px] font-semibold text-gray-500 flex-shrink-0">#{r.code}</span>
+                        )}
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${STATUS_COLORS[r.status] || 'text-gray-600 bg-gray-100'}`}>
                           {STATUS_LABELS[r.status] || r.status}
                         </span>

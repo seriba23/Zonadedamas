@@ -17,6 +17,28 @@ export class ShopService {
     private uploadsService: UploadsService,
   ) {}
 
+  /**
+   * Genera un código corto único para una reserva (ej. "RX12AB"). Excluye
+   * caracteres ambiguos (0/O, 1/I/L) para que sea fácil de dictar por
+   * WhatsApp o teléfono.
+   */
+  private async generateReservationCode(): Promise<string> {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for (let attempt = 0; attempt < 6; attempt++) {
+      let code = '';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const exists = await this.prisma.productReservation.findFirst({
+        where: { code },
+        select: { id: true },
+      });
+      if (!exists) return code;
+    }
+    // Fallback al UUID corto si por alguna razón seguimos colisionando.
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
   async resolveTenant(slug: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
@@ -230,6 +252,7 @@ export class ShopService {
             notes: dto.notes,
             userId: marketplaceUserId,
             paymentProofUrl: dto.paymentProofUrl || null,
+            code: await this.generateReservationCode(),
           },
           include: {
             product: { select: { id: true, name: true, imageUrl: true } },
@@ -329,6 +352,7 @@ export class ShopService {
               notes: dto.notes,
               userId: marketplaceUserId,
               paymentProofUrl: dto.paymentProofUrl || null,
+              code: await this.generateReservationCode(),
             },
             include: {
               product: { select: { id: true, name: true, imageUrl: true } },

@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatBookingTime, formatBookingDate } from '@/lib/booking-time';
+import { WhatsAppButton } from '@/components/ui/whatsapp-button';
+import { buildAppointmentMessage } from '@/lib/whatsapp';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -110,12 +112,24 @@ export default function AppointmentDetailPage() {
               Ver negocio →
             </button>
           </div>
-          <span
-            className="px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-            style={{ backgroundColor: style.bg, color: style.color }}
-          >
-            {STATUS_LABEL[appt.status] || appt.status}
-          </span>
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <span
+              className="px-3 py-1 rounded-full text-xs font-semibold"
+              style={{ backgroundColor: style.bg, color: style.color }}
+            >
+              {STATUS_LABEL[appt.status] || appt.status}
+            </span>
+            <WhatsAppButton
+              phone={appt.tenant?.businessPhone}
+              message={buildAppointmentMessage({
+                tenantName: appt.tenant?.name || 'el negocio',
+                serviceName: (appt.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
+                startTime: appt.startTime,
+                appointmentId: appt.id,
+              })}
+              label="WhatsApp"
+            />
+          </div>
         </div>
 
         {/* Date & time */}

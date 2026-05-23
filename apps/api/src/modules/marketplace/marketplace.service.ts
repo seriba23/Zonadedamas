@@ -1813,6 +1813,7 @@ export class MarketplaceService {
             logoUrl: true,
             address: true,
             timezone: true,
+            businessPhone: true,
             locations: {
               where: { isActive: true },
               select: { id: true, name: true, address: true, latitude: true, longitude: true, timezone: true },
@@ -1918,6 +1919,7 @@ export class MarketplaceService {
               slug: true,
               name: true,
               logoUrl: true,
+              businessPhone: true,
             },
           },
         },
@@ -2139,7 +2141,7 @@ export class MarketplaceService {
         paymentMethod: true,
         status: true,
         createdAt: true,
-        tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
         appointment: {
           select: {
             id: true,
@@ -2157,6 +2159,7 @@ export class MarketplaceService {
       where: { userId: marketplaceUserId },
       select: {
         id: true,
+        code: true,
         quantity: true,
         unitPrice: true,
         shippingCost: true,
@@ -2164,7 +2167,7 @@ export class MarketplaceService {
         status: true,
         paymentProofUrl: true,
         createdAt: true,
-        tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
         product: { select: { id: true, name: true, imageUrl: true, currency: true } },
         appointment: { select: { id: true, startTime: true } },
       },
@@ -2177,6 +2180,7 @@ export class MarketplaceService {
       ...appointmentPayments.map((p) => ({
         kind: 'appointment' as const,
         id: p.id,
+        code: null as string | null,
         tenant: p.tenant,
         amount: Number(p.totalAmount ?? p.amount ?? 0),
         currency: p.currency || 'MXN',
@@ -2193,6 +2197,7 @@ export class MarketplaceService {
       ...reservations.map((r) => ({
         kind: 'product' as const,
         id: r.id,
+        code: r.code,
         tenant: r.tenant,
         amount: Number(r.unitPrice) * r.quantity + Number(r.shippingCost || 0),
         currency: r.product?.currency || 'MXN',

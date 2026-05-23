@@ -1492,6 +1492,9 @@ model ProductReservation {
   // pantalla de la transferencia SPEI). Lo verifica el admin para
   // confirmar el apartado.
   paymentProofUrl        String?           @map("payment_proof_url")
+  // Número corto y único de la compra (ej. "RX12AB"). Lo usamos como
+  // referencia humana en mensajes de WhatsApp y comunicaciones.
+  code                   String?           @unique
   createdAt              DateTime          @default(now()) @map("created_at")
   updatedAt              DateTime          @updatedAt @map("updated_at")
 
