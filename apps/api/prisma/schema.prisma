@@ -821,6 +821,9 @@ model Appointment {
   redemptionId       String?           @unique @map("redemption_id")
   discountAmount     Decimal?          @map("discount_amount") @db.Decimal(10, 2)
   pointsSpent        Int               @default(0) @map("points_spent")
+  // Captura del comprobante de pago subido por el cliente (típicamente
+  // transferencia SPEI). El admin lo verifica para registrar el pago.
+  paymentProofUrl    String?           @map("payment_proof_url")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 

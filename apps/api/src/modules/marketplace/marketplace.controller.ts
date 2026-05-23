@@ -237,6 +237,28 @@ export class MarketplaceController {
     return this.marketplaceService.getMyPaymentsAll(req.user.marketplaceUserId);
   }
 
+  // Cliente sube/reemplaza la captura del comprobante de pago en una
+  // cita propia. Valida que la cita pertenece al usuario marketplace.
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('appointments/:id/payment-proof')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadAppointmentPaymentProof(
+    @Req() req: any,
+    @Param('id') appointmentId: string,
+    @UploadedFile() file: any,
+  ) {
+    const newUrl = await this.uploadsService.saveFile(file, 'payments');
+    const oldUrl = await this.marketplaceService.setAppointmentPaymentProof(
+      req.user.marketplaceUserId,
+      appointmentId,
+      newUrl,
+    );
+    if (oldUrl) {
+      await this.uploadsService.deleteFile(oldUrl).catch(() => {});
+    }
+    return { data: { paymentProofUrl: newUrl } };
+  }
+
   // ─── FAVORITES (auth required) ────────────────────────
 
   @UseGuards(MarketplaceJwtGuard)

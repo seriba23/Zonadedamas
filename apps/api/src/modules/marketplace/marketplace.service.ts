@@ -2119,6 +2119,39 @@ export class MarketplaceService {
   }
 
   /**
+   * Actualiza el paymentProofUrl de una cita propia del cliente.
+   * Devuelve la URL anterior (si existía) para que el caller la borre del disco.
+   */
+  async setAppointmentPaymentProof(
+    marketplaceUserId: string,
+    appointmentId: string,
+    newUrl: string,
+  ): Promise<string | null> {
+    const clients = await this.prisma.client.findMany({
+      where: { userId: marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+    if (clientIds.length === 0) {
+      throw new NotFoundException('No se encontró el cliente');
+    }
+    const appt = await this.prisma.appointment.findFirst({
+      where: { id: appointmentId, clientId: { in: clientIds } },
+      select: { id: true, status: true, paymentProofUrl: true },
+    });
+    if (!appt) throw new NotFoundException('Cita no encontrada');
+    if (['CANCELLED', 'NO_SHOW'].includes(appt.status as string)) {
+      throw new BadRequestException('Esta cita ya no admite subir comprobante');
+    }
+    const oldUrl = appt.paymentProofUrl;
+    await this.prisma.appointment.update({
+      where: { id: appt.id },
+      data: { paymentProofUrl: newUrl },
+    });
+    return oldUrl || null;
+  }
+
+  /**
    * Pagos unificados del cliente: combina pagos de citas (Payment) con
    * apartados de la tienda (ProductReservation). Devuelve un stream
    * ordenado por fecha desc con un campo `kind` para distinguirlos.
@@ -2146,7 +2179,36 @@ export class MarketplaceService {
           select: {
             id: true,
             startTime: true,
+            paymentProofUrl: true,
             items: { select: { serviceNameSnapshot: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    // Citas SIN registro Payment (el cliente reservo pero el negocio aun no
+    // creo el cobro). Las incluimos como "pago pendiente" para que el
+    // cliente pueda subir comprobante.
+    const appointmentsWithoutPayment = clientIds.length === 0 ? [] : await this.prisma.appointment.findMany({
+      where: {
+        clientId: { in: clientIds },
+        payments: { none: {} },
+        status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS', 'COMPLETED'] as any },
+      },
+      select: {
+        id: true,
+        startTime: true,
+        status: true,
+        discountAmount: true,
+        paymentProofUrl: true,
+        createdAt: true,
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true, businessPhone: true } },
+        items: {
+          select: {
+            serviceNameSnapshot: true,
+            priceSnapshot: true,
           },
         },
       },
@@ -2192,8 +2254,31 @@ export class MarketplaceService {
         appointmentStartTime: p.appointment?.startTime || null,
         reservationId: null as string | null,
         productImage: null as string | null,
-        paymentProofUrl: null as string | null,
+        paymentProofUrl: p.appointment?.paymentProofUrl || null,
       })),
+      // Citas sin Payment registrado todavia: tratamos como "pago pendiente"
+      // para que el cliente pueda adjuntar el comprobante de pago.
+      ...appointmentsWithoutPayment.map((a) => {
+        const subtotal = (a.items || []).reduce((s, i) => s + Number(i.priceSnapshot || 0), 0);
+        const total = Math.max(0, subtotal - Number(a.discountAmount || 0));
+        return {
+          kind: 'appointment' as const,
+          id: `appt-${a.id}`, // prefix para no chocar con payment.id
+          code: null as string | null,
+          tenant: a.tenant,
+          amount: total,
+          currency: 'MXN' as string,
+          paymentMethod: null as string | null,
+          status: a.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+          createdAt: a.createdAt,
+          description: (a.items || []).map((i) => i.serviceNameSnapshot).join(', ') || 'Cita',
+          appointmentId: a.id,
+          appointmentStartTime: a.startTime,
+          reservationId: null as string | null,
+          productImage: null as string | null,
+          paymentProofUrl: a.paymentProofUrl || null,
+        };
+      }),
       ...reservations.map((r) => ({
         kind: 'product' as const,
         id: r.id,
