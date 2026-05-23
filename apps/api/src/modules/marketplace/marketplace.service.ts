@@ -2116,6 +2116,104 @@ export class MarketplaceService {
     };
   }
 
+  /**
+   * Pagos unificados del cliente: combina pagos de citas (Payment) con
+   * apartados de la tienda (ProductReservation). Devuelve un stream
+   * ordenado por fecha desc con un campo `kind` para distinguirlos.
+   */
+  async getMyPaymentsAll(marketplaceUserId: string) {
+    const clients = await this.prisma.client.findMany({
+      where: { userId: marketplaceUserId },
+      select: { id: true },
+    });
+    const clientIds = clients.map((c) => c.id);
+
+    // Citas: payments del modulo de pagos (relacionados a appointment)
+    const appointmentPayments = clientIds.length === 0 ? [] : await this.prisma.payment.findMany({
+      where: { clientId: { in: clientIds } },
+      select: {
+        id: true,
+        amount: true,
+        totalAmount: true,
+        currency: true,
+        paymentMethod: true,
+        status: true,
+        createdAt: true,
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        appointment: {
+          select: {
+            id: true,
+            startTime: true,
+            items: { select: { serviceNameSnapshot: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    // Compras (apartados de productos) — filtradas por userId del usuario marketplace
+    const reservations = await this.prisma.productReservation.findMany({
+      where: { userId: marketplaceUserId },
+      select: {
+        id: true,
+        quantity: true,
+        unitPrice: true,
+        shippingCost: true,
+        preferredPaymentMethod: true,
+        status: true,
+        paymentProofUrl: true,
+        createdAt: true,
+        tenant: { select: { id: true, name: true, slug: true, logoUrl: true } },
+        product: { select: { id: true, name: true, imageUrl: true, currency: true } },
+        appointment: { select: { id: true, startTime: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    // Normalizar a un esquema común
+    const items = [
+      ...appointmentPayments.map((p) => ({
+        kind: 'appointment' as const,
+        id: p.id,
+        tenant: p.tenant,
+        amount: Number(p.totalAmount ?? p.amount ?? 0),
+        currency: p.currency || 'MXN',
+        paymentMethod: p.paymentMethod,
+        status: p.status as string, // PENDING | COMPLETED | REFUNDED | PARTIALLY_REFUNDED
+        createdAt: p.createdAt,
+        description: p.appointment?.items?.map((i) => i.serviceNameSnapshot).join(', ') || 'Cita',
+        appointmentId: p.appointment?.id || null,
+        appointmentStartTime: p.appointment?.startTime || null,
+        reservationId: null as string | null,
+        productImage: null as string | null,
+        paymentProofUrl: null as string | null,
+      })),
+      ...reservations.map((r) => ({
+        kind: 'product' as const,
+        id: r.id,
+        tenant: r.tenant,
+        amount: Number(r.unitPrice) * r.quantity + Number(r.shippingCost || 0),
+        currency: r.product?.currency || 'MXN',
+        paymentMethod: r.preferredPaymentMethod,
+        status: r.status as string, // PENDING | CONFIRMED | READY | DELIVERED | CANCELLED
+        createdAt: r.createdAt,
+        description: `${r.quantity}× ${r.product?.name || 'Producto'}`,
+        appointmentId: r.appointment?.id || null,
+        appointmentStartTime: r.appointment?.startTime || null,
+        reservationId: r.id,
+        productImage: r.product?.imageUrl || null,
+        paymentProofUrl: r.paymentProofUrl,
+      })),
+    ];
+
+    // Orden global por fecha desc
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { data: items };
+  }
+
   // ─── PRIVATE HELPERS ─────────────────────────────────
 
   private async generateTokens(user: { id: string; email: string }) {

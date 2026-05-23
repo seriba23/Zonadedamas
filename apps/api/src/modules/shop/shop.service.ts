@@ -2,16 +2,19 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto, CreateBatchReservationDto } from './dto/create-reservation.dto';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
 export class ShopService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
+    private uploadsService: UploadsService,
   ) {}
 
   async resolveTenant(slug: string) {
@@ -368,5 +371,46 @@ export class ShopService {
     }
 
     return { data: reservations };
+  }
+
+  /**
+   * Adjuntar/reemplazar la captura del comprobante de transferencia en una
+   * reserva ya creada. Solo el cliente dueño puede hacerlo (verificado
+   * contra userId). Si ya había una captura previa, se borra del disco.
+   */
+  async attachPaymentProof(
+    slug: string,
+    reservationId: string,
+    file: any,
+    marketplaceUserId: string,
+  ) {
+    if (!file) throw new BadRequestException('Archivo de comprobante requerido');
+
+    const tenant = await this.resolveTenant(slug);
+
+    const reservation = await this.prisma.productReservation.findFirst({
+      where: { id: reservationId, tenantId: tenant.id },
+    });
+    if (!reservation) throw new NotFoundException('Apartado no encontrado');
+    if (reservation.userId !== marketplaceUserId) {
+      throw new ForbiddenException('No puedes modificar este apartado');
+    }
+    if (['DELIVERED', 'CANCELLED'].includes(reservation.status as string)) {
+      throw new BadRequestException('Este apartado ya no admite cambios');
+    }
+
+    const newUrl = await this.uploadsService.saveFile(file, 'payments');
+
+    // Borrar la captura anterior si existia
+    if (reservation.paymentProofUrl) {
+      await this.uploadsService.deleteFile(reservation.paymentProofUrl).catch(() => {});
+    }
+
+    const updated = await this.prisma.productReservation.update({
+      where: { id: reservation.id },
+      data: { paymentProofUrl: newUrl },
+    });
+
+    return { data: { id: updated.id, paymentProofUrl: updated.paymentProofUrl } };
   }
 }

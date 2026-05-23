@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatCurrency } from '@/lib/utils';
@@ -74,16 +74,27 @@ export default function MarketplaceAppointmentsPage() {
     enabled: isAuthenticated && tab === 'compras',
   });
 
+  // Pagos unificados: stream combinado de pagos de citas + apartados.
   const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
-    queryKey: ['marketplace-my-payments-pending'],
-    queryFn: () =>
-      marketplaceApi.get<{ data: any[] }>('/my-payments?status=PENDING&perPage=50'),
+    queryKey: ['marketplace-my-payments-all'],
+    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-payments-all'),
     enabled: isAuthenticated && tab === 'pagos',
   });
 
   const appointments: any[] = (data as any)?.data || [];
   const purchases: any[] = (purchasesData as any)?.data || [];
-  const pendingPayments: any[] = (paymentsData as any)?.data || [];
+  const allPayments: any[] = (paymentsData as any)?.data || [];
+  // Estados "pendientes" comunes a ambos kinds.
+  const isPaymentPending = (p: any) =>
+    p.kind === 'appointment'
+      ? p.status === 'PENDING'
+      : p.status === 'PENDING' || p.status === 'CONFIRMED' || p.status === 'READY';
+  const isPaymentDone = (p: any) =>
+    p.kind === 'appointment'
+      ? p.status === 'COMPLETED' || p.status === 'REFUNDED' || p.status === 'PARTIALLY_REFUNDED'
+      : p.status === 'DELIVERED' || p.status === 'CANCELLED';
+  const pendingPayments = allPayments.filter(isPaymentPending);
+  const pastPayments = allPayments.filter(isPaymentDone);
 
   // Próximas: ascendente (la más cercana al ahora arriba).
   // Historial: descendente (la más reciente arriba).
@@ -237,55 +248,116 @@ export default function MarketplaceAppointmentsPage() {
             </div>
           )
         ) : (
-          // ───── Pagos tab — pagos pendientes que faltan que el negocio
-          // confirme. Lista compacta orientada a recordatorio. ─────
+          // ───── Pagos tab — historial unificado de citas + compras,
+          // separado en Pendientes / Realizados. ─────
           paymentsLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: TEAL }} />
             </div>
-          ) : pendingPayments.length === 0 ? (
+          ) : pendingPayments.length === 0 && pastPayments.length === 0 ? (
             <div className="text-center py-16 flex flex-col items-center gap-4">
               <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375" />
               </svg>
-              <p className="text-gray-500">No tienes pagos pendientes</p>
-              <p className="text-xs text-gray-400 max-w-[280px]">Aquí veras los pagos que aún no han sido confirmados por el negocio.</p>
+              <p className="text-gray-500">No tienes pagos todavía</p>
+              <p className="text-xs text-gray-400 max-w-[280px]">Aquí aparecerán los pagos de tus citas y compras de productos.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
-                Pagos pendientes de confirmación por parte del negocio. El sistema de pagos integrado llega en una próxima versión.
-              </p>
-              {pendingPayments.map((p: any) => (
-                <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
-                      {p.tenant?.name || p.appointment?.tenant?.name || 'Pago'}
-                    </p>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">
-                      Pendiente
-                    </span>
+            <div className="space-y-6">
+              {pendingPayments.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Pendientes</h2>
+                  <div className="space-y-3">
+                    {pendingPayments.map((p) => (
+                      <PaymentCard key={`${p.kind}-${p.id}`} payment={p} />
+                    ))}
                   </div>
-                  {p.appointment?.startTime && (
-                    <p className="text-xs text-gray-500">
-                      Cita del {formatBookingDate(p.appointment.startTime, 'short')}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="text-gray-500">{p.paymentMethod || 'Por cobrar'}</span>
-                    <span className="font-bold" style={{ color: TEAL }}>
-                      {formatCurrency(Number(p.totalAmount || p.amount || 0), p.currency || 'MXN')}
-                    </span>
+                </section>
+              )}
+              {pastPayments.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Historial</h2>
+                  <div className="space-y-3">
+                    {pastPayments.map((p) => (
+                      <PaymentCard key={`${p.kind}-${p.id}`} payment={p} />
+                    ))}
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {new Date(p.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </p>
-                </div>
-              ))}
+                </section>
+              )}
             </div>
           )
         )}
       </div>
+    </div>
+  );
+}
+
+// Tarjeta unificada de pago (cita o compra de producto).
+function PaymentCard({ payment }: { payment: any }) {
+  const isProduct = payment.kind === 'product';
+  // Etiqueta + color del status
+  const statusInfo = (() => {
+    if (isProduct) {
+      if (payment.status === 'PENDING') return { label: 'Pendiente', bg: '#fef3c7', color: '#d97706' };
+      if (payment.status === 'CONFIRMED') return { label: 'Confirmado', bg: '#dbeafe', color: '#2563eb' };
+      if (payment.status === 'READY') return { label: 'Listo', bg: '#ccfbf1', color: '#0d9488' };
+      if (payment.status === 'DELIVERED') return { label: 'Entregado', bg: '#d1fae5', color: '#059669' };
+      if (payment.status === 'CANCELLED') return { label: 'Cancelado', bg: '#fee2e2', color: '#dc2626' };
+    } else {
+      if (payment.status === 'PENDING') return { label: 'Pendiente', bg: '#fef3c7', color: '#d97706' };
+      if (payment.status === 'COMPLETED') return { label: 'Pagado', bg: '#d1fae5', color: '#059669' };
+      if (payment.status === 'REFUNDED') return { label: 'Reembolsado', bg: '#f3f4f6', color: '#6b7280' };
+    }
+    return { label: payment.status, bg: '#f3f4f6', color: '#6b7280' };
+  })();
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0"
+            style={{ backgroundColor: isProduct ? '#ecfeff' : '#f0fdfa', color: isProduct ? '#0e7490' : '#0d9488' }}
+          >
+            {isProduct ? 'TIENDA' : 'CITA'}
+          </span>
+          <p className="text-sm font-semibold text-gray-900 truncate">
+            {payment.tenant?.name || 'Negocio'}
+          </p>
+        </div>
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0" style={{ backgroundColor: statusInfo.bg, color: statusInfo.color }}>
+          {statusInfo.label}
+        </span>
+      </div>
+      <p className="text-xs text-gray-500 mb-2 truncate">{payment.description}</p>
+      {payment.appointmentStartTime && (
+        <p className="text-[11px] text-gray-400 mb-2">
+          Cita del {formatBookingDate(payment.appointmentStartTime, 'short')}
+        </p>
+      )}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-500">{payment.paymentMethod || '—'}</span>
+        <span className="font-bold" style={{ color: TEAL }}>
+          {formatCurrency(Number(payment.amount || 0), payment.currency || 'MXN')}
+        </span>
+      </div>
+      {/* Comprobante (si lo subió) */}
+      {payment.paymentProofUrl && (
+        <a
+          href={`${API_URL}${payment.paymentProofUrl}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1 text-[11px] text-[#008080] hover:text-[#006666]"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+          </svg>
+          Ver comprobante
+        </a>
+      )}
+      <p className="text-[10px] text-gray-400 mt-2">
+        {new Date(payment.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+      </p>
     </div>
   );
 }
@@ -355,8 +427,108 @@ function PurchaseCard({ purchase }: { purchase: any }) {
               )}
             </div>
           )}
+
+          {/* Comprobante de transferencia (SPEI): si no se subió en el
+              checkout, permite subirlo ahora. Si ya se subió, muestra link. */}
+          {purchase.preferredPaymentMethod === 'SPEI' && purchase.status !== 'CANCELLED' && (
+            <PaymentProofSection purchase={purchase} />
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Subir captura del comprobante SPEI desde la tarjeta de compra. Si la
+// compra ya tiene comprobante, muestra link; si no, ofrece subirla.
+function PaymentProofSection({ purchase }: { purchase: any }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState('');
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const token = marketplaceApi.getAccessToken();
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch(
+        `${API_URL}/api/public/${purchase.tenant.slug}/shop/reservations/${purchase.id}/payment-proof`,
+        { method: 'POST', body: fd, headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo subir el comprobante');
+      }
+      return r.json();
+    },
+    onSuccess: () => {
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-purchases'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-payments-all'] });
+    },
+    onError: (err: any) => setError(err?.message || 'Error al subir el comprobante'),
+  });
+
+  if (purchase.paymentProofUrl) {
+    return (
+      <div className="mt-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
+        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+          Comprobante de pago
+        </p>
+        <a
+          href={`${API_URL}${purchase.paymentProofUrl}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-md overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors"
+        >
+          <img src={`${API_URL}${purchase.paymentProofUrl}`} alt="Comprobante" className="max-h-32 object-contain mx-auto" />
+        </a>
+        <label className="block mt-2 text-[11px] text-[#008080] cursor-pointer hover:underline">
+          Reemplazar comprobante
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
+                uploadMutation.mutate(f);
+              }
+            }}
+          />
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+      <p className="text-[11px] text-amber-800 mb-2 font-medium">
+        ⚠ Falta tu comprobante de transferencia
+      </p>
+      <p className="text-[10px] text-amber-700 mb-2 leading-relaxed">
+        Sube la captura para que el negocio confirme tu apartado y se genere el ticket.
+      </p>
+      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008080] text-white text-[11px] font-medium hover:bg-[#006666] transition-colors cursor-pointer">
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+        {uploadMutation.isPending ? 'Subiendo...' : 'Subir captura'}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          disabled={uploadMutation.isPending}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) {
+              if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
+              uploadMutation.mutate(f);
+            }
+          }}
+        />
+      </label>
+      {error && <p className="text-[10px] text-red-600 mt-1.5">{error}</p>}
     </div>
   );
 }

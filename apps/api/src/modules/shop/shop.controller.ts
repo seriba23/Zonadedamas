@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ShopService } from './shop.service';
 import { CreateReservationDto, CreateBatchReservationDto } from './dto/create-reservation.dto';
 import { MarketplaceJwtOptionalGuard } from '../marketplace/guards/marketplace-jwt-optional.guard';
+import { MarketplaceJwtGuard } from '../marketplace/guards/marketplace-jwt.guard';
 import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('public/:tenantSlug/shop')
@@ -81,5 +82,26 @@ export class ShopController {
   async uploadPaymentProof(@UploadedFile() file: any) {
     const imageUrl = await this.uploadsService.saveFile(file, 'payments');
     return { data: { paymentProofUrl: imageUrl } };
+  }
+
+  // Adjuntar/reemplazar la captura del comprobante en una reserva ya
+  // creada. Util cuando el cliente eligio SPEI pero todavia no habia
+  // hecho la transferencia al momento de apartar.
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('reservations/:id/payment-proof')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async attachPaymentProof(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') reservationId: string,
+    @UploadedFile() file: any,
+    @Req() req: any,
+  ) {
+    return this.shopService.attachPaymentProof(
+      tenantSlug,
+      reservationId,
+      file,
+      req.user.marketplaceUserId,
+    );
   }
 }
