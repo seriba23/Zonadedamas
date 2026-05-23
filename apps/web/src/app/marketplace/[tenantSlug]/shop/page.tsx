@@ -153,7 +153,13 @@ export default function ShopPage() {
       const r = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/reserve-batch`, {
         method: 'POST', headers, body: JSON.stringify(body),
       });
-      if (!r.ok) { const err = await r.json(); throw new Error(err.message || 'Error al apartar'); }
+      if (!r.ok) {
+        if (r.status === 429) {
+          throw new Error('Has hecho demasiados intentos seguidos. Espera un momento e intenta de nuevo.');
+        }
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.message || 'Error al apartar');
+      }
       return r.json();
     },
     onSuccess: () => {

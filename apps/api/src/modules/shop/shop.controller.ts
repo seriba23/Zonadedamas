@@ -54,7 +54,7 @@ export class ShopController {
 
   @Post('reserve')
   @UseGuards(MarketplaceJwtOptionalGuard)
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   createReservation(
     @Param('tenantSlug') tenantSlug: string,
     @Body() dto: CreateReservationDto,
@@ -65,7 +65,7 @@ export class ShopController {
 
   @Post('reserve-batch')
   @UseGuards(MarketplaceJwtOptionalGuard)
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   createBatchReservation(
     @Param('tenantSlug') tenantSlug: string,
     @Body() dto: CreateBatchReservationDto,
