@@ -555,6 +555,9 @@ function AppointmentPaymentSection({ appt }: { appt: any }) {
 function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) {
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
   const totalPrice = (appt.items || []).reduce((s: number, i: any) => s + Number(i.priceSnapshot || 0), 0);
+  // Moneda del negocio. Si por alguna razón no viene, default a MXN
+  // (NUNCA USD — el default global de formatCurrency confunde).
+  const currency: string = appt.tenant?.currency || 'MXN';
   const empColor = appt.employee?.color || '#008080';
   const day = formatBookingDay(appt.startTime);
   const month = formatBookingMonthShort(appt.startTime);
@@ -614,7 +617,7 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
 
         {/* Col 4 row 1: precio */}
         <p className="text-xs md:text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap text-right">
-          {formatCurrency(totalPrice)}
+          {formatCurrency(totalPrice, currency)}
         </p>
 
         {/* Col 3 row 2: servicios + empleado */}
@@ -661,7 +664,7 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
               </svg>
               {label}
             </span>
-            <span className="text-green-700 font-bold">-{formatCurrency(Number(appt.discountAmount))}</span>
+            <span className="text-green-700 font-bold">-{formatCurrency(Number(appt.discountAmount), currency)}</span>
           </div>
         );
       })()}

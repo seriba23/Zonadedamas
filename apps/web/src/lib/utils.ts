@@ -9,8 +9,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('es-DO', {
+// Default MXN — la mayoría de tenants opera en pesos mexicanos. USD como
+// fallback era trampa: si alguien omitía currency, se mostraba en dólares
+// silenciosamente y confundía al usuario. Siempre que sea posible, pasa
+// currency explícito (tenant.currency / product.currency).
+export function formatCurrency(amount: number, currency = 'MXN'): string {
+  return new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,

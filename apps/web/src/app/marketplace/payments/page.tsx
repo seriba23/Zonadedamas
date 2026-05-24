@@ -154,7 +154,7 @@ function PaymentCard({ payment }: { payment: PaymentRecord }) {
           {methodLabel}
         </span>
         <span className="text-base font-bold text-gray-900">
-          {formatCurrency(Number(payment.totalAmount))}
+          {formatCurrency(Number(payment.totalAmount), payment.currency || 'MXN')}
         </span>
       </div>
     </div>
@@ -313,19 +313,19 @@ export default function MarketplacePaymentsPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">Total pagado</p>
               <p className="text-sm font-bold text-gray-900">
-                {formatCurrency(totals.completed)}
+                {formatCurrency(totals.completed, 'MXN')}
               </p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">Pendiente</p>
               <p className="text-sm font-bold text-yellow-600">
-                {formatCurrency(totals.pending)}
+                {formatCurrency(totals.pending, 'MXN')}
               </p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">Reembolsado</p>
               <p className="text-sm font-bold text-red-600">
-                {formatCurrency(totals.refunded)}
+                {formatCurrency(totals.refunded, 'MXN')}
               </p>
             </div>
           </div>

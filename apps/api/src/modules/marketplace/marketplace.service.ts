@@ -1818,7 +1818,7 @@ export class MarketplaceService {
         tenant: {
           select: {
             id: true, name: true, slug: true, logoUrl: true,
-            timezone: true, businessPhone: true,
+            timezone: true, businessPhone: true, currency: true,
           },
         },
         location: {
@@ -1913,6 +1913,7 @@ export class MarketplaceService {
               name: true,
               logoUrl: true,
               businessPhone: true,
+              currency: true,
             },
           },
         },

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatBookingTime, formatBookingDate } from '@/lib/booking-time';
+import { formatCurrency } from '@/lib/utils';
 import { WhatsAppButton } from '@/components/ui/whatsapp-button';
 import { buildAppointmentMessage } from '@/lib/whatsapp';
 
@@ -72,6 +73,8 @@ export default function AppointmentDetailPage() {
   const { date, time } = formatDateTime(appt.startTime);
   const endTime = formatBookingTime(appt.endTime || appt.startTime);
   const total = appt.items?.reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0) ?? 0;
+  // Moneda del negocio; default a MXN si por algún motivo no viene.
+  const currency: string = appt.tenant?.currency || 'MXN';
   const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + Number(i.durationSnapshot || 0), 0) ?? 0;
 
   return (
@@ -190,7 +193,7 @@ export default function AppointmentDetailPage() {
                     )}
                   </div>
                   {item.priceSnapshot != null && (
-                    <p className="text-sm font-medium text-gray-900">${item.priceSnapshot}</p>
+                    <p className="text-sm font-medium text-gray-900">{formatCurrency(Number(item.priceSnapshot), currency)}</p>
                   )}
                 </div>
               ))}
@@ -210,11 +213,11 @@ export default function AppointmentDetailPage() {
                   <div className="pt-2 mt-2 border-t border-gray-100">
                     <div className="flex justify-between mb-1">
                       <p className="text-sm text-gray-500">Subtotal</p>
-                      <p className="text-sm text-gray-500">${total}</p>
+                      <p className="text-sm text-gray-500">{formatCurrency(total, currency)}</p>
                     </div>
                     <div className="flex justify-between">
                       <p className="text-sm text-green-600 font-medium">{label}</p>
-                      <p className="text-sm text-green-600 font-medium">-${Number(appt.discountAmount)}</p>
+                      <p className="text-sm text-green-600 font-medium">-{formatCurrency(Number(appt.discountAmount), currency)}</p>
                     </div>
                   </div>
                 );
@@ -222,7 +225,7 @@ export default function AppointmentDetailPage() {
               <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between">
                 <p className="text-sm font-semibold text-gray-700">Total</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  ${Math.max(0, total - Number(appt.discountAmount || 0))}
+                  {formatCurrency(Math.max(0, total - Number(appt.discountAmount || 0)), currency)}
                 </p>
               </div>
             </div>
@@ -235,7 +238,7 @@ export default function AppointmentDetailPage() {
             <h2 className="text-sm font-semibold text-gray-700 mb-2">Pago</h2>
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600 capitalize">{appt.payments[0].paymentMethod?.toLowerCase().replace('_', ' ') || '—'}</p>
-              <p className="text-sm font-medium text-gray-900">${appt.payments[0].totalAmount}</p>
+              <p className="text-sm font-medium text-gray-900">{formatCurrency(Number(appt.payments[0].totalAmount || 0), appt.payments[0].currency || currency)}</p>
             </div>
           </div>
         )}

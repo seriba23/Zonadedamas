@@ -275,7 +275,7 @@ function AppointmentCard({
           </p>
         </div>
         <span className="text-sm font-semibold text-gray-900 flex-shrink-0">
-          {formatCurrency(totalPrice)}
+          {formatCurrency(totalPrice, (apt.tenant as any)?.currency || 'MXN')}
         </span>
       </button>
     </div>
