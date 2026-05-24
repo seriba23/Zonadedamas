@@ -240,83 +240,122 @@ export default function MarketplaceAppointmentsPage() {
 }
 
 function PurchaseCard({ purchase }: { purchase: any }) {
-  const status = RESERVATION_STATUS_STYLE[purchase.status] || RESERVATION_STATUS_STYLE.PENDING;
   const total = Number(purchase.unitPrice) * purchase.quantity + (Number(purchase.shippingCost) || 0);
   const currency = purchase.product?.currency || 'MXN';
+  const day = formatBookingDay(purchase.createdAt);
+  const month = formatBookingMonthShort(purchase.createdAt);
+
+  // Status info con misma paleta que UpcomingAppointments del admin.
+  const statusInfo = (() => {
+    const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
+      PENDING:   { text: 'Apartado',   bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
+      CONFIRMED: { text: 'Confirmado', bg: 'bg-teal-50',   textColor: 'text-teal-700',   dot: '#008080' },
+      READY:     { text: 'Listo',      bg: 'bg-blue-50',   textColor: 'text-blue-700',   dot: '#2563eb' },
+      DELIVERED: { text: 'Entregado',  bg: 'bg-green-50',  textColor: 'text-green-700',  dot: '#059669' },
+      CANCELLED: { text: 'Cancelado',  bg: 'bg-red-50',    textColor: 'text-red-700',    dot: '#dc2626' },
+    };
+    return map[purchase.status] || { text: purchase.status, bg: 'bg-gray-100', textColor: 'text-gray-600', dot: '#94a3b8' };
+  })();
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <div className="flex items-start gap-3">
-        {purchase.product?.imageUrl ? (
-          <img src={`${API_URL}${purchase.product.imageUrl}`} alt={purchase.product.name} className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-        ) : (
-          <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 flex-shrink-0">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" />
-            </svg>
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <p className="text-sm font-semibold text-gray-900 truncate">{purchase.product?.name}</p>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0" style={{ backgroundColor: status.bg, color: status.color }}>
-              {RESERVATION_STATUS_LABEL[purchase.status]}
-            </span>
-          </div>
-          <p className="text-xs text-gray-500 mb-2">{purchase.tenant?.name}</p>
-          <div className="flex items-center justify-between text-xs">
-            <div className="text-gray-500">
-              <span>{purchase.quantity}x · {FULFILLMENT_LABELS[purchase.fulfillmentType]} · {PAYMENT_LABELS[purchase.preferredPaymentMethod]}</span>
-            </div>
-            <span className="font-bold" style={{ color: TEAL }}>{formatCurrency(total, currency)}</span>
-          </div>
-          {purchase.shippingAddress && (
-            <p className="text-[10px] text-gray-400 mt-2 truncate">📍 {purchase.shippingAddress}</p>
-          )}
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="text-[10px] text-gray-400">
-              {purchase.code && <span className="font-mono font-semibold text-gray-500">#{purchase.code} · </span>}
-              {new Date(purchase.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </p>
-            <WhatsAppButton
-              phone={purchase.tenant?.businessPhone}
-              message={buildPurchaseMessage({
-                tenantName: purchase.tenant?.name || 'el negocio',
-                productName: purchase.product?.name,
-                code: purchase.code,
-                reservationId: purchase.id,
-              })}
-              variant="icon-only"
-            />
-          </div>
-
-          {/* Leyenda según si tiene cita asociada o no */}
-          {purchase.status === 'PENDING' && (
-            <div className="mt-3 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
-              {purchase.appointmentId ? (
-                <p className="text-[11px] text-teal-800">
-                  El producto debe ser pagado el día de tu cita:{' '}
-                  <span className="font-semibold">
-                    {purchase.appointment?.startTime
-                      ? formatBookingDate(purchase.appointment.startTime, 'long')
-                      : 'próxima cita'}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-[11px] text-teal-800">
-                  Contacta al negocio para coordinar la entrega y pago de tu producto
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Comprobante de pago: disponible para cualquier método. El
-              cliente puede subir captura aunque haya elegido efectivo
-              o tarjeta — útil cuando termina pagando por transferencia
-              improvisada o quiere dejar evidencia del cargo. */}
-          {purchase.status !== 'CANCELLED' && purchase.status !== 'DELIVERED' && (
-            <PaymentProofSection purchase={purchase} />
+    <div className="bg-white rounded-2xl border border-gray-200 p-3">
+      {/* Grid 4 cols: Fecha | Imagen | Producto+precio | Detalle+status */}
+      <div
+        className="grid items-center gap-x-3 gap-y-1.5"
+        style={{ gridTemplateColumns: 'auto auto 1fr auto' }}
+      >
+        {/* Col 1: fecha de apartado — rowspan 2 */}
+        <div className="row-span-2 self-center text-center min-w-[44px]">
+          <p className="text-base font-bold leading-none tabular-nums" style={{ color: '#008080' }}>{day}</p>
+          <p className="text-[9px] font-semibold uppercase text-gray-400 mt-0.5">{month}</p>
+          {purchase.code && (
+            <p className="text-[9px] font-mono text-gray-400 mt-1.5 leading-none">#{purchase.code}</p>
           )}
         </div>
+
+        {/* Col 2: imagen producto — rowspan 2 */}
+        <div className="row-span-2 self-center w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center text-gray-300 shadow ring-1 ring-gray-100">
+          {purchase.product?.imageUrl ? (
+            <img src={`${API_URL}${purchase.product.imageUrl}`} alt={purchase.product.name} className="w-full h-full object-cover" />
+          ) : (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" />
+            </svg>
+          )}
+        </div>
+
+        {/* Col 3 row 1: producto */}
+        <p className="text-sm md:text-base font-bold text-gray-900 truncate min-w-0">
+          {purchase.product?.name}
+        </p>
+
+        {/* Col 4 row 1: precio */}
+        <p className="text-xs md:text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap text-right">
+          {formatCurrency(total, currency)}
+        </p>
+
+        {/* Col 3 row 2: tenant + cantidad + fulfillment */}
+        <p
+          className="text-xs text-gray-500 min-w-0 self-start leading-snug overflow-hidden"
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            minHeight: 'calc(2 * 1.375em)',
+          }}
+        >
+          {purchase.tenant?.name} · {purchase.quantity}× {FULFILLMENT_LABELS[purchase.fulfillmentType]}
+        </p>
+
+        {/* Col 4 row 2: status */}
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap self-start justify-self-end ${statusInfo.bg} ${statusInfo.textColor}`}>
+          <span className="w-1 h-1 rounded-full" style={{ backgroundColor: statusInfo.dot }} />
+          {statusInfo.text}
+        </span>
+      </div>
+
+      {/* Dirección de envío */}
+      {purchase.shippingAddress && (
+        <p className="text-[10px] text-gray-400 mt-3 truncate">📍 {purchase.shippingAddress}</p>
+      )}
+
+      {/* Leyenda de pago según si tiene cita asociada o no */}
+      {purchase.status === 'PENDING' && (
+        <div className="mt-3 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
+          {purchase.appointmentId ? (
+            <p className="text-[11px] text-teal-800">
+              El producto debe ser pagado el día de tu cita:{' '}
+              <span className="font-semibold">
+                {purchase.appointment?.startTime
+                  ? formatBookingDate(purchase.appointment.startTime, 'long')
+                  : 'próxima cita'}
+              </span>
+            </p>
+          ) : (
+            <p className="text-[11px] text-teal-800">
+              Contacta al negocio para coordinar la entrega y pago de tu producto
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Comprobante de pago */}
+      {purchase.status !== 'CANCELLED' && purchase.status !== 'DELIVERED' && (
+        <PaymentProofSection purchase={purchase} />
+      )}
+
+      {/* WhatsApp icon-only en footer */}
+      <div className="mt-3 flex items-center justify-end">
+        <WhatsAppButton
+          phone={purchase.tenant?.businessPhone}
+          message={buildPurchaseMessage({
+            tenantName: purchase.tenant?.name || 'el negocio',
+            productName: purchase.product?.name,
+            code: purchase.code,
+            reservationId: purchase.id,
+          })}
+          variant="icon-only"
+        />
       </div>
     </div>
   );
@@ -514,74 +553,91 @@ function AppointmentPaymentSection({ appt }: { appt: any }) {
 }
 
 function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) {
-  const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
+  const totalPrice = (appt.items || []).reduce((s: number, i: any) => s + Number(i.priceSnapshot || 0), 0);
   const empColor = appt.employee?.color || '#008080';
   const day = formatBookingDay(appt.startTime);
   const month = formatBookingMonthShort(appt.startTime);
-  const time = formatTime(appt.startTime);
-  const weekday = formatBookingWeekday(appt.startTime);
+  const time = formatBookingTime(appt.startTime);
+  const endTime = formatBookingTime(appt.endTime);
+
+  // Status: misma paleta que el dashboard admin (upcoming-appointments).
+  const statusInfo = (() => {
+    const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
+      CONFIRMED:   { text: 'Confirmada',  bg: 'bg-teal-50',   textColor: 'text-teal-700',   dot: '#008080' },
+      PENDING:     { text: 'Sin confirmar', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
+      RESCHEDULED: { text: 'Reprogramada', bg: 'bg-blue-50',  textColor: 'text-blue-700',   dot: '#2563eb' },
+      IN_PROGRESS: { text: 'En curso',    bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
+      COMPLETED:   { text: 'Completada',  bg: 'bg-green-50',  textColor: 'text-green-700',  dot: '#059669' },
+      CANCELLED:   { text: 'Cancelada',   bg: 'bg-red-50',    textColor: 'text-red-700',    dot: '#dc2626' },
+      NO_SHOW:     { text: 'No-show',     bg: 'bg-gray-100',  textColor: 'text-gray-600',   dot: '#94a3b8' },
+    };
+    return map[appt.status] || { text: appt.status, bg: 'bg-gray-100', textColor: 'text-gray-600', dot: '#94a3b8' };
+  })();
 
   return (
     <button
       onClick={onPress}
-      className="w-full bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md transition-shadow"
+      className="w-full bg-white rounded-2xl border border-gray-200 p-3 text-left hover:bg-gray-50 transition-colors"
     >
-      {/* Status badge */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-gray-900 truncate">{appt.tenant?.name || '—'}</p>
-        <span
-          className="px-2.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0"
-          style={{ backgroundColor: style.bg, color: style.color }}
-        >
-          {STATUS_LABEL[appt.status] || appt.status}
-        </span>
-      </div>
-
-      {/* Main content */}
-      <div className="flex items-center gap-3">
-        {/* Employee photo */}
-        {appt.employee && (
-          <Link
-            href={`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="flex-shrink-0"
-          >
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden ring-2 ring-white shadow"
-              style={{ backgroundColor: empColor }}
-            >
-              {appt.employee.avatarUrl ? (
-                <img src={`${API_URL}${appt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span>{appt.employee.firstName?.[0]}{appt.employee.lastName?.[0]}</span>
-              )}
-            </div>
-          </Link>
-        )}
-
-        {/* Service + Employee name */}
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-gray-500 truncate">{services}</p>
-          {appt.employee && (
-            <Link
-              href={`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-sm font-medium hover:underline truncate block"
-              style={{ color: '#008080' }}
-            >
-              {appt.employee.firstName} {appt.employee.lastName}
-            </Link>
+      {/* Grid 4 columnas: Hora/Fecha | Avatar | Título+precio | Servicio+status */}
+      <div
+        className="grid items-center gap-x-3 gap-y-1.5"
+        style={{ gridTemplateColumns: 'auto auto 1fr auto' }}
+      >
+        {/* Col 1: fecha+hora — rowspan 2 */}
+        <div className="row-span-2 self-center text-center min-w-[44px]">
+          <p className="text-base font-bold leading-none tabular-nums" style={{ color: '#008080' }}>{day}</p>
+          <p className="text-[9px] font-semibold uppercase text-gray-400 mt-0.5">{month}</p>
+          <p className="text-xs font-semibold text-gray-700 tabular-nums mt-1.5 leading-none">{time}</p>
+          {endTime && (
+            <p className="text-[10px] text-gray-400 tabular-nums mt-0.5 leading-none">{endTime}</p>
           )}
         </div>
 
-        {/* Date & Time - prominent, bottom right */}
-        <div className="flex-shrink-0 text-right">
-          <p className="text-2xl font-bold text-gray-900 leading-none">{day}</p>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase">{month}</p>
-          <p className="text-sm font-semibold mt-1" style={{ color: '#008080' }}>{time}</p>
-          <p className="text-[10px] text-gray-400 capitalize">{weekday}</p>
+        {/* Col 2: avatar empleado — rowspan 2 */}
+        <div
+          className="row-span-2 self-center w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden ring-2 ring-white shadow"
+          style={{ backgroundColor: empColor }}
+        >
+          {appt.employee?.avatarUrl ? (
+            <img src={`${API_URL}${appt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span>{appt.employee?.firstName?.[0]}{appt.employee?.lastName?.[0]}</span>
+          )}
         </div>
+
+        {/* Col 3 row 1: Negocio */}
+        <p className="text-sm md:text-base font-bold text-gray-900 truncate min-w-0">
+          {appt.tenant?.name || '—'}
+        </p>
+
+        {/* Col 4 row 1: precio */}
+        <p className="text-xs md:text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap text-right">
+          {formatCurrency(totalPrice)}
+        </p>
+
+        {/* Col 3 row 2: servicios + empleado */}
+        <p
+          className="text-xs text-gray-500 min-w-0 self-start leading-snug overflow-hidden"
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            minHeight: 'calc(2 * 1.375em)',
+          }}
+        >
+          {services}
+          {appt.employee && (
+            <span className="text-[10px] text-gray-400"> · {appt.employee.firstName} {appt.employee.lastName}</span>
+          )}
+        </p>
+
+        {/* Col 4 row 2: status */}
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap self-start justify-self-end ${statusInfo.bg} ${statusInfo.textColor}`}>
+          <span className="w-1 h-1 rounded-full" style={{ backgroundColor: statusInfo.dot }} />
+          {statusInfo.text}
+        </span>
       </div>
 
       {/* Cupón aplicado (puede venir de redemption por puntos o de promotion) */}
