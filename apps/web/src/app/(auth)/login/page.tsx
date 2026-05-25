@@ -177,6 +177,12 @@ function LoginPageInner() {
         socialProfile.provider as 'google' | 'facebook',
         socialToken,
       );
+      // Limpiar dismissed key del CompleteProfileGate. Sin esto, si el usuario
+      // habia descartado el modal en una sesion anterior de esta pestaña, no
+      // veria el popup de completar perfil al registrarse de nuevo.
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('marketplace_profile_dismissed');
+      }
       router.push('/marketplace');
     } catch (err: any) {
       setSocialError(err?.message || 'No se pudo registrar la cuenta de cliente.');
@@ -255,6 +261,12 @@ function LoginPageInner() {
         } else if (profile === 'professional') {
           router.push(wantsBusiness ? redirectAfterLogin! : '/employee');
         } else {
+          // Cliente: limpiar dismissed key del CompleteProfileGate por si el
+          // usuario lo cerro en una sesion anterior de esta pestaña (sino,
+          // nunca veria el modal al volver a entrar como cliente).
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('marketplace_profile_dismissed');
+          }
           router.push(wantsMarketplace ? redirectAfterLogin! : '/marketplace');
         }
       } else {

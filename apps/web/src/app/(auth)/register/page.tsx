@@ -515,60 +515,67 @@ function RegisterPageInner() {
   // ─── SELECT MODE ──────────────────────────────────
   if (mode === 'select') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
-            <p className="mt-2 text-gray-500 text-sm">Crea tu cuenta</p>
+          <div className="text-center mb-4">
+            <h1 className="text-2xl font-bold text-[#008080]">Siliba</h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              ¿Cómo deseas registrarte?
-            </h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">¿Cómo deseas ingresar?</h2>
+            <p className="text-xs text-gray-500 mb-4">Selecciona el modo en el que quieres trabajar hoy</p>
 
-            <div className="space-y-4">
+            <div className="space-y-2">
+              {/* Cliente */}
               <button
                 onClick={() => setMode('client')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">💆</span>
-                  <div>
-                    <p className="font-semibold text-gray-900">Soy cliente</p>
-                    <p className="text-sm text-gray-500">
-                      Quiero reservar citas y descubrir negocios
-                    </p>
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900">Cliente</p>
+                    <p className="text-xs text-gray-500">Explorar, reservar y comprar</p>
                   </div>
                 </div>
               </button>
 
+              {/* Profesional */}
               <button
                 onClick={() => setMode('professional')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">✂️</span>
-                  <div>
-                    <p className="font-semibold text-gray-900">Soy profesionista</p>
-                    <p className="text-sm text-gray-500">
-                      Trabajo para un negocio o soy independiente
-                    </p>
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900">Profesional</p>
+                    <p className="text-xs text-gray-500">Mi agenda, perfil y citas</p>
                   </div>
                 </div>
               </button>
 
+              {/* Administrador */}
               <button
                 onClick={() => setMode('individual')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">🏢</span>
-                  <div>
-                    <p className="font-semibold text-gray-900">Soy empresario</p>
-                    <p className="text-sm text-gray-500">
-                      Quiero registrar mi negocio para ofrecer servicios
-                    </p>
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900">Administrador</p>
+                    <p className="text-xs text-gray-500">Gestionar mi negocio</p>
                   </div>
                 </div>
               </button>
@@ -577,7 +584,7 @@ function RegisterPageInner() {
 
           <p className="text-center mt-6 text-sm text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
               Iniciar sesión
             </Link>
           </p>
@@ -589,50 +596,56 @@ function RegisterPageInner() {
   // ─── PROFESSIONAL SUB-SELECTION ─────────────────
   if (mode === 'professional') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
-            <p className="mt-2 text-gray-500 text-sm">Registro profesional</p>
+          <div className="text-center mb-4">
+            <h1 className="text-2xl font-bold text-[#008080]">Siliba</h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center gap-2 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center gap-2 mb-3">
               <button onClick={() => setMode('select')} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h2 className="text-xl font-semibold text-gray-900">¿Cómo trabajas?</h2>
+              <h2 className="text-base font-semibold text-gray-900">¿Cómo trabajas?</h2>
             </div>
+            <p className="text-xs text-gray-500 mb-4">Elige el tipo de profesional que eres</p>
 
-            <div className="space-y-4">
+            <div className="space-y-2">
+              {/* Unirme a un negocio */}
               <button
                 onClick={() => setMode('business')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">🏢</span>
-                  <div>
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">Unirme a un negocio</p>
-                    <p className="text-sm text-gray-500">
-                      Tengo un código de invitación para unirme a un equipo
-                    </p>
+                    <p className="text-xs text-gray-500">Tengo un código de invitación</p>
                   </div>
                 </div>
               </button>
 
+              {/* Soy independiente */}
               <button
                 onClick={() => setMode('individual')}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">💼</span>
-                  <div>
+                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">Soy independiente</p>
-                    <p className="text-sm text-gray-500">
-                      Trabajo por mi cuenta y quiero gestionar mis citas
-                    </p>
+                    <p className="text-xs text-gray-500">Trabajo por mi cuenta y gestiono mis citas</p>
                   </div>
                 </div>
               </button>
@@ -641,7 +654,7 @@ function RegisterPageInner() {
 
           <p className="text-center mt-6 text-sm text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
               Iniciar sesión
             </Link>
           </p>
