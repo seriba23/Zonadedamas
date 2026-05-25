@@ -472,6 +472,13 @@ function RegisterPageInner() {
         lastName: form.lastName.trim(),
         phone: form.phone.trim() || undefined,
       });
+      // Limpiar dismissed key del CompleteProfileGate. Sin esto, si el usuario
+      // ya habia cerrado el modal en una sesion previa de esta pestaña, no lo
+      // veria al registrarse de nuevo y faltaria captura de phone/birthDate/
+      // gender/allergies que ahora ya no se piden en el form de registro.
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('marketplace_profile_dismissed');
+      }
       router.push('/marketplace');
     } catch (err: unknown) {
       const error = err as { message?: string };
