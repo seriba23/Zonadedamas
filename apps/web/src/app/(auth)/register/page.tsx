@@ -934,21 +934,20 @@ function RegisterPageInner() {
   // ─── CLIENT (MARKETPLACE) ───────────────────────
   if (mode === 'client') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
-            <p className="mt-2 text-gray-500 text-sm">Descubre y reserva en los mejores negocios</p>
+          <div className="text-center mb-3">
+            <h1 className="text-2xl font-bold text-[#008080]">Siliba</h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center gap-2 mb-6">
+          <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-200 p-3 md:p-6">
+            <div className="flex items-center gap-2 mb-3">
               <button onClick={() => setMode('select')} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h2 className="text-xl font-semibold text-gray-900">Crear cuenta de cliente</h2>
+              <h2 className="text-base font-semibold text-gray-900">Crear cuenta de cliente</h2>
             </div>
 
             <SocialLoginButtons
@@ -957,6 +956,9 @@ function RegisterPageInner() {
                 setIsLoading(true);
                 try {
                   await marketplaceApi.socialLoginAndStore(provider, token);
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.removeItem('marketplace_profile_dismissed');
+                  }
                   router.push('/marketplace');
                 } catch (err: unknown) {
                   const error = err as { message?: string };
@@ -969,67 +971,59 @@ function RegisterPageInner() {
             />
 
             {apiError && (
-              <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3">
-                <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <div className="mb-3 p-2.5 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
+                <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <p className="text-sm text-red-700">{apiError}</p>
+                <p className="text-xs text-red-700">{apiError}</p>
               </div>
             )}
 
-            <form onSubmit={handleSubmitClient} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSubmitClient} className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label htmlFor="clientFirstName" className="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
+                  <label htmlFor="clientFirstName" className="block text-xs font-medium text-gray-700 mb-0.5">Nombre</label>
                   <input id="clientFirstName" type="text" value={form.firstName}
                     onChange={(e) => updateField('firstName', e.target.value)}
-                    className={`input-field ${errors.firstName ? 'border-red-400' : ''}`} placeholder="Tu nombre" />
-                  {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName}</p>}
+                    className={`input-field py-1.5 text-sm ${errors.firstName ? 'border-red-400' : ''}`} placeholder="Tu nombre" />
+                  {errors.firstName && <p className="mt-0.5 text-[10px] text-red-600">{errors.firstName}</p>}
                 </div>
                 <div>
-                  <label htmlFor="clientLastName" className="block text-sm font-medium text-gray-700 mb-1.5">Apellido</label>
+                  <label htmlFor="clientLastName" className="block text-xs font-medium text-gray-700 mb-0.5">Apellido</label>
                   <input id="clientLastName" type="text" value={form.lastName}
                     onChange={(e) => updateField('lastName', e.target.value)}
-                    className={`input-field ${errors.lastName ? 'border-red-400' : ''}`} placeholder="Tu apellido" />
-                  {errors.lastName && <p className="mt-1 text-xs text-red-600">{errors.lastName}</p>}
+                    className={`input-field py-1.5 text-sm ${errors.lastName ? 'border-red-400' : ''}`} placeholder="Tu apellido" />
+                  {errors.lastName && <p className="mt-0.5 text-[10px] text-red-600">{errors.lastName}</p>}
                 </div>
               </div>
 
               <div>
-                <label htmlFor="clientEmail" className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico</label>
+                <label htmlFor="clientEmail" className="block text-xs font-medium text-gray-700 mb-0.5">Correo electrónico</label>
                 <input id="clientEmail" type="email" autoComplete="email" value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
-                  className={`input-field ${errors.email ? 'border-red-400' : ''}`} placeholder="correo@ejemplo.com" />
-                {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+                  className={`input-field py-1.5 text-sm ${errors.email ? 'border-red-400' : ''}`} placeholder="correo@ejemplo.com" />
+                {errors.email && <p className="mt-0.5 text-[10px] text-red-600">{errors.email}</p>}
               </div>
 
-              <div>
-                <label htmlFor="clientPhone" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Teléfono <span className="text-gray-400">(opcional)</span>
-                </label>
-                <input id="clientPhone" type="tel" value={form.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
-                  className="input-field" placeholder="+1-555-0000" />
-              </div>
-
-              <div>
-                <label htmlFor="clientPassword" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
-                <input id="clientPassword" type="password" autoComplete="new-password" value={form.password}
-                  onChange={(e) => updateField('password', e.target.value)}
-                  className={`input-field ${errors.password ? 'border-red-400' : ''}`} placeholder="Mínimo 8 caracteres" />
-                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="clientConfirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña</label>
-                <input id="clientConfirmPassword" type="password" autoComplete="new-password" value={form.confirmPassword}
-                  onChange={(e) => updateField('confirmPassword', e.target.value)}
-                  className={`input-field ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Repite tu contraseña" />
-                {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="clientPassword" className="block text-xs font-medium text-gray-700 mb-0.5">Contraseña</label>
+                  <input id="clientPassword" type="password" autoComplete="new-password" value={form.password}
+                    onChange={(e) => updateField('password', e.target.value)}
+                    className={`input-field py-1.5 text-sm ${errors.password ? 'border-red-400' : ''}`} placeholder="Mín. 8 caracteres" />
+                  {errors.password && <p className="mt-0.5 text-[10px] text-red-600">{errors.password}</p>}
+                </div>
+                <div>
+                  <label htmlFor="clientConfirmPassword" className="block text-xs font-medium text-gray-700 mb-0.5">Confirmar</label>
+                  <input id="clientConfirmPassword" type="password" autoComplete="new-password" value={form.confirmPassword}
+                    onChange={(e) => updateField('confirmPassword', e.target.value)}
+                    className={`input-field py-1.5 text-sm ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Repite" />
+                  {errors.confirmPassword && <p className="mt-0.5 text-[10px] text-red-600">{errors.confirmPassword}</p>}
+                </div>
               </div>
 
               <button type="submit" disabled={isLoading}
-                className="w-full btn-primary flex items-center justify-center gap-2 py-2.5">
+                className="w-full btn-primary flex items-center justify-center gap-2 py-2 text-sm">
                 {isLoading && (
                   <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1042,9 +1036,9 @@ function RegisterPageInner() {
 
           </div>
 
-          <p className="text-center mt-6 text-sm text-gray-500">
+          <p className="text-center mt-3 text-xs text-gray-500">
             ¿Ya tienes cuenta?{' '}
-            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
+            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
           </p>
         </div>
       </div>
