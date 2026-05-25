@@ -934,8 +934,8 @@ function RegisterPageInner() {
   // ─── CLIENT (MARKETPLACE) ───────────────────────
   if (mode === 'client') {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3">
-        <div className="w-full max-w-md">
+      <div className="h-[100dvh] overflow-hidden bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md my-3">
           <div className="text-center mb-3">
             <h1 className="text-2xl font-bold text-[#008080]">Siliba</h1>
           </div>
