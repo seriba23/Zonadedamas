@@ -232,6 +232,13 @@ export default function AppointmentDetailPage() {
           </div>
         )}
 
+        {/* Cupón aplicado — diseño completo de cupón de papel, mismo
+            estilo que la sección /marketplace/coupons. Solo cuando hay
+            redemption con reward completo. */}
+        {appt.redemption?.reward && (
+          <AppointmentCouponCard redemption={appt.redemption} currency={currency} />
+        )}
+
         {/* Payment */}
         {appt.payments?.[0] && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -255,6 +262,92 @@ export default function AppointmentDetailPage() {
             <p className="text-sm text-gray-600">{appt.notes}</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Tarjeta visual de cupón aplicado en la cita — mismo diseño que la
+// CouponCard de /marketplace/coupons (stub teal a la izquierda con valor
+// + perforaciones + separador punteado + contenido principal a la
+// derecha). Sin botón CANJEAR porque ya se usó en esta cita.
+function AppointmentCouponCard({ redemption, currency }: { redemption: any; currency: string }) {
+  const reward = redemption.reward;
+  const isDiscount = reward?.type === 'DESCUENTO';
+
+  const valueLabel = isDiscount
+    ? (reward?.discountMode === 'PERCENT' || reward?.discountMode === 'PERCENTAGE'
+      ? `-${Number(reward.discountAmount)}%`
+      : `-${formatCurrency(Number(reward.discountAmount || 0), currency).replace(/\s?[A-Z]{3}$/, '')}`)
+    : 'GRATIS';
+  const stubFontSize = valueLabel.length <= 4 ? '1.125rem' : valueLabel.length <= 6 ? '0.875rem' : '0.75rem';
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-gray-700 mb-2 px-1">Cupón aplicado</h2>
+      <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 110 }}>
+        {/* Stub izquierdo */}
+        <div
+          className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+          style={{ backgroundColor: '#008080' }}
+        >
+          <span
+            className="text-white font-black leading-tight text-center break-all w-full px-2"
+            style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
+          >
+            {valueLabel}
+          </span>
+          <span className="text-white/70 text-[9px] uppercase tracking-wider">
+            {isDiscount ? 'descuento' : 'servicio'}
+          </span>
+
+          {/* Perforaciones */}
+          <div
+            className="absolute -right-3 -top-3 w-6 h-6 rounded-full"
+            style={{ backgroundColor: '#f9fafb' }}
+          />
+          <div
+            className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full"
+            style={{ backgroundColor: '#f9fafb' }}
+          />
+        </div>
+
+        {/* Separador punteado */}
+        <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+          ))}
+        </div>
+
+        {/* Contenido principal */}
+        <div className="flex-1 py-3 pr-4 flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-bold text-gray-900 leading-tight truncate">{reward?.name || 'Cupón'}</p>
+              <span className="text-[10px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                APLICADO
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {isDiscount
+                ? (reward.discountMode === 'PERCENT' || reward.discountMode === 'PERCENTAGE'
+                  ? `${Number(reward.discountAmount)}% de descuento`
+                  : `${formatCurrency(Number(reward.discountAmount || 0), currency)} de descuento`)
+                : 'Servicio gratis'}
+            </p>
+          </div>
+
+          {redemption.code && (
+            <div className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded-lg bg-gray-50 self-start">
+              <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+              </svg>
+              <span className="text-[10px] font-mono font-semibold text-gray-700 tracking-wider">
+                {redemption.code}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
