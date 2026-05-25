@@ -43,30 +43,6 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
     document.head.appendChild(script);
   }, [isNative]);
 
-  // Initialize Google credential callback (web only)
-  useEffect(() => {
-    if (isNative || !GOOGLE_CLIENT_ID || !sdkReady.google) return;
-    const google = (window as any).google;
-    if (!google?.accounts?.id) return;
-
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: async (response: any) => {
-        if (response.credential) {
-          setLoading('google');
-          setError('');
-          try {
-            await onSocialLogin('google', response.credential);
-          } catch {
-            // error handled by parent
-          } finally {
-            setLoading(null);
-          }
-        }
-      },
-    });
-  }, [isNative, sdkReady.google, onSocialLogin]);
-
   // Load Facebook SDK (web only)
   useEffect(() => {
     if (isNative || !FACEBOOK_APP_ID || document.getElementById('facebook-jssdk')) return;
@@ -114,7 +90,13 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
     }
   }, [loading, disabled, onSocialLogin]);
 
-  // ── Google Sign-In (web browser via GIS SDK) ──
+  // ── Google Sign-In (web browser via OAuth popup) ──
+  // Usamos initTokenClient en lugar de One Tap (prompt) porque:
+  // - One Tap depende de FedCM/cookies de terceros que Chrome 115+ bloquea por default
+  // - El truco de renderButton+click sintetico falla con COOP same-origin
+  // - El popup OAuth funciona en todos los navegadores sin requisitos especiales
+  // El backend acepta tanto ID tokens como access tokens (verifyGoogleToken hace
+  // fallback a /v3/userinfo con Bearer).
   const handleGoogleWeb = useCallback(() => {
     if (loading || disabled) return;
     if (!GOOGLE_CLIENT_ID) {
@@ -122,19 +104,33 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
       return;
     }
     const google = (window as any).google;
-    if (!google?.accounts?.id) return;
+    if (!google?.accounts?.oauth2) {
+      setError('Google Sign-In aún se está cargando, intenta de nuevo en un momento');
+      return;
+    }
 
     setError('');
-    google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        const btn = document.getElementById('google-signin-fallback');
-        if (btn) {
-          google.accounts.id.renderButton(btn, { type: 'standard', size: 'large', width: 320 });
-          btn.querySelector('div[role="button"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'openid email profile',
+      callback: async (response: any) => {
+        if (response.error) {
+          setError(response.error_description || 'No se pudo iniciar sesión con Google');
+          return;
         }
-      }
+        if (!response.access_token) return;
+        setLoading('google');
+        try {
+          await onSocialLogin('google', response.access_token);
+        } catch {
+          // error mostrado por el padre
+        } finally {
+          setLoading(null);
+        }
+      },
     });
-  }, [loading, disabled]);
+    tokenClient.requestAccessToken();
+  }, [loading, disabled, onSocialLogin]);
 
   const handleGoogle = isNative ? handleGoogleNative : handleGoogleWeb;
 
@@ -220,9 +216,6 @@ export function SocialLoginButtons({ onSocialLogin, disabled }: SocialLoginButto
       {error && (
         <p className="text-xs text-amber-600 text-center">{error}</p>
       )}
-
-      {/* Hidden fallback container for Google button (web only) */}
-      {!isNative && <div id="google-signin-fallback" className="hidden" />}
 
       <div className="relative my-3 md:my-4">
         <div className="absolute inset-0 flex items-center">
