@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatBookingTime, formatBookingDate } from '@/lib/booking-time';
@@ -243,6 +243,11 @@ export default function AppointmentDetailPage() {
           </div>
         )}
 
+        {/* Comprobante de pago — estilo plano, sin banner ámbar */}
+        {!['CANCELLED', 'NO_SHOW'].includes(appt.status) && (
+          <AppointmentProofRow appt={appt} />
+        )}
+
         {/* Notes */}
         {appt.notes && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -251,6 +256,106 @@ export default function AppointmentDetailPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Comprobante de pago en estilo plano: misma estructura que las demás
+// tarjetas del detalle (border + padding). Si ya hay imagen, muestra
+// preview + "Ver/Reemplazar"; si no, "Pago pendiente" con botón
+// discreto para subir.
+function AppointmentProofRow({ appt }: { appt: any }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState('');
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const token = marketplaceApi.getAccessToken();
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch(`${API_URL}/api/marketplace/appointments/${appt.id}/payment-proof`, {
+        method: 'POST',
+        body: fd,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo subir el comprobante');
+      }
+      return r.json();
+    },
+    onSuccess: () => {
+      setError('');
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-appointments'] });
+    },
+    onError: (err: any) => setError(err?.message || 'Error al subir el comprobante'),
+  });
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-gray-700">Comprobante de pago</h2>
+        <span className="flex items-center gap-1 text-[11px] text-gray-500">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: appt.paymentProofUrl ? '#059669' : '#d1d5db' }}
+          />
+          {appt.paymentProofUrl ? 'Pagado' : 'Pago pendiente'}
+        </span>
+      </div>
+      {appt.paymentProofUrl ? (
+        <>
+          <a
+            href={`${API_URL}${appt.paymentProofUrl}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-lg overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors"
+          >
+            <img src={`${API_URL}${appt.paymentProofUrl}`} alt="Comprobante" className="max-h-40 object-contain mx-auto" />
+          </a>
+          <label className="block mt-3 text-xs text-[#008080] cursor-pointer hover:underline">
+            Reemplazar comprobante
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
+                  uploadMutation.mutate(f);
+                }
+              }}
+            />
+          </label>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            Sube la captura de tu pago (transferencia, depósito o cargo) para que el negocio confirme.
+          </p>
+          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-medium cursor-pointer transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            {uploadMutation.isPending ? 'Subiendo...' : 'Subir comprobante'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              disabled={uploadMutation.isPending}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
+                  uploadMutation.mutate(f);
+                }
+              }}
+            />
+          </label>
+        </>
+      )}
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </div>
   );
 }

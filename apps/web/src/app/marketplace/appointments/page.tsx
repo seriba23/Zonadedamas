@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatCurrency } from '@/lib/utils';
 import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
-import { WhatsAppButton } from '@/components/ui/whatsapp-button';
-import { buildPurchaseMessage, buildAppointmentMessage } from '@/lib/whatsapp';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -113,10 +111,20 @@ export default function MarketplaceAppointmentsPage() {
   };
 
   // Filtro de status: si está vacío, deja pasar todo.
-  const matchesAppointmentStatus = (a: any) =>
-    !statusFilter || a.status === statusFilter;
-  const matchesPurchaseStatus = (p: any) =>
-    !statusFilter || p.status === statusFilter;
+  // Los valores 'PAID' y 'UNPAID' son "virtuales" — filtran por
+  // paymentProofUrl en vez de por status del lifecycle.
+  const matchesAppointmentStatus = (a: any) => {
+    if (!statusFilter) return true;
+    if (statusFilter === 'PAID') return !!a.paymentProofUrl;
+    if (statusFilter === 'UNPAID') return !a.paymentProofUrl;
+    return a.status === statusFilter;
+  };
+  const matchesPurchaseStatus = (p: any) => {
+    if (!statusFilter) return true;
+    if (statusFilter === 'PAID') return !!p.paymentProofUrl;
+    if (statusFilter === 'UNPAID') return !p.paymentProofUrl;
+    return p.status === statusFilter;
+  };
 
   // Próximas: ascendente (la más cercana al ahora arriba).
   // Historial: descendente (la más reciente arriba).
@@ -132,6 +140,9 @@ export default function MarketplaceAppointmentsPage() {
   const filteredPurchases = purchases.filter((p) => matchesPurchase(p) && matchesPurchaseStatus(p));
 
   // Reseteamos filtro de status cuando cambias de tab (los sets son distintos)
+  // Opciones por sección: la primera sección "Pago" usa valores virtuales
+  // ('PAID' / 'UNPAID') basados en paymentProofUrl. La segunda sección
+  // "Estado" usa los valores reales del lifecycle.
   const APPOINTMENT_STATUSES = [
     { value: 'CONFIRMED',   label: 'Confirmada' },
     { value: 'PENDING',     label: 'Sin confirmar' },
@@ -147,6 +158,10 @@ export default function MarketplaceAppointmentsPage() {
     { value: 'READY',     label: 'Listo' },
     { value: 'DELIVERED', label: 'Entregado' },
     { value: 'CANCELLED', label: 'Cancelado' },
+  ];
+  const PAYMENT_FILTERS = [
+    { value: 'UNPAID', label: 'Pago pendiente' },
+    { value: 'PAID',   label: 'Pagado' },
   ];
   const statusOptions = tab === 'citas' ? APPOINTMENT_STATUSES : PURCHASE_STATUSES;
 
@@ -326,7 +341,7 @@ export default function MarketplaceAppointmentsPage() {
           ) : (
             <div className="space-y-3">
               {filteredPurchases.map((p) => (
-                <PurchaseCard key={p.id} purchase={p} />
+                <PurchaseCard key={p.id} purchase={p} onPress={() => router.push(`/marketplace/purchases/${p.id}`)} />
               ))}
             </div>
           )
@@ -356,8 +371,8 @@ export default function MarketplaceAppointmentsPage() {
                   Limpiar filtros
                 </button>
               )}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Estado</p>
-              <div className="flex flex-wrap gap-1.5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pago</p>
+              <div className="flex flex-wrap gap-1.5 mb-5">
                 <button
                   onClick={() => { setStatusFilter(''); setShowFiltersSheet(false); }}
                   className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
@@ -368,6 +383,23 @@ export default function MarketplaceAppointmentsPage() {
                 >
                   Todos
                 </button>
+                {PAYMENT_FILTERS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setStatusFilter(opt.value); setShowFiltersSheet(false); }}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                    style={statusFilter === opt.value
+                      ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                      : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Estado</p>
+              <div className="flex flex-wrap gap-1.5">
                 {statusOptions.map((opt) => (
                   <button
                     key={opt.value}
@@ -391,13 +423,12 @@ export default function MarketplaceAppointmentsPage() {
   );
 }
 
-function PurchaseCard({ purchase }: { purchase: any }) {
+function PurchaseCard({ purchase, onPress }: { purchase: any; onPress: () => void }) {
   const total = Number(purchase.unitPrice) * purchase.quantity + (Number(purchase.shippingCost) || 0);
   const currency = purchase.product?.currency || 'MXN';
   const day = formatBookingDay(purchase.createdAt);
   const month = formatBookingMonthShort(purchase.createdAt);
 
-  // Status info con misma paleta que UpcomingAppointments del admin.
   const statusInfo = (() => {
     const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
       PENDING:   { text: 'Apartado',   bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
@@ -410,13 +441,14 @@ function PurchaseCard({ purchase }: { purchase: any }) {
   })();
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-3">
-      {/* Grid 4 cols: Fecha | Imagen | Producto+precio | Detalle+status */}
+    <button
+      onClick={onPress}
+      className="w-full bg-white rounded-2xl border border-gray-200 p-3 text-left hover:bg-gray-50 transition-colors"
+    >
       <div
         className="grid items-center gap-x-3 gap-y-1.5"
         style={{ gridTemplateColumns: 'auto auto 1fr auto' }}
       >
-        {/* Col 1: fecha de apartado — rowspan 2 */}
         <div className="row-span-2 self-center text-center min-w-[44px]">
           <p className="text-base font-bold leading-none tabular-nums" style={{ color: '#008080' }}>{day}</p>
           <p className="text-[9px] font-semibold uppercase text-gray-400 mt-0.5">{month}</p>
@@ -425,7 +457,6 @@ function PurchaseCard({ purchase }: { purchase: any }) {
           )}
         </div>
 
-        {/* Col 2: imagen producto — rowspan 2 */}
         <div className="row-span-2 self-center w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center text-gray-300 shadow ring-1 ring-gray-100">
           {purchase.product?.imageUrl ? (
             <img src={`${API_URL}${purchase.product.imageUrl}`} alt={purchase.product.name} className="w-full h-full object-cover" />
@@ -436,17 +467,14 @@ function PurchaseCard({ purchase }: { purchase: any }) {
           )}
         </div>
 
-        {/* Col 3 row 1: producto */}
         <p className="text-sm md:text-base font-bold text-gray-900 truncate min-w-0">
           {purchase.product?.name}
         </p>
 
-        {/* Col 4 row 1: precio */}
         <p className="text-xs md:text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap text-right">
           {formatCurrency(total, currency)}
         </p>
 
-        {/* Col 3 row 2: tenant + cantidad + fulfillment */}
         <p
           className="text-xs text-gray-500 min-w-0 self-start leading-snug overflow-hidden"
           style={{
@@ -459,250 +487,27 @@ function PurchaseCard({ purchase }: { purchase: any }) {
           {purchase.tenant?.name} · {purchase.quantity}× {FULFILLMENT_LABELS[purchase.fulfillmentType]}
         </p>
 
-        {/* Col 4 row 2: status */}
         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap self-start justify-self-end ${statusInfo.bg} ${statusInfo.textColor}`}>
           <span className="w-1 h-1 rounded-full" style={{ backgroundColor: statusInfo.dot }} />
           {statusInfo.text}
         </span>
       </div>
 
-      {/* Dirección de envío */}
-      {purchase.shippingAddress && (
-        <p className="text-[10px] text-gray-400 mt-3 truncate">📍 {purchase.shippingAddress}</p>
-      )}
-
-      {/* Leyenda de pago según si tiene cita asociada o no */}
-      {purchase.status === 'PENDING' && (
-        <div className="mt-3 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
-          {purchase.appointmentId ? (
-            <p className="text-[11px] text-teal-800">
-              El producto debe ser pagado el día de tu cita:{' '}
-              <span className="font-semibold">
-                {purchase.appointment?.startTime
-                  ? formatBookingDate(purchase.appointment.startTime, 'long')
-                  : 'próxima cita'}
-              </span>
-            </p>
-          ) : (
-            <p className="text-[11px] text-teal-800">
-              Contacta al negocio para coordinar la entrega y pago de tu producto
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Comprobante de pago */}
-      {purchase.status !== 'CANCELLED' && purchase.status !== 'DELIVERED' && (
-        <PaymentProofSection purchase={purchase} />
-      )}
-
-      {/* WhatsApp icon-only en footer */}
-      <div className="mt-3 flex items-center justify-end">
-        <WhatsAppButton
-          phone={purchase.tenant?.businessPhone}
-          message={buildPurchaseMessage({
-            tenantName: purchase.tenant?.name || 'el negocio',
-            productName: purchase.product?.name,
-            code: purchase.code,
-            reservationId: purchase.id,
-          })}
-          variant="icon-only"
-        />
-      </div>
-    </div>
-  );
-}
-
-// Subir captura del comprobante SPEI desde la tarjeta de compra. Si la
-// compra ya tiene comprobante, muestra link; si no, ofrece subirla.
-function PaymentProofSection({ purchase }: { purchase: any }) {
-  const queryClient = useQueryClient();
-  const [error, setError] = useState('');
-
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const token = marketplaceApi.getAccessToken();
-      const fd = new FormData();
-      fd.append('file', file);
-      const r = await fetch(
-        `${API_URL}/api/public/${purchase.tenant.slug}/shop/reservations/${purchase.id}/payment-proof`,
-        { method: 'POST', body: fd, headers: token ? { Authorization: `Bearer ${token}` } : {} },
-      );
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.message || 'No se pudo subir el comprobante');
-      }
-      return r.json();
-    },
-    onSuccess: () => {
-      setError('');
-      queryClient.invalidateQueries({ queryKey: ['marketplace-my-purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['marketplace-my-payments-all'] });
-    },
-    onError: (err: any) => setError(err?.message || 'Error al subir el comprobante'),
-  });
-
-  if (purchase.paymentProofUrl) {
-    return (
-      <div className="mt-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-          Comprobante de pago
-        </p>
-        <a
-          href={`${API_URL}${purchase.paymentProofUrl}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block rounded-md overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors"
-        >
-          <img src={`${API_URL}${purchase.paymentProofUrl}`} alt="Comprobante" className="max-h-32 object-contain mx-auto" />
-        </a>
-        <label className="block mt-2 text-[11px] text-[#008080] cursor-pointer hover:underline">
-          Reemplazar comprobante
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
-                uploadMutation.mutate(f);
-              }
-            }}
+      {/* Indicador discreto de pago. Acciones (subir comprobante,
+          WhatsApp, leyendas) viven en el detalle de la compra. */}
+      <div className="mt-3 flex items-center justify-end text-[10px] text-gray-400">
+        <span className="flex items-center gap-1">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: purchase.paymentProofUrl ? '#059669' : '#d1d5db' }}
           />
-        </label>
+          {purchase.paymentProofUrl ? 'Pagado' : 'Pago pendiente'}
+        </span>
       </div>
-    );
-  }
-
-  return (
-    <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-      <p className="text-[11px] text-amber-800 mb-1 font-medium">
-        Pago pendiente
-      </p>
-      <p className="text-[10px] text-amber-700 mb-2 leading-relaxed">
-        Sube la captura de tu pago (transferencia, depósito o cargo) para que el negocio confirme tu apartado.
-      </p>
-      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008080] text-white text-[11px] font-medium hover:bg-[#006666] transition-colors cursor-pointer">
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-        </svg>
-        {uploadMutation.isPending ? 'Subiendo...' : 'Subir comprobante'}
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          disabled={uploadMutation.isPending}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
-              uploadMutation.mutate(f);
-            }
-          }}
-        />
-      </label>
-      {error && <p className="text-[10px] text-red-600 mt-1.5">{error}</p>}
-    </div>
+    </button>
   );
 }
 
-// Comprobante de pago en la tarjeta de cita. Si ya se subió, link "Ver
-// comprobante"; si no y la cita sigue abierta (PENDING/CONFIRMED), botón
-// para subir. Reusa el endpoint POST /api/marketplace/appointments/:id/payment-proof.
-function AppointmentPaymentSection({ appt }: { appt: any }) {
-  const queryClient = useQueryClient();
-  const [error, setError] = useState('');
-
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const token = marketplaceApi.getAccessToken();
-      const fd = new FormData();
-      fd.append('file', file);
-      const r = await fetch(
-        `${API_URL}/api/marketplace/appointments/${appt.id}/payment-proof`,
-        { method: 'POST', body: fd, headers: token ? { Authorization: `Bearer ${token}` } : {} },
-      );
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.message || 'No se pudo subir el comprobante');
-      }
-      return r.json();
-    },
-    onSuccess: () => {
-      setError('');
-      queryClient.invalidateQueries({ queryKey: ['marketplace-my-appointments'] });
-    },
-    onError: (err: any) => setError(err?.message || 'Error al subir el comprobante'),
-  });
-
-  if (appt.paymentProofUrl) {
-    return (
-      <div className="mt-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-          Comprobante de pago
-        </p>
-        <a
-          href={`${API_URL}${appt.paymentProofUrl}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block rounded-md overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors"
-        >
-          <img src={`${API_URL}${appt.paymentProofUrl}`} alt="Comprobante" className="max-h-32 object-contain mx-auto" />
-        </a>
-        <label className="block mt-2 text-[11px] text-[#008080] cursor-pointer hover:underline">
-          Reemplazar comprobante
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
-                uploadMutation.mutate(f);
-              }
-            }}
-          />
-        </label>
-      </div>
-    );
-  }
-
-  // Cita cerrada (sin posibilidad de subir comprobante)
-  if (['CANCELLED', 'NO_SHOW'].includes(appt.status)) return null;
-
-  return (
-    <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-      <p className="text-[11px] text-amber-800 mb-1 font-medium">
-        Pago pendiente
-      </p>
-      <p className="text-[10px] text-amber-700 mb-2 leading-relaxed">
-        Sube la captura del comprobante para que el negocio confirme tu pago.
-      </p>
-      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#008080] text-white text-[11px] font-medium hover:bg-[#006666] transition-colors cursor-pointer">
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-        </svg>
-        {uploadMutation.isPending ? 'Subiendo...' : 'Subir comprobante'}
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          disabled={uploadMutation.isPending}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              if (f.size > 5 * 1024 * 1024) { setError('La imagen no puede pesar más de 5MB'); return; }
-              uploadMutation.mutate(f);
-            }
-          }}
-        />
-      </label>
-      {error && <p className="text-[10px] text-red-600 mt-1.5">{error}</p>}
-    </div>
-  );
-}
 
 function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) {
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
@@ -821,27 +626,17 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
         );
       })()}
 
-      {/* Comprobante de pago: visible si ya se subió, o botón para subir
-          si la cita sigue abierta. */}
-      <div onClick={(e) => e.stopPropagation()}>
-        <AppointmentPaymentSection appt={appt} />
-      </div>
-
-      {/* WhatsApp directo al negocio + referencia corta de la cita */}
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <p className="text-[10px] text-gray-400 font-mono">#{(appt.id || '').substring(0, 8).toUpperCase()}</p>
-        <div onClick={(e) => e.stopPropagation()}>
-          <WhatsAppButton
-            phone={appt.tenant?.businessPhone}
-            message={buildAppointmentMessage({
-              tenantName: appt.tenant?.name || 'el negocio',
-              serviceName: services,
-              startTime: appt.startTime,
-              appointmentId: appt.id,
-            })}
-            variant="icon-only"
+      {/* Indicador discreto de pago + referencia. Las acciones (subir
+          comprobante, WhatsApp) viven en el detalle de la cita. */}
+      <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-gray-400">
+        <span className="font-mono">#{(appt.id || '').substring(0, 8).toUpperCase()}</span>
+        <span className="flex items-center gap-1">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: appt.paymentProofUrl ? '#059669' : '#d1d5db' }}
           />
-        </div>
+          {appt.paymentProofUrl ? 'Pagado' : 'Pago pendiente'}
+        </span>
       </div>
     </button>
   );
