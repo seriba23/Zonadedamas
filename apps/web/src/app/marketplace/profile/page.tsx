@@ -372,28 +372,6 @@ export default function MarketplaceProfilePage() {
   });
   const stats: Stats = (statsData as any)?.data || { totalServices: 0, totalPoints: 0, totalPhotos: 0 };
 
-  // Upcoming appointments
-  const { data: upcomingData, isLoading: upcomingLoading } = useQuery({
-    queryKey: ['marketplace-my-appointments', 'upcoming'],
-    queryFn: () =>
-      marketplaceApi.get<{ data: Appointment[]; meta: any }>(
-        '/my-appointments?filter=upcoming&perPage=20',
-      ),
-    enabled: isAuthenticated,
-  });
-  const upcomingAppointments: Appointment[] = (upcomingData as any)?.data || [];
-
-  // Past appointments
-  const { data: pastData, isLoading: pastLoading } = useQuery({
-    queryKey: ['marketplace-my-appointments', 'past'],
-    queryFn: () =>
-      marketplaceApi.get<{ data: Appointment[]; meta: any }>(
-        '/my-appointments?filter=past&perPage=20',
-      ),
-    enabled: isAuthenticated,
-  });
-  const pastAppointments: Appointment[] = (pastData as any)?.data || [];
-
   // Gallery
   const { data: galleryData } = useQuery({
     queryKey: ['marketplace-my-gallery'],
@@ -520,23 +498,17 @@ export default function MarketplaceProfilePage() {
 
         {/* ─── Stats + Gallery Button ────────────────── */}
         <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => toggle('services')}
-            className="rounded-xl border p-4 text-center transition-all"
-            style={activeSection === 'services' ? {
-              backgroundColor: TEAL_LIGHT,
-              borderColor: TEAL,
-              boxShadow: `0 0 0 2px ${TEAL_LIGHT}`,
-            } : {
-              backgroundColor: 'white',
-              borderColor: '#e5e7eb',
-            }}
+          {/* Servicios: solo dato, no accionable — el listado de citas
+              pasadas vive en /marketplace/appointments (tab Citas). */}
+          <div
+            className="rounded-xl border p-4 text-center"
+            style={{ backgroundColor: 'white', borderColor: '#e5e7eb' }}
           >
             <p className="text-2xl font-bold" style={{ color: TEAL }}>
               {stats.totalServices}
             </p>
             <p className="text-xs text-gray-500 mt-1">Servicios</p>
-          </button>
+          </div>
           <button
             onClick={() => toggle('favorites')}
             className="rounded-xl border p-4 text-center transition-all"
@@ -566,26 +538,8 @@ export default function MarketplaceProfilePage() {
           </button>
         </div>
 
-        {/* ─── Points section: available rewards ────────── */}
-        {/* ─── Past Appointments (toggles from Servicios) ── */}
-        {activeSection === 'services' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Citas pasadas</h3>
-            {pastLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: TEAL }} />
-              </div>
-            ) : pastAppointments.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-4">No tienes citas pasadas</p>
-            ) : (
-              <div className="space-y-3">
-                {pastAppointments.map((apt) => (
-                  <AppointmentCard key={apt.id} apt={apt} userGps={userGps} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Servicios: el dato vive solo en el grid de arriba. La historia
+            de citas pasadas se muestra en /marketplace/appointments. */}
 
         {/* ─── Favorites (toggles from Favoritos) ────── */}
         {activeSection === 'favorites' && (
