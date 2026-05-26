@@ -1253,7 +1253,13 @@ export class AvailabilityService {
         return true;
       };
 
-      // Ventana = interseccion de los horarios de todos los empleados requeridos
+      // Ventana = interseccion de:
+      //  - horarios de TODOS los empleados requeridos (max starts, min ends)
+      //  - horario del negocio para este dia (businessHours)
+      // Sin la interseccion con businessHours, un empleado que trabaja
+      // antes/despues del horario del negocio (ej. emp 8-19 con negocio
+      // 9-18) generaba slots que el frontend ignoraba pero contaba en el
+      // total, causando que el contador no coincidiera con el grid.
       let windowStart: Date | null = null;
       let windowEnd: Date | null = null;
       for (const [, avail] of employeeAvailability) {
@@ -1262,6 +1268,15 @@ export class AvailabilityService {
         if (!windowStart || s > windowStart) windowStart = s;
         if (!windowEnd || e < windowEnd) windowEnd = e;
       }
+
+      const dayHours = businessHours.find((h) => h.dayOfWeek === dayOfWeek && h.isOpen);
+      if (dayHours && dayHours.openTime && dayHours.closeTime) {
+        const bizOpen = new Date(`${dateStr}T${dayHours.openTime}:00Z`);
+        const bizClose = new Date(`${dateStr}T${dayHours.closeTime}:00Z`);
+        if (!windowStart || bizOpen > windowStart) windowStart = bizOpen;
+        if (!windowEnd || bizClose < windowEnd) windowEnd = bizClose;
+      }
+
       if (!windowStart || !windowEnd) continue;
 
       const daySlots: Array<{
