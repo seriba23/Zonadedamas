@@ -325,79 +325,29 @@ export default function BusinessDetailPage() {
     queryFn: async () => {
       const dateStr = selectedDate.format('YYYY-MM-DD');
 
+      // Multi-empleado: 2+ servicios con profesional asignado distinto.
+      // Antes hacíamos N queries y combinábamos slots a mano, lo cual fallaba
+      // si la duración del primer servicio no era múltiplo de 30 min (el
+      // offset acumulado no encajaba con los slots discretos del segundo
+      // empleado). Ahora delegamos al endpoint backend composite-availability
+      // que itera con granularidad fina (5 min) y verifica disponibilidad
+      // real (schedules + citas + buffers) por empleado.
       if (Object.keys(serviceEmployeeMap).length > 1) {
-        // Multi-employee: query each employee's availability separately, then intersect
-        const uniqueEmpIds = [...new Set(Object.values(serviceEmployeeMap))];
-        const empServiceMap: Record<string, string[]> = {};
-        for (const [sid, eid] of Object.entries(serviceEmployeeMap)) {
-          if (!empServiceMap[eid]) empServiceMap[eid] = [];
-          empServiceMap[eid].push(sid);
-        }
+        const assignments = selectedServiceIds
+          .filter((sid) => serviceEmployeeMap[sid])
+          .map((sid) => ({ serviceId: sid, employeeId: serviceEmployeeMap[sid] }));
 
-        // Query availability for each employee with their services
-        const results = await Promise.all(
-          uniqueEmpIds.map(async (empId) => {
-            const empSvcIds = empServiceMap[empId];
-            const res = await fetch(`${API_URL}/api/public/${tenantSlug}/availability`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ startDate: dateStr, endDate: dateStr, serviceIds: empSvcIds, employeeId: empId }),
-            });
-            if (!res.ok) return { data: [] };
-            const json = await res.json();
-            return { empId, slots: json.data || [] };
+        const res = await fetch(`${API_URL}/api/public/${tenantSlug}/composite-availability`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startDate: dateStr,
+            endDate: dateStr,
+            serviceAssignments: assignments,
           }),
-        );
-
-        // Find slots where ALL employees are available at sequential times
-        // Use first employee's slots as base, check others are free offset by cumulative duration
-        const svcDurations: Record<string, number> = {};
-        for (const sid of selectedServiceIds) {
-          const svc = services.find((s) => s.id === sid);
-          svcDurations[sid] = svc?.durationMinutes || 30;
-        }
-
-        const firstEmpId = uniqueEmpIds[0];
-        const firstResult = results.find((r: any) => r.empId === firstEmpId);
-        const firstSlots = firstResult?.slots || [];
-
-        // For each slot of the first employee, check if subsequent employees are free
-        const validSlots: any[] = [];
-        for (const slot of firstSlots) {
-          const startTime = slot.startTime;
-          let currentOffset = 0;
-          let allFree = true;
-
-          // Calculate cumulative offset per employee in service order
-          for (const sid of selectedServiceIds) {
-            const empId = serviceEmployeeMap[sid];
-            const duration = svcDurations[sid];
-            const slotStartMin = parseInt(startTime.split('T')[1]?.split(':')[0] || startTime.split(':')[0]) * 60 +
-              parseInt(startTime.split('T')[1]?.split(':')[1] || startTime.split(':')[1]);
-            const neededStartMin = slotStartMin + currentOffset;
-            const neededEndMin = neededStartMin + duration;
-
-            // Check if this employee has availability covering this window
-            const empResult = results.find((r: any) => r.empId === empId);
-            const empSlots = empResult?.slots || [];
-            const hasCoverage = empSlots.some((es: any) => {
-              const esStart = parseInt(es.startTime.split('T')[1]?.split(':')[0] || es.startTime.split(':')[0]) * 60 +
-                parseInt(es.startTime.split('T')[1]?.split(':')[1] || es.startTime.split(':')[1]);
-              const esEnd = parseInt(es.endTime.split('T')[1]?.split(':')[0] || es.endTime.split(':')[0]) * 60 +
-                parseInt(es.endTime.split('T')[1]?.split(':')[1] || es.endTime.split(':')[1]);
-              return esStart <= neededStartMin && esEnd >= neededEndMin;
-            });
-
-            if (!hasCoverage) { allFree = false; break; }
-            currentOffset += duration;
-          }
-
-          if (allFree) {
-            validSlots.push({ ...slot, employeeId: firstEmpId, employeeName: slot.employeeName });
-          }
-        }
-
-        return { data: validSlots };
+        });
+        if (!res.ok) throw new Error('Error al cargar horarios');
+        return res.json();
       }
 
       // Single employee or any employee
