@@ -39,6 +39,7 @@ export default function MarketplaceCouponsPage() {
   // pierda el contexto al cambiar entre Cupones y Mis puntos.
   const [search, setSearch] = useState('');
   const [couponFilter, setCouponFilter] = useState<CouponFilter>('all');
+  const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
   // Mis puntos: tenants ocultos (toggle desde modal "Personalizar").
   const [hiddenTenants, setHiddenTenants] = useState<Set<string>>(new Set());
@@ -162,11 +163,6 @@ export default function MarketplaceCouponsPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col">
-        <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-          <div className="max-w-2xl mx-auto pt-2">
-            <h1 className="text-lg font-bold text-gray-900">Mis cupones</h1>
-          </div>
-        </div>
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-4">
           <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
@@ -182,112 +178,140 @@ export default function MarketplaceCouponsPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-        <div className="max-w-2xl mx-auto pt-2">
-          <h1 className="text-lg font-bold text-gray-900">Mis cupones</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Canjeados por tus puntos de recompensa</p>
-        </div>
-      </div>
-
-      {/* Tabs Cupones | Mis puntos — estilo segmentado estandar del proyecto */}
-      <div className="px-4 py-3">
-        <div className="max-w-2xl mx-auto flex rounded-lg border border-gray-300 overflow-hidden">
-          <button
-            onClick={() => setTab('cupones')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              tab === 'cupones' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            Cupones
-          </button>
-          <button
-            onClick={() => setTab('puntos')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-              tab === 'puntos' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            Mis puntos
-          </button>
-        </div>
-      </div>
-
-      {/* Barra de busqueda + filtros — se adapta segun la tab activa */}
-      <div className="px-4">
+      {/* Header — search + filtros en un renglon, segmented control abajo.
+          Sin titulo: igual patron que /marketplace/appointments. */}
+      <div className="bg-gray-50 px-4 pt-3 pb-3 safe-top sticky top-0 z-30">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+          {/* Search + filtros (cupones) o personalizar (puntos) en un renglon */}
+          <div className="flex items-center gap-2 mb-2.5">
+            <div className="relative flex-1 min-w-0">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={tab === 'cupones' ? 'Buscar cupon o negocio' : 'Buscar negocio'}
-                className="w-full pl-9 pr-9 py-2 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#008080] focus:border-transparent"
+                placeholder={tab === 'cupones' ? 'Buscar cupon, negocio, codigo...' : 'Buscar negocio...'}
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                onFocus={(e) => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.boxShadow = 'none'; }}
               />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
-                  aria-label="Limpiar busqueda"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
             </div>
+
+            {tab === 'cupones' && (
+              <button
+                onClick={() => setShowFiltersSheet(true)}
+                title="Filtros"
+                aria-label="Filtros"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                style={couponFilter !== 'all'
+                  ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                </svg>
+                {couponFilter !== 'all' && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
+                )}
+              </button>
+            )}
 
             {tab === 'puntos' && pointsByTenant.length > 0 && (
               <button
                 onClick={() => setShowCustomize(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                title="Personalizar visibilidad"
                 aria-label="Personalizar visibilidad"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                style={hiddenCount > 0
+                  ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                 </svg>
-                <span className="hidden sm:inline">Personalizar</span>
                 {hiddenCount > 0 && (
-                  <span className="bg-[#008080] text-white text-[10px] font-bold rounded-full px-1.5 leading-4 min-w-[16px] text-center">
-                    {hiddenCount}
-                  </span>
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
                 )}
               </button>
             )}
           </div>
 
-          {/* Chips de filtro — solo para cupones */}
-          {tab === 'cupones' && (
-            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 -mx-4 px-4">
-              {([
-                { key: 'all', label: 'Todos' },
-                { key: 'discount', label: 'Descuentos' },
-                { key: 'gratis', label: 'Servicio gratis' },
-                { key: 'expiring', label: 'Por vencer' },
-                { key: 'history', label: 'Historial' },
-              ] as { key: CouponFilter; label: string }[]).map((f) => {
-                const isActive = couponFilter === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => setCouponFilter(f.key)}
-                    className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[#008080] text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* Tabs Cupones | Mis puntos */}
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            <button
+              onClick={() => setTab('cupones')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                tab === 'cupones' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Cupones
+            </button>
+            <button
+              onClick={() => setTab('puntos')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                tab === 'puntos' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Mis puntos
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Bottom-sheet de filtros de cupones — mismo patron que appointments */}
+      {showFiltersSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFiltersSheet(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
+            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900">Filtros</h3>
+              <button onClick={() => setShowFiltersSheet(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              {couponFilter !== 'all' && (
+                <button
+                  onClick={() => setCouponFilter('all')}
+                  className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
+                  style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  Limpiar filtros
+                </button>
+              )}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tipo</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { value: 'all', label: 'Todos' },
+                  { value: 'discount', label: 'Descuentos' },
+                  { value: 'gratis', label: 'Servicio gratis' },
+                  { value: 'expiring', label: 'Por vencer (7 dias)' },
+                  { value: 'history', label: 'Historial' },
+                ] as { value: CouponFilter; label: string }[]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setCouponFilter(opt.value); setShowFiltersSheet(false); }}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                    style={couponFilter === opt.value
+                      ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                      : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="px-4 py-4" />
+          </div>
+        </div>
+      )}
 
       {/* Modal Personalizar: toggles para mostrar/ocultar negocios en Mis puntos */}
       {showCustomize && (

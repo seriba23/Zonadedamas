@@ -170,11 +170,6 @@ export default function MarketplaceAppointmentsPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col">
-        <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
-          <div className="max-w-2xl mx-auto pt-2">
-            <h1 className="text-lg font-bold text-gray-900">Mis citas</h1>
-          </div>
-        </div>
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-4">
           <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -194,30 +189,11 @@ export default function MarketplaceAppointmentsPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header — mismo patron que /marketplace: titulo + search + filtros
-          arriba, segmented control (Citas|Compras) abajo. */}
-      <div className="bg-gray-50 px-4 pb-3 safe-top sticky top-0 z-30">
+      {/* Header — search + filtros en un renglon, segmented control abajo.
+          Sin titulo: el contexto ya queda claro por el tab y el bottom-nav. */}
+      <div className="bg-gray-50 px-4 pt-3 pb-3 safe-top sticky top-0 z-30">
         <div className="max-w-2xl mx-auto">
-          {/* Titulo + CTA "Nueva cita" */}
-          <div className="pt-2 flex items-center justify-between mb-2">
-            <h1 className="text-lg font-bold text-gray-900">
-              {tab === 'citas' ? 'Mis citas' : 'Mis compras'}
-            </h1>
-            {tab === 'citas' && (
-              <button
-                onClick={() => router.push('/marketplace')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: TEAL }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Nueva cita
-              </button>
-            )}
-          </div>
-
-          {/* Search + filtros en un renglon (mismo patron que /marketplace) */}
+          {/* Search + filtros + nueva cita en un renglon */}
           <div className="flex items-center gap-2 mb-2.5">
             <div className="relative flex-1 min-w-0">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -249,6 +225,19 @@ export default function MarketplaceAppointmentsPage() {
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
               )}
             </button>
+            {tab === 'citas' && (
+              <button
+                onClick={() => router.push('/marketplace')}
+                title="Nueva cita"
+                aria-label="Nueva cita"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white transition-colors"
+                style={{ backgroundColor: TEAL, border: '1.5px solid ' + TEAL }}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Tabs Citas | Compras */}
