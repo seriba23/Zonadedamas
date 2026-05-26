@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PublicBookingService } from './public-booking.service';
 import { PublicAvailabilityQueryDto, PublicBookDto } from './dto/public-booking.dto';
+import { CompositeAvailabilityQueryDto } from '../availability/dto/composite-availability-query.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 
@@ -69,6 +70,57 @@ export class PublicBookingController {
       { bundleId: body.bundleId, startDate: body.startDate, endDate: body.endDate, locationId: body.locationId },
       tenant.id,
     );
+  }
+
+  // Composite availability: cuando el cliente seleccionó N servicios y asignó
+  // un profesional especifico a cada uno (porque varios podian hacerlo).
+  // Devuelve slots donde la cadena completa cabe respetando schedules,
+  // citas y buffers de cada empleado. Mismo shape de output que /availability.
+  @Post('composite-availability')
+  async getCompositeAvailability(
+    @Param('tenantSlug') tenantSlug: string,
+    @Body() query: CompositeAvailabilityQueryDto,
+  ) {
+    const tenant = await this.publicBookingService.resolveTenant(tenantSlug);
+    const result = await this.availabilityService.getCompositeAvailability(query, tenant.id);
+
+    const flatSlots: Array<{
+      startTime: string;
+      endTime: string;
+      employeeId: string;
+      employeeName: string;
+      assignments?: any[];
+    }> = [];
+
+    for (const day of result.data || []) {
+      if (day.slots) {
+        for (const slot of day.slots) {
+          const first = slot.assignments?.[0];
+          flatSlots.push({
+            startTime: `${day.date}T${slot.startTime}:00`,
+            endTime: `${day.date}T${slot.endTime}:00`,
+            employeeId: first?.employeeId || '',
+            employeeName: first?.employeeName || '',
+            assignments: slot.assignments,
+          });
+        }
+      } else if (day.employees) {
+        // Delegacion al endpoint normal (1 solo assignment): mismo shape
+        // que /availability.
+        for (const emp of day.employees) {
+          for (const slot of emp.slots) {
+            flatSlots.push({
+              startTime: `${day.date}T${slot.startTime}:00`,
+              endTime: `${day.date}T${slot.endTime}:00`,
+              employeeId: emp.id,
+              employeeName: emp.name,
+            });
+          }
+        }
+      }
+    }
+
+    return { data: flatSlots };
   }
 
   @Post('book')

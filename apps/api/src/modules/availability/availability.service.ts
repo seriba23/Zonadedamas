@@ -3,7 +3,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { BundleAvailabilityQueryDto } from './dto/bundle-availability-query.dto';
+import { CompositeAvailabilityQueryDto } from './dto/composite-availability-query.dto';
 import { CheckAfterDto } from './dto/check-after.dto';
+import * as crypto from 'crypto';
 
 type TimeBlock = { start: Date; end: Date };
 
@@ -265,6 +267,10 @@ export class AvailabilityService {
     // la del propio locationId. Tambien wildcard al final por totalDuration.
     const pattern = `avail:${tenantId}:*:${employeeId}:${date}:*`;
     await this.redis.delPattern(pattern).catch(() => {});
+    // Composite no incluye employeeId en el key (incluye un hash del
+    // mapping), asi que cuando cualquier cita del tenant cambia tenemos
+    // que limpiar todas las composites del tenant para ser conservadores.
+    await this.redis.delPattern(`composite:${tenantId}:*`).catch(() => {});
   }
 
   async invalidateCacheForEmployee(
@@ -274,6 +280,7 @@ export class AvailabilityService {
   ): Promise<void> {
     const pattern = `avail:${tenantId}:${locationId}:${employeeId}:*`;
     await this.redis.delPattern(pattern).catch(() => {});
+    await this.redis.delPattern(`composite:${tenantId}:*`).catch(() => {});
   }
 
   private getDayOfWeek(date: Date): 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY' {
@@ -1034,6 +1041,258 @@ export class AvailabilityService {
     }
 
     return { data: results };
+  }
+
+  /**
+   * Composite availability — variante restringida de bundle donde cada
+   * servicio tiene un empleado fijo (asignado por el cliente en el flow de
+   * booking del marketplace cuando varios profesionales pueden hacer un
+   * mismo servicio).
+   *
+   * Resuelve el bug donde el frontend hacia N queries separadas + merge
+   * manual y fallaba con duraciones no multiplos de 30 minutos: aqui usamos
+   * granularidad fina (5 min) y reusamos `tryAssignSequential` que ya
+   * verifica disponibilidad real (schedule + appointments + buffers).
+   */
+  async getCompositeAvailability(
+    query: CompositeAvailabilityQueryDto,
+    tenantId: string,
+  ) {
+    const assignments = query.serviceAssignments;
+
+    // Caso trivial: 1 servicio → delegamos al endpoint normal
+    if (assignments.length === 1) {
+      return this.getAvailableSlots(
+        {
+          serviceIds: [assignments[0].serviceId],
+          employeeId: assignments[0].employeeId,
+          startDate: query.startDate,
+          endDate: query.endDate,
+          locationId: query.locationId,
+        },
+        tenantId,
+      );
+    }
+
+    // Cache key
+    const assignmentsKey = crypto
+      .createHash('sha1')
+      .update(JSON.stringify(assignments))
+      .digest('hex')
+      .substring(0, 16);
+    const cacheKey = `composite:${tenantId}:${query.locationId || 'all'}:${query.startDate}:${query.endDate}:${assignmentsKey}`;
+
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached !== null) {
+        return JSON.parse(cached);
+      }
+    } catch {
+      this.logger.warn(`Redis cache miss for ${cacheKey}`);
+    }
+
+    // 1. Fetch services + validar que cada empleado pueda hacer su servicio asignado
+    const serviceIds = [...new Set(assignments.map((a) => a.serviceId))];
+    const services = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds }, tenantId },
+    });
+    const serviceMap = new Map(services.map((s) => [s.id, s]));
+
+    // Ordered list of {service, employeeId} respetando el orden del cliente
+    const orderedAssignments = assignments
+      .map((a) => ({ service: serviceMap.get(a.serviceId), employeeId: a.employeeId }))
+      .filter((x) => !!x.service);
+    if (orderedAssignments.length !== assignments.length) {
+      return { data: [] };
+    }
+    const orderedServices = orderedAssignments.map((a) => a.service!);
+
+    // Cargar empleados unicos y validar que ofrezcan su servicio asignado
+    const uniqueEmpIds = [...new Set(assignments.map((a) => a.employeeId))];
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        id: { in: uniqueEmpIds },
+        tenantId,
+        isActive: true,
+        ...(query.locationId && { locationId: query.locationId }),
+      },
+      include: { employeeServices: true },
+    });
+    const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+    for (const a of assignments) {
+      const emp = employeeMap.get(a.employeeId);
+      if (!emp) return { data: [] };
+      if (!emp.employeeServices.some((es) => es.serviceId === a.serviceId)) {
+        return { data: [] };
+      }
+    }
+
+    // employeesByService con EXACTAMENTE 1 candidato por servicio (el asignado)
+    // Nota: si el mismo serviceId aparece dos veces en assignments con
+    // empleados distintos, esto solo guarda el ultimo — pero el flow del
+    // marketplace nunca asigna el mismo servicio dos veces.
+    const employeesByService = new Map<string, any[]>();
+    for (const a of orderedAssignments) {
+      employeesByService.set(a.service!.id, [employeeMap.get(a.employeeId)]);
+    }
+
+    // 2. Iterar dias en el rango
+    const results: Array<{
+      date: string;
+      slots: Array<{
+        startTime: string;
+        endTime: string;
+        assignments: Array<{ serviceId: string; serviceName: string; employeeId: string; employeeName: string; startTime: string; endTime: string }>;
+      }>;
+    }> = [];
+
+    const startDate = new Date(query.startDate + 'T00:00:00Z');
+    const endDate = new Date(query.endDate + 'T00:00:00Z');
+    const granularity = 5; // fino para resolver offsets de duraciones no multiplo de 30
+
+    const [businessHours, closures] = await Promise.all([
+      this.prisma.businessHours.findMany({ where: { tenantId } }),
+      this.prisma.businessClosure.findMany({
+        where: {
+          tenantId,
+          startDate: { lte: new Date(query.endDate + 'T23:59:59Z') },
+          endDate: { gte: new Date(query.startDate + 'T00:00:00Z') },
+        },
+      }),
+    ]);
+    const closedDays = new Set(businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek));
+
+    const totalDuration = orderedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const dateStr = date.toISOString().split('T')[0];
+      const dayOfWeek = this.getDayOfWeek(date);
+      if (closedDays.has(dayOfWeek)) continue;
+
+      const isClosed = closures.some((c) => {
+        const cStart = c.startDate.toISOString().split('T')[0];
+        const cEnd = c.endDate.toISOString().split('T')[0];
+        return dateStr >= cStart && dateStr <= cEnd;
+      });
+      if (isClosed) continue;
+
+      // Pre-cargar schedule + occupied blocks de los empleados requeridos
+      const employeeAvailability = new Map<string, { schedule: any; occupied: TimeBlock[] }>();
+      let missingEmployee = false;
+
+      for (const empId of uniqueEmpIds) {
+        const emp = employeeMap.get(empId)!;
+        const schedule = await this.prisma.employeeSchedule.findFirst({
+          where: {
+            employeeId: empId,
+            dayOfWeek,
+            isWorking: true,
+            effectiveFrom: { lte: date },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: date } }],
+          },
+        });
+        if (!schedule) {
+          // Cualquier empleado requerido sin schedule ese dia → no hay slot
+          missingEmployee = true;
+          break;
+        }
+
+        const dayStart = new Date(`${dateStr}T00:00:00Z`);
+        const dayEnd = new Date(`${dateStr}T23:59:59Z`);
+
+        const [appointments, timeOffs] = await Promise.all([
+          this.prisma.appointment.findMany({
+            where: {
+              employeeId: empId,
+              tenantId,
+              startTime: { gte: dayStart, lt: dayEnd },
+              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+            },
+            orderBy: { startTime: 'asc' },
+          }),
+          this.prisma.employeeTimeOff.findMany({
+            where: { employeeId: empId, startDatetime: { lt: dayEnd }, endDatetime: { gt: dayStart } },
+          }),
+        ]);
+
+        const occupied: TimeBlock[] = [];
+        for (const appt of appointments) {
+          occupied.push({
+            start: new Date(appt.startTime.getTime() - emp.bufferBeforeMinutes * 60000),
+            end: new Date(appt.endTime.getTime() + emp.bufferAfterMinutes * 60000),
+          });
+        }
+        for (const to of timeOffs) {
+          occupied.push({ start: to.startDatetime, end: to.endDatetime });
+        }
+        occupied.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+        employeeAvailability.set(empId, { schedule, occupied: this.mergeBlocks(occupied) });
+      }
+
+      if (missingEmployee) continue;
+
+      const isEmployeeFree = (empId: string, start: Date, end: Date): boolean => {
+        const avail = employeeAvailability.get(empId);
+        if (!avail) return false;
+        const schedStart = new Date(`${dateStr}T${avail.schedule.startTime}:00Z`);
+        const schedEnd = new Date(`${dateStr}T${avail.schedule.endTime}:00Z`);
+        if (start < schedStart || end > schedEnd) return false;
+        for (const block of avail.occupied) {
+          if (start < block.end && end > block.start) return false;
+        }
+        return true;
+      };
+
+      // Ventana = interseccion de los horarios de todos los empleados requeridos
+      let windowStart: Date | null = null;
+      let windowEnd: Date | null = null;
+      for (const [, avail] of employeeAvailability) {
+        const s = new Date(`${dateStr}T${avail.schedule.startTime}:00Z`);
+        const e = new Date(`${dateStr}T${avail.schedule.endTime}:00Z`);
+        if (!windowStart || s > windowStart) windowStart = s;
+        if (!windowEnd || e < windowEnd) windowEnd = e;
+      }
+      if (!windowStart || !windowEnd) continue;
+
+      const daySlots: Array<{
+        startTime: string;
+        endTime: string;
+        assignments: Array<{ serviceId: string; serviceName: string; employeeId: string; employeeName: string; startTime: string; endTime: string }>;
+      }> = [];
+
+      let currentSlotStart = new Date(windowStart);
+
+      while (currentSlotStart.getTime() + totalDuration * 60000 <= windowEnd.getTime()) {
+        const slotAssignments = this.tryAssignSequential(
+          orderedServices,
+          currentSlotStart,
+          dateStr,
+          employeesByService,
+          isEmployeeFree,
+        );
+
+        if (slotAssignments) {
+          const slotEnd = new Date(currentSlotStart.getTime() + totalDuration * 60000);
+          daySlots.push({
+            startTime: currentSlotStart.toISOString().substring(11, 16),
+            endTime: slotEnd.toISOString().substring(11, 16),
+            assignments: slotAssignments,
+          });
+        }
+
+        currentSlotStart = new Date(currentSlotStart.getTime() + granularity * 60000);
+      }
+
+      if (daySlots.length > 0) {
+        results.push({ date: dateStr, slots: daySlots });
+      }
+    }
+
+    const response = { data: results };
+    await this.redis.set(cacheKey, JSON.stringify(response), 300).catch(() => {});
+    return response;
   }
 
   /**
