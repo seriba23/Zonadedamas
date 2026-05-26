@@ -10,6 +10,7 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, resolveImageUrl } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Avatar } from '@/components/ui/avatar';
 
 dayjs.locale('es');
 
@@ -478,22 +479,13 @@ export default function MarketplaceProfilePage() {
           </div>
           {/* Avatar — click to edit profile */}
           <Link href="/marketplace/settings" className="block mx-auto mb-3 relative w-20 h-20 group">
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden"
-              style={{ backgroundColor: TEAL_LIGHT }}
-            >
-              {user.avatarUrl ? (
-                <img
-                  src={resolveImageUrl(user.avatarUrl) || ''}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-2xl font-bold" style={{ color: TEAL }}>
-                  {initials}
-              </span>
-            )}
-            </div>
+            <Avatar
+              avatarUrl={user.avatarUrl}
+              firstName={user.firstName}
+              lastName={user.lastName}
+              className="w-20 h-20"
+              textClassName="text-2xl"
+            />
             <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
               <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />

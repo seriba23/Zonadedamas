@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
-import { resolveImageUrl } from '@/lib/utils';
+import { Avatar } from '@/components/ui/avatar';
 
 export default function MarketplaceHeader() {
   const { user, isAuthenticated, isLoading } = useMarketplaceAuth();
@@ -20,16 +20,12 @@ export default function MarketplaceHeader() {
             href="/marketplace/profile"
             className="flex items-center gap-2 text-sm text-gray-700"
           >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden"
-              style={{ backgroundColor: '#e0f2f1', color: '#008080' }}
-            >
-              {user?.avatarUrl ? (
-                <img src={resolveImageUrl(user.avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <>{user?.firstName?.[0]}{user?.lastName?.[0]}</>
-              )}
-            </div>
+            <Avatar
+              avatarUrl={user?.avatarUrl}
+              firstName={user?.firstName}
+              lastName={user?.lastName}
+              className="w-8 h-8"
+            />
           </Link>
         ) : (
           <Link
