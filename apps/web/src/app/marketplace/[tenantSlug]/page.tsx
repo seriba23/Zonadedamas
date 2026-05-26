@@ -206,6 +206,7 @@ export default function BusinessDetailPage() {
   const searchParams = useSearchParams();
   const tenantSlug = params.tenantSlug as string;
   const bookEmployeeId = searchParams.get('bookEmployee');
+  const preselectedServiceId = searchParams.get('service');
 
   // Referral code from shared link
   const refFromUrl = searchParams.get('ref');
@@ -311,6 +312,17 @@ export default function BusinessDetailPage() {
       setBookingStep('service');
     }
   }, [bookEmployeeId, biz]);
+
+  // Pre-select service from URL param (cuando el cliente entra desde la
+  // tarjeta de un servicio especifico en el perfil del profesional).
+  // Validamos que el servicio exista en este tenant para evitar IDs basura.
+  useEffect(() => {
+    if (!preselectedServiceId || !biz) return;
+    const svcExists = (biz.services || []).some((s: any) => s.id === preselectedServiceId);
+    if (!svcExists) return;
+    setSelectedServiceIds((prev) => (prev.includes(preselectedServiceId) ? prev : [...prev, preselectedServiceId]));
+    setBookingStep('service');
+  }, [preselectedServiceId, biz]);
 
   // Pre-asignar selectedEmployee a serviceEmployeeMap para multi-empleado.
   // Cuando el cliente entra desde el perfil de un profesional (?bookEmployee=X)
