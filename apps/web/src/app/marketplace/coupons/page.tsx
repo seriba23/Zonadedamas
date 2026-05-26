@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
@@ -10,6 +10,10 @@ import { useRouter } from 'next/navigation';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
 const TEAL_LIGHT = '#e0f2f1';
+
+const POINTS_HIDDEN_KEY = 'marketplace_points_hidden_tenants';
+
+type CouponFilter = 'all' | 'discount' | 'gratis' | 'expiring' | 'history';
 
 function formatExpiry(dateStr: string | null) {
   if (!dateStr) return null;
@@ -23,9 +27,40 @@ function daysLeft(dateStr: string | null): number | null {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function normalize(s: string | null | undefined): string {
+  return (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 export default function MarketplaceCouponsPage() {
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
   const [tab, setTab] = useState<'cupones' | 'puntos'>('cupones');
+
+  // Búsqueda y filtros — comparten search entre tabs para que el usuario no
+  // pierda el contexto al cambiar entre Cupones y Mis puntos.
+  const [search, setSearch] = useState('');
+  const [couponFilter, setCouponFilter] = useState<CouponFilter>('all');
+
+  // Mis puntos: tenants ocultos (toggle desde modal "Personalizar").
+  const [hiddenTenants, setHiddenTenants] = useState<Set<string>>(new Set());
+  const [showCustomize, setShowCustomize] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(POINTS_HIDDEN_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) setHiddenTenants(new Set(arr));
+      }
+    } catch {}
+  }, []);
+
+  const persistHidden = (next: Set<string>) => {
+    setHiddenTenants(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(POINTS_HIDDEN_KEY, JSON.stringify(Array.from(next)));
+    }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-rewards'],
@@ -78,6 +113,49 @@ export default function MarketplaceCouponsPage() {
   const redemptions: any[] = (data as any)?.data || [];
   const active = redemptions.filter((r) => r.status === 'ACTIVE');
   const used = redemptions.filter((r) => r.status !== 'ACTIVE');
+
+  // ── Filtrado de cupones ─────────────────────────────────
+  const q = normalize(search);
+  const matchesSearch = (r: any) =>
+    !q ||
+    normalize(r.reward?.name).includes(q) ||
+    normalize(r.tenant?.name).includes(q) ||
+    normalize(r.reward?.service?.name).includes(q);
+
+  const matchesReferralSearch = (ref: any) =>
+    !q ||
+    normalize(ref.promotion?.name || ref.promotionName).includes(q) ||
+    normalize(ref.tenant?.name || ref.tenantName).includes(q) ||
+    normalize(ref.code).includes(q);
+
+  const filteredActive = active.filter(matchesSearch).filter((r) => {
+    if (couponFilter === 'all' || couponFilter === 'history') return couponFilter !== 'history';
+    if (couponFilter === 'discount') return r.reward?.type === 'DESCUENTO';
+    if (couponFilter === 'gratis') return r.reward?.type === 'SERVICIO';
+    if (couponFilter === 'expiring') {
+      const d = daysLeft(r.expiresAt);
+      return d !== null && d <= 7;
+    }
+    return true;
+  });
+  const filteredUsed = used.filter(matchesSearch);
+  const filteredActiveRef = activeReferrals.filter(matchesReferralSearch);
+  const filteredUsedRef = usedReferrals.filter(matchesReferralSearch);
+  const filteredReceived = receivedReferrals.filter(matchesReferralSearch);
+
+  // En "Historial" solo mostramos lo usado/expirado; en los demás filtros
+  // ocultamos historial para que la tab no se vea siempre cargada.
+  const showActiveSection = couponFilter !== 'history';
+  const showHistorySection = couponFilter === 'all' || couponFilter === 'history';
+
+  // ── Filtrado de puntos ──────────────────────────────────
+  const visiblePoints = useMemo(() => {
+    let list = pointsByTenant;
+    if (q) list = list.filter((t) => normalize(t.tenantName).includes(q));
+    list = list.filter((t) => !hiddenTenants.has(t.tenantId));
+    return list;
+  }, [pointsByTenant, q, hiddenTenants]);
+  const hiddenCount = pointsByTenant.filter((t) => hiddenTenants.has(t.tenantId)).length;
 
   if (authLoading) return null;
 
@@ -134,6 +212,186 @@ export default function MarketplaceCouponsPage() {
         </div>
       </div>
 
+      {/* Barra de busqueda + filtros — se adapta segun la tab activa */}
+      <div className="px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={tab === 'cupones' ? 'Buscar cupon o negocio' : 'Buscar negocio'}
+                className="w-full pl-9 pr-9 py-2 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#008080] focus:border-transparent"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"
+                  aria-label="Limpiar busqueda"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {tab === 'puntos' && pointsByTenant.length > 0 && (
+              <button
+                onClick={() => setShowCustomize(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                aria-label="Personalizar visibilidad"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                </svg>
+                <span className="hidden sm:inline">Personalizar</span>
+                {hiddenCount > 0 && (
+                  <span className="bg-[#008080] text-white text-[10px] font-bold rounded-full px-1.5 leading-4 min-w-[16px] text-center">
+                    {hiddenCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Chips de filtro — solo para cupones */}
+          {tab === 'cupones' && (
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 -mx-4 px-4">
+              {([
+                { key: 'all', label: 'Todos' },
+                { key: 'discount', label: 'Descuentos' },
+                { key: 'gratis', label: 'Servicio gratis' },
+                { key: 'expiring', label: 'Por vencer' },
+                { key: 'history', label: 'Historial' },
+              ] as { key: CouponFilter; label: string }[]).map((f) => {
+                const isActive = couponFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setCouponFilter(f.key)}
+                    className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[#008080] text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal Personalizar: toggles para mostrar/ocultar negocios en Mis puntos */}
+      {showCustomize && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setShowCustomize(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-xl overflow-hidden max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sm:hidden flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Personalizar Mis puntos</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Elige que negocios mostrar en tu lista</p>
+              </div>
+              <button onClick={() => setShowCustomize(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100" aria-label="Cerrar">
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Toggle all */}
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+              <p className="text-xs text-gray-500">
+                {pointsByTenant.length - hiddenCount} de {pointsByTenant.length} visibles
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => persistHidden(new Set())}
+                  disabled={hiddenCount === 0}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Mostrar todos
+                </button>
+                <button
+                  onClick={() => persistHidden(new Set(pointsByTenant.map((t: any) => t.tenantId)))}
+                  disabled={hiddenCount === pointsByTenant.length}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Ocultar todos
+                </button>
+              </div>
+            </div>
+
+            {/* Tenant list with toggles */}
+            <div className="overflow-y-auto flex-1 px-5 py-3 space-y-2">
+              {pointsByTenant.map((t: any) => {
+                const isHidden = hiddenTenants.has(t.tenantId);
+                return (
+                  <button
+                    key={t.tenantId}
+                    onClick={() => {
+                      const next = new Set(hiddenTenants);
+                      if (isHidden) next.delete(t.tenantId);
+                      else next.add(t.tenantId);
+                      persistHidden(next);
+                    }}
+                    className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
+                      {t.tenantLogo ? (
+                        <img src={`${API_URL}${t.tenantLogo}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        t.tenantName[0]
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{t.tenantName}</p>
+                      <p className="text-xs text-gray-400">{t.points.toLocaleString()} pts</p>
+                    </div>
+                    {/* Toggle switch */}
+                    <span
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+                        isHidden ? 'bg-gray-300' : 'bg-[#008080]'
+                      }`}
+                      aria-pressed={!isHidden}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
+                          isHidden ? 'translate-x-0.5' : 'translate-x-[22px]'
+                        }`}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-100 safe-bottom">
+              <button
+                onClick={() => setShowCustomize(false)}
+                className="w-full py-2.5 text-white rounded-xl text-sm font-medium"
+                style={{ backgroundColor: TEAL }}
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto px-4 py-4">
         {/* Puntos tab */}
         {tab === 'puntos' && (
@@ -149,9 +407,25 @@ export default function MarketplaceCouponsPage() {
                   Explorar negocios
                 </Link>
               </div>
+            ) : visiblePoints.length === 0 ? (
+              <div className="text-center py-12 flex flex-col items-center gap-3">
+                <p className="text-sm text-gray-500">
+                  {search
+                    ? `No encontramos negocios con "${search}"`
+                    : 'Todos los negocios estan ocultos'}
+                </p>
+                {!search && hiddenCount > 0 && (
+                  <button
+                    onClick={() => persistHidden(new Set())}
+                    className="text-xs font-medium px-4 py-2 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  >
+                    Mostrar todos
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="space-y-3">
-                {pointsByTenant.map((t: any) => (
+                {visiblePoints.map((t: any) => (
                   <Link
                     key={t.tenantId}
                     href={`/marketplace/${t.tenantSlug}`}
@@ -200,46 +474,74 @@ export default function MarketplaceCouponsPage() {
               Explorar negocios
             </Link>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Received referral codes (from friends) */}
-            {receivedReferrals.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Regalos recibidos · {receivedReferrals.length}</h2>
-                <div className="space-y-4">
-                  {receivedReferrals.map((ref) => <ReceivedReferralCard key={ref.code} referral={ref} />)}
-                </div>
-              </section>
-            )}
+        ) : (() => {
+          const hasAny =
+            (showActiveSection && (
+              filteredReceived.length + filteredActiveRef.length + filteredActive.length > 0
+            )) ||
+            (showHistorySection && (filteredUsed.length + filteredUsedRef.length > 0));
 
-            {/* Referral codes to share */}
-            {activeReferrals.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Códigos para compartir · {activeReferrals.length}</h2>
-                <div className="space-y-4">
-                  {activeReferrals.map((ref) => <ReferralCard key={ref.id} referral={ref} />)}
-                </div>
-              </section>
-            )}
-            {active.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Disponibles · {active.length}</h2>
-                <div className="space-y-4">
-                  {active.map((r) => <CouponCard key={r.id} redemption={r} />)}
-                </div>
-              </section>
-            )}
-            {(used.length > 0 || usedReferrals.length > 0) && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Historial · {used.length + usedReferrals.length}</h2>
-                <div className="space-y-4">
-                  {used.map((r) => <CouponCard key={r.id} redemption={r} disabled />)}
-                  {usedReferrals.map((ref) => <ReferralCard key={ref.id} referral={ref} disabled />)}
-                </div>
-              </section>
-            )}
-          </div>
-        ))}
+          if (!hasAny) {
+            return (
+              <div className="text-center py-12 flex flex-col items-center gap-3">
+                <p className="text-sm text-gray-500">
+                  {search
+                    ? `No encontramos cupones con "${search}"`
+                    : 'No hay cupones que coincidan con este filtro'}
+                </p>
+                {(search || couponFilter !== 'all') && (
+                  <button
+                    onClick={() => { setSearch(''); setCouponFilter('all'); }}
+                    className="text-xs font-medium px-4 py-2 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-6">
+              {showActiveSection && filteredReceived.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Regalos recibidos · {filteredReceived.length}</h2>
+                  <div className="space-y-4">
+                    {filteredReceived.map((ref) => <ReceivedReferralCard key={ref.code} referral={ref} />)}
+                  </div>
+                </section>
+              )}
+
+              {showActiveSection && filteredActiveRef.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Códigos para compartir · {filteredActiveRef.length}</h2>
+                  <div className="space-y-4">
+                    {filteredActiveRef.map((ref) => <ReferralCard key={ref.id} referral={ref} />)}
+                  </div>
+                </section>
+              )}
+
+              {showActiveSection && filteredActive.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Disponibles · {filteredActive.length}</h2>
+                  <div className="space-y-4">
+                    {filteredActive.map((r) => <CouponCard key={r.id} redemption={r} />)}
+                  </div>
+                </section>
+              )}
+
+              {showHistorySection && (filteredUsed.length > 0 || filteredUsedRef.length > 0) && (
+                <section>
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Historial · {filteredUsed.length + filteredUsedRef.length}</h2>
+                  <div className="space-y-4">
+                    {filteredUsed.map((r) => <CouponCard key={r.id} redemption={r} disabled />)}
+                    {filteredUsedRef.map((ref) => <ReferralCard key={ref.id} referral={ref} disabled />)}
+                  </div>
+                </section>
+              )}
+            </div>
+          );
+        })())}
       </div>
     </div>
   );
