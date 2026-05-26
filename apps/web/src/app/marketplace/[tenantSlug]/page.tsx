@@ -312,6 +312,29 @@ export default function BusinessDetailPage() {
     }
   }, [bookEmployeeId, biz]);
 
+  // Pre-asignar selectedEmployee a serviceEmployeeMap para multi-empleado.
+  // Cuando el cliente entra desde el perfil de un profesional (?bookEmployee=X)
+  // y elige varios servicios donde algunos los hace X y otros no, queremos
+  // que X aparezca pre-asignado a los servicios que puede hacer (el cliente
+  // confirmaria o cambiaria, no tendria que asignar desde cero).
+  useEffect(() => {
+    if (!selectedEmployee || selectedServiceIds.length === 0) return;
+    const empServiceIds = new Set(
+      (selectedEmployee.employeeServices || []).map((es: any) => es.serviceId),
+    );
+    setServiceEmployeeMap((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const sid of selectedServiceIds) {
+        if (!next[sid] && empServiceIds.has(sid)) {
+          next[sid] = selectedEmployee.id;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedEmployee, selectedServiceIds]);
+
   // Availability query
   const { data: slotsData, isLoading: slotsLoading } = useQuery({
     queryKey: [
@@ -3108,7 +3131,10 @@ export default function BusinessDetailPage() {
                           setBookingStep('datetime');
                         }}
                         className="w-full text-left p-4 rounded-xl border-2 transition-all"
-                        style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+                        style={anyEmployee
+                          ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT }
+                          : { borderColor: '#e5e7eb', backgroundColor: '#fff' }
+                        }
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -3123,32 +3149,38 @@ export default function BusinessDetailPage() {
                         </div>
                       </button>
 
-                      {availableEmployees.map((emp) => (
-                        <button
-                          key={emp.id}
-                          onClick={() => {
-                            setSelectedEmployee(emp);
-                            setAnyEmployee(false);
-                            setSelectedSlot(null);
-                            setBookingStep('datetime');
-                          }}
-                          className="w-full text-left p-4 rounded-xl border-2 transition-all"
-                          style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color }}>
-                              {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                      {availableEmployees.map((emp) => {
+                        const isSel = selectedEmployee?.id === emp.id;
+                        return (
+                          <button
+                            key={emp.id}
+                            onClick={() => {
+                              setSelectedEmployee(emp);
+                              setAnyEmployee(false);
+                              setSelectedSlot(null);
+                              setBookingStep('datetime');
+                            }}
+                            className="w-full text-left p-4 rounded-xl border-2 transition-all"
+                            style={isSel
+                              ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT }
+                              : { borderColor: '#e5e7eb', backgroundColor: '#fff' }
+                            }
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color }}>
+                                {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900">{emp.firstName} {emp.lastName}</p>
+                                {emp.bio && <p className="text-sm text-gray-500 line-clamp-1">{emp.bio}</p>}
+                              </div>
+                              <Link href={`/marketplace/${tenantSlug}/professional/${emp.id}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-[#008080] font-medium hover:underline flex-shrink-0">
+                                Ver perfil
+                              </Link>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900">{emp.firstName} {emp.lastName}</p>
-                              {emp.bio && <p className="text-sm text-gray-500 line-clamp-1">{emp.bio}</p>}
-                            </div>
-                            <Link href={`/marketplace/${tenantSlug}/professional/${emp.id}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-[#008080] font-medium hover:underline flex-shrink-0">
-                              Ver perfil
-                            </Link>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
