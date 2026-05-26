@@ -1149,7 +1149,15 @@ export class AvailabilityService {
 
     const startDate = new Date(query.startDate + 'T00:00:00Z');
     const endDate = new Date(query.endDate + 'T00:00:00Z');
-    const granularity = 5; // fino para resolver offsets de duraciones no multiplo de 30
+    // Granularidad 30 min para alinear con el grid del frontend (SlotGrid
+    // muestra slots cada 30 min entre apertura y cierre). Antes usaba 5 min
+    // pensando que era necesario para duraciones no multiplo de 30, pero
+    // isEmployeeFree verifica rangos arbitrarios sin necesitar grilla fina:
+    // un slot a las 9:00 con limpieza 45min + masaje 60min checa
+    // [9:45, 10:45] para Renata directamente, sin importar que 9:45 no sea
+    // multiplo de 30. La grilla fina generaba slots redundantes (9:00,
+    // 9:05, 9:10...) que el frontend ignoraba pero contaba en el total.
+    const granularity = 30;
 
     const [businessHours, closures] = await Promise.all([
       this.prisma.businessHours.findMany({ where: { tenantId } }),
