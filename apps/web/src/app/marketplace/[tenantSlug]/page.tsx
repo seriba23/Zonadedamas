@@ -3194,26 +3194,6 @@ export default function BusinessDetailPage() {
                     </div>
                   )}
 
-                  {/* Boton Continuar — consistente con los demas steps.
-                      Single: requiere algun empleado seleccionado o "cualquiera".
-                      Multi: requiere que todos los servicios tengan empleado
-                      asignado (las pills auto-asignan o el cliente elige). */}
-                  {(() => {
-                    const canContinue = isMultiEmployee
-                      ? selectedServiceIds.every((sid) => !!serviceEmployeeMap[sid])
-                      : !!selectedEmployee || anyEmployee;
-                    return (
-                      <button
-                        type="button"
-                        disabled={!canContinue}
-                        onClick={() => setBookingStep('datetime')}
-                        className="w-full mt-6 py-3 rounded-xl font-semibold text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: TEAL }}
-                      >
-                        Continuar
-                      </button>
-                    );
-                  })()}
                 </div>
               )}
 
@@ -3999,7 +3979,6 @@ export default function BusinessDetailPage() {
               employee-single el avance es al click directo, no muestra. */}
           {(() => {
             if (bookingStep === 'location') return null;
-            if (bookingStep === 'employee' && !isMultiEmployee) return null;
 
             let label = 'Continuar';
             let disabled = false;
@@ -4020,32 +3999,39 @@ export default function BusinessDetailPage() {
               label = selectedPromotion ? 'Continuar con cupón' : 'Continuar sin cupón';
               onClick = () => setBookingStep('employee');
             } else if (bookingStep === 'employee') {
-              // Permitimos continuar aunque no se haya elegido profesional
-              // para todos los servicios — auto-asignamos al primer
-              // profesional disponible para cada uno. Etiqueta cambia para
-              // que el usuario sepa qué va a pasar.
-              const allAssigned = selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
-              disabled = false;
-              label = allAssigned ? 'Continuar' : 'Continuar sin elegir';
-              onClick = () => {
-                // Completar las asignaciones faltantes con el primer empleado
-                // capaz para cada servicio.
-                const filled: Record<string, string> = { ...serviceEmployeeMap };
-                for (const sid of selectedServiceIds) {
-                  if (filled[sid]) continue;
-                  const candidates = employees.filter((emp) =>
-                    emp.employeeServices?.some((es) => es.serviceId === sid),
-                  );
-                  if (candidates.length > 0) filled[sid] = candidates[0].id;
-                }
-                setServiceEmployeeMap(filled);
-                const primaryEmpId = filled[selectedServiceIds[0]];
-                const primaryEmp = employees.find((e) => e.id === primaryEmpId) || null;
-                setSelectedEmployee(primaryEmp);
-                setAnyEmployee(false);
-                setSelectedSlot(null);
-                setBookingStep('datetime');
-              };
+              if (isMultiEmployee) {
+                // Multi-empleado: permitimos continuar aunque no todos los
+                // servicios tengan profesional asignado — auto-asignamos al
+                // primer profesional disponible para cada faltante.
+                const allAssigned = selectedServiceIds.every((sid) => serviceEmployeeMap[sid]);
+                disabled = false;
+                label = allAssigned ? 'Continuar' : 'Continuar sin elegir';
+                onClick = () => {
+                  const filled: Record<string, string> = { ...serviceEmployeeMap };
+                  for (const sid of selectedServiceIds) {
+                    if (filled[sid]) continue;
+                    const candidates = employees.filter((emp) =>
+                      emp.employeeServices?.some((es) => es.serviceId === sid),
+                    );
+                    if (candidates.length > 0) filled[sid] = candidates[0].id;
+                  }
+                  setServiceEmployeeMap(filled);
+                  const primaryEmpId = filled[selectedServiceIds[0]];
+                  const primaryEmp = employees.find((e) => e.id === primaryEmpId) || null;
+                  setSelectedEmployee(primaryEmp);
+                  setAnyEmployee(false);
+                  setSelectedSlot(null);
+                  setBookingStep('datetime');
+                };
+              } else {
+                // Single-empleado: requiere selectedEmployee o anyEmployee.
+                disabled = !selectedEmployee && !anyEmployee;
+                label = 'Continuar';
+                onClick = () => {
+                  setSelectedSlot(null);
+                  setBookingStep('datetime');
+                };
+              }
             } else if (bookingStep === 'datetime') {
               disabled = !selectedSlot;
               onClick = () => setBookingStep(biz?.shopEnabled && shopProducts.length > 0 ? 'products' : 'confirm');

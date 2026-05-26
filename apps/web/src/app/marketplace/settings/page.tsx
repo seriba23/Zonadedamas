@@ -841,16 +841,24 @@ export default function MarketplaceSettingsPage() {
 
   useEffect(() => {
     if (user) {
+      // En V1 forzamos siempre LOCAL — la opcion USD se elimino del UI.
+      // Si un usuario tenia USD seteado de antes, lo migramos silenciosamente
+      // a LOCAL aqui para que no quede atrapado en una moneda que ya no
+      // puede cambiar desde la app.
+      const savedCurrency = (user as any).currency;
+      const currency = savedCurrency === 'USD' ? 'LOCAL' : (savedCurrency || 'LOCAL');
       setSettings({
         country: (user as any).country || '',
         language: (user as any).language || 'es',
-        currency: (user as any).currency || 'LOCAL',
+        currency,
         searchRadius: (user as any).searchRadius || 25,
         notifAppointments: (user as any).notifAppointments ?? true,
         notifPromotions: (user as any).notifPromotions ?? true,
         notifRewards: (user as any).notifRewards ?? true,
         notifMessages: (user as any).notifMessages ?? true,
       });
+      // Si se migro, marcar dirty para que se persista al backend al guardar.
+      if (savedCurrency === 'USD') setHasChanges(true);
     }
   }, [user]);
 
@@ -954,8 +962,12 @@ export default function MarketplaceSettingsPage() {
                   value={settings.country}
                   onChange={(e) => {
                     updateField('country', e.target.value);
-                    // Auto-set currency to LOCAL when country changes
-                    if (settings.currency !== 'USD') updateField('currency', 'LOCAL');
+                    // Siempre forzamos moneda LOCAL. La opcion de cambiar a USD
+                    // se removio en V1 — se replantea para V2 cuando el
+                    // sistema soporte multi-moneda end-to-end (catalogo,
+                    // pagos, reportes). Hasta entonces, los precios se ven
+                    // en la moneda local del pais.
+                    updateField('currency', 'LOCAL');
                   }}
                   className="mt-2 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-white"
                 >
@@ -964,41 +976,16 @@ export default function MarketplaceSettingsPage() {
                     <option key={c.code} value={c.code}>{c.label}</option>
                   ))}
                 </select>
+                {settings.country && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Moneda: <span className="font-medium text-gray-600">{localCurrencyLabel}</span>
+                  </p>
+                )}
               </div>
 
               {/* Idioma: oculto en V1, se reactiva cuando soporte multi-idioma. */}
-
-              {/* Currency */}
-              <div className="px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">Moneda</p>
-                  <p className="text-xs text-gray-400">Cómo ver los precios</p>
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => updateField('currency', 'LOCAL')}
-                    className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={
-                      settings.currency === 'LOCAL'
-                        ? { backgroundColor: TEAL, color: 'white' }
-                        : { backgroundColor: '#f3f4f6', color: '#6b7280' }
-                    }
-                  >
-                    {localCurrencyLabel}
-                  </button>
-                  <button
-                    onClick={() => updateField('currency', 'USD')}
-                    className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={
-                      settings.currency === 'USD'
-                        ? { backgroundColor: TEAL, color: 'white' }
-                        : { backgroundColor: '#f3f4f6', color: '#6b7280' }
-                    }
-                  >
-                    US Dollar (USD)
-                  </button>
-                </div>
-              </div>
+              {/* Moneda: el selector USD/LOCAL se removio en V1 — multi-moneda
+                  llega en V2. Mientras tanto se usa siempre la moneda del pais. */}
             </div>
           </div>
 
