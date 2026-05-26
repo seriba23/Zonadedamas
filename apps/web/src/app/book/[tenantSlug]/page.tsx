@@ -343,7 +343,6 @@ export default function BookingPage() {
                 onClick={() => {
                   setSelectedEmployee(null);
                   setAnyEmployee(true);
-                  setStep(3);
                 }}
                 className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                   anyEmployee
@@ -377,7 +376,6 @@ export default function BookingPage() {
                     onClick={() => {
                       setSelectedEmployee(emp);
                       setAnyEmployee(false);
-                      setStep(3);
                     }}
                     className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                       selectedEmployee?.id === emp.id
@@ -401,6 +399,17 @@ export default function BookingPage() {
                 ))
               )}
             </div>
+
+            {/* Continuar — consistente con los demas steps. Requiere
+                seleccion explicita (algun empleado o "cualquiera"). */}
+            <button
+              type="button"
+              disabled={!selectedEmployee && !anyEmployee}
+              onClick={() => setStep(3)}
+              className="w-full mt-6 py-3 rounded-xl font-semibold text-white text-sm bg-primary-600 hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continuar
+            </button>
           </div>
         )}
 

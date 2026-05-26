@@ -247,10 +247,7 @@ export default function PortalBookPage() {
             {availableEmployees.map((emp) => (
               <button
                 key={emp.id}
-                onClick={() => {
-                  setSelectedEmployeeId(emp.id);
-                  setStep('datetime');
-                }}
+                onClick={() => setSelectedEmployeeId(emp.id)}
                 className={`w-full text-left p-4 rounded-xl border transition-colors ${
                   selectedEmployeeId === emp.id
                     ? 'border-indigo-500 bg-indigo-50'
@@ -274,6 +271,16 @@ export default function PortalBookPage() {
                 </div>
               </button>
             ))}
+
+            {/* Continuar — consistente con los demas steps. */}
+            <button
+              type="button"
+              disabled={!selectedEmployeeId}
+              onClick={() => setStep('datetime')}
+              className="w-full mt-4 py-3 rounded-xl font-semibold text-white text-sm bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continuar
+            </button>
           </div>
         )}
 

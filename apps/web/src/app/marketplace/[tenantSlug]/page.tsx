@@ -3140,7 +3140,6 @@ export default function BusinessDetailPage() {
                           setSelectedEmployee(null);
                           setAnyEmployee(true);
                           setSelectedSlot(null);
-                          setBookingStep('datetime');
                         }}
                         className="w-full text-left p-4 rounded-xl border-2 transition-all"
                         style={anyEmployee
@@ -3170,7 +3169,6 @@ export default function BusinessDetailPage() {
                               setSelectedEmployee(emp);
                               setAnyEmployee(false);
                               setSelectedSlot(null);
-                              setBookingStep('datetime');
                             }}
                             className="w-full text-left p-4 rounded-xl border-2 transition-all"
                             style={isSel
@@ -3195,6 +3193,27 @@ export default function BusinessDetailPage() {
                       })}
                     </div>
                   )}
+
+                  {/* Boton Continuar — consistente con los demas steps.
+                      Single: requiere algun empleado seleccionado o "cualquiera".
+                      Multi: requiere que todos los servicios tengan empleado
+                      asignado (las pills auto-asignan o el cliente elige). */}
+                  {(() => {
+                    const canContinue = isMultiEmployee
+                      ? selectedServiceIds.every((sid) => !!serviceEmployeeMap[sid])
+                      : !!selectedEmployee || anyEmployee;
+                    return (
+                      <button
+                        type="button"
+                        disabled={!canContinue}
+                        onClick={() => setBookingStep('datetime')}
+                        className="w-full mt-6 py-3 rounded-xl font-semibold text-white text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: TEAL }}
+                      >
+                        Continuar
+                      </button>
+                    );
+                  })()}
                 </div>
               )}
 
