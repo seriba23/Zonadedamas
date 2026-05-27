@@ -76,23 +76,28 @@ export function AddressFields({
       .then((subs) => {
         setSubdivisions(subs);
         setLoadingSubs(false);
-        // Auto-resolver regionCode: si llegamos con region (nombre) pero
-        // sin regionCode (caso comun al cargar address parseado del
-        // backend), buscamos el match exact en subs y rellenamos para
-        // que el dropdown muestre la opcion seleccionada.
-        if (value.region && !value.regionCode && subs.length > 0) {
-          const match = subs.find(
-            (s) => s.name.toLowerCase() === value.region.toLowerCase(),
-          );
-          if (match) onChange({ ...value, regionCode: match.code });
-        }
       })
       .catch(() => {
         setSubdivisions([]);
         setLoadingSubs(false);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.countryCode]);
+
+  // Auto-resolver regionCode cuando se cumplen las 3 condiciones:
+  //  - el value tiene region (nombre) pero NO regionCode
+  //  - las subdivisions ya estan cargadas
+  // Este useEffect reacciona tanto al cambio de value.region (caso
+  // pre-fill diferido, ej. parseAddress del cliente que llega despues
+  // de cargar el country) como al cambio de subdivisions (caso pre-fill
+  // inicial, ej. al montar con value ya seteado pero subs cargando).
+  useEffect(() => {
+    if (!value.region || value.regionCode || subdivisions.length === 0) return;
+    const match = subdivisions.find(
+      (s) => s.name.toLowerCase() === value.region.toLowerCase(),
+    );
+    if (match) onChange({ ...value, regionCode: match.code });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.region, value.regionCode, subdivisions]);
 
   // Cargar ciudades cuando cambia el estado (solo MX por ahora)
   useEffect(() => {

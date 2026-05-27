@@ -276,20 +276,15 @@ function RegisterPageInner() {
           // numero distinto.
           businessPhone: f.businessPhone || u.phone || '',
         }));
-        // Pre-fill direcciones con la del cliente. La logica:
-        //  - businessAddress (admin step 2): direccion del negocio. Si
-        //    cliente tiene direccion, asumimos que su negocio esta en el
-        //    mismo lugar por default (puede cambiar).
-        //  - personalAddress (profesional afiliado): direccion personal
-        //    del empleado. Pre-llenar siempre con la del cliente porque
-        //    es la misma persona.
-        //  - localAddress (profesional independiente): NO pre-rellenar.
-        //    El local profesional suele ser distinto a la casa, mejor
-        //    que el user lo capture explicitamente.
+        // Pre-fill direcciones con la del cliente. Pre-llenamos las 3
+        // porque es comun que el local profesional/del negocio coincida
+        // con la direccion personal del cliente (al menos como punto de
+        // partida). El user puede editar cualquiera si difiere.
         if (u.address) {
           const isEmpty = (a: AddressValue) => !a.street && !a.city && !a.region && !a.postalCode;
           setBusinessAddress((prev) => (isEmpty(prev) ? parseAddress(u.address, countries) : prev));
           setPersonalAddress((prev) => (isEmpty(prev) ? parseAddress(u.address, countries) : prev));
+          setLocalAddress((prev) => (isEmpty(prev) ? parseAddress(u.address, countries) : prev));
         }
         setPrefilledFromClient(true);
       })
