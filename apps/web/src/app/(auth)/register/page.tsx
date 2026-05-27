@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import { PasswordRules } from '@/components/ui/password-rules';
+import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
 
 // Country phone codes
@@ -830,6 +831,7 @@ function RegisterPageInner() {
                   </button>
                 </div>
                 {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+                <PasswordMatch password={form.password} confirmPassword={form.confirmPassword} />
               </div>
 
               {/* T&C — solo para independientes */}
@@ -1035,6 +1037,7 @@ function RegisterPageInner() {
                 </div>
               </div>
               <PasswordRules password={form.password} />
+              <PasswordMatch password={form.password} confirmPassword={form.confirmPassword} />
 
               <button type="submit" disabled={isLoading}
                 className="w-full btn-primary flex items-center justify-center gap-2 py-2 text-sm">
@@ -1175,6 +1178,7 @@ function RegisterPageInner() {
                       onChange={(e) => updateField('confirmPassword', e.target.value)}
                       className={`input-field ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Repite tu contraseña" />
                     {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+                    <PasswordMatch password={form.password} confirmPassword={form.confirmPassword} />
                   </div>
 
                   <button type="button" onClick={handleNextStep}
@@ -1237,6 +1241,7 @@ function RegisterPageInner() {
                   onChange={(e) => updateField('confirmPassword', e.target.value)}
                   className={`input-field ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Repite tu contraseña" />
                 {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+                <PasswordMatch password={form.password} confirmPassword={form.confirmPassword} />
               </div>
 
               <button type="button" onClick={handleNextStep}

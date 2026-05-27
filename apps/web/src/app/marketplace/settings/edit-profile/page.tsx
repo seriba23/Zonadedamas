@@ -11,6 +11,7 @@ import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { DatePicker } from '@/components/ui/date-picker';
 import { AllergiesSelector } from '@/components/ui/allergies-selector';
 import { PasswordRules } from '@/components/ui/password-rules';
+import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
 
 const TEAL = '#008080';
@@ -687,6 +688,7 @@ export default function EditProfilePage() {
                   onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
                   style={{ '--tw-ring-color': TEAL } as any} />
+                <PasswordMatch password={passwordForm.newPassword} confirmPassword={passwordForm.confirmPassword} />
               </div>
               {passwordError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{passwordError}</p>}
               <button onClick={handlePasswordSubmit} disabled={passwordMutation.isPending}
@@ -733,6 +735,7 @@ export default function EditProfilePage() {
                   onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
                   style={{ '--tw-ring-color': TEAL } as any} />
+                <PasswordMatch password={passwordForm.newPassword} confirmPassword={passwordForm.confirmPassword} />
               </div>
               {passwordError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{passwordError}</p>}
               <button onClick={handlePasswordSubmit} disabled={passwordMutation.isPending}
