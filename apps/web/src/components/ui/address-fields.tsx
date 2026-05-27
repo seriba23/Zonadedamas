@@ -1,40 +1,51 @@
 'use client';
 
-import { COUNTRIES_GEO, getCountry, getRegionLabel, getRegions } from '@/lib/geo-data';
+import { useEffect, useState } from 'react';
+import {
+  loadCountries,
+  getSubdivisionsOfCountry,
+  getMxCitiesOfState,
+  regionLabelFromSubdivisions,
+  getCountrySync,
+  countryHasCityDropdown,
+  type Country,
+  type Subdivision,
+} from '@/lib/geo-data';
 
 export interface AddressValue {
   street: string;
   number: string;
   colonia: string;
   city: string;
-  region: string;       // estado/provincia/departamento
+  region: string;       // Nombre del estado/provincia (string libre porque el dataset puede no tener)
+  regionCode: string;   // Codigo ISO de la subdivision (ej. "MX-JAL"); vacio si region es libre
   postalCode: string;
-  countryCode: string;  // ISO 2 letras
+  countryCode: string;  // ISO alpha2 lowercase (ej. "mx"); coincide con el dataset
 }
 
 interface Props {
   value: AddressValue;
   onChange: (next: AddressValue) => void;
-  /** Mostrar campos opcionales (colonia, numero) en columnas. Default true. */
   showOptional?: boolean;
-  /** Marca todos los campos requeridos visualmente. Default false (opcional). */
   required?: boolean;
-  /** Errores por campo para resaltar bordes en rojo. */
   errors?: Partial<Record<keyof AddressValue, string>>;
-  /** Clase extra para el contenedor. */
   className?: string;
 }
 
 const TEAL = '#008080';
 
 /**
- * Bloque reutilizable de direccion con droplists de pais y region
- * (estado/provincia/departamento segun pais). Calle, numero, colonia,
- * ciudad y CP son texto libre — agregar dropdown de ciudades requeriria
- * dataset mucho mas grande (ver project_v2_geo_data.md).
+ * Bloque reutilizable de direccion. Patron de fallback:
  *
- * El label de region cambia segun el pais (Mexico="Estado",
- * Argentina="Provincia", Colombia="Departamento", Chile="Region", etc.).
+ *   - Pais: dropdown SIEMPRE (countries-es.json, ~250 paises).
+ *   - Region: dropdown si el dataset tiene subdivisions para el pais
+ *     elegido. Sino → input libre. El label cambia segun el "type" mas
+ *     comun (Estado / Provincia / Departamento / Region / etc.).
+ *   - Ciudad: dropdown solo para Mexico (con mx_cities_by_state.json y
+ *     estado elegido). Sino → input libre.
+ *
+ * Datos cargados lazy desde /data/*.json. Primer mount fetch ~520KB
+ * (subdivisions), despues queda en cache.
  */
 export function AddressFields({
   value,
@@ -44,24 +55,64 @@ export function AddressFields({
   errors = {},
   className = '',
 }: Props) {
-  const country = getCountry(value.countryCode);
-  const regionLabel = getRegionLabel(value.countryCode);
-  const regions = getRegions(value.countryCode);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [subdivisions, setSubdivisions] = useState<Subdivision[]>([]);
+  const [mxCities, setMxCities] = useState<string[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
+
+  // Cargar paises al montar (rapido, ~12KB)
+  useEffect(() => {
+    loadCountries().then(setCountries).catch(() => setCountries([]));
+  }, []);
+
+  // Cargar subdivisiones cuando cambia el pais
+  useEffect(() => {
+    if (!value.countryCode) {
+      setSubdivisions([]);
+      return;
+    }
+    setLoadingSubs(true);
+    getSubdivisionsOfCountry(value.countryCode)
+      .then((subs) => {
+        setSubdivisions(subs);
+        setLoadingSubs(false);
+      })
+      .catch(() => {
+        setSubdivisions([]);
+        setLoadingSubs(false);
+      });
+  }, [value.countryCode]);
+
+  // Cargar ciudades cuando cambia el estado (solo MX por ahora)
+  useEffect(() => {
+    if (!countryHasCityDropdown(value.countryCode) || !value.regionCode) {
+      setMxCities([]);
+      return;
+    }
+    getMxCitiesOfState(value.regionCode).then(setMxCities).catch(() => setMxCities([]));
+  }, [value.countryCode, value.regionCode]);
+
+  const regionLabel = regionLabelFromSubdivisions(subdivisions);
+  const hasRegionDropdown = subdivisions.length > 0;
+  const hasCityDropdown = countryHasCityDropdown(value.countryCode) && mxCities.length > 0;
   const reqMark = required ? <span className="text-red-500"> *</span> : null;
 
-  const update = (key: keyof AddressValue, v: string) => {
-    onChange({ ...value, [key]: v });
-  };
+  const update = (patch: Partial<AddressValue>) => onChange({ ...value, ...patch });
 
   const onCountryChange = (code: string) => {
-    // Al cambiar pais, reseteamos region si no existe en la nueva lista.
-    const newRegions = getRegions(code);
-    const nextRegion = newRegions.includes(value.region) ? value.region : '';
-    onChange({ ...value, countryCode: code, region: nextRegion });
+    // Al cambiar pais, reseteamos region y ciudad porque las subdivisiones
+    // y ciudades dependen del pais. Mantenemos los demas campos.
+    onChange({ ...value, countryCode: code.toLowerCase(), region: '', regionCode: '', city: '' });
+  };
+
+  const onRegionDropdownChange = (code: string) => {
+    const sub = subdivisions.find((s) => s.code === code);
+    onChange({ ...value, regionCode: code, region: sub?.name || '', city: '' });
   };
 
   const baseInput = 'w-full px-3 py-2.5 border rounded-xl text-sm focus:ring-2 focus:outline-none focus:border-transparent';
-  const inputClass = (err?: string) => `${baseInput} ${err ? 'border-red-400' : 'border-gray-200'}`;
+  const inputClass = (err?: string) =>
+    `${baseInput} ${err ? 'border-red-400' : 'border-gray-200'}`;
   const ringStyle = { '--tw-ring-color': TEAL } as React.CSSProperties;
 
   return (
@@ -77,33 +128,57 @@ export function AddressFields({
           className={`${inputClass(errors.countryCode)} bg-white`}
           style={ringStyle}
         >
-          <option value="">Selecciona un país</option>
-          {COUNTRIES_GEO.map((c) => (
-            <option key={c.code} value={c.code}>{c.name}</option>
+          <option value="">
+            {countries.length === 0 ? 'Cargando países…' : 'Selecciona un país'}
+          </option>
+          {countries.map((c) => (
+            <option key={c.alpha2} value={c.alpha2}>{c.name}</option>
           ))}
         </select>
         {errors.countryCode && <p className="mt-1 text-xs text-red-600">{errors.countryCode}</p>}
       </div>
 
-      {/* Region (etiqueta dinamica) */}
+      {/* Región: dropdown si hay subdivisiones, sino input libre */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
           {regionLabel}{reqMark}
         </label>
-        <select
-          value={value.region}
-          onChange={(e) => update('region', e.target.value)}
-          disabled={!country || regions.length === 0}
-          className={`${inputClass(errors.region)} bg-white disabled:bg-gray-100 disabled:cursor-not-allowed`}
-          style={ringStyle}
-        >
-          <option value="">
-            {country ? `Selecciona ${regionLabel.toLowerCase()}` : 'Selecciona un país primero'}
-          </option>
-          {regions.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
+        {!value.countryCode ? (
+          <input
+            type="text"
+            disabled
+            placeholder="Selecciona un país primero"
+            className={`${inputClass()} bg-gray-100 cursor-not-allowed`}
+          />
+        ) : loadingSubs ? (
+          <input
+            type="text"
+            disabled
+            placeholder="Cargando…"
+            className={`${inputClass()} bg-gray-100 cursor-not-allowed`}
+          />
+        ) : hasRegionDropdown ? (
+          <select
+            value={value.regionCode}
+            onChange={(e) => onRegionDropdownChange(e.target.value)}
+            className={`${inputClass(errors.region)} bg-white`}
+            style={ringStyle}
+          >
+            <option value="">{`Selecciona ${regionLabel.toLowerCase()}`}</option>
+            {subdivisions.map((s) => (
+              <option key={s.code} value={s.code}>{s.name}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            value={value.region}
+            onChange={(e) => update({ region: e.target.value, regionCode: '' })}
+            placeholder={`Escribe tu ${regionLabel.toLowerCase()}`}
+            className={inputClass(errors.region)}
+            style={ringStyle}
+          />
+        )}
         {errors.region && <p className="mt-1 text-xs text-red-600">{errors.region}</p>}
       </div>
 
@@ -111,14 +186,28 @@ export function AddressFields({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5">Ciudad{reqMark}</label>
-          <input
-            type="text"
-            value={value.city}
-            onChange={(e) => update('city', e.target.value)}
-            placeholder="Ciudad"
-            className={inputClass(errors.city)}
-            style={ringStyle}
-          />
+          {hasCityDropdown ? (
+            <select
+              value={value.city}
+              onChange={(e) => update({ city: e.target.value })}
+              className={`${inputClass(errors.city)} bg-white`}
+              style={ringStyle}
+            >
+              <option value="">Selecciona ciudad</option>
+              {mxCities.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={value.city}
+              onChange={(e) => update({ city: e.target.value })}
+              placeholder="Ciudad"
+              className={inputClass(errors.city)}
+              style={ringStyle}
+            />
+          )}
           {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
         </div>
         <div>
@@ -127,7 +216,7 @@ export function AddressFields({
             type="text"
             inputMode="numeric"
             value={value.postalCode}
-            onChange={(e) => update('postalCode', e.target.value.replace(/\D/g, '').slice(0, 10))}
+            onChange={(e) => update({ postalCode: e.target.value.replace(/\D/g, '').slice(0, 10) })}
             placeholder="CP"
             className={inputClass(errors.postalCode)}
             style={ringStyle}
@@ -143,7 +232,7 @@ export function AddressFields({
           <input
             type="text"
             value={value.street}
-            onChange={(e) => update('street', e.target.value)}
+            onChange={(e) => update({ street: e.target.value })}
             placeholder="Nombre de la calle"
             className={inputClass(errors.street)}
             style={ringStyle}
@@ -155,7 +244,7 @@ export function AddressFields({
           <input
             type="text"
             value={value.number}
-            onChange={(e) => update('number', e.target.value)}
+            onChange={(e) => update({ number: e.target.value })}
             placeholder="Ej. 123"
             className={inputClass(errors.number)}
             style={ringStyle}
@@ -173,7 +262,7 @@ export function AddressFields({
           <input
             type="text"
             value={value.colonia}
-            onChange={(e) => update('colonia', e.target.value)}
+            onChange={(e) => update({ colonia: e.target.value })}
             placeholder="Colonia"
             className={inputClass(errors.colonia)}
             style={ringStyle}
@@ -192,19 +281,16 @@ export function emptyAddress(countryCode = ''): AddressValue {
     colonia: '',
     city: '',
     region: '',
+    regionCode: '',
     postalCode: '',
-    countryCode,
+    countryCode: countryCode.toLowerCase(),
   };
 }
 
-/**
- * Valida que los campos obligatorios esten llenos. Retorna un objeto de
- * errores (vacio si todo OK). Pensado para usar en submit del form.
- */
 export function validateAddress(value: AddressValue): Partial<Record<keyof AddressValue, string>> {
   const errors: Partial<Record<keyof AddressValue, string>> = {};
   if (!value.countryCode) errors.countryCode = 'Selecciona un país';
-  if (!value.region) errors.region = 'Selecciona una opción';
+  if (!value.region.trim()) errors.region = 'Selecciona / escribe una opción';
   if (!value.city.trim()) errors.city = 'La ciudad es requerida';
   if (!value.postalCode.trim()) errors.postalCode = 'El código postal es requerido';
   if (!value.street.trim()) errors.street = 'La calle es requerida';
@@ -213,12 +299,11 @@ export function validateAddress(value: AddressValue): Partial<Record<keyof Addre
 }
 
 /**
- * Serializa la direccion al formato string que usa el backend para
- * `User.address` y similares ("Calle 123, Colonia, Ciudad, Estado, CP, Pais").
- * Coincide con buildAddress() del edit-profile actual.
+ * Serializa al formato string del backend:
+ * "Calle Numero, Colonia, Ciudad, Region, CP, Pais"
  */
 export function serializeAddress(v: AddressValue): string {
-  const country = getCountry(v.countryCode)?.name || v.countryCode || '';
+  const country = getCountrySync(v.countryCode)?.name || v.countryCode || '';
   return [
     [v.street, v.number].filter(Boolean).join(' '),
     v.colonia,
@@ -229,7 +314,12 @@ export function serializeAddress(v: AddressValue): string {
   ].filter(Boolean).join(', ');
 }
 
-/** Best-effort parse del formato string del backend. */
+/**
+ * Best-effort parse del formato string del backend. countryCode queda
+ * vacio porque solo se puede resolver al alpha2 una vez cargado el
+ * cache de paises (matching por nombre). El componente AddressFields
+ * carga countries al montar y permite al usuario seleccionar el correcto.
+ */
 export function parseAddress(address: string): AddressValue {
   if (!address) return emptyAddress();
   const parts = address.split(',').map((s) => s.trim());
@@ -242,14 +332,21 @@ export function parseAddress(address: string): AddressValue {
   const region = parts[3] || '';
   const postalCode = parts[4] || '';
   const countryName = parts[5] || '';
-  const country = COUNTRIES_GEO.find((c) => c.name === countryName);
+  // countryCode queda vacio: el componente cargara la lista y el user
+  // puede re-seleccionar si es necesario. Best-effort: lookup sincrono
+  // en el cache si ya esta cargado.
+  const country = countryName
+    ? // Lookup case-insensitive por nombre
+      (typeof window !== 'undefined' ? (window as any).__countriesCacheByName?.[countryName.toLowerCase()] : '')
+    : '';
   return {
     street,
     number,
     colonia,
     city,
     region,
+    regionCode: '',
     postalCode,
-    countryCode: country?.code || '',
+    countryCode: country || '',
   };
 }

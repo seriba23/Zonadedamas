@@ -1,257 +1,172 @@
-// Datos geograficos para droplists de direccion: paises + estados/provincias/
-// departamentos. Cobertura: LATAM hispana + Brasil + EE.UU. + España.
+// Datos geograficos cargados desde JSON publico (apps/web/public/data/).
+// Patron tomado del proyecto zonadecaballeros donde ya estaba probado:
 //
-// V1 hardcodeado para no depender de paquetes externos pesados. V2: si se
-// necesita ciudades dropdown o cobertura mundial, considerar paquete
-// `country-state-city` o API externa. Ver project_v2_geo_data.md.
-
-export type RegionLabel = 'Estado' | 'Provincia' | 'Departamento' | 'Región' | 'Comunidad';
+//   1) Pais: dropdown SIEMPRE (countries-es.json)
+//   2) Estado/Provincia/etc: dropdown si subdivisions.json tiene datos
+//      para ese pais, sino fallback a input libre.
+//   3) Ciudad: dropdown si MX + estado tiene mapeo, sino input libre.
+//
+// Los 3 JSON se cachean en memoria despues del primer fetch.
 
 export interface Country {
-  code: string;          // ISO 3166-1 alpha-2
-  name: string;          // Nombre nativo (ej. "México")
-  regionLabel: RegionLabel; // Como llaman al primer nivel administrativo
-  regions: string[];     // Lista alfabetica de estados/provincias/etc.
+  id?: number;
+  alpha2: string; // ISO 3166-1 alpha-2 lowercase (ej. "mx")
+  alpha3?: string;
+  name: string;   // Nombre en español (ej. "México")
 }
 
-export const COUNTRIES_GEO: Country[] = [
-  {
-    code: 'MX',
-    name: 'México',
-    regionLabel: 'Estado',
-    regions: [
-      'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche', 'Chiapas',
-      'Chihuahua', 'Ciudad de México', 'Coahuila', 'Colima', 'Durango', 'Estado de México',
-      'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco', 'Michoacán', 'Morelos', 'Nayarit',
-      'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí',
-      'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas',
-    ],
-  },
-  {
-    code: 'AR',
-    name: 'Argentina',
-    regionLabel: 'Provincia',
-    regions: [
-      'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Ciudad Autónoma de Buenos Aires',
-      'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
-      'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis',
-      'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
-    ],
-  },
-  {
-    code: 'CO',
-    name: 'Colombia',
-    regionLabel: 'Departamento',
-    regions: [
-      'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá D.C.', 'Bolívar', 'Boyacá',
-      'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 'Chocó', 'Córdoba', 'Cundinamarca',
-      'Guainía', 'Guaviare', 'Huila', 'La Guajira', 'Magdalena', 'Meta', 'Nariño',
-      'Norte de Santander', 'Putumayo', 'Quindío', 'Risaralda', 'San Andrés y Providencia',
-      'Santander', 'Sucre', 'Tolima', 'Valle del Cauca', 'Vaupés', 'Vichada',
-    ],
-  },
-  {
-    code: 'ES',
-    name: 'España',
-    regionLabel: 'Provincia',
-    regions: [
-      'A Coruña', 'Álava', 'Albacete', 'Alicante', 'Almería', 'Asturias', 'Ávila', 'Badajoz',
-      'Baleares', 'Barcelona', 'Burgos', 'Cáceres', 'Cádiz', 'Cantabria', 'Castellón',
-      'Ceuta', 'Ciudad Real', 'Córdoba', 'Cuenca', 'Girona', 'Granada', 'Guadalajara',
-      'Gipuzkoa', 'Huelva', 'Huesca', 'Jaén', 'La Rioja', 'Las Palmas', 'León', 'Lleida',
-      'Lugo', 'Madrid', 'Málaga', 'Melilla', 'Murcia', 'Navarra', 'Ourense', 'Palencia',
-      'Pontevedra', 'Salamanca', 'Santa Cruz de Tenerife', 'Segovia', 'Sevilla', 'Soria',
-      'Tarragona', 'Teruel', 'Toledo', 'Valencia', 'Valladolid', 'Bizkaia', 'Zamora', 'Zaragoza',
-    ],
-  },
-  {
-    code: 'CL',
-    name: 'Chile',
-    regionLabel: 'Región',
-    regions: [
-      'Antofagasta', 'Arica y Parinacota', 'Atacama', 'Aysén', 'Biobío', 'Coquimbo',
-      'La Araucanía', 'Libertador General Bernardo O\'Higgins', 'Los Lagos', 'Los Ríos',
-      'Magallanes', 'Maule', 'Ñuble', 'Región Metropolitana', 'Tarapacá', 'Valparaíso',
-    ],
-  },
-  {
-    code: 'PE',
-    name: 'Perú',
-    regionLabel: 'Región',
-    regions: [
-      'Amazonas', 'Áncash', 'Apurímac', 'Arequipa', 'Ayacucho', 'Cajamarca', 'Callao',
-      'Cusco', 'Huancavelica', 'Huánuco', 'Ica', 'Junín', 'La Libertad', 'Lambayeque',
-      'Lima', 'Loreto', 'Madre de Dios', 'Moquegua', 'Pasco', 'Piura', 'Puno', 'San Martín',
-      'Tacna', 'Tumbes', 'Ucayali',
-    ],
-  },
-  {
-    code: 'VE',
-    name: 'Venezuela',
-    regionLabel: 'Estado',
-    regions: [
-      'Amazonas', 'Anzoátegui', 'Apure', 'Aragua', 'Barinas', 'Bolívar', 'Carabobo',
-      'Cojedes', 'Delta Amacuro', 'Distrito Capital', 'Falcón', 'Guárico', 'Lara', 'Mérida',
-      'Miranda', 'Monagas', 'Nueva Esparta', 'Portuguesa', 'Sucre', 'Táchira', 'Trujillo',
-      'Vargas', 'Yaracuy', 'Zulia',
-    ],
-  },
-  {
-    code: 'EC',
-    name: 'Ecuador',
-    regionLabel: 'Provincia',
-    regions: [
-      'Azuay', 'Bolívar', 'Cañar', 'Carchi', 'Chimborazo', 'Cotopaxi', 'El Oro', 'Esmeraldas',
-      'Galápagos', 'Guayas', 'Imbabura', 'Loja', 'Los Ríos', 'Manabí', 'Morona Santiago',
-      'Napo', 'Orellana', 'Pastaza', 'Pichincha', 'Santa Elena', 'Santo Domingo de los Tsáchilas',
-      'Sucumbíos', 'Tungurahua', 'Zamora Chinchipe',
-    ],
-  },
-  {
-    code: 'GT',
-    name: 'Guatemala',
-    regionLabel: 'Departamento',
-    regions: [
-      'Alta Verapaz', 'Baja Verapaz', 'Chimaltenango', 'Chiquimula', 'El Progreso', 'Escuintla',
-      'Guatemala', 'Huehuetenango', 'Izabal', 'Jalapa', 'Jutiapa', 'Petén', 'Quetzaltenango',
-      'Quiché', 'Retalhuleu', 'Sacatepéquez', 'San Marcos', 'Santa Rosa', 'Sololá',
-      'Suchitepéquez', 'Totonicapán', 'Zacapa',
-    ],
-  },
-  {
-    code: 'SV',
-    name: 'El Salvador',
-    regionLabel: 'Departamento',
-    regions: [
-      'Ahuachapán', 'Cabañas', 'Chalatenango', 'Cuscatlán', 'La Libertad', 'La Paz', 'La Unión',
-      'Morazán', 'San Miguel', 'San Salvador', 'San Vicente', 'Santa Ana', 'Sonsonate', 'Usulután',
-    ],
-  },
-  {
-    code: 'HN',
-    name: 'Honduras',
-    regionLabel: 'Departamento',
-    regions: [
-      'Atlántida', 'Choluteca', 'Colón', 'Comayagua', 'Copán', 'Cortés', 'El Paraíso',
-      'Francisco Morazán', 'Gracias a Dios', 'Intibucá', 'Islas de la Bahía', 'La Paz',
-      'Lempira', 'Ocotepeque', 'Olancho', 'Santa Bárbara', 'Valle', 'Yoro',
-    ],
-  },
-  {
-    code: 'NI',
-    name: 'Nicaragua',
-    regionLabel: 'Departamento',
-    regions: [
-      'Boaco', 'Carazo', 'Chinandega', 'Chontales', 'Costa Caribe Norte', 'Costa Caribe Sur',
-      'Estelí', 'Granada', 'Jinotega', 'León', 'Madriz', 'Managua', 'Masaya', 'Matagalpa',
-      'Nueva Segovia', 'Río San Juan', 'Rivas',
-    ],
-  },
-  {
-    code: 'CR',
-    name: 'Costa Rica',
-    regionLabel: 'Provincia',
-    regions: ['Alajuela', 'Cartago', 'Guanacaste', 'Heredia', 'Limón', 'Puntarenas', 'San José'],
-  },
-  {
-    code: 'PA',
-    name: 'Panamá',
-    regionLabel: 'Provincia',
-    regions: [
-      'Bocas del Toro', 'Chiriquí', 'Coclé', 'Colón', 'Darién', 'Emberá-Wounaan', 'Guna Yala',
-      'Herrera', 'Los Santos', 'Ngäbe-Buglé', 'Panamá', 'Panamá Oeste', 'Veraguas',
-    ],
-  },
-  {
-    code: 'CU',
-    name: 'Cuba',
-    regionLabel: 'Provincia',
-    regions: [
-      'Artemisa', 'Camagüey', 'Ciego de Ávila', 'Cienfuegos', 'Granma', 'Guantánamo',
-      'Holguín', 'Isla de la Juventud', 'La Habana', 'Las Tunas', 'Matanzas', 'Mayabeque',
-      'Pinar del Río', 'Sancti Spíritus', 'Santiago de Cuba', 'Villa Clara',
-    ],
-  },
-  {
-    code: 'DO',
-    name: 'República Dominicana',
-    regionLabel: 'Provincia',
-    regions: [
-      'Azua', 'Bahoruco', 'Barahona', 'Dajabón', 'Distrito Nacional', 'Duarte', 'El Seibo',
-      'Elías Piña', 'Espaillat', 'Hato Mayor', 'Hermanas Mirabal', 'Independencia',
-      'La Altagracia', 'La Romana', 'La Vega', 'María Trinidad Sánchez', 'Monseñor Nouel',
-      'Monte Cristi', 'Monte Plata', 'Pedernales', 'Peravia', 'Puerto Plata', 'Samaná',
-      'San Cristóbal', 'San José de Ocoa', 'San Juan', 'San Pedro de Macorís', 'Sánchez Ramírez',
-      'Santiago', 'Santiago Rodríguez', 'Santo Domingo', 'Valverde',
-    ],
-  },
-  {
-    code: 'BO',
-    name: 'Bolivia',
-    regionLabel: 'Departamento',
-    regions: [
-      'Beni', 'Chuquisaca', 'Cochabamba', 'La Paz', 'Oruro', 'Pando', 'Potosí', 'Santa Cruz',
-      'Tarija',
-    ],
-  },
-  {
-    code: 'PY',
-    name: 'Paraguay',
-    regionLabel: 'Departamento',
-    regions: [
-      'Alto Paraguay', 'Alto Paraná', 'Amambay', 'Asunción', 'Boquerón', 'Caaguazú', 'Caazapá',
-      'Canindeyú', 'Central', 'Concepción', 'Cordillera', 'Guairá', 'Itapúa', 'Misiones',
-      'Ñeembucú', 'Paraguarí', 'Presidente Hayes', 'San Pedro',
-    ],
-  },
-  {
-    code: 'UY',
-    name: 'Uruguay',
-    regionLabel: 'Departamento',
-    regions: [
-      'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
-      'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú', 'Río Negro', 'Rivera', 'Rocha',
-      'Salto', 'San José', 'Soriano', 'Tacuarembó', 'Treinta y Tres',
-    ],
-  },
-  {
-    code: 'BR',
-    name: 'Brasil',
-    regionLabel: 'Estado',
-    regions: [
-      'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará', 'Distrito Federal',
-      'Espírito Santo', 'Goiás', 'Maranhão', 'Mato Grosso', 'Mato Grosso do Sul',
-      'Minas Gerais', 'Pará', 'Paraíba', 'Paraná', 'Pernambuco', 'Piauí', 'Rio de Janeiro',
-      'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia', 'Roraima', 'Santa Catarina',
-      'São Paulo', 'Sergipe', 'Tocantins',
-    ],
-  },
-  {
-    code: 'US',
-    name: 'Estados Unidos',
-    regionLabel: 'Estado',
-    regions: [
-      'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Carolina del Norte',
-      'Carolina del Sur', 'Colorado', 'Connecticut', 'Dakota del Norte', 'Dakota del Sur',
-      'Delaware', 'Distrito de Columbia', 'Florida', 'Georgia', 'Hawái', 'Idaho', 'Illinois',
-      'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Luisiana', 'Maine', 'Maryland',
-      'Massachusetts', 'Michigan', 'Minnesota', 'Misisipi', 'Misuri', 'Montana', 'Nebraska',
-      'Nevada', 'Nueva Jersey', 'Nueva York', 'Nuevo Hampshire', 'Nuevo México', 'Ohio',
-      'Oklahoma', 'Oregón', 'Pensilvania', 'Rhode Island', 'Tennessee', 'Texas', 'Utah',
-      'Vermont', 'Virginia', 'Virginia Occidental', 'Washington', 'Wisconsin', 'Wyoming',
-    ],
-  },
-];
-
-export function getCountry(code: string | null | undefined): Country | undefined {
-  if (!code) return undefined;
-  return COUNTRIES_GEO.find((c) => c.code === code);
+export interface SubdivisionRaw {
+  country?: string;
+  country_code?: string;
+  countryCode?: string;
+  iso2?: string;
+  code?: string;
+  isoCode?: string;
+  state_code?: string;
+  name: string;
+  name_en?: string;
+  type?: string;  // state, province, department, region, parish, etc.
+  parent?: string;
 }
 
-export function getRegionLabel(countryCode: string | null | undefined): RegionLabel {
-  return getCountry(countryCode)?.regionLabel || 'Estado';
+export interface Subdivision {
+  country: string; // upper-case
+  code: string;
+  name: string;
+  type: string;
 }
 
-export function getRegions(countryCode: string | null | undefined): string[] {
-  return getCountry(countryCode)?.regions || [];
+// Mapeo de "type" del dataset → label en español.
+const TYPE_LABEL_MAP: Record<string, string> = {
+  state: 'Estado',
+  province: 'Provincia',
+  department: 'Departamento',
+  region: 'Región',
+  district: 'Distrito',
+  parish: 'Parroquia',
+  emirate: 'Emirato',
+  municipality: 'Municipalidad',
+  division: 'División',
+  city: 'Ciudad',
+  county: 'Condado',
+  prefecture: 'Prefectura',
+  autonomous_community: 'Comunidad autónoma',
+  governorate: 'Gobernación',
+  republic: 'República',
+  territory: 'Territorio',
+};
+
+// Cache en memoria — se llena en el primer fetch y se reusa.
+let countriesCache: Country[] | null = null;
+let subdivisionsCache: Subdivision[] | null = null;
+let mxCitiesCache: Record<string, string[]> | null = null;
+
+// Cargas paralelizables: pueden iniciarse al mismo tiempo si se llaman
+// individualmente. Cada loader devuelve la misma promesa si ya esta en curso.
+let countriesPromise: Promise<Country[]> | null = null;
+let subdivisionsPromise: Promise<Subdivision[]> | null = null;
+let mxCitiesPromise: Promise<Record<string, string[]>> | null = null;
+
+function normalizeSubdivision(s: SubdivisionRaw): Subdivision {
+  const country = (s.country_code ?? s.countryCode ?? s.country ?? s.iso2 ?? '').toString().toUpperCase();
+  const code = (s.code ?? s.isoCode ?? s.state_code ?? '').toString();
+  const name = (s.name ?? '').toString();
+  const type = (s.type ?? '').toString().toLowerCase();
+  return { country, code, name, type };
+}
+
+export async function loadCountries(): Promise<Country[]> {
+  if (countriesCache) return countriesCache;
+  if (countriesPromise) return countriesPromise;
+  countriesPromise = fetch('/data/countries-es.json')
+    .then((r) => r.json())
+    .then((data: Country[]) => {
+      countriesCache = data.sort((a, b) =>
+        a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }),
+      );
+      return countriesCache;
+    });
+  return countriesPromise;
+}
+
+export async function loadSubdivisions(): Promise<Subdivision[]> {
+  if (subdivisionsCache) return subdivisionsCache;
+  if (subdivisionsPromise) return subdivisionsPromise;
+  subdivisionsPromise = fetch('/data/subdivisions.json')
+    .then((r) => r.json())
+    .then((data: SubdivisionRaw[]) => {
+      subdivisionsCache = data.map(normalizeSubdivision);
+      return subdivisionsCache;
+    });
+  return subdivisionsPromise;
+}
+
+export async function loadMxCities(): Promise<Record<string, string[]>> {
+  if (mxCitiesCache) return mxCitiesCache;
+  if (mxCitiesPromise) return mxCitiesPromise;
+  mxCitiesPromise = fetch('/data/mx_cities_by_state.json')
+    .then((r) => r.json())
+    .then((data: Record<string, string[]>) => {
+      mxCitiesCache = data;
+      return mxCitiesCache;
+    });
+  return mxCitiesPromise;
+}
+
+/**
+ * Retorna las subdivisiones de un pais ordenadas alfabeticamente.
+ * Vacio si el pais no tiene subdivisiones en el dataset.
+ */
+export async function getSubdivisionsOfCountry(countryCode: string): Promise<Subdivision[]> {
+  if (!countryCode) return [];
+  const cc = countryCode.toUpperCase();
+  const subs = await loadSubdivisions();
+  return subs
+    .filter((s) => s.country === cc && s.code && s.name)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+}
+
+/**
+ * Para México: devuelve las ciudades de un estado dado el codigo ISO de la
+ * subdivision (ej. "MX-AGU" o "AGU"). Vacio si no hay mapeo.
+ */
+export async function getMxCitiesOfState(stateCode: string): Promise<string[]> {
+  if (!stateCode) return [];
+  const cities = await loadMxCities();
+  // Acepta tanto "MX-AGU" como solo "AGU".
+  const part = stateCode.includes('-') ? stateCode.split('-')[1] : stateCode;
+  const list = cities[part] || cities[stateCode] || [];
+  return [...new Set(list.map((c) => c.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'es', { sensitivity: 'base' }),
+  );
+}
+
+/**
+ * Devuelve el label del nivel administrativo segun el "type" mas comun
+ * entre las subdivisiones del pais. Default "Estado / Provincia" cuando
+ * no se puede determinar.
+ */
+export function regionLabelFromSubdivisions(subs: Subdivision[]): string {
+  if (subs.length === 0) return 'Estado / Provincia';
+  // Tomar el type mas frecuente
+  const counts: Record<string, number> = {};
+  for (const s of subs) {
+    if (!s.type) continue;
+    counts[s.type] = (counts[s.type] || 0) + 1;
+  }
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  if (!top) return 'Estado / Provincia';
+  return TYPE_LABEL_MAP[top[0]] || 'Estado / Provincia';
+}
+
+/** Lookup sincrono usando el cache (si esta cargado). */
+export function getCountrySync(alpha2: string | null | undefined): Country | undefined {
+  if (!alpha2 || !countriesCache) return undefined;
+  const code = alpha2.toLowerCase();
+  return countriesCache.find((c) => c.alpha2 === code);
+}
+
+/** Mexico = caso especial con ciudades dropdown. Resto: ciudad libre. */
+export function countryHasCityDropdown(alpha2: string | null | undefined): boolean {
+  return (alpha2 || '').toUpperCase() === 'MX';
 }

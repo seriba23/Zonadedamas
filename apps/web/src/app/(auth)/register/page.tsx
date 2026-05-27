@@ -10,7 +10,7 @@ import { PasswordRules } from '@/components/ui/password-rules';
 import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
 import { AddressFields, emptyAddress, type AddressValue } from '@/components/ui/address-fields';
-import { getCountry } from '@/lib/geo-data';
+import { getCountrySync } from '@/lib/geo-data';
 
 // Country phone codes
 const COUNTRY_CODES = [
@@ -213,7 +213,7 @@ function RegisterPageInner() {
   // Direccion del negocio (mode='individual' admin step 2). Reemplaza los
   // 6 inputs de texto libre por <AddressFields> con droplists de pais y
   // estado/provincia. Default MX para usuarios mexicanos (LATAM-first).
-  const [businessAddress, setBusinessAddress] = useState<AddressValue>(emptyAddress('MX'));
+  const [businessAddress, setBusinessAddress] = useState<AddressValue>(emptyAddress('mx'));
   const [invitePreview, setInvitePreview] = useState<{
     businessName: string;
     logoUrl?: string | null;
@@ -422,7 +422,7 @@ function RegisterPageInner() {
         businessCity: businessAddress.city.trim() || undefined,
         businessState: businessAddress.region.trim() || undefined,
         businessPostalCode: businessAddress.postalCode.trim() || undefined,
-        businessCountry: getCountry(businessAddress.countryCode)?.name || undefined,
+        businessCountry: getCountrySync(businessAddress.countryCode)?.name || undefined,
         businessPhone: form.businessPhone.trim() || undefined,
         acceptContract: form.acceptContract,
       });

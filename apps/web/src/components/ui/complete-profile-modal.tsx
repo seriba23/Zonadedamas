@@ -67,7 +67,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
     allergies: user.allergies || '',
   });
   const [address, setAddress] = useState<AddressValue>(
-    user.address ? parseAddress(user.address) : emptyAddress('MX'),
+    user.address ? parseAddress(user.address) : emptyAddress('mx'),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
