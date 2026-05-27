@@ -51,6 +51,40 @@ function LoginPageInner() {
   const [roleChoice, setRoleChoice] = useState<AuthUser | null>(null);
   const [availableProfiles, setAvailableProfiles] = useState<string[]>([]);
 
+  // Helper que setea state + persiste el selector en sessionStorage. Asi al
+  // hacer back desde /register el usuario vuelve al selector intacto en vez
+  // de tener que volver a hacer login.
+  const persistRole = (u: AuthUser, profiles: string[]) => {
+    setRoleChoice(u);
+    setAvailableProfiles(profiles);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('login_role_choice', JSON.stringify({ user: u, profiles }));
+      } catch {}
+    }
+  };
+
+  // Al cargar /login, si hay un selector persistido y el usuario sigue
+  // autenticado (no expiro la sesion), restauramos el selector. Esto
+  // permite que el back desde /register vuelva al selector sin pedir
+  // login otra vez.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (authLoading) return;
+    if (!isAuthenticated || !user) return;
+    if (roleChoice) return;
+    try {
+      const raw = sessionStorage.getItem('login_role_choice');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.user && Array.isArray(parsed?.profiles)) {
+          setRoleChoice(parsed.user);
+          setAvailableProfiles(parsed.profiles);
+        }
+      }
+    } catch {}
+  }, [authLoading, isAuthenticated, user, roleChoice]);
+
   // Social login: tipo de cuenta + invite code step
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
   const [socialToken, setSocialToken] = useState<string | null>(null);
@@ -92,8 +126,7 @@ function LoginPageInner() {
       // ?redirect se aplica DESPUES del selector cuando el usuario hace
       // click en el rol correspondiente.
       if (profiles.length >= 1 && anyUser) {
-        setAvailableProfiles(profiles);
-        setRoleChoice(anyUser);
+        persistRole(anyUser, profiles);
         return;
       }
 
@@ -154,8 +187,7 @@ function LoginPageInner() {
       // se aplica al hacer click en el rol correspondiente del selector.
       const anyUser = businessUser || (result as any).client?.user || result.user;
       if (profiles.length >= 1 && anyUser) {
-        setAvailableProfiles(profiles);
-        setRoleChoice(anyUser);
+        persistRole(anyUser, profiles);
         return;
       }
 
@@ -196,8 +228,11 @@ function LoginPageInner() {
     if (!socialProfile) return;
     // Redirige al flujo de registro de negocio con los datos sociales
     // pre-llenados. El usuario completara el nombre del negocio alli.
+    // typeParam='individual' es el wizard de 2 steps de admin (datos
+    // personales + datos del negocio). 'freelancer' no es un type
+    // reconocido por el register — caia a 'select' silenciosamente.
     const params = new URLSearchParams({
-      type: 'freelancer',
+      type: 'individual',
       email: socialProfile.email,
       firstName: socialProfile.firstName,
       lastName: socialProfile.lastName,

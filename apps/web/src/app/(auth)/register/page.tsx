@@ -210,6 +210,33 @@ function RegisterPageInner() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Pre-fill desde sesion marketplace del cliente: si el usuario ya esta
+  // logueado como cliente y ahora quiere crear cuenta admin/profesional,
+  // traemos sus datos para no pedir capturar de nuevo. La password sigue
+  // siendo obligatoria (cuenta nueva = password nueva).
+  const [prefilledFromClient, setPrefilledFromClient] = useState(false);
+
+  useEffect(() => {
+    if (!marketplaceApi.isLoggedIn()) return;
+    if (prefilledFromClient) return;
+    if (mode === 'select' || mode === 'client') return;
+    marketplaceApi
+      .get<{ data: any }>('/auth/me')
+      .then((res) => {
+        const u = res?.data;
+        if (!u) return;
+        setForm((f) => ({
+          ...f,
+          firstName: f.firstName || u.firstName || '',
+          lastName: f.lastName || u.lastName || '',
+          email: f.email || u.email || '',
+          phone: f.phone || u.phone || '',
+        }));
+        setPrefilledFromClient(true);
+      })
+      .catch(() => {});
+  }, [mode, prefilledFromClient]);
+
   function validateStep1(): boolean {
     const newErrors: FormErrors = {};
     if (!form.firstName.trim()) newErrors.firstName = 'El nombre es requerido';
@@ -551,9 +578,10 @@ function RegisterPageInner() {
                 </div>
               </button>
 
-              {/* Profesional */}
+              {/* Profesional — va directo al form con pestañas Afiliarme/
+                  Independiente (eliminado el menu intermedio). */}
               <button
-                onClick={() => setMode('professional')}
+                onClick={() => setMode('business')}
                 className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -600,75 +628,9 @@ function RegisterPageInner() {
     );
   }
 
-  // ─── PROFESSIONAL SUB-SELECTION ─────────────────
-  if (mode === 'professional') {
-    return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-4 py-3">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-4">
-            <h1 className="text-2xl font-bold text-[#008080]">Siliba</h1>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <button onClick={() => setMode('select')} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h2 className="text-base font-semibold text-gray-900">¿Cómo trabajas?</h2>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">Elige el tipo de profesional que eres</p>
-
-            <div className="space-y-2">
-              {/* Unirme a un negocio */}
-              <button
-                onClick={() => setMode('business')}
-                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900">Unirme a un negocio</p>
-                    <p className="text-xs text-gray-500">Tengo un código de invitación</p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Soy independiente */}
-              <button
-                onClick={() => setMode('individual')}
-                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900">Soy independiente</p>
-                    <p className="text-xs text-gray-500">Trabajo por mi cuenta y gestiono mis citas</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <p className="text-center mt-6 text-sm text-gray-500">
-            ¿Ya tienes cuenta?{' '}
-            <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-              Iniciar sesión
-            </Link>
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // El menu intermedio "¿Cómo trabajas?" (Unirme/Independiente) se elimino:
+  // el mode='business' ya tiene esas dos opciones como pestañas arriba del
+  // form (Afiliarme a un negocio | Trabajar como independiente).
 
   // ─── BUSINESS / FREELANCER ───────────────────────
   if (mode === 'business') {
@@ -683,7 +645,16 @@ function RegisterPageInner() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-5">
-              <button onClick={() => setMode('professional')} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => {
+                  // Si vino del login selector (typeParam='business'), volver
+                  // a /login para que se restaure el selector cliente/
+                  // profesional/admin. Sino, regresar al selector local.
+                  if (typeParam === 'business') router.push('/login');
+                  else setMode('select');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -691,19 +662,24 @@ function RegisterPageInner() {
               <h2 className="text-xl font-semibold text-gray-900">Crear cuenta profesional</h2>
             </div>
 
-            {/* Tipo de profesional */}
-            <div className="flex gap-2 mb-6 p-1 bg-gray-100 rounded-xl">
+            {/* Tipo de profesional — segmented estilo "Cupones | Mis puntos"
+                (rounded-lg border border-gray-300 + activo teal solido). */}
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-6">
               <button
                 type="button"
                 onClick={() => { setProfessionalType('affiliated'); setErrors({}); setApiError(null); }}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${!isFreelancer ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  !isFreelancer ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 Afiliarme a un negocio
               </button>
               <button
                 type="button"
                 onClick={() => { setProfessionalType('freelancer'); setErrors({}); setApiError(null); }}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${isFreelancer ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                  isFreelancer ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 Trabajar como independiente
               </button>
@@ -1085,8 +1061,15 @@ function RegisterPageInner() {
               onClick={() => {
                 setApiError(null);
                 if (step > 1) setStep(step - 1);
-                else if (typeParam === 'individual') router.push('/');
-                else setMode('professional');
+                else if (typeParam === 'individual') {
+                  // Vino del selector del login (Admin). Volver al selector
+                  // que se restaura desde sessionStorage en /login.
+                  router.push('/login');
+                } else {
+                  // Entro a /register manualmente y eligio "Administrador"
+                  // en el selector inicial. Vuelve al selector de tipo.
+                  setMode('select');
+                }
               }}
               className="text-gray-400 hover:text-gray-600"
             >
@@ -1110,7 +1093,66 @@ function RegisterPageInner() {
           )}
 
           {/* Step 1: Personal data */}
-          {step === 1 && (
+          {/* Si el usuario ya esta logueado como cliente y tenemos sus datos
+              (firstName, lastName, email, phone), mostramos solo la captura
+              de password. El cliente confirma con "Continuar". Si falta algun
+              dato, mostramos el form completo. */}
+          {step === 1 && (() => {
+            const hasAllData = prefilledFromClient
+              && form.firstName.trim()
+              && form.lastName.trim()
+              && form.email.trim()
+              && form.phone.trim();
+
+            if (hasAllData) {
+              return (
+                <div className="space-y-4">
+                  {/* Resumen de datos del cliente, read-only con opcion editar */}
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{form.firstName} {form.lastName}</p>
+                        <p className="text-xs text-gray-500 truncate">{form.email}</p>
+                        <p className="text-xs text-gray-500 truncate">{form.phone}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPrefilledFromClient(false)}
+                        className="text-xs font-medium text-[#008080] hover:underline flex-shrink-0"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-gray-400">Usaremos los datos de tu cuenta de cliente.</p>
+                  </div>
+
+                  <p className="text-xs text-gray-500">Crea una contraseña para tu cuenta de administrador.</p>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
+                    <input id="password" type="password" autoComplete="new-password" value={form.password}
+                      onChange={(e) => updateField('password', e.target.value)}
+                      className={`input-field ${errors.password ? 'border-red-400' : ''}`} placeholder="Mínimo 6 caracteres" />
+                    {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">Confirmar contraseña</label>
+                    <input id="confirmPassword" type="password" autoComplete="new-password" value={form.confirmPassword}
+                      onChange={(e) => updateField('confirmPassword', e.target.value)}
+                      className={`input-field ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Repite tu contraseña" />
+                    {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
+                  </div>
+
+                  <button type="button" onClick={handleNextStep}
+                    className="w-full btn-primary py-2.5">
+                    Continuar
+                  </button>
+                </div>
+              );
+            }
+
+            return (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1168,7 +1210,8 @@ function RegisterPageInner() {
                 Siguiente
               </button>
             </div>
-          )}
+            );
+          })()}
 
           {/* Step 2: Business info */}
           {step === 2 && (
