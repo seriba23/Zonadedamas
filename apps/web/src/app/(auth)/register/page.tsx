@@ -56,22 +56,22 @@ function PhoneInput({
   const [countryCode, setCountryCode] = useState('+52');
   const [local, setLocal] = useState('');
 
-  // Parse incoming value if it starts with a known code.
-  // Limpia a solo digitos y trunca a 10 — si viene del pre-fill del cliente
-  // o de un valor con formato distinto (espacios/guiones), normalizamos.
+  // Sincroniza con el value externo. Antes era "only on mount" pero eso
+  // ignoraba pre-fills que llegan DESPUES (ej. cuando /auth/me responde
+  // y el padre setea phone via prefilledFromClient). Ahora reacciona a
+  // cualquier cambio de value pero solo actualiza el estado interno si
+  // difiere, para evitar loops infinitos.
   useEffect(() => {
     if (!value) return;
     const matched = COUNTRY_CODES.find((c) => value.startsWith(c.code));
-    if (matched) {
-      setCountryCode(matched.code);
-      const rest = value.slice(matched.code.length).replace(/\D/g, '').slice(0, 10);
-      setLocal(rest);
-    } else {
-      setLocal(value.replace(/\D/g, '').slice(0, 10));
-    }
-  // Only on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const targetCode = matched?.code ?? countryCode;
+    const targetLocal = matched
+      ? value.slice(matched.code.length).replace(/\D/g, '').slice(0, 10)
+      : value.replace(/\D/g, '').slice(0, 10);
+    if (targetCode !== countryCode) setCountryCode(targetCode);
+    if (targetLocal !== local) setLocal(targetLocal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   function handleLocalChange(e: React.ChangeEvent<HTMLInputElement>) {
     // Solo digitos (sin espacios, guiones ni parentesis) y limite de 10.
@@ -833,7 +833,7 @@ function RegisterPageInner() {
 
               {isFreelancer && (
                 <p className="text-xs text-gray-500 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
-                  Crearás tu propio espacio en Siliba. <span className="font-semibold text-[#008080]">$5 USD/mes</span> tras el período de prueba de 30 días.
+                  Crearás tu propio espacio en Siliba. <span className="font-semibold text-[#008080]">$300 MXN/mes</span> tras el período de prueba de 30 días.
                 </p>
               )}
 

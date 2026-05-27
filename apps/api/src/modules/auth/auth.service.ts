@@ -454,14 +454,17 @@ export class AuthService {
       });
 
       // Create trial subscription (no Stripe, no invoice)
+      // Precio empresa: $500 MXN/mes flat (sin cobro adicional por empleado).
+      // El campo se llama monthlyAmountUsd por legado pero ahora representa
+      // MXN — V2 renombrara cuando se active facturacion multi-moneda.
       await tx.subscription.create({
         data: {
           tenantId: tenant.id,
           plan: 'BASICO',
           status: 'TRIAL',
-          monthlyAmountUsd: 10,
-          baseMonthlyUsd: 10,
-          perEmployeeUsd: 10,
+          monthlyAmountUsd: 500,
+          baseMonthlyUsd: 500,
+          perEmployeeUsd: 0,
           billedEmployeeCount: 1, // owner counts as 1
           contractStartDate: now,
           contractEndDate: trialEndsAt,
@@ -625,9 +628,11 @@ export class AuthService {
           tenantId: tenant.id,
           plan: 'BASICO',
           status: 'TRIAL',
-          monthlyAmountUsd: 5,
-          baseMonthlyUsd: 5,
-          perEmployeeUsd: 5,
+          // Precio independiente: $300 MXN/mes flat. Ver nota en
+          // registerIndividual sobre el rename pendiente del campo.
+          monthlyAmountUsd: 300,
+          baseMonthlyUsd: 300,
+          perEmployeeUsd: 0,
           billedEmployeeCount: 1,
           contractStartDate: now,
           contractEndDate: trialEndsAt,

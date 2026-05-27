@@ -442,11 +442,10 @@ export default function SubscriptionPage() {
             <Elements stripe={stripePromise} options={stripeOptions}>
               <InlinePaymentForm
                 title={isAnnual ? 'Activar plan anual' : 'Activar suscripción mensual'}
-                subtitle={`$${preview?.totalMonthly.toFixed(2) || '—'} USD/mes · pago seguro vía Stripe`}
+                subtitle={`$${preview?.totalMonthly.toFixed(2) || '—'} MXN/mes · pago seguro vía Stripe`}
                 amountUsd={preview?.totalMonthly || 0}
                 breakdown={preview ? [
-                  { label: 'Licencia base', amount: '$10.00 USD' },
-                  { label: `${preview.activeEmployeeCount} empleado(s) × $10`, amount: `$${preview.employeeAmount.toFixed(2)} USD` },
+                  { label: 'Licencia base (incluye todos los empleados)', amount: '$500.00 MXN' },
                 ] : undefined}
                 onSuccess={() => {
                   setClientSecret(null);
@@ -471,8 +470,8 @@ export default function SubscriptionPage() {
                 subtitle="15% de descuento · un solo pago por año"
                 amountUsd={modalData?.annualTotal || annualTotal}
                 breakdown={preview ? [
-                  { label: `${1 + preview.activeEmployeeCount} asiento(s) × $102/año`, amount: `$${modalData?.annualTotal?.toFixed(2)} USD` },
-                  { label: 'Descuento anual (15%)', amount: '-$' + ((preview.totalMonthly * 12 * 0.15).toFixed(2)) + ' USD' },
+                  { label: 'Plan anual (12 meses × $500 MXN)', amount: `$${modalData?.annualTotal?.toFixed(2)} MXN` },
+                  { label: 'Descuento anual (15%)', amount: '-$' + ((preview.totalMonthly * 12 * 0.15).toFixed(2)) + ' MXN' },
                 ] : undefined}
                 onSuccess={() => { closeModal(); refetch(); }}
                 onCancel={closeModal}
@@ -762,13 +761,13 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">Siliba Business</p>
-                  <p className="text-xs text-gray-400">Licencia base de plataforma</p>
+                  <p className="text-xs text-gray-400">Licencia única — incluye todos los empleados</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-semibold text-gray-700">$10.00<span className="text-xs font-normal text-gray-400">/mes</span></span>
+                <span className="text-sm font-semibold text-gray-700">$500.00<span className="text-xs font-normal text-gray-400">/mes</span></span>
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
-                  Incluida
+                  Activa
                 </span>
               </div>
             </div>
@@ -792,7 +791,7 @@ export default function SubscriptionPage() {
                   </div>
                 </Link>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-semibold text-gray-700">$10.00<span className="text-xs font-normal text-gray-400">/mes</span></span>
+                  <span className="text-sm font-semibold text-gray-700">Incluido</span>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
                     Activa
                   </span>
@@ -950,8 +949,8 @@ export default function SubscriptionPage() {
               </div>
               <div className="text-right">
                 <p className="text-3xl font-black text-white">${(annualTotal / 12).toFixed(0)}</p>
-                <p className="text-xs text-white/70">USD/mes equiv.</p>
-                <p className="text-xs text-white/60 mt-0.5">${annualTotal.toFixed(0)} USD/año</p>
+                <p className="text-xs text-white/70">MXN/mes equiv.</p>
+                <p className="text-xs text-white/60 mt-0.5">${annualTotal.toFixed(0)} MXN/año</p>
               </div>
             </div>
           </div>
@@ -1011,10 +1010,9 @@ export default function SubscriptionPage() {
       <div className="rounded-2xl p-5 border border-dashed border-gray-200 bg-gray-50">
         <p className="text-sm font-semibold text-gray-700 mb-2">¿Cómo funciona la facturación?</p>
         <ul className="text-xs text-gray-500 space-y-1.5 list-disc list-inside">
-          <li>$10 USD/mes por la licencia base + $10 USD/mes por cada empleado activo</li>
+          <li>$500 MXN/mes plan único — incluye a todos tus empleados sin cobro adicional</li>
           <li>Plan anual: 15% de descuento, un solo pago por todos los meses del año</li>
           <li>Si cancelas, mantienes acceso hasta el final del período ya pagado</li>
-          <li>En plan anual: las licencias de empleados despedidos quedan disponibles (no reembolsables)</li>
           <li>Puedes adelantar un mes de mensualidad para extender tu acceso</li>
         </ul>
       </div>

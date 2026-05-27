@@ -44,7 +44,7 @@ function IndiePaymentForm({ clientSecret, amount, onSuccess, onCancel }: {
         <button type="submit" disabled={loading || !stripe}
           className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: '#7c3aed' }}>
-          {loading ? 'Procesando...' : `Pagar $${amount.toFixed(2)} USD/mes`}
+          {loading ? 'Procesando...' : `Pagar $${amount.toFixed(2)} MXN/mes`}
         </button>
         <button type="button" onClick={onCancel}
           className="px-4 py-3 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50">
@@ -218,8 +218,8 @@ function DeactivatedScreen({ user, onLogout, onSuccess }: {
                         </div>
                       </div>
                       <div className="rounded-xl border-2 px-4 py-3 text-center" style={{ borderColor: '#7c3aed', backgroundColor: '#f5f3ff' }}>
-                        <p className="text-2xl font-black" style={{ color: '#7c3aed' }}>$15 <span className="text-base font-medium text-gray-500">USD/mes</span></p>
-                        <p className="text-xs text-gray-500 mt-0.5">$10 plataforma + $5 perfil de profesionista</p>
+                        <p className="text-2xl font-black" style={{ color: '#7c3aed' }}>$300 <span className="text-base font-medium text-gray-500">MXN/mes</span></p>
+                        <p className="text-xs text-gray-500 mt-0.5">Plan único — tu perfil de profesional independiente</p>
                       </div>
                       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">⚠️ {error}</p>}
                       <div className="flex gap-2">
@@ -360,7 +360,7 @@ function DeactivatedScreen({ user, onLogout, onSuccess }: {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900">Continuar como independiente</p>
-                <p className="text-xs text-gray-400 mt-0.5">Perfil de profesionista · $15 USD/mes · apareces en el marketplace.</p>
+                <p className="text-xs text-gray-400 mt-0.5">Perfil de profesionista · $300 MXN/mes · apareces en el marketplace.</p>
               </div>
               <span className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: '#7c3aed' }}>
                 Ver plan
