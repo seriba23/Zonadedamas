@@ -7,6 +7,7 @@ import { MarketplaceJwtStrategy } from './strategies/marketplace-jwt.strategy';
 import { TenantsModule } from '../tenants/tenants.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { StripeModule } from '../stripe/stripe.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -37,6 +38,7 @@ function getJwtSecret(): string {
     TenantsModule,
     forwardRef(() => AppointmentsModule),
     StripeModule,
+    UploadsModule,
   ],
   controllers: [MarketplaceController],
   providers: [MarketplaceService, MarketplaceJwtStrategy],

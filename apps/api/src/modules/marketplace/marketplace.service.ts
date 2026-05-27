@@ -19,6 +19,7 @@ import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dt
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
 import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
 export class MarketplaceService {
@@ -32,7 +33,14 @@ export class MarketplaceService {
     private readonly jwtService: JwtService,
     private readonly tenantsService: TenantsService,
     private readonly appointmentsService: AppointmentsService,
+    private readonly uploads: UploadsService,
   ) {}
+
+  /** True si la URL ya es un path local de uploads (no hotlink externo). */
+  private isLocalUploadPath(url: string | null | undefined): boolean {
+    if (!url) return false;
+    return url.startsWith('/api/uploads/') || url.startsWith('/uploads/');
+  }
 
   // ─── OTP ─────────────────────────────────────────────
 
@@ -228,27 +236,39 @@ export class MarketplaceService {
         throw new UnauthorizedException('Cuenta desactivada');
       }
 
-      // Update social info if not set yet and update avatar if user doesn't have one
+      // Update social info if not set yet
       const updateData: any = { lastLoginAt: new Date() };
       if (!user.socialProvider) {
         updateData.socialProvider = dto.provider;
         updateData.socialId = profile.socialId;
       }
-      if (!user.avatarUrl && profile.avatarUrl) {
-        updateData.avatarUrl = profile.avatarUrl;
+      // Avatar: si el user no tiene avatar O tiene una URL externa (de un
+      // login social previo guardado como hotlink), descargar a local. Esto
+      // evita que falle el <img> por referer policy, formato no soportado
+      // (GIF animado de Google) o expiracion de la URL.
+      const needsLocalAvatar = !user.avatarUrl || !this.isLocalUploadPath(user.avatarUrl);
+      if (needsLocalAvatar && profile.avatarUrl) {
+        const localPath = await this.uploads.downloadAndSaveExternalImage(profile.avatarUrl, 'avatars');
+        if (localPath) updateData.avatarUrl = localPath;
       }
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: updateData,
       });
     } else {
-      // Create new user (no password needed)
+      // Create new user (no password needed). Si Google devolvio avatarUrl,
+      // intentamos descargarla al server; si falla, queda null y el cliente
+      // verá las iniciales como fallback.
+      let avatarPath: string | null = null;
+      if (profile.avatarUrl) {
+        avatarPath = await this.uploads.downloadAndSaveExternalImage(profile.avatarUrl, 'avatars');
+      }
       user = await this.prisma.user.create({
         data: {
           email: profile.email,
           firstName: profile.firstName,
           lastName: profile.lastName,
-          avatarUrl: profile.avatarUrl || null,
+          avatarUrl: avatarPath,
           socialProvider: dto.provider,
           socialId: profile.socialId,
           isClient: true,

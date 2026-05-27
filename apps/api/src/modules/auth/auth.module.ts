@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RbacModule } from '../rbac/rbac.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -35,6 +36,7 @@ function getJwtSecret(): string {
     }),
     forwardRef(() => RbacModule),
     NotificationsModule,
+    UploadsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

@@ -14,6 +14,7 @@ import { RbacService } from '../rbac/rbac.service';
 import { RegisterDto } from './dto/register.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
 import { EmailChannel } from '../notifications/channels/email.channel';
+import { UploadsService } from '../uploads/uploads.service';
 import {
   renderPasswordResetEmail,
   renderPasswordSetOAuthEmail,
@@ -27,7 +28,14 @@ export class AuthService {
     private readonly rbacService: RbacService,
     private readonly eventEmitter: EventEmitter2,
     private readonly emailChannel: EmailChannel,
+    private readonly uploads: UploadsService,
   ) {}
+
+  /** True si la URL ya es un path local de uploads (no hotlink externo). */
+  private isLocalUploadPath(url: string | null | undefined): boolean {
+    if (!url) return false;
+    return url.startsWith('/api/uploads/') || url.startsWith('/uploads/');
+  }
 
   async login(email: string, password: string) {
     // Unified login: matches users with business profile, client profile, or both.
@@ -713,13 +721,19 @@ export class AuthService {
     });
 
     if (existingUsers.length > 0) {
-      // Update avatar on first social login if missing.
+      // Avatar: si el user no tiene avatar O tiene una URL externa (hotlink
+      // de un login social previo), descargar a local. Evita que el <img>
+      // falle por referer policy / formato no soportado / expiracion de URL.
       const first = existingUsers[0];
-      if (!first.avatarUrl && profile.avatarUrl) {
-        await this.prisma.user.update({
-          where: { id: first.id },
-          data: { avatarUrl: profile.avatarUrl },
-        });
+      const needsLocalAvatar = !first.avatarUrl || !this.isLocalUploadPath(first.avatarUrl);
+      if (needsLocalAvatar && profile.avatarUrl) {
+        const localPath = await this.uploads.downloadAndSaveExternalImage(profile.avatarUrl, 'avatars');
+        if (localPath) {
+          await this.prisma.user.update({
+            where: { id: first.id },
+            data: { avatarUrl: localPath },
+          });
+        }
       }
 
       // Re-fetch with relations needed for the unified response (mirror of `login`).
@@ -865,6 +879,12 @@ export class AuthService {
     const randomPassword = uuidv4();
     const passwordHash = await bcrypt.hash(randomPassword, 12);
 
+    // Descargar avatar de Google a local antes de crear (evita hotlink).
+    let localAvatar: string | null = null;
+    if (profile.avatarUrl) {
+      localAvatar = await this.uploads.downloadAndSaveExternalImage(profile.avatarUrl, 'avatars');
+    }
+
     const user = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -873,7 +893,7 @@ export class AuthService {
           passwordHash,
           firstName: profile.firstName,
           lastName: profile.lastName,
-          avatarUrl: profile.avatarUrl || null,
+          avatarUrl: localAvatar,
           isActive: true,
         },
       });
@@ -886,7 +906,7 @@ export class AuthService {
           firstName: profile.firstName,
           lastName: profile.lastName,
           email: profile.email,
-          avatarUrl: profile.avatarUrl || null,
+          avatarUrl: localAvatar,
           isActive: true,
         },
       });

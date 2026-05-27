@@ -1,7 +1,14 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+
+const EXT_BY_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
 
 interface MulterFile {
   fieldname: string;
@@ -19,6 +26,8 @@ const UPLOADS_BASE = path.resolve(process.cwd(), '..', '..', 'uploads');
 
 @Injectable()
 export class UploadsService {
+  private readonly logger = new Logger(UploadsService.name);
+
   constructor() {
     // Ensure upload directories exist
     for (const folder of ['avatars', 'portfolio', 'documents', 'results', 'products', 'payments']) {
@@ -80,5 +89,43 @@ export class UploadsService {
 
     if (!fs.existsSync(filePath)) return null;
     return filePath;
+  }
+
+  /**
+   * Descarga una imagen desde una URL externa (ej. avatar de Google) y la
+   * guarda localmente en /uploads/<folder>/. Resuelve el caso donde los
+   * avatares de social login fallan al renderizarse por hotlinking,
+   * referer policy, formato no soportado (GIF) o expiracion de la URL.
+   * Devuelve el path local listo para guardar en BD.
+   */
+  async downloadAndSaveExternalImage(
+    externalUrl: string,
+    folder: 'avatars' | 'portfolio' | 'documents' | 'results' | 'products' | 'resources' | 'payments',
+  ): Promise<string | null> {
+    try {
+      const res = await fetch(externalUrl, {
+        // Sin referer para que Google/etc. no bloqueen
+        headers: { Referer: '' },
+      });
+      if (!res.ok) {
+        this.logger.warn(`downloadAndSaveExternalImage: HTTP ${res.status} para ${externalUrl}`);
+        return null;
+      }
+      const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      const ext = EXT_BY_MIME[contentType] || '.jpg';
+      const arrBuf = await res.arrayBuffer();
+      const size = arrBuf.byteLength;
+      if (size === 0 || size > MAX_FILE_SIZE) {
+        this.logger.warn(`downloadAndSaveExternalImage: tamaño invalido (${size} bytes) para ${externalUrl}`);
+        return null;
+      }
+      const filename = `${crypto.randomUUID()}${ext}`;
+      const filePath = path.join(UPLOADS_BASE, folder, filename);
+      fs.writeFileSync(filePath, Buffer.from(arrBuf));
+      return `/api/uploads/${folder}/${filename}`;
+    } catch (err) {
+      this.logger.warn(`downloadAndSaveExternalImage: fallo ${externalUrl}: ${(err as Error).message}`);
+      return null;
+    }
   }
 }
