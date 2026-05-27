@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
+import { Avatar } from '@/components/ui/avatar';
 import { api } from '@/lib/api';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import type { AuthUser } from '@/lib/auth';
@@ -289,13 +290,16 @@ function LoginPageInner() {
                 login. Reduce ambiguedad: el usuario siempre se ve "como
                 quien" esta ingresando. */}
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-              <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
-                {(roleChoice as any).avatarUrl ? (
-                  <img src={(roleChoice as any).avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-base font-bold" style={{ color: '#008080' }}>{initials || '?'}</span>
-                )}
-              </div>
+              {/* Avatar usa resolveImageUrl (prepende API_URL en paths /api/uploads/*)
+                  y onError fallback a iniciales — el <img> raw no hacia ninguno
+                  de los dos, por eso fallaba para sergioibarra275. */}
+              <Avatar
+                avatarUrl={(roleChoice as any).avatarUrl}
+                firstName={roleChoice.firstName}
+                lastName={roleChoice.lastName}
+                className="w-11 h-11"
+                textClassName="text-base"
+              />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-gray-900 truncate">
                   {roleChoice.firstName}{roleChoice.lastName ? ` ${roleChoice.lastName}` : ''}
@@ -399,13 +403,13 @@ function LoginPageInner() {
     const ProfileHeader = (
       <>
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-          {socialProfile.avatarUrl ? (
-            <img src={socialProfile.avatarUrl} alt="" className="w-12 h-12 rounded-full" />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-lg font-bold">
-              {socialProfile.firstName[0]}
-            </div>
-          )}
+          <Avatar
+            avatarUrl={socialProfile.avatarUrl}
+            firstName={socialProfile.firstName}
+            lastName={socialProfile.lastName}
+            className="w-12 h-12"
+            textClassName="text-lg"
+          />
           <div>
             <p className="font-semibold text-gray-900">{socialProfile.firstName} {socialProfile.lastName}</p>
             <p className="text-sm text-gray-500">{socialProfile.email}</p>
