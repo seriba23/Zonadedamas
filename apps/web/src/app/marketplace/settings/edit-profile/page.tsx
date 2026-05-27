@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
@@ -14,6 +14,7 @@ import { PasswordRules } from '@/components/ui/password-rules';
 import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
 import { AddressFields, emptyAddress, parseAddress, serializeAddress, type AddressValue } from '@/components/ui/address-fields';
+import { loadCountries } from '@/lib/geo-data';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -147,8 +148,12 @@ export default function EditProfilePage() {
     setPasswordError(''); setPwdOtp(''); setPwdOtpError('');
   };
 
-  // Populate form once user loads
-  if (!formReady && user) {
+  // Populate form once user loads. Cargamos countries en paralelo para
+  // que parseAddress pueda resolver countryCode desde el nombre del pais
+  // guardado en el string. Sin esto, el dropdown queda vacio al
+  // re-entrar y el usuario veria sus datos "perdidos".
+  useEffect(() => {
+    if (formReady || !user) return;
     setForm({
       firstName: (user as any).firstName || '',
       lastName: (user as any).lastName || '',
@@ -156,9 +161,15 @@ export default function EditProfilePage() {
       gender: (user as any).gender || '',
       allergies: (user as any).allergies || '',
     });
-    setAddress(parseAddress((user as any).address || ''));
-    setFormReady(true);
-  }
+    const rawAddress = (user as any).address || '';
+    loadCountries().then((countries) => {
+      setAddress(parseAddress(rawAddress, countries));
+      setFormReady(true);
+    }).catch(() => {
+      setAddress(parseAddress(rawAddress));
+      setFormReady(true);
+    });
+  }, [user, formReady]);
 
   // ── Mutations ──
   const profileMutation = useMutation({

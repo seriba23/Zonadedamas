@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { resolveImageUrl } from '@/lib/utils';
 import { DatePicker } from './date-picker';
 import { AllergiesSelector } from './allergies-selector';
 import { AddressFields, emptyAddress, parseAddress, serializeAddress, type AddressValue } from './address-fields';
+import { loadCountries } from '@/lib/geo-data';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -69,6 +70,19 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
   const [address, setAddress] = useState<AddressValue>(
     user.address ? parseAddress(user.address) : emptyAddress('mx'),
   );
+
+  // Re-parsear address con countries cargados para resolver countryCode
+  // (sino el dropdown queda vacio aunque el cliente tenga direccion guardada).
+  useEffect(() => {
+    if (!user.address) return;
+    loadCountries().then((countries) => {
+      setAddress((prev) => {
+        // Solo re-parsear si todavia no resolvimos countryCode
+        if (prev.countryCode) return prev;
+        return parseAddress(user.address!, countries);
+      });
+    }).catch(() => {});
+  }, [user.address]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 

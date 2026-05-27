@@ -263,18 +263,12 @@ function RegisterPageInner() {
         }));
         // Pre-fill direccion del negocio con la del cliente. Solo si
         // businessAddress sigue vacio (respeta cambios del user).
+        // parseAddress con countries resuelve countryCode automaticamente.
         if (u.address) {
           setBusinessAddress((prev) => {
             const isEmpty = !prev.street && !prev.city && !prev.region && !prev.postalCode;
             if (!isEmpty) return prev;
-            const parsed = parseAddress(u.address);
-            // Resolver countryCode buscando por nombre en countries cargado
-            const lastPart = u.address.split(',').map((s: string) => s.trim()).pop() || '';
-            const country = countries.find(
-              (c) => c.name.toLowerCase() === lastPart.toLowerCase(),
-            );
-            if (country) parsed.countryCode = country.alpha2;
-            return parsed;
+            return parseAddress(u.address, countries);
           });
         }
         setPrefilledFromClient(true);

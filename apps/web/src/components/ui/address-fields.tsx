@@ -76,11 +76,22 @@ export function AddressFields({
       .then((subs) => {
         setSubdivisions(subs);
         setLoadingSubs(false);
+        // Auto-resolver regionCode: si llegamos con region (nombre) pero
+        // sin regionCode (caso comun al cargar address parseado del
+        // backend), buscamos el match exact en subs y rellenamos para
+        // que el dropdown muestre la opcion seleccionada.
+        if (value.region && !value.regionCode && subs.length > 0) {
+          const match = subs.find(
+            (s) => s.name.toLowerCase() === value.region.toLowerCase(),
+          );
+          if (match) onChange({ ...value, regionCode: match.code });
+        }
       })
       .catch(() => {
         setSubdivisions([]);
         setLoadingSubs(false);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.countryCode]);
 
   // Cargar ciudades cuando cambia el estado (solo MX por ahora)
@@ -315,12 +326,14 @@ export function serializeAddress(v: AddressValue): string {
 }
 
 /**
- * Best-effort parse del formato string del backend. countryCode queda
- * vacio porque solo se puede resolver al alpha2 una vez cargado el
- * cache de paises (matching por nombre). El componente AddressFields
- * carga countries al montar y permite al usuario seleccionar el correcto.
+ * Best-effort parse del formato string del backend "Calle Num, Colonia,
+ * Ciudad, Region, CP, Pais". Si se pasa la lista de countries, resuelve
+ * countryCode haciendo lookup case-insensitive por nombre.
  */
-export function parseAddress(address: string): AddressValue {
+export function parseAddress(
+  address: string,
+  countries?: { alpha2: string; name: string }[],
+): AddressValue {
   if (!address) return emptyAddress();
   const parts = address.split(',').map((s) => s.trim());
   const streetFull = parts[0] || '';
@@ -332,13 +345,13 @@ export function parseAddress(address: string): AddressValue {
   const region = parts[3] || '';
   const postalCode = parts[4] || '';
   const countryName = parts[5] || '';
-  // countryCode queda vacio: el componente cargara la lista y el user
-  // puede re-seleccionar si es necesario. Best-effort: lookup sincrono
-  // en el cache si ya esta cargado.
-  const country = countryName
-    ? // Lookup case-insensitive por nombre
-      (typeof window !== 'undefined' ? (window as any).__countriesCacheByName?.[countryName.toLowerCase()] : '')
-    : '';
+  let countryCode = '';
+  if (countryName && countries) {
+    const match = countries.find(
+      (c) => c.name.toLowerCase() === countryName.toLowerCase(),
+    );
+    if (match) countryCode = match.alpha2;
+  }
   return {
     street,
     number,
@@ -347,6 +360,23 @@ export function parseAddress(address: string): AddressValue {
     region,
     regionCode: '',
     postalCode,
-    countryCode: country || '',
+    countryCode,
   };
+}
+
+/**
+ * Despues de parseAddress, una vez cargadas las subdivisiones del pais,
+ * resuelve el regionCode buscando el name exact (case-insensitive).
+ * Devuelve el codigo ISO si encuentra, o '' si no matchea (region queda
+ * como string libre).
+ */
+export function resolveRegionCode(
+  regionName: string,
+  subdivisions: { code: string; name: string }[],
+): string {
+  if (!regionName) return '';
+  const match = subdivisions.find(
+    (s) => s.name.toLowerCase() === regionName.toLowerCase(),
+  );
+  return match?.code || '';
 }
