@@ -284,9 +284,32 @@ export class AuthService {
       }
     }
 
-    // Create user + employee + role assignment in transaction
+    // Create user + employee + role assignment in transaction.
+    // Si ya existe un User con ese email Y es solo cliente marketplace
+    // (tenantId=null), lo "promovemos" agregando tenantId + datos del
+    // negocio en vez de fallar por email unique. Si ya tiene tenantId,
+    // significa que ya tiene cuenta business y rechazamos.
     const user = await this.prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
+      const existing = await tx.user.findUnique({ where: { email: dto.email } });
+      if (existing && existing.tenantId) {
+        throw new ConflictException(
+          'Ya tienes una cuenta profesional con este correo. Inicia sesión.',
+        );
+      }
+      const newUser = existing
+        ? await tx.user.update({
+            where: { id: existing.id },
+            data: {
+              tenantId: invite.tenantId,
+              passwordHash, // Actualizamos al nuevo password tambien
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              phone: dto.phone || existing.phone || null,
+              address: dto.personalAddress || existing.address || null,
+              isActive: true,
+            },
+          })
+        : await tx.user.create({
         data: {
           tenantId: invite.tenantId,
           email: dto.email,
@@ -484,8 +507,29 @@ export class AuthService {
         },
       });
 
-      // Create user
-      const newUser = await tx.user.create({
+      // Create user. Mismo patron que registerWithInviteCode: si ya hay
+      // user con ese email y es solo cliente (tenantId=null), promovemos.
+      // Si ya tiene tenant, rechazamos con conflict claro.
+      const existingUser = await tx.user.findUnique({ where: { email: dto.email } });
+      if (existingUser && existingUser.tenantId) {
+        throw new ConflictException(
+          'Ya tienes una cuenta de negocio con este correo. Inicia sesión.',
+        );
+      }
+      const newUser = existingUser
+        ? await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              tenantId: tenant.id,
+              passwordHash,
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              phone: dto.phone || existingUser.phone || null,
+              address: dto.personalAddress || existingUser.address || null,
+              isActive: true,
+            },
+          })
+        : await tx.user.create({
         data: {
           tenantId: tenant.id,
           email: dto.email,
@@ -650,7 +694,28 @@ export class AuthService {
         },
       });
 
-      const newUser = await tx.user.create({
+      // Promote cliente existente o crear nuevo. Mismo patron que los
+      // otros 2 register flows.
+      const existingUser = await tx.user.findUnique({ where: { email: dto.email } });
+      if (existingUser && existingUser.tenantId) {
+        throw new ConflictException(
+          'Ya tienes una cuenta profesional con este correo. Inicia sesión.',
+        );
+      }
+      const newUser = existingUser
+        ? await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              tenantId: tenant.id,
+              passwordHash,
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              phone: dto.phone || existingUser.phone || null,
+              address: dto.personalAddress || existingUser.address || null,
+              isActive: true,
+            },
+          })
+        : await tx.user.create({
         data: {
           tenantId: tenant.id,
           email: dto.email,
