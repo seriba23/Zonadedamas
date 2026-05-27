@@ -378,7 +378,7 @@ function LoginPageInner() {
 
               {/* Profesional independiente */}
               <button
-                onClick={() => goOrRegister('professional', 'individual')}
+                onClick={() => goOrRegister('professional', 'business')}
                 className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -403,7 +403,7 @@ function LoginPageInner() {
 
               {/* Administrador (dueño de negocio) */}
               <button
-                onClick={() => goOrRegister('admin', 'business')}
+                onClick={() => goOrRegister('admin', 'individual')}
                 className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
