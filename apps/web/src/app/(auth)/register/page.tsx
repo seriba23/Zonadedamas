@@ -9,8 +9,8 @@ import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import { PasswordRules } from '@/components/ui/password-rules';
 import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
-import { AddressFields, emptyAddress, type AddressValue } from '@/components/ui/address-fields';
-import { getCountrySync } from '@/lib/geo-data';
+import { AddressFields, emptyAddress, parseAddress, type AddressValue } from '@/components/ui/address-fields';
+import { getCountrySync, loadCountries } from '@/lib/geo-data';
 
 // Country phone codes
 const COUNTRY_CODES = [
@@ -241,9 +241,13 @@ function RegisterPageInner() {
     if (!marketplaceApi.isLoggedIn()) return;
     if (prefilledFromClient) return;
     if (mode === 'select' || mode === 'client') return;
-    marketplaceApi
-      .get<{ data: any }>('/auth/me')
-      .then((res) => {
+    // Fetch en paralelo: el user y los countries (para resolver alpha2 de
+    // la direccion guardada como string con nombre de pais).
+    Promise.all([
+      marketplaceApi.get<{ data: any }>('/auth/me'),
+      loadCountries(),
+    ])
+      .then(([res, countries]) => {
         const u = res?.data;
         if (!u) return;
         setForm((f) => ({
@@ -252,7 +256,27 @@ function RegisterPageInner() {
           lastName: f.lastName || u.lastName || '',
           email: f.email || u.email || '',
           phone: f.phone || u.phone || '',
+          // Si el cliente tiene phone, lo usamos como default del telefono
+          // del negocio. El user puede sobrescribir si su negocio tiene
+          // numero distinto.
+          businessPhone: f.businessPhone || u.phone || '',
         }));
+        // Pre-fill direccion del negocio con la del cliente. Solo si
+        // businessAddress sigue vacio (respeta cambios del user).
+        if (u.address) {
+          setBusinessAddress((prev) => {
+            const isEmpty = !prev.street && !prev.city && !prev.region && !prev.postalCode;
+            if (!isEmpty) return prev;
+            const parsed = parseAddress(u.address);
+            // Resolver countryCode buscando por nombre en countries cargado
+            const lastPart = u.address.split(',').map((s: string) => s.trim()).pop() || '';
+            const country = countries.find(
+              (c) => c.name.toLowerCase() === lastPart.toLowerCase(),
+            );
+            if (country) parsed.countryCode = country.alpha2;
+            return parsed;
+          });
+        }
         setPrefilledFromClient(true);
       })
       .catch(() => {});
