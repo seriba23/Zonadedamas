@@ -65,6 +65,15 @@ export default function MarketplacePage() {
   const [availableNow, setAvailableNow] = useState(false);
   const searchParams = useSearchParams();
   const shopOnly = searchParams.get('shop') === '1';
+
+  // Si llegamos con ?favorites=1 (desde el perfil al hacer click en el
+  // contador de Favoritos), activamos el filtro automaticamente.
+  useEffect(() => {
+    if (searchParams.get('favorites') === '1') {
+      setShowFavoritesOnly(true);
+      setCategory('');
+    }
+  }, [searchParams]);
   // showCategorySheet eliminado: la categoría se elige dentro del modal de
   // Filtros (showFiltersSheet) junto con el ordenamiento.
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
