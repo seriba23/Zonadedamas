@@ -1025,43 +1025,14 @@ export default function MarketplaceSettingsPage() {
             </div>
           </div>
 
-          {/* ─── Notifications ───────────────────────── */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                </svg>
-                Notificaciones
-              </h2>
-            </div>
-
-            <div className="divide-y divide-gray-100">
-              {[
-                { key: 'notifAppointments' as const, label: 'Recordatorios de citas', desc: 'Antes y después de tus citas' },
-                { key: 'notifPromotions' as const, label: 'Ofertas y promociones', desc: 'Descuentos de negocios que visitas' },
-                { key: 'notifRewards' as const, label: 'Puntos y recompensas', desc: 'Cuando ganas o puedes canjear puntos' },
-                { key: 'notifMessages' as const, label: 'Mensajes directos', desc: 'Conversaciones con profesionales y negocios' },
-              ].map((item) => (
-                <div key={item.key} className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">{item.label}</p>
-                    <p className="text-xs text-gray-400">{item.desc}</p>
-                  </div>
-                  <button
-                    onClick={() => updateField(item.key, !settings[item.key])}
-                    className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                    style={{ backgroundColor: settings[item.key] ? TEAL : '#d1d5db' }}
-                  >
-                    <span
-                      className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                      style={{ transform: settings[item.key] ? 'translateX(20px)' : 'translateX(0)' }}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Notificaciones: removidas en V1 — los toggles solo se guardaban
+              en BD pero NO hay sistema de notificaciones funcional que los
+              respete (no push, no cron de recordatorios, no emails que los
+              consulten). El cliente activaba/desactivaba sin efecto real,
+              dando falsa expectativa. Se replantea en V2 cuando se
+              implemente el sistema de push/email/SMS end-to-end. Los
+              campos siguen en el modelo User para reactivar facilmente.
+              Ver project_v2_notifications.md. */}
 
           {/* ─── Account ─────────────────────────────── */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
