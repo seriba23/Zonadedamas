@@ -10,6 +10,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
 import { EmployeeSettingsContent } from '../settings/settings-content';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+import { AllergiesSelector } from '@/components/ui/allergies-selector';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -344,29 +345,39 @@ function PersonalInfoEditor({ employee, onSave }: { employee: Employee; onSave: 
             {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Alergias</label>
-          <input type="text" value={form.allergies} onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))} className="input-field" placeholder="Ninguna conocida" />
-        </div>
+      </div>
+      <div className="mb-4">
+        <label className="block text-xs font-medium text-gray-600 mb-1">Alergias</label>
+        <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
       </div>
 
       <h4 className="text-sm font-semibold text-gray-800 mb-3 pt-3 border-t border-gray-100">Contacto de emergencia</h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
-          <input type="text" value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" />
+          <input type="text" autoComplete="off" name="emergencyName" value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label>
-          <input type="text" value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" />
+          <input type="text" autoComplete="off" name="emergencyLastName" value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
-          <input type="tel" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} className="input-field" />
+          <input
+            type="tel"
+            inputMode="numeric"
+            autoComplete="off"
+            name="emergencyPhone"
+            value={form.emergencyContactPhone}
+            onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+            placeholder="10 dígitos"
+            maxLength={10}
+            className="input-field"
+          />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Relación</label>
-          <input type="text" value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field" placeholder="Ej: Esposo/a, Padre, Madre" />
+          <input type="text" autoComplete="off" value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field" placeholder="Ej: Esposo/a, Padre, Madre" />
         </div>
       </div>
 
@@ -599,7 +610,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
             </div>
             {employee.bio && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-400 mb-0.5">Bio</p>
+                <p className="text-xs text-gray-400 mb-0.5">Presentación</p>
                 <p className="text-sm text-gray-700">{employee.bio}</p>
               </div>
             )}
@@ -612,7 +623,13 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
             </div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="input-field" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="input-field" /></div>
-            <div><label className="block text-xs font-medium text-gray-600 mb-1">Bio</label><textarea value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} className="input-field resize-none" rows={3} /></div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Presentación</label>
+              <p className="text-[11px] text-gray-400 mb-1.5 leading-relaxed">
+                Cuéntale a tus clientes quién eres, tu experiencia y especialidades. Este texto aparece en tu perfil público del marketplace.
+              </p>
+              <textarea value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} className="input-field resize-none" rows={4} placeholder="Ej: Estilista con 8 años de experiencia, especializada en colorimetría y cortes modernos…" />
+            </div>
           </div>
         )}
       </div>
