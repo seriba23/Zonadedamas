@@ -215,6 +215,11 @@ function RegisterPageInner() {
   // traemos sus datos para no pedir capturar de nuevo. La password sigue
   // siendo obligatoria (cuenta nueva = password nueva).
   const [prefilledFromClient, setPrefilledFromClient] = useState(false);
+  // Cuando el usuario clickea "Editar" en la vista compacta, queremos
+  // mostrar el form completo aunque tengamos los datos pre-rellenados.
+  // No podemos solo apagar prefilledFromClient porque el useEffect lo
+  // volveria a setear a true (re-fetch).
+  const [editingPersonalData, setEditingPersonalData] = useState(false);
 
   useEffect(() => {
     if (!marketplaceApi.isLoggedIn()) return;
@@ -1099,6 +1104,7 @@ function RegisterPageInner() {
               dato, mostramos el form completo. */}
           {step === 1 && (() => {
             const hasAllData = prefilledFromClient
+              && !editingPersonalData
               && form.firstName.trim()
               && form.lastName.trim()
               && form.email.trim()
@@ -1117,7 +1123,7 @@ function RegisterPageInner() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setPrefilledFromClient(false)}
+                        onClick={() => setEditingPersonalData(true)}
                         className="text-xs font-medium text-[#008080] hover:underline flex-shrink-0"
                       >
                         Editar
