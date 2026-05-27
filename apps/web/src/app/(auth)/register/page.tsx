@@ -45,22 +45,27 @@ function PhoneInput({
   const [countryCode, setCountryCode] = useState('+52');
   const [local, setLocal] = useState('');
 
-  // Parse incoming value if it starts with a known code
+  // Parse incoming value if it starts with a known code.
+  // Limpia a solo digitos y trunca a 10 — si viene del pre-fill del cliente
+  // o de un valor con formato distinto (espacios/guiones), normalizamos.
   useEffect(() => {
     if (!value) return;
     const matched = COUNTRY_CODES.find((c) => value.startsWith(c.code));
     if (matched) {
       setCountryCode(matched.code);
-      setLocal(value.slice(matched.code.length).trim());
+      const rest = value.slice(matched.code.length).replace(/\D/g, '').slice(0, 10);
+      setLocal(rest);
     } else {
-      setLocal(value);
+      setLocal(value.replace(/\D/g, '').slice(0, 10));
     }
   // Only on mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleLocalChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const digits = e.target.value.replace(/[^\d\s\-()]/g, '');
+    // Solo digitos (sin espacios, guiones ni parentesis) y limite de 10.
+    // Validacion estricta de 10 digitos exactos en el submit.
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
     setLocal(digits);
     onChange(`${countryCode} ${digits}`.trim());
   }
@@ -88,10 +93,12 @@ function PhoneInput({
         <input
           id={id}
           type="tel"
+          inputMode="numeric"
+          maxLength={10}
           value={local}
           onChange={handleLocalChange}
           className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-transparent"
-          placeholder="55 1234 5678"
+          placeholder="10 dígitos"
         />
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
@@ -254,8 +261,13 @@ function RegisterPageInner() {
     if (!form.phone.trim()) {
       newErrors.phone = 'El teléfono es requerido';
     } else {
-      const digits = form.phone.replace(/\D/g, '');
-      if (digits.length < 7) newErrors.phone = 'Ingresa un número de teléfono válido';
+      // Exigimos 10 digitos exactos (sin contar el codigo de pais).
+      // form.phone viene como "+52 5512345678" — limpiamos y quitamos el
+      // codigo si esta presente.
+      const matched = COUNTRY_CODES.find((c) => form.phone.startsWith(c.code));
+      const rest = matched ? form.phone.slice(matched.code.length) : form.phone;
+      const digits = rest.replace(/\D/g, '');
+      if (digits.length !== 10) newErrors.phone = 'El teléfono debe tener 10 dígitos';
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
@@ -312,8 +324,13 @@ function RegisterPageInner() {
     if (!form.phone.trim()) {
       newErrors.phone = 'El teléfono es requerido';
     } else {
-      const digits = form.phone.replace(/\D/g, '');
-      if (digits.length < 7) newErrors.phone = 'Ingresa un número de teléfono válido';
+      // Exigimos 10 digitos exactos (sin contar el codigo de pais).
+      // form.phone viene como "+52 5512345678" — limpiamos y quitamos el
+      // codigo si esta presente.
+      const matched = COUNTRY_CODES.find((c) => form.phone.startsWith(c.code));
+      const rest = matched ? form.phone.slice(matched.code.length) : form.phone;
+      const digits = rest.replace(/\D/g, '');
+      if (digits.length !== 10) newErrors.phone = 'El teléfono debe tener 10 dígitos';
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
@@ -342,8 +359,13 @@ function RegisterPageInner() {
     if (!form.phone.trim()) {
       newErrors.phone = 'El teléfono es requerido';
     } else {
-      const digits = form.phone.replace(/\D/g, '');
-      if (digits.length < 7) newErrors.phone = 'Ingresa un número de teléfono válido';
+      // Exigimos 10 digitos exactos (sin contar el codigo de pais).
+      // form.phone viene como "+52 5512345678" — limpiamos y quitamos el
+      // codigo si esta presente.
+      const matched = COUNTRY_CODES.find((c) => form.phone.startsWith(c.code));
+      const rest = matched ? form.phone.slice(matched.code.length) : form.phone;
+      const digits = rest.replace(/\D/g, '');
+      if (digits.length !== 10) newErrors.phone = 'El teléfono debe tener 10 dígitos';
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
