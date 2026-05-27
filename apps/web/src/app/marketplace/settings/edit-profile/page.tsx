@@ -175,10 +175,16 @@ export default function EditProfilePage() {
   const profileMutation = useMutation({
     mutationFn: () => {
       const addressStr = serializeAddress(address);
+      // Derivamos country (alpha2 uppercase) desde el countryCode de la
+      // direccion. El selector de pais de "General" en settings se
+      // elimino — la unica fuente de verdad ahora es el pais de la
+      // direccion. Esto evita inconsistencias entre 2 selectores.
+      const country = address.countryCode ? address.countryCode.toUpperCase() : undefined;
       return marketplaceApi.put('/auth/profile', {
         firstName: form.firstName, lastName: form.lastName,
         birthDate: form.birthDate || undefined, gender: form.gender || undefined, allergies: form.allergies || undefined,
         address: addressStr || undefined,
+        country,
       });
     },
     onSuccess: () => { refreshUser(); setFormError(''); setSuccessPopup({ title: 'Perfil actualizado' }); },
