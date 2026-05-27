@@ -10,6 +10,8 @@ import { SuccessPopup } from '@/components/ui/success-popup';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { DatePicker } from '@/components/ui/date-picker';
 import { AllergiesSelector } from '@/components/ui/allergies-selector';
+import { PasswordRules } from '@/components/ui/password-rules';
+import { validatePassword } from '@/lib/password-validation';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -274,9 +276,8 @@ export default function EditProfilePage() {
   function handlePasswordSubmit() {
     setPasswordError('');
     if (passwordForm.newPassword !== passwordForm.confirmPassword) { setPasswordError('Las contraseñas no coinciden'); return; }
-    if (passwordForm.newPassword.length < 8) { setPasswordError('Mínimo 8 caracteres'); return; }
-    if (!/[0-9]/.test(passwordForm.newPassword)) { setPasswordError('Debe contener al menos un número'); return; }
-    if (!/[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`]/.test(passwordForm.newPassword)) { setPasswordError('Debe contener al menos un símbolo'); return; }
+    const pwdErr = validatePassword(passwordForm.newPassword);
+    if (pwdErr) { setPasswordError(pwdErr); return; }
     passwordMutation.mutate();
   }
 
@@ -675,9 +676,10 @@ export default function EditProfilePage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Nueva contraseña</label>
                 <input type="password" value={passwordForm.newPassword}
                   onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
-                  placeholder="Min. 8 caracteres, 1 número, 1 símbolo"
+                  placeholder="Min. 6 caracteres, 1 número, 1 símbolo"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
                   style={{ '--tw-ring-color': TEAL } as any} />
+                <PasswordRules password={passwordForm.newPassword} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Confirmar contraseña</label>
@@ -720,9 +722,10 @@ export default function EditProfilePage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Nueva contraseña</label>
                 <input type="password" value={passwordForm.newPassword}
                   onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
-                  placeholder="Min. 8 caracteres, 1 número, 1 símbolo" autoFocus
+                  placeholder="Min. 6 caracteres, 1 número, 1 símbolo" autoFocus
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
                   style={{ '--tw-ring-color': TEAL } as any} />
+                <PasswordRules password={passwordForm.newPassword} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Confirmar contraseña</label>

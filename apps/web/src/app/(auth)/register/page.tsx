@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
+import { PasswordRules } from '@/components/ui/password-rules';
+import { validatePassword } from '@/lib/password-validation';
 
 // Country phone codes
 const COUNTRY_CODES = [
@@ -271,8 +273,9 @@ function RegisterPageInner() {
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
-    } else if (form.password.length < 6) {
-      newErrors.password = 'Mínimo 6 caracteres';
+    } else {
+      const pwdErr = validatePassword(form.password);
+      if (pwdErr) newErrors.password = pwdErr;
     }
     if (!form.confirmPassword) {
       newErrors.confirmPassword = 'Confirma tu contraseña';
@@ -334,8 +337,9 @@ function RegisterPageInner() {
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
-    } else if (form.password.length < 6) {
-      newErrors.password = 'Mínimo 6 caracteres';
+    } else {
+      const pwdErr = validatePassword(form.password);
+      if (pwdErr) newErrors.password = pwdErr;
     }
     if (!form.confirmPassword) {
       newErrors.confirmPassword = 'Confirma tu contraseña';
@@ -369,8 +373,9 @@ function RegisterPageInner() {
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
-    } else if (form.password.length < 6) {
-      newErrors.password = 'Mínimo 6 caracteres';
+    } else {
+      const pwdErr = validatePassword(form.password);
+      if (pwdErr) newErrors.password = pwdErr;
     }
     if (!form.confirmPassword) {
       newErrors.confirmPassword = 'Confirma tu contraseña';
@@ -496,12 +501,9 @@ function RegisterPageInner() {
     }
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
-    } else if (form.password.length < 8) {
-      newErrors.password = 'Mínimo 8 caracteres';
-    } else if (!/[0-9]/.test(form.password)) {
-      newErrors.password = 'Debe contener al menos un número';
-    } else if (!/[!@#$%^&*()_+\-=[\]{}|;:'",.<>?/~`]/.test(form.password)) {
-      newErrors.password = 'Debe contener al menos un símbolo';
+    } else {
+      const pwdErr = validatePassword(form.password);
+      if (pwdErr) newErrors.password = pwdErr;
     }
     if (!form.confirmPassword) {
       newErrors.confirmPassword = 'Confirma tu contraseña';
@@ -809,6 +811,7 @@ function RegisterPageInner() {
                   </button>
                 </div>
                 {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                <PasswordRules password={form.password} />
               </div>
 
               <div>
@@ -1020,7 +1023,7 @@ function RegisterPageInner() {
                   <label htmlFor="clientPassword" className="block text-xs font-medium text-gray-700 mb-0.5">Contraseña</label>
                   <input id="clientPassword" type="password" autoComplete="new-password" value={form.password}
                     onChange={(e) => updateField('password', e.target.value)}
-                    className={`input-field py-1.5 text-sm ${errors.password ? 'border-red-400' : ''}`} placeholder="Mín. 8 caracteres" />
+                    className={`input-field py-1.5 text-sm ${errors.password ? 'border-red-400' : ''}`} placeholder="Mín. 6 caracteres" />
                   {errors.password && <p className="mt-0.5 text-[10px] text-red-600">{errors.password}</p>}
                 </div>
                 <div>
@@ -1031,6 +1034,7 @@ function RegisterPageInner() {
                   {errors.confirmPassword && <p className="mt-0.5 text-[10px] text-red-600">{errors.confirmPassword}</p>}
                 </div>
               </div>
+              <PasswordRules password={form.password} />
 
               <button type="submit" disabled={isLoading}
                 className="w-full btn-primary flex items-center justify-center gap-2 py-2 text-sm">
@@ -1162,6 +1166,7 @@ function RegisterPageInner() {
                       onChange={(e) => updateField('password', e.target.value)}
                       className={`input-field ${errors.password ? 'border-red-400' : ''}`} placeholder="Mínimo 6 caracteres" />
                     {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                    <PasswordRules password={form.password} />
                   </div>
 
                   <div>
@@ -1223,6 +1228,7 @@ function RegisterPageInner() {
                   onChange={(e) => updateField('password', e.target.value)}
                   className={`input-field ${errors.password ? 'border-red-400' : ''}`} placeholder="Mínimo 6 caracteres" />
                 {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                <PasswordRules password={form.password} />
               </div>
 
               <div>

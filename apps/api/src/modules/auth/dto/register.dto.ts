@@ -6,6 +6,7 @@ import {
   IsIn,
   IsBoolean,
   IsArray,
+  Matches,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -21,7 +22,11 @@ export class RegisterDto {
   email: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  @Matches(/[0-9]/, { message: 'La contraseña debe contener al menos un número' })
+  @Matches(/[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`]/, {
+    message: 'La contraseña debe contener al menos un símbolo',
+  })
   password: string;
 
   @IsOptional()
