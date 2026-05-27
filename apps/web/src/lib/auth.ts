@@ -79,6 +79,10 @@ export interface RegisterParams {
   businessCountry?: string;
   businessAddress?: string; // legacy
   businessPhone?: string;
+  // Direccion personal del usuario (User.address). Usada en register
+  // afiliado para guardar la direccion personal del empleado, separada
+  // de la del negocio Tenant.address.
+  personalAddress?: string;
   selectedPlan?: string;
   acceptContract?: boolean;
   acceptPrivacy?: boolean;

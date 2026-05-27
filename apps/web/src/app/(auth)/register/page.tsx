@@ -9,8 +9,14 @@ import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import { PasswordRules } from '@/components/ui/password-rules';
 import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
-import { AddressFields, emptyAddress, parseAddress, type AddressValue } from '@/components/ui/address-fields';
+import { AddressFields, emptyAddress, parseAddress, serializeAddress, type AddressValue } from '@/components/ui/address-fields';
 import { getCountrySync, loadCountries } from '@/lib/geo-data';
+
+// Helper local: solo serializa si tiene al menos algo escrito.
+function serializeAddressForBackend(a: AddressValue): string {
+  const filled = !!(a.street || a.city || a.region || a.postalCode || a.countryCode);
+  return filled ? serializeAddress(a) : '';
+}
 
 // Country phone codes
 const COUNTRY_CODES = [
@@ -214,6 +220,15 @@ function RegisterPageInner() {
   // 6 inputs de texto libre por <AddressFields> con droplists de pais y
   // estado/provincia. Default MX para usuarios mexicanos (LATAM-first).
   const [businessAddress, setBusinessAddress] = useState<AddressValue>(emptyAddress('mx'));
+  // Para mode='business' (Profesional):
+  //  - Afiliado → personalAddress: la direccion personal del empleado
+  //    (a donde vive). Se guarda en User.address.
+  //  - Freelancer → localAddress: la direccion del local del negocio
+  //    independiente. Se guarda en Tenant.address (via businessXxx).
+  // Las 3 direcciones posibles del flow auth son: personal del cliente,
+  // personal del empleado afiliado, y local del profesional independiente.
+  const [personalAddress, setPersonalAddress] = useState<AddressValue>(emptyAddress('mx'));
+  const [localAddress, setLocalAddress] = useState<AddressValue>(emptyAddress('mx'));
   const [invitePreview, setInvitePreview] = useState<{
     businessName: string;
     logoUrl?: string | null;
@@ -261,15 +276,20 @@ function RegisterPageInner() {
           // numero distinto.
           businessPhone: f.businessPhone || u.phone || '',
         }));
-        // Pre-fill direccion del negocio con la del cliente. Solo si
-        // businessAddress sigue vacio (respeta cambios del user).
-        // parseAddress con countries resuelve countryCode automaticamente.
+        // Pre-fill direcciones con la del cliente. La logica:
+        //  - businessAddress (admin step 2): direccion del negocio. Si
+        //    cliente tiene direccion, asumimos que su negocio esta en el
+        //    mismo lugar por default (puede cambiar).
+        //  - personalAddress (profesional afiliado): direccion personal
+        //    del empleado. Pre-llenar siempre con la del cliente porque
+        //    es la misma persona.
+        //  - localAddress (profesional independiente): NO pre-rellenar.
+        //    El local profesional suele ser distinto a la casa, mejor
+        //    que el user lo capture explicitamente.
         if (u.address) {
-          setBusinessAddress((prev) => {
-            const isEmpty = !prev.street && !prev.city && !prev.region && !prev.postalCode;
-            if (!isEmpty) return prev;
-            return parseAddress(u.address, countries);
-          });
+          const isEmpty = (a: AddressValue) => !a.street && !a.city && !a.region && !a.postalCode;
+          setBusinessAddress((prev) => (isEmpty(prev) ? parseAddress(u.address, countries) : prev));
+          setPersonalAddress((prev) => (isEmpty(prev) ? parseAddress(u.address, countries) : prev));
         }
         setPrefilledFromClient(true);
       })
@@ -466,6 +486,12 @@ function RegisterPageInner() {
         password: form.password,
         phone: form.phone.trim(),
         type: 'freelancer',
+        // Direccion del LOCAL profesional → guarda en Tenant.address
+        businessStreet: [localAddress.street.trim(), localAddress.number.trim()].filter(Boolean).join(' ') || undefined,
+        businessCity: localAddress.city.trim() || undefined,
+        businessState: localAddress.region.trim() || undefined,
+        businessPostalCode: localAddress.postalCode.trim() || undefined,
+        businessCountry: getCountrySync(localAddress.countryCode)?.name || undefined,
         acceptContract: form.acceptContract,
         acceptPrivacy: form.acceptPrivacy,
       });
@@ -498,6 +524,11 @@ function RegisterPageInner() {
         return;
       }
 
+      // Direccion PERSONAL del empleado afiliado → guarda en User.address.
+      // Serializamos al mismo formato string del backend para reutilizar
+      // el handler del backend que ya espera ese formato.
+      const personalAddrStr = serializeAddressForBackend(personalAddress);
+
       await register({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
@@ -505,6 +536,7 @@ function RegisterPageInner() {
         password: form.password,
         phone: form.phone.trim(),
         inviteCode: code,
+        personalAddress: personalAddrStr || undefined,
       });
       router.push('/employee');
     } catch (err: unknown) {
@@ -856,6 +888,27 @@ function RegisterPageInner() {
                 </div>
                 {errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>}
                 <PasswordMatch password={form.password} confirmPassword={form.confirmPassword} />
+              </div>
+
+              {/* Direccion — cambia segun pestaña:
+                  - Afiliado: pide direccion PERSONAL del empleado (User.address)
+                  - Freelancer: pide direccion del LOCAL profesional (Tenant.address)
+                  Las 2 son distintas porque el empleado vive en un lugar y el
+                  local de un freelancer puede estar en otro. */}
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  {isFreelancer ? 'Dirección de tu local' : 'Dirección personal'}
+                  <span className="text-gray-400 font-normal"> (opcional)</span>
+                </p>
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                  {isFreelancer
+                    ? 'Donde atiendes a tus clientes. Aparece en tu perfil del marketplace.'
+                    : 'Tu dirección personal. La empresa la usa para nómina y contacto.'}
+                </p>
+                <AddressFields
+                  value={isFreelancer ? localAddress : personalAddress}
+                  onChange={isFreelancer ? setLocalAddress : setPersonalAddress}
+                />
               </div>
 
               {/* T&C — solo para independientes */}

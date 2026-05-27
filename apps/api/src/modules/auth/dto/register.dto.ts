@@ -87,6 +87,13 @@ export class RegisterDto {
   @IsString()
   businessPhone?: string;
 
+  // Direccion personal del usuario (User.address). Usada en register
+  // afiliado para guardar la direccion personal del empleado, separada
+  // de la del negocio Tenant.address.
+  @IsOptional()
+  @IsString()
+  personalAddress?: string;
+
   // Plan is no longer required at registration (trial period)
   @IsOptional()
   @IsIn(['BASICO', 'PLUS', 'PRO'])

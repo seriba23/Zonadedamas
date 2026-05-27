@@ -294,6 +294,10 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           phone: dto.phone || null,
+          // Direccion PERSONAL del empleado afiliado (no la del negocio
+          // donde trabaja, que ya esta en invite.tenant). El profesional
+          // puede tener una direccion personal distinta a la del local.
+          address: dto.personalAddress || null,
           isActive: true,
         },
       });
@@ -486,6 +490,9 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           phone: dto.phone || null,
+          // Direccion personal del admin/dueño. Separada de Tenant.address
+          // (la del negocio) — pueden ser distintas.
+          address: dto.personalAddress || null,
           isActive: true,
         },
       });
@@ -586,12 +593,24 @@ export class AuthService {
       const trialEndsAt = new Date(now);
       trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
+      // Componer la direccion del local del freelancer desde los campos
+      // businessXxx (si el form los envio). Mismo formato string que usa
+      // registerIndividual.
+      const composedLocalAddress = [
+        dto.businessStreet,
+        dto.businessCity,
+        dto.businessState,
+        dto.businessPostalCode,
+        dto.businessCountry,
+      ].filter(Boolean).join(', ') || null;
+
       const tenant = await tx.tenant.create({
         data: {
           name: fullName,
           slug,
           email: dto.email,
           phone: dto.phone || null,
+          address: composedLocalAddress,
           contractAcceptedAt: dto.acceptContract ? now : null,
           isMarketplaceListed: true,
           timezone: 'America/New_York',
@@ -621,7 +640,7 @@ export class AuthService {
         data: {
           tenantId: tenant.id,
           name: 'Principal',
-          address: null,
+          address: composedLocalAddress,
           isActive: true,
         },
       });
@@ -634,6 +653,9 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           phone: dto.phone || null,
+          // Direccion personal del freelancer. Separada de Tenant.address
+          // (del local del negocio independiente) — pueden ser distintas.
+          address: dto.personalAddress || null,
           isActive: true,
         },
       });
