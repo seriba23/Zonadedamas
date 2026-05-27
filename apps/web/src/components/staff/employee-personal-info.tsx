@@ -262,7 +262,7 @@ export function EmployeePersonalInfo({
           </div>
           {basicForm.bio && (
             <div className="mt-4">
-              <p className="text-xs text-gray-400 mb-1">Bio</p>
+              <p className="text-xs text-gray-400 mb-1">Presentación</p>
               <p className="text-sm text-gray-700">{basicForm.bio}</p>
             </div>
           )}
@@ -410,7 +410,10 @@ export function EmployeePersonalInfo({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Presentación</label>
+            <p className="text-[11px] text-gray-400 mb-1.5 leading-relaxed">
+              Cuéntale a tus clientes quién eres, tu experiencia y especialidades. Este texto aparece en el perfil público del marketplace.
+            </p>
             <textarea
               value={basicForm.bio}
               onChange={(e) => {

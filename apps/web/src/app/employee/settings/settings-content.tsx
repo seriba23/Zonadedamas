@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+import { AllergiesSelector } from '@/components/ui/allergies-selector';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -111,19 +112,38 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
               </div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="input-field" /></div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} className="input-field" /></div>
-              <div><label className="block text-xs font-medium text-gray-600 mb-1">Bio</label><textarea value={editForm.bio} onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))} className="input-field resize-none" rows={3} /></div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Presentación</label>
+                <p className="text-[11px] text-gray-400 mb-1.5 leading-relaxed">
+                  Cuéntale a tus clientes quién eres, tu experiencia y especialidades. Este texto aparece en tu perfil público del marketplace.
+                </p>
+                <textarea
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
+                  className="input-field resize-none"
+                  rows={4}
+                  placeholder="Ej: Estilista con 8 años de experiencia, especializada en colorimetría y cortes modernos…"
+                />
+              </div>
 
               <h4 className="text-xs font-semibold text-gray-500 uppercase pt-2">Información médica</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">Tipo de sangre</label><select value={personalForm.bloodType} onChange={(e) => setPersonalForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field"><option value="">—</option>{BLOOD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">Alergias</label><input type="text" value={personalForm.allergies} onChange={(e) => setPersonalForm((f) => ({ ...f, allergies: e.target.value }))} className="input-field" /></div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de sangre</label>
+                <select value={personalForm.bloodType} onChange={(e) => setPersonalForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field">
+                  <option value="">—</option>
+                  {BLOOD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Alergias</label>
+                <AllergiesSelector value={personalForm.allergies} onChange={(v) => setPersonalForm((f) => ({ ...f, allergies: v }))} />
               </div>
 
               <h4 className="text-xs font-semibold text-gray-500 uppercase pt-2">Contacto de emergencia</h4>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label><input type="text" value={personalForm.emergencyContactName} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label><input type="text" value={personalForm.emergencyContactLastName} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" /></div>
-                <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={personalForm.emergencyContactPhone} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} className="input-field" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label><input type="text" autoComplete="off" name="emergencyName" value={personalForm.emergencyContactName} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label><input type="text" autoComplete="off" name="emergencyLastName" value={personalForm.emergencyContactLastName} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" /></div>
+                <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" autoComplete="off" inputMode="numeric" name="emergencyPhone" maxLength={10} placeholder="10 dígitos" value={personalForm.emergencyContactPhone} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} className="input-field" /></div>
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">Relación</label><select value={personalForm.emergencyContactRelation} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field"><option value="">—</option>{RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
               </div>
 
