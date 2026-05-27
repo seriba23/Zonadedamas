@@ -9,6 +9,8 @@ import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
 import { PasswordRules } from '@/components/ui/password-rules';
 import { PasswordMatch } from '@/components/ui/password-match';
 import { validatePassword } from '@/lib/password-validation';
+import { AddressFields, emptyAddress, type AddressValue } from '@/components/ui/address-fields';
+import { getCountry } from '@/lib/geo-data';
 
 // Country phone codes
 const COUNTRY_CODES = [
@@ -208,6 +210,10 @@ function RegisterPageInner() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [professionalType, setProfessionalType] = useState<'affiliated' | 'freelancer'>('affiliated');
+  // Direccion del negocio (mode='individual' admin step 2). Reemplaza los
+  // 6 inputs de texto libre por <AddressFields> con droplists de pais y
+  // estado/provincia. Default MX para usuarios mexicanos (LATAM-first).
+  const [businessAddress, setBusinessAddress] = useState<AddressValue>(emptyAddress('MX'));
   const [invitePreview, setInvitePreview] = useState<{
     businessName: string;
     logoUrl?: string | null;
@@ -412,11 +418,11 @@ function RegisterPageInner() {
         type: 'individual',
         businessName: form.businessName.trim(),
         businessTypes: form.businessTypes,
-        businessStreet: [form.businessStreetName.trim(), form.businessStreetNumber.trim()].filter(Boolean).join(' ') || undefined,
-        businessCity: form.businessCity.trim() || undefined,
-        businessState: form.businessState.trim() || undefined,
-        businessPostalCode: form.businessPostalCode.trim() || undefined,
-        businessCountry: form.businessCountry.trim() || undefined,
+        businessStreet: [businessAddress.street.trim(), businessAddress.number.trim()].filter(Boolean).join(' ') || undefined,
+        businessCity: businessAddress.city.trim() || undefined,
+        businessState: businessAddress.region.trim() || undefined,
+        businessPostalCode: businessAddress.postalCode.trim() || undefined,
+        businessCountry: getCountry(businessAddress.countryCode)?.name || undefined,
         businessPhone: form.businessPhone.trim() || undefined,
         acceptContract: form.acceptContract,
       });
@@ -1289,43 +1295,12 @@ function RegisterPageInner() {
                 {errors.businessTypes && <p className="mt-1 text-xs text-red-600">{errors.businessTypes}</p>}
               </div>
 
-              {/* Address section */}
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-gray-700">
+              {/* Address — droplists de pais y estado/provincia/departamento */}
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-3">
                   Dirección principal <span className="text-gray-400 font-normal">(opcional)</span>
                 </p>
-
-                {/* CP + País */}
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="text" value={form.businessPostalCode}
-                    onChange={(e) => updateField('businessPostalCode', e.target.value)}
-                    className="input-field" placeholder="Código postal" />
-                  <input type="text" value={form.businessCountry}
-                    onChange={(e) => updateField('businessCountry', e.target.value)}
-                    className="input-field" placeholder="País" />
-                </div>
-
-                {/* Ciudad + Estado */}
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="text" value={form.businessCity}
-                    onChange={(e) => updateField('businessCity', e.target.value)}
-                    className="input-field" placeholder="Ciudad" />
-                  <input type="text" value={form.businessState}
-                    onChange={(e) => updateField('businessState', e.target.value)}
-                    className="input-field" placeholder="Estado / Provincia" />
-                </div>
-
-                {/* Calle + Número */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <input type="text" value={form.businessStreetName}
-                      onChange={(e) => updateField('businessStreetName', e.target.value)}
-                      className="input-field" placeholder="Calle" />
-                  </div>
-                  <input type="text" value={form.businessStreetNumber}
-                    onChange={(e) => updateField('businessStreetNumber', e.target.value)}
-                    className="input-field" placeholder="Número" />
-                </div>
+                <AddressFields value={businessAddress} onChange={setBusinessAddress} />
               </div>
 
               <div>

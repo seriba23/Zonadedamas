@@ -5,6 +5,7 @@ import { marketplaceApi } from '@/lib/marketplace-api';
 import { resolveImageUrl } from '@/lib/utils';
 import { DatePicker } from './date-picker';
 import { AllergiesSelector } from './allergies-selector';
+import { AddressFields, emptyAddress, parseAddress, serializeAddress, type AddressValue } from './address-fields';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -49,6 +50,7 @@ interface CompleteProfileModalProps {
     birthDate?: string | null;
     gender?: string | null;
     allergies?: string | null;
+    address?: string | null;
     avatarUrl?: string | null;
   };
   onComplete: () => void;
@@ -64,6 +66,9 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
     gender: user.gender || '',
     allergies: user.allergies || '',
   });
+  const [address, setAddress] = useState<AddressValue>(
+    user.address ? parseAddress(user.address) : emptyAddress('MX'),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,11 +84,13 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
     setError('');
     try {
       const fullPhone = phoneNumber ? `${countryCode}${phoneNumber}` : undefined;
+      const addressStr = serializeAddress(address);
       await marketplaceApi.put('/auth/profile', {
         phone: fullPhone,
         birthDate: form.birthDate || undefined,
         gender: form.gender || undefined,
         allergies: form.allergies || undefined,
+        address: addressStr || undefined,
       });
       setStep('thanks');
     } catch (err: any) {
@@ -252,6 +259,17 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
               Esta información nos ayuda a evitar ofrecerte servicios que puedan causarte una reacción alérgica. Los especialistas podrán verla cuando seas atendid@ para garantizar tu seguridad y la mejor experiencia posible.
             </p>
             <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
+          </div>
+
+          {/* Direccion (opcional) — para envios a domicilio de productos */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Dirección <span className="text-gray-400">(opcional)</span>
+            </label>
+            <p className="text-xs text-gray-400 mb-2 leading-relaxed">
+              Para sugerirte negocios cercanos y facilitar envíos a domicilio.
+            </p>
+            <AddressFields value={address} onChange={setAddress} />
           </div>
         </div>
 
