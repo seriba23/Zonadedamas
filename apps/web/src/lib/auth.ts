@@ -15,6 +15,7 @@ export interface AuthUser {
   jobTitle?: string | null;
   tenantName?: string;
   tenantCurrency?: string;
+  tenantType?: 'FREELANCER' | 'BUSINESS' | null;
   subscriptionStatus?: string;
   subscriptionPlan?: string;
   trialEndsAt?: string | null;

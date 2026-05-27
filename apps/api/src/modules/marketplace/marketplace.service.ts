@@ -493,9 +493,13 @@ export class MarketplaceService {
     const dayOfWeekExpr = "ELT(DAYOFWEEK(CURDATE()), 'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY')";
 
     // Build WHERE conditions
+    // Excluimos freelancers porque su perfil pertenece a la pestana
+    // "Profesionales" (1 persona = 1 perfil de empleado), no a "Negocios"
+    // (que muestra salones/empresas).
     const conditions: string[] = [
       't.is_marketplace_listed = true',
       "t.subscription_status IN ('active', 'ACTIVE', 'TRIAL')",
+      "t.tenant_type != 'FREELANCER'",
     ];
     const params: any[] = [];
 

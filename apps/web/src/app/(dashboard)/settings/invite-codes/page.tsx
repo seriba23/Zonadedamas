@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
+import { PlusGateScreen } from '@/components/ui/plus-gate-screen';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 
@@ -26,6 +28,19 @@ interface Service {
 }
 
 export default function InviteCodesPage() {
+  const { isFreelancer } = useTenantTier();
+  if (isFreelancer) {
+    return (
+      <PlusGateScreen
+        feature="Codigos de invitacion"
+        description="Invita a tu equipo a unirse a tu negocio mediante codigos de un solo uso. Disponible en el plan PLUS."
+      />
+    );
+  }
+  return <InviteCodesPageContent />;
+}
+
+function InviteCodesPageContent() {
   const queryClient = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);

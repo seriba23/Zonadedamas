@@ -473,6 +473,7 @@ export class AuthService {
           currency: 'USD',
           subscriptionPlan: 'BASICO',
           subscriptionStatus: 'TRIAL',
+          tenantType: 'BUSINESS',
         },
       });
 
@@ -664,6 +665,7 @@ export class AuthService {
           currency: 'USD',
           subscriptionPlan: 'BASICO',
           subscriptionStatus: 'TRIAL',
+          tenantType: 'FREELANCER',
         },
       });
 
@@ -1201,7 +1203,7 @@ export class AuthService {
       }),
       this.prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { name: true, currency: true },
+        select: { name: true, currency: true, tenantType: true },
       }),
     ]);
 
@@ -1221,6 +1223,7 @@ export class AuthService {
       jobTitle: employee?.jobTitle || null,
       tenantName: tenant?.name || '',
       tenantCurrency: tenant?.currency || 'USD',
+      tenantType: tenant?.tenantType || 'BUSINESS',
       subscriptionStatus: subscription?.status || 'ACTIVE',
       subscriptionPlan: subscription?.plan || 'BASICO',
       trialEndsAt: subscription?.trialEndsAt?.toISOString() || null,

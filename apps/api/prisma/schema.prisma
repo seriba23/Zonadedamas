@@ -117,6 +117,11 @@ enum ShopPaymentMethod {
   CARD
 }
 
+enum TenantType {
+  FREELANCER
+  BUSINESS
+}
+
 // ─── PLATFORM USERS (Super Admin) ──────────────────
 
 model PlatformUser {
@@ -178,6 +183,7 @@ model Tenant {
   stripeOnboardingComplete Boolean   @default(false) @map("stripe_onboarding_complete")
   subscriptionPlan     String    @default("free") @map("subscription_plan")
   subscriptionStatus   String    @default("active") @map("subscription_status")
+  tenantType           TenantType @default(BUSINESS) @map("tenant_type")
   shopEnabled          Boolean   @default(false) @map("shop_enabled")
   shopPickupEnabled    Boolean   @default(true) @map("shop_pickup_enabled")
   shopShippingEnabled  Boolean   @default(false) @map("shop_shipping_enabled")
