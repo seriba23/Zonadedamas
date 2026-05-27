@@ -106,7 +106,13 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
         allergies: form.allergies || undefined,
         address: addressStr || undefined,
       });
-      setStep('thanks');
+      // Recargar la pagina para que el modal desaparezca al instante.
+      // Antes mostrabamos step 'thanks' y dependiamos de que el user
+      // hiciera click en "¡Empezar!" para cerrar; varios usuarios lo
+      // dejaban abierto creyendo que ya guardo.
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
     } catch (err: any) {
       setError(err.message || 'Error al guardar');
     } finally {

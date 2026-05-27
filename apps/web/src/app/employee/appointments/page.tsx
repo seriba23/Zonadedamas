@@ -39,7 +39,15 @@ interface Appointment {
   notes: string | null;
   photoConsent: boolean | null;
   discountAmount: string | number | null;
-  client: { id: string; firstName: string; lastName: string; email?: string; phone?: string };
+  client: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    phone?: string;
+    allergies?: string | null;
+    user?: { avatarUrl?: string | null; allergies?: string | null } | null;
+  };
   items: AppointmentItem[];
   productReservations?: ProductReservation[];
   redemption?: AppointmentRedemption | null;
@@ -315,6 +323,28 @@ export default function EmployeeAppointmentsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Alergias del cliente — visible solo si el cliente las
+                  registro en su perfil del marketplace. Importante para el
+                  empleado: evita reacciones alergicas al usar productos
+                  durante el servicio. */}
+              {(() => {
+                const allergies = selectedApt.client.user?.allergies || selectedApt.client.allergies;
+                if (!allergies || !allergies.trim()) return null;
+                return (
+                  <div className="mb-5 p-3 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-amber-900 uppercase tracking-wide mb-0.5">
+                        Alergias del cliente
+                      </p>
+                      <p className="text-sm text-amber-900 break-words">{allergies}</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Services + Products + Discount + Total */}
               {(() => {

@@ -411,11 +411,14 @@ export class AppointmentsService {
               id: true,
               firstName: true,
               lastName: true,
+              email: true,
+              phone: true,
               avatarUrl: true,
               // Si el cliente registró su cuenta en el portal, su foto vive
-              // en users.avatar_url, no en clients.avatar_url. Traemos ambas
-              // y el frontend hace fallback.
-              user: { select: { avatarUrl: true } },
+              // en users.avatar_url, no en clients.avatar_url. Tambien las
+              // alergias viven solo en User (no en Client local). Traemos
+              // ambas y el frontend hace fallback.
+              user: { select: { avatarUrl: true, allergies: true } },
             },
           },
           employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
@@ -450,7 +453,11 @@ export class AppointmentsService {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, tenantId },
       include: {
-        client: true,
+        client: {
+          // Incluye user para traer las alergias (viven en User.allergies
+          // cuando el cliente esta vinculado a una cuenta marketplace).
+          include: { user: { select: { avatarUrl: true, allergies: true } } },
+        },
         employee: true,
         items: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
