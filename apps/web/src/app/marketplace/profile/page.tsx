@@ -9,7 +9,6 @@ import 'dayjs/locale/es';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, resolveImageUrl } from '@/lib/utils';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Avatar } from '@/components/ui/avatar';
 
 dayjs.locale('es');
@@ -440,10 +439,11 @@ export default function MarketplaceProfilePage() {
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* ─── Hero Card ─────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center relative">
-          {/* Modo oscuro (al lado de configuracion). Reutiliza el mismo
-              ThemeToggle de la consola admin para consistencia. */}
+          {/* Modo oscuro removido en V1 — pendiente para V2 (requiere
+              auditar todos los componentes del marketplace para
+              asegurar contraste/legibilidad). Ver
+              project_v2_dark_mode.md. */}
           <div className="absolute top-4 right-4 flex items-center gap-1">
-            <ThemeToggle className="text-gray-400 hover:text-gray-600 hover:bg-gray-100" />
             <Link
               href="/marketplace/settings"
               className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
