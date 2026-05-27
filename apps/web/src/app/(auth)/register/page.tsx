@@ -392,6 +392,9 @@ function RegisterPageInner() {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
     if (!form.inviteCode.trim()) newErrors.inviteCode = 'El código de invitación es requerido';
+    // T&C + privacidad obligatorios en afiliado tambien (no solo freelancer).
+    if (!form.acceptContract) newErrors.acceptContract = 'Debes aceptar los términos y condiciones';
+    if (!form.acceptPrivacy) newErrors.acceptPrivacy = 'Debes aceptar el aviso de privacidad';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -721,32 +724,53 @@ function RegisterPageInner() {
   // ─── BUSINESS / FREELANCER ───────────────────────
   if (mode === 'business') {
     const isFreelancer = professionalType === 'freelancer';
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-primary-600">Siliba</h1>
-            <p className="mt-2 text-gray-500 text-sm">Registro profesional</p>
-          </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <div className="flex items-center gap-2 mb-5">
-              <button
-                onClick={() => {
-                  // Si vino del login selector (typeParam='business'), volver
-                  // a /login para que se restaure el selector cliente/
-                  // profesional/admin. Sino, regresar al selector local.
-                  if (typeParam === 'business') router.push('/login');
-                  else setMode('select');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h2 className="text-xl font-semibold text-gray-900">Crear cuenta profesional</h2>
-            </div>
+    // Habilitar el submit solo cuando todos los campos requeridos estan
+    // llenos y validos (heuristica rapida que coincide con validateBusiness/
+    // validateFreelancer pero sin tocar el state de errores).
+    const phoneDigits = form.phone.replace(/^[+\d\s\-()]*?(\d{10})$/, '$1').replace(/\D/g, '');
+    const phoneOk = phoneDigits.length === 10;
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+    const pwdOk = !validatePassword(form.password) && form.password === form.confirmPassword;
+    const baseOk =
+      !!form.firstName.trim() &&
+      !!form.lastName.trim() &&
+      emailOk &&
+      phoneOk &&
+      pwdOk &&
+      form.acceptContract &&
+      form.acceptPrivacy;
+    const canSubmit = isFreelancer
+      ? baseOk
+      : baseOk && !!form.inviteCode.trim();
+
+    return (
+      <div className="h-[100dvh] bg-gray-50 flex flex-col">
+        {/* Header sticky con logo + back */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3 safe-top">
+          <div className="max-w-md mx-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeParam === 'business') router.push('/login');
+                else setMode('select');
+              }}
+              className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: '#008080' }}>Siliba</h1>
+            <span className="text-sm text-gray-400 ml-1">· Registro profesional</span>
+          </div>
+        </div>
+
+        {/* Contenido scrolleable */}
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="w-full max-w-md mx-auto">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Crear cuenta profesional</h2>
 
             {/* Tipo de profesional — segmented estilo "Cupones | Mis puntos"
                 (rounded-lg border border-gray-300 + activo teal solido). */}
@@ -780,7 +804,7 @@ function RegisterPageInner() {
               </div>
             )}
 
-            <form onSubmit={isFreelancer ? handleSubmitFreelancer : handleSubmitBusiness} className="space-y-4">
+            <form id="business-form" onSubmit={isFreelancer ? handleSubmitFreelancer : handleSubmitBusiness} className="space-y-4">
               {/* Código de invitación — solo para afiliados */}
               {!isFreelancer && (
                 <div>
@@ -911,53 +935,68 @@ function RegisterPageInner() {
                 />
               </div>
 
-              {/* T&C — solo para independientes */}
-              {isFreelancer && (
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-start gap-2">
-                    <input type="checkbox" checked={form.acceptContract}
-                      onChange={(e) => updateField('acceptContract', e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
-                    <span className="text-xs text-gray-600">
-                      Acepto los{' '}
-                      <a href="/marketplace/legal/terms" target="_blank" className="text-[#008080] underline font-medium">
-                        términos y condiciones
-                      </a>
-                    </span>
-                  </div>
-                  {errors.acceptContract && <p className="text-xs text-red-600 ml-6">{errors.acceptContract}</p>}
-                  <div className="flex items-start gap-2">
-                    <input type="checkbox" checked={form.acceptPrivacy}
-                      onChange={(e) => updateField('acceptPrivacy', e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
-                    <span className="text-xs text-gray-600">
-                      Acepto el{' '}
-                      <a href="/marketplace/legal/privacy" target="_blank" className="text-[#008080] underline font-medium">
-                        aviso de privacidad
-                      </a>
-                    </span>
-                  </div>
-                  {errors.acceptPrivacy && <p className="text-xs text-red-600 ml-6">{errors.acceptPrivacy}</p>}
+              {/* T&C + privacidad — obligatorios en ambos casos.
+                  Antes solo aparecian en freelancer; en afiliado tambien
+                  son legalmente necesarios. */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-start gap-2">
+                  <input type="checkbox" checked={form.acceptContract}
+                    onChange={(e) => updateField('acceptContract', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
+                  <span className="text-xs text-gray-600">
+                    Acepto los{' '}
+                    <a href="/marketplace/legal/terms" target="_blank" className="text-[#008080] underline font-medium">
+                      términos y condiciones
+                    </a>
+                  </span>
                 </div>
-              )}
-
-              <button type="submit" disabled={isLoading}
-                className="w-full btn-primary flex items-center justify-center gap-2 py-2.5">
-                {isLoading && (
-                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                )}
-                {isLoading ? 'Creando cuenta...' : isFreelancer ? 'Comenzar período de prueba' : 'Crear cuenta'}
-              </button>
+                {errors.acceptContract && <p className="text-xs text-red-600 ml-6">{errors.acceptContract}</p>}
+                <div className="flex items-start gap-2">
+                  <input type="checkbox" checked={form.acceptPrivacy}
+                    onChange={(e) => updateField('acceptPrivacy', e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
+                  <span className="text-xs text-gray-600">
+                    Acepto el{' '}
+                    <a href="/marketplace/legal/privacy" target="_blank" className="text-[#008080] underline font-medium">
+                      aviso de privacidad
+                    </a>
+                  </span>
+                </div>
+                {errors.acceptPrivacy && <p className="text-xs text-red-600 ml-6">{errors.acceptPrivacy}</p>}
+              </div>
             </form>
-          </div>
 
-          <p className="text-center mt-6 text-sm text-gray-500">
-            ¿Ya tienes cuenta?{' '}
-            <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
-          </p>
+            <p className="text-center mt-6 text-sm text-gray-500">
+              ¿Ya tienes cuenta?{' '}
+              <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
+            </p>
+          </div>
+          </div>
+        </div>
+
+        {/* Footer sticky con submit. El boton hace submit del form via
+            atributo form="business-form" (HTML5). Disabled hasta que
+            todos los campos requeridos esten validos. */}
+        <div
+          className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="max-w-md mx-auto">
+            <button
+              type="submit"
+              form="business-form"
+              disabled={isLoading || !canSubmit}
+              className="w-full btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading && (
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {isLoading ? 'Creando cuenta...' : isFreelancer ? 'Comenzar período de prueba' : 'Crear cuenta'}
+            </button>
+          </div>
         </div>
 
         {/* Preview popup */}
