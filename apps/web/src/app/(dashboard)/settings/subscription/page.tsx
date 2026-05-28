@@ -916,7 +916,7 @@ export default function SubscriptionPage() {
             <div className="space-y-2">
               {[
                 'Un solo cobro al año, sin cobros mensuales recurrentes',
-                'Equivalente a 1.8 meses gratis al ano vs. pago mensual',
+                'Equivalente a 1.8 meses gratis al año vs. pago mensual',
                 'Sin riesgo de suspension por pago atrasado',
               ].map((txt) => (
                 <div key={txt} className="flex items-start gap-2 text-sm text-gray-600">
