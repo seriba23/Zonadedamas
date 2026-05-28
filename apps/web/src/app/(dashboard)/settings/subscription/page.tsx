@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { loadStripe, StripePaymentElementOptions } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/hooks/use-auth';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 dayjs.locale('es');
@@ -204,6 +205,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose?: () 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SubscriptionPage() {
+  const { user } = useAuth();
   const [modal, setModal] = useState<ModalType>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
@@ -256,7 +258,18 @@ export default function SubscriptionPage() {
         setError('No se pudo iniciar el pago. Intenta de nuevo.');
       }
     },
-    onError: (e: any) => setError(e?.message || 'Error al activar.'),
+    onError: (e: any) => {
+      // Mensaje claro cuando Stripe no esta configurado (tipico en local
+      // o entornos demo). En vez del "Bad Request" generico.
+      const msg = e?.message || '';
+      if (msg.includes('STRIPE_PLATFORM_PRICE_ID')) {
+        setError(
+          'Los pagos no estan habilitados en este ambiente (Stripe no configurado). Contacta al administrador para activar tu suscripcion.',
+        );
+      } else {
+        setError(msg || 'Error al activar.');
+      }
+    },
   });
 
   // ── Reactivar suscripción cancelada
@@ -1010,7 +1023,11 @@ export default function SubscriptionPage() {
       <div className="rounded-2xl p-5 border border-dashed border-gray-200 bg-gray-50">
         <p className="text-sm font-semibold text-gray-700 mb-2">¿Cómo funciona la facturación?</p>
         <ul className="text-xs text-gray-500 space-y-1.5 list-disc list-inside">
-          <li>$500 MXN/mes plan único — incluye a todos tus empleados sin cobro adicional</li>
+          {(user as any)?.tenantType === 'FREELANCER' ? (
+            <li>$300 MXN/mes plan Pro — uso individual, sin equipo</li>
+          ) : (
+            <li>$500 MXN/mes plan Plus — incluye a todos tus empleados sin cobro adicional</li>
+          )}
           <li>Plan anual: 15% de descuento, un solo pago por todos los meses del año</li>
           <li>Si cancelas, mantienes acceso hasta el final del período ya pagado</li>
           <li>Puedes adelantar un mes de mensualidad para extender tu acceso</li>
