@@ -811,6 +811,15 @@ export default function BusinessDetailPage() {
 
   const closeBooking = () => {
     setBookingStep(null);
+    // Si es freelancer, al cerrar el wizard quitamos los query params
+    // (bookEmployee/service) y redirigimos a la vista del profesional —
+    // la vista "negocio" no aplica para un independiente.
+    if (biz?.tenantType === 'FREELANCER') {
+      const employee = (biz.employees || [])[0];
+      if (employee?.id) {
+        router.replace(`/marketplace/${tenantSlug}/professional/${employee.id}`);
+      }
+    }
   };
 
   // Helpers para abrir el wizard ya con un servicio o paquete preseleccionado.
