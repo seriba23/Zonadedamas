@@ -29,7 +29,8 @@
     "db:reset-admin-password": "ts-node prisma/reset-admin-password.ts",
     "db:reset-employee-profile": "ts-node prisma/reset-employee-profile.ts",
     "db:set-tenant-type": "ts-node prisma/set-tenant-type.ts",
-    "db:fix-subscription-amounts": "ts-node prisma/fix-subscription-amounts.ts"
+    "db:fix-subscription-amounts": "ts-node prisma/fix-subscription-amounts.ts",
+    "db:backfill-freelancer-services": "ts-node prisma/backfill-freelancer-services.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
