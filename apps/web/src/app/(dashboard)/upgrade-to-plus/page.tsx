@@ -24,7 +24,8 @@ const FEATURES: FeatureRow[] = [
   { label: 'Roles y permisos personalizados', basico: false, plus: true },
   { label: 'Codigos de invitacion para tu equipo', basico: false, plus: true },
   { label: 'Horarios por empleado', basico: false, plus: true },
-  { label: 'Tienda — vende productos a tus clientes', basico: false, plus: true, highlight: true },
+  { label: 'Control de asistencias', basico: false, plus: true },
+  { label: 'Tienda — vende productos a tus clientes', basico: false, plus: true },
 ];
 
 export default function UpgradeToPlusPage() {
