@@ -63,8 +63,7 @@ type ModalType =
   | 'payment-success'
   | 'domiciliar'
   | 'advance-payment'
-  | 'switch-annual'
-  | 'add-licenses';
+  | 'switch-annual';
 
 function daysUntil(date: string) {
   return Math.max(0, dayjs(date).diff(dayjs(), 'day'));
@@ -228,17 +227,11 @@ export default function SubscriptionPage() {
     queryFn: () => api.get<{ data: any[]; meta: any }>('/api/employees?perPage=100&includeInactive=true'),
   });
 
-  const releaseLicenseMutation = useMutation({
-    mutationFn: (employeeId: string) => api.put(`/api/employees/${employeeId}`, { isActive: false }),
-    onSuccess: () => { refetch(); refetchEmployees(); },
-  });
-
   const sub: SubscriptionData | null = (subData as any)?.data || null;
   const preview: PreviewData | null = (previewData as any)?.data || null;
   const invoices: Invoice[] = (invoicesData as any)?.data || [];
   const allEmployees: any[] = (employeesData as any)?.data || [];
   const activeEmployees = allEmployees.filter((e) => e.isActive);
-  const inactiveEmployees = allEmployees.filter((e) => !e.isActive);
 
   function closeModal() { setModal(null); setClientSecret(null); setModalData(null); }
 
@@ -325,22 +318,6 @@ export default function SubscriptionPage() {
       const secret = res?.data?.clientSecret;
       if (secret) { setClientSecret(secret); setModal('switch-annual'); setModalData(res?.data); }
     },
-  });
-
-  // ── Agregar licencias (plan anual)
-  const addLicensesMutation = useMutation({
-    mutationFn: (count: number) => api.post('/api/stripe/subscription/add-licenses', { count }),
-    onSuccess: (res: any) => {
-      const d = res?.data;
-      if (!d?.charged) { closeModal(); refetch(); }
-      else { setClientSecret(d.clientSecret); setModal('add-licenses'); setModalData(d); }
-    },
-  });
-
-  const confirmLicensesMutation = useMutation({
-    mutationFn: (d: { toCharge: number; freeFromPool: number }) =>
-      api.post('/api/stripe/subscription/add-licenses/confirm', d),
-    onSuccess: () => { closeModal(); refetch(); },
   });
 
   // ── Setup intent (domiciliar)
@@ -513,29 +490,6 @@ export default function SubscriptionPage() {
         </Modal>
       )}
 
-      {/* Agregar licencias */}
-      {modal === 'add-licenses' && clientSecret && stripeOptions && (
-        <Modal onClose={closeModal}>
-          <div className="px-6 py-5">
-            <Elements stripe={stripePromise} options={stripeOptions}>
-              <InlinePaymentForm
-                title="Agregar licencia"
-                subtitle={`${modalData?.monthsLeft} mes(es) restantes en tu plan anual · 15% desc.`}
-                amountUsd={modalData?.amountUsd || 0}
-                breakdown={[
-                  { label: `${modalData?.toCharge} licencia(s) nueva(s) × $8.50 × ${modalData?.monthsLeft} meses`, amount: `$${modalData?.amountUsd?.toFixed(2)} MXN` },
-                  ...(modalData?.freeFromPool > 0 ? [{ label: `${modalData.freeFromPool} del pool disponible`, amount: 'Gratis' }] : []),
-                ]}
-                onSuccess={() => {
-                  confirmLicensesMutation.mutate({ toCharge: modalData.toCharge, freeFromPool: modalData.freeFromPool });
-                }}
-                onCancel={closeModal}
-              />
-            </Elements>
-          </div>
-        </Modal>
-      )}
-
       {/* Domiciliar tarjeta */}
       {modal === 'domiciliar' && clientSecret && stripeOptions && (
         <Modal onClose={closeModal}>
@@ -695,34 +649,21 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* ─── Licencias y costos (fusionado) ─────── */}
+      {/* ─── Plan + costo (modelo flat) ─────────── */}
       {sub && isActive && preview && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
 
           {/* ── Cabecera ── */}
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Licencias y costos</h2>
+              <h2 className="text-base font-semibold text-gray-900">Tu plan</h2>
               <p className="text-xs text-gray-400 mt-0.5">
-                {isAnnual
-                  ? `${activeEmployees.length + 1} de ${sub.billedEmployeeCount + 1} licencias en uso · las liberadas quedan en tu pool`
-                  : `${activeEmployees.length + 1} licencia${activeEmployees.length + 1 !== 1 ? 's' : ''} activa${activeEmployees.length + 1 !== 1 ? 's' : ''} · se ajusta con tus empleados`}
+                {(user as any)?.tenantType === 'FREELANCER'
+                  ? 'Plan individual sin equipo'
+                  : `${activeEmployees.length} empleado${activeEmployees.length !== 1 ? 's' : ''} activo${activeEmployees.length !== 1 ? 's' : ''} · incluidos sin cargo adicional`}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {isAnnual && (
-                <button
-                  onClick={() => addLicensesMutation.mutate(1)}
-                  disabled={addLicensesMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white disabled:opacity-50 transition-colors"
-                  style={{ backgroundColor: TEAL }}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                  {addLicensesMutation.isPending ? 'Calculando...' : 'Solicitar licencia'}
-                </button>
-              )}
+            {(user as any)?.tenantType !== 'FREELANCER' && (
               <Link
                 href="/staff"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
@@ -732,169 +673,40 @@ export default function SubscriptionPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
-            </div>
+            )}
           </div>
 
-          {/* ── Barra de uso (plan anual) ── */}
-          {isAnnual && (
-            <div className="px-6 pt-4 pb-1">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs text-gray-400">{activeEmployees.length + 1} de {sub.billedEmployeeCount + 1} licencias en uso</span>
-                {sub.availableLicenses > 0 && (
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
-                    {sub.availableLicenses} libre{sub.availableLicenses !== 1 ? 's' : ''} en pool
-                  </span>
-                )}
-              </div>
-              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    backgroundColor: TEAL,
-                    width: `${Math.min(100, ((activeEmployees.length + 1) / Math.max(1, sub.billedEmployeeCount + 1)) * 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ── Tabla de licencias ── */}
-          <div className="divide-y divide-gray-50 px-2 pt-2">
-
-            {/* Fila: Siliba Business (licencia base) */}
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors">
+          {/* ── Card del plan unico ── */}
+          <div className="px-6 py-5">
+            <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: TEAL_LIGHT, border: `1px solid ${TEAL}` }}>
               <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0"
                   style={{ backgroundColor: TEAL }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900">Siliba Business</p>
-                  <p className="text-xs text-gray-400">Licencia única — incluye todos los empleados</p>
+                  <p className="text-base font-bold" style={{ color: TEAL }}>
+                    Siliba {(user as any)?.tenantType === 'FREELANCER' ? 'Pro' : 'Plus'}
+                  </p>
+                  <p className="text-xs" style={{ color: '#005555' }}>
+                    {(user as any)?.tenantType === 'FREELANCER'
+                      ? 'Uso individual - sin gestion de equipo'
+                      : 'Equipo ilimitado, todas las funciones'}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-semibold text-gray-700">$500.00<span className="text-xs font-normal text-gray-400">/mes</span></span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
-                  Activa
-                </span>
+              <div className="text-right flex-shrink-0">
+                <p className="text-2xl font-black" style={{ color: TEAL }}>
+                  ${preview.totalMonthly.toFixed(0)}
+                  <span className="text-sm font-medium" style={{ color: '#005555' }}> MXN/mes</span>
+                </p>
               </div>
             </div>
-
-            {/* Filas: empleados activos */}
-            {activeEmployees.map((emp) => (
-              <div key={emp.id} className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors group">
-                <Link href={`/staff/${emp.id}`} className="flex items-center gap-3 min-w-0 flex-1">
-                  <div
-                    className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                    style={{ backgroundColor: emp.color || TEAL }}
-                  >
-                    {emp.avatarUrl
-                      ? <img src={emp.avatarUrl.startsWith('http') ? emp.avatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${emp.avatarUrl}`} alt={`${emp.firstName} ${emp.lastName}`} className="w-full h-full object-cover" />
-                      : <span>{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
-                    }
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate group-hover:underline">{emp.firstName} {emp.lastName}</p>
-                    <p className="text-xs text-gray-400 truncate">{emp.email || 'Sin correo'}</p>
-                  </div>
-                </Link>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-semibold text-gray-700">Incluido</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
-                    Activa
-                  </span>
-                  {isAnnual && (
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`¿Liberar la licencia de ${emp.firstName} ${emp.lastName}?\n\nEl empleado quedará inactivo y la licencia volverá a tu pool para asignarla a otra persona.`)) {
-                          releaseLicenseMutation.mutate(emp.id);
-                        }
-                      }}
-                      disabled={releaseLicenseMutation.isPending}
-                      className="hidden group-hover:flex text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-500 transition-colors disabled:opacity-40"
-                    >
-                      Liberar
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {/* Fila: pool disponible (anual) */}
-            {isAnnual && sub.availableLicenses > 0 && Array.from({ length: sub.availableLicenses }).map((_, i) => (
-              <div key={`pool-${i}`} className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors group">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full border-2 border-dashed flex items-center justify-center flex-shrink-0" style={{ borderColor: TEAL }}>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: TEAL }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-400">Licencia disponible</p>
-                    <p className="text-xs text-gray-300">Sin asignar · en pool</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-semibold text-gray-300">$10.00<span className="text-xs font-normal">/mes</span></span>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-400">
-                    En pool
-                  </span>
-                  <Link
-                    href="/staff"
-                    className="hidden group-hover:flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg text-white transition-colors"
-                    style={{ backgroundColor: TEAL }}
-                  >
-                    Asignar
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                </div>
-              </div>
-            ))}
           </div>
-
-          {/* ── Empleados inactivos (anual + pool) ── */}
-          {isAnnual && sub.availableLicenses > 0 && inactiveEmployees.length > 0 && (
-            <div className="mx-4 mb-3 mt-1 px-4 py-3 rounded-xl" style={{ backgroundColor: TEAL_LIGHT }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: TEAL }}>Empleados inactivos que puedes reactivar con tu pool:</p>
-              <div className="space-y-1.5">
-                {inactiveEmployees.slice(0, 3).map((emp) => (
-                  <div key={emp.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
-                    <Link href={`/staff/${emp.id}`} className="flex items-center gap-2 hover:underline">
-                      <div
-                        className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                        style={{ backgroundColor: emp.color || '#9ca3af' }}
-                      >
-                        {emp.avatarUrl
-                          ? <img src={emp.avatarUrl.startsWith('http') ? emp.avatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${emp.avatarUrl}`} alt={`${emp.firstName} ${emp.lastName}`} className="w-full h-full object-cover" />
-                          : <span>{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
-                        }
-                      </div>
-                      <span className="text-xs text-gray-700">{emp.firstName} {emp.lastName}</span>
-                    </Link>
-                    <Link
-                      href="/staff"
-                      className="text-xs font-semibold px-2.5 py-1 rounded-lg text-white transition-colors hover:opacity-90"
-                      style={{ backgroundColor: TEAL }}
-                    >
-                      Reactivar →
-                    </Link>
-                  </div>
-                ))}
-                {inactiveEmployees.length > 3 && (
-                  <Link href="/staff" className="block text-center text-xs font-medium py-1" style={{ color: TEAL }}>
-                    Ver {inactiveEmployees.length - 3} más en Personal →
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* ── Totales ── */}
           <div className="px-6 py-4 border-t border-gray-100 space-y-2">
