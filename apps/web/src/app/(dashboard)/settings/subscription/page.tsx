@@ -694,7 +694,7 @@ export default function SubscriptionPage() {
                   </p>
                   <p className="text-xs" style={{ color: '#005555' }}>
                     {(user as any)?.tenantType === 'FREELANCER'
-                      ? 'Uso individual - sin gestion de equipo'
+                      ? 'Plan PRO, para profesionales independientes'
                       : 'Equipo ilimitado, todas las funciones'}
                   </p>
                 </div>
@@ -757,25 +757,83 @@ export default function SubscriptionPage() {
       {/* ── Columna derecha (CTA anual + info) ── */}
       <div className="w-full xl:w-[45%] xl:flex-shrink-0 space-y-6">
 
-      {/* ─── Plan anual CTA ──────────────────────── */}
-      {preview && isActive && isMonthly && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {/* Header con gradiente teal */}
+      {/* ─── Upgrade a PLUS — CTA principal para freelancer ──────────── */}
+      {preview && isActive && (user as any)?.tenantType === 'FREELANCER' && (
+        <div className="bg-white rounded-2xl overflow-hidden shadow-md" style={{ border: `2px solid ${TEAL}` }}>
+          {/* Header con gradiente teal — accion principal */}
           <div className="px-6 py-5" style={{ background: `linear-gradient(135deg, ${TEAL} 0%, #006666 100%)` }}>
             <div className="flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
+                  </svg>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/20 text-white tracking-wide uppercase">
+                    Plan PLUS
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-white">Mejora a PLUS</h2>
+                <p className="text-sm text-white/80 mt-0.5">Equipo, roles, asistencias y tienda online</p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-black text-white">$500</p>
+                <p className="text-xs text-white/70">MXN/mes</p>
+              </div>
+            </div>
+          </div>
+          <div className="px-6 py-4 space-y-3">
+            <div className="space-y-2">
+              {[
+                'Gestiona un equipo completo de empleados',
+                'Roles y permisos personalizados',
+                'Codigos de invitacion para tu equipo',
+                'Control de asistencias',
+                'Tienda online: vende productos a tus clientes',
+              ].map((txt) => (
+                <div key={txt} className="flex items-start gap-2 text-sm text-gray-700">
+                  <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: TEAL }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {txt}
+                </div>
+              ))}
+            </div>
+            <button
+              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: TEAL }}
+              onClick={() => setError('La migracion a Plus aun no esta implementada en este ambiente. Pronto disponible.')}
+            >
+              Mejorar a PLUS ahora · $500 MXN/mes
+            </button>
+            <Link
+              href="/employee/upgrade-to-plus"
+              className="block text-center text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Ver comparativa completa →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Plan anual CTA — secundario ─────────── */}
+      {preview && isActive && isMonthly && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          {/* Header neutro (no se ve "ya seleccionado") */}
+          <div className="px-6 py-5 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white tracking-wide uppercase" style={{ backgroundColor: TEAL }}>
                     Ahorra 15%
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-white mt-2">Plan Anual</h2>
-                <p className="text-sm text-white/80 mt-0.5">Un solo pago al año · sin cobros mensuales</p>
+                <h2 className="text-lg font-bold text-gray-900 mt-2">Cambiar a Plan Anual</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Un solo pago al año · sin cobros mensuales</p>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-black text-white">${(annualTotal / 12).toFixed(0)}</p>
-                <p className="text-xs text-white/70">MXN/mes equiv.</p>
-                <p className="text-xs text-white/60 mt-0.5">${annualTotal.toFixed(0)} MXN/año</p>
+                <p className="text-3xl font-black text-gray-900">${(annualTotal / 12).toFixed(0)}</p>
+                <p className="text-xs text-gray-500">MXN/mes equiv.</p>
+                <p className="text-xs text-gray-400 mt-0.5">${annualTotal.toFixed(0)} MXN/año</p>
               </div>
             </div>
           </div>
@@ -822,8 +880,8 @@ export default function SubscriptionPage() {
             <button
               onClick={() => switchAnnualMutation.mutate()}
               disabled={switchAnnualMutation.isPending}
-              className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: TEAL }}
+              className="w-full py-3 rounded-xl text-sm font-semibold bg-white transition-all hover:bg-gray-50 disabled:opacity-50"
+              style={{ border: `1.5px solid ${TEAL}`, color: TEAL }}
             >
               {switchAnnualMutation.isPending ? 'Preparando...' : `Cambiar a plan anual · $${annualTotal.toFixed(0)} MXN/año`}
             </button>
