@@ -2109,6 +2109,12 @@ export default function BusinessDetailPage() {
                 }
                 else if (bookingStep === 'datetime') {
                   if (bookEmployeeId) setBookingStep('service'); // came from professional profile
+                  // Si el paso "employee" se salto (1 solo empleado en
+                  // el biz), volver al step real anterior: promotion o
+                  // service.
+                  else if (employees.length === 1) {
+                    setBookingStep((applicablePromotions.length > 0 || userApplicableCoupons.length > 0) ? 'promotion' : 'service');
+                  }
                   else setBookingStep('employee');
                 }
                 else if (bookingStep === 'products') setBookingStep('datetime');
@@ -3986,18 +3992,33 @@ export default function BusinessDetailPage() {
             let onClick: (() => void) | undefined;
             let errorMsg: string | null = null;
 
+            // Helper: si el negocio tiene 1 solo empleado activo (caso
+            // tenant FREELANCER), el paso "elegir profesional" no aporta.
+            // Auto-asignamos ese empleado y saltamos directo a "datetime".
+            const goToEmployeeOrSkip = () => {
+              if (employees.length === 1) {
+                setSelectedEmployee(employees[0]);
+                setAnyEmployee(false);
+                setSelectedSlot(null);
+                setBookingStep('datetime');
+              } else {
+                setBookingStep('employee');
+              }
+            };
+
             if (bookingStep === 'service') {
               disabled = selectedServiceIds.length === 0;
               // Si hay cupones del catalogo o cupones propios que aplican a
               // los servicios, mostramos step "Cupones" antes de seguir al
               // empleado. Sino, salto.
-              onClick = () => setBookingStep(
-                (applicablePromotions.length > 0 || userApplicableCoupons.length > 0) ? 'promotion' : 'employee',
-              );
+              onClick = () =>
+                (applicablePromotions.length > 0 || userApplicableCoupons.length > 0)
+                  ? setBookingStep('promotion')
+                  : goToEmployeeOrSkip();
             } else if (bookingStep === 'promotion') {
               // Opcional: se puede continuar sin seleccionar cupon.
               label = selectedPromotion ? 'Continuar con cupón' : 'Continuar sin cupón';
-              onClick = () => setBookingStep('employee');
+              onClick = () => goToEmployeeOrSkip();
             } else if (bookingStep === 'employee') {
               if (isMultiEmployee) {
                 // Multi-empleado: permitimos continuar aunque no todos los
