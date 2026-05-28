@@ -320,6 +320,19 @@ export default function SubscriptionPage() {
     },
   });
 
+  // ── Upgrade Pro -> Plus (cambia tenantType + sube monto a $500)
+  const upgradeToPlusMutation = useMutation({
+    mutationFn: () => api.post<{ data: { changed: boolean; message?: string } }>('/api/stripe/subscription/upgrade-to-plus', {}),
+    onSuccess: (res: any) => {
+      setError(null);
+      // Full reload para que useAuth recoja el nuevo tenantType y la UI
+      // se actualice: desaparece la card "Mejora a PLUS", aparece la
+      // tabla de personal afiliado, precio cambia a $500.
+      window.location.reload();
+    },
+    onError: (e: any) => setError(e?.message || 'No se pudo cambiar al plan Plus.'),
+  });
+
   // ── Setup intent (domiciliar)
   const setupMutation = useMutation({
     mutationFn: () => api.post('/api/stripe/subscription/setup-intent', {}),
@@ -850,11 +863,16 @@ export default function SubscriptionPage() {
               ))}
             </div>
             <button
-              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+              onClick={() => {
+                if (window.confirm('Vas a cambiar tu cuenta al plan Plus ($500 MXN/mes). El nuevo monto aplica desde el proximo cobro. ¿Continuar?')) {
+                  upgradeToPlusMutation.mutate();
+                }
+              }}
+              disabled={upgradeToPlusMutation.isPending}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: TEAL }}
-              onClick={() => setError('La migracion a Plus aun no esta implementada en este ambiente. Pronto disponible.')}
             >
-              Mejorar a PLUS ahora · $500 MXN/mes
+              {upgradeToPlusMutation.isPending ? 'Procesando…' : 'Mejorar a PLUS ahora · $500 MXN/mes'}
             </button>
             <Link
               href="/employee/upgrade-to-plus"

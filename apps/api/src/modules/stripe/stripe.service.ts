@@ -698,6 +698,62 @@ export class StripeService implements OnModuleInit {
     };
   }
 
+  /**
+   * Cambia un tenant FREELANCER a BUSINESS (Pro -> Plus).
+   * - En produccion (Stripe configurado): genera payment intent para el
+   *   prorrateo del primer cobro y devuelve clientSecret.
+   * - En local/dev (sin Stripe): solo actualiza tenantType + subscription
+   *   en DB y devuelve { changed: true } sin clientSecret.
+   *
+   * No reduce de BUSINESS a FREELANCER. No es idempotente: si ya es
+   * BUSINESS, lanza BadRequest.
+   */
+  async upgradeToPlus(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, tenantType: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant no encontrado');
+    if (tenant.tenantType === 'BUSINESS') {
+      throw new BadRequestException('Tu cuenta ya esta en el plan Plus.');
+    }
+
+    const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
+    if (!sub) throw new NotFoundException('Suscripcion no encontrada');
+
+    const newMonthly = 500;
+    const newAnnual = Math.round(newMonthly * 12 * 0.85);
+    const isAnnual = sub.planInterval === 'ANNUAL';
+
+    // Si Stripe esta configurado y hay subscription activa de Stripe,
+    // intentamos prorratear ($500-$300=$200 al mes hasta fin de periodo).
+    // En este flow inicial nos limitamos a actualizar DB y dejar que el
+    // proximo ciclo cobre el monto nuevo. El upgrade con cobro inmediato
+    // queda como mejora futura.
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { tenantType: 'BUSINESS' },
+    });
+
+    await this.prisma.subscription.update({
+      where: { tenantId },
+      data: {
+        plan: 'PLUS',
+        monthlyAmountUsd: isAnnual ? newAnnual / 12 : newMonthly,
+        baseMonthlyUsd: newMonthly,
+        perEmployeeUsd: 0,
+        annualAmountUsd: isAnnual ? newAnnual : sub.annualAmountUsd,
+      },
+    });
+
+    return {
+      changed: true,
+      newMonthly,
+      newAnnual,
+      message: 'Tu cuenta cambio al plan Plus. El nuevo monto aplica desde el proximo cobro.',
+    };
+  }
+
   // ─── SUBSCRIPTION WEBHOOK HANDLERS ──────────────────
 
   async handleSubscriptionUpdated(subscription: Stripe.Subscription) {

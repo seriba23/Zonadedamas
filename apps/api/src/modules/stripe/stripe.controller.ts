@@ -107,6 +107,13 @@ export class StripeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('subscription/upgrade-to-plus')
+  async upgradeToPlus(@Req() req: any) {
+    const result = await this.stripeService.upgradeToPlus(req.user.tenantId);
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('subscription/add-licenses')
   async addLicenses(@Req() req: any, @Body() body: { count: number }) {
     const result = await this.stripeService.addLicensesToAnnualPlan(req.user.tenantId, body.count ?? 1);
