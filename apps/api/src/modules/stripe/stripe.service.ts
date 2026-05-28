@@ -548,8 +548,16 @@ export class StripeService implements OnModuleInit {
 
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
     const customerId = await this.getOrCreateCustomer(tenantId);
-    const quantity = 1 + employeeCount;
-    const annualTotal = quantity * 102; // $102/seat/year (15% off $120)
+    // Modelo flat por tenantType. Plan anual = 12 meses con 15% de descuento.
+    //  - FREELANCER: 300 * 12 * 0.85 = 3060 MXN/ano
+    //  - BUSINESS:   500 * 12 * 0.85 = 5100 MXN/ano
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantType: true },
+    });
+    const monthlyFlat = tenant?.tenantType === 'FREELANCER' ? 300 : 500;
+    const quantity = 1; // Plan flat: una sola "licencia base", el employeeCount queda como metadato.
+    const annualTotal = Math.round(monthlyFlat * 12 * 0.85);
 
     // Cancel existing monthly subscription at period end
     if (sub?.stripeSubscriptionId) {
@@ -669,16 +677,24 @@ export class StripeService implements OnModuleInit {
   }
 
   async getSubscriptionPreview(tenantId: string) {
+    // Modelo flat: precio fijo segun tenantType, sin cargo por empleado.
+    //  - FREELANCER (independiente, plan Pro):  $300 MXN/mes
+    //  - BUSINESS  (empresa, plan Plus):       $500 MXN/mes
+    // El conteo de empleados se mantiene como dato informativo pero ya no
+    // afecta el monto del cobro.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantType: true },
+    });
     const activeEmployeeCount = await this.prisma.employee.count({
       where: { tenantId, isActive: true },
     });
-    const quantity = 1 + activeEmployeeCount;
-    const pricePerSeat = 10;
+    const totalMonthly = tenant?.tenantType === 'FREELANCER' ? 300 : 500;
     return {
       activeEmployeeCount,
-      baseAmount: pricePerSeat,
-      employeeAmount: activeEmployeeCount * pricePerSeat,
-      totalMonthly: quantity * pricePerSeat,
+      baseAmount: totalMonthly,
+      employeeAmount: 0,
+      totalMonthly,
     };
   }
 
