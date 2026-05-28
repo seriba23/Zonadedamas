@@ -290,10 +290,17 @@ function LoginPageInner() {
     const wantsMarketplace = redirectAfterLogin?.startsWith('/marketplace');
     const wantsBusiness =
       redirectAfterLogin && !redirectAfterLogin.startsWith('/marketplace');
+    // Freelancer (tenantType=FREELANCER) NO entra al admin aunque tenga
+    // rol Owner. Su unica interfaz es /employee.
+    const isFreelancer = (roleChoice as any).tenantType === 'FREELANCER';
     const goOrRegister = (profile: 'admin' | 'professional' | 'client', registerType: string) => {
       if (availableProfiles.includes(profile)) {
         if (profile === 'admin') {
-          router.push(wantsBusiness ? redirectAfterLogin! : '/home');
+          if (isFreelancer) {
+            router.push('/employee');
+          } else {
+            router.push(wantsBusiness ? redirectAfterLogin! : '/home');
+          }
         } else if (profile === 'professional') {
           router.push(wantsBusiness ? redirectAfterLogin! : '/employee');
         } else {

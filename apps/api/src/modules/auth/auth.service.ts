@@ -120,6 +120,9 @@ export class AuthService {
           lastName: matchedUser.lastName,
           tenantId: matchedUser.tenantId,
           tenantName: matchedUser.tenant?.name ?? null,
+          // tenantType permite al frontend redirigir freelancer a /employee
+          // en lugar de /home sin necesidad de un fetch adicional a /me.
+          tenantType: matchedUser.tenant?.tenantType ?? 'BUSINESS',
           employeeId: matchedUser.employee?.id ?? null,
           avatarUrl: matchedUser.avatarUrl,
           permissions: tokens.permissions,

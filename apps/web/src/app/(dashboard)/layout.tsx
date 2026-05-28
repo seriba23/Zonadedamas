@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 import { Sidebar } from '@/components/layout/sidebar';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 import { useWebSocket, EmployeeJoinedEvent, PurchaseCreatedEvent } from '@/lib/hooks/use-websocket';
@@ -178,6 +179,7 @@ function DashboardLayoutContent({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { isFreelancer } = useTenantTier();
   const router = useRouter();
   const pathname = usePathname();
   const { notifications, dismissNotification, purchases, dismissPurchase } = useWebSocket();
@@ -194,6 +196,15 @@ function DashboardLayoutContent({
       router.replace('/');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Freelancer no entra al admin: su unica interfaz es /employee. Esto
+  // evita exponer secciones de "negocio con equipo" (sucursales, personal,
+  // tienda) que no aplican a un independiente.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && isFreelancer) {
+      router.replace('/employee');
+    }
+  }, [isLoading, isAuthenticated, isFreelancer, router]);
 
   // Redirect to suspended page if subscription is suspended
   useEffect(() => {
@@ -235,6 +246,12 @@ function DashboardLayoutContent({
   }
 
   if (!isAuthenticated) {
+    return null;
+  }
+
+  // Mientras el useEffect anterior redirige, no renderizamos el shell admin
+  // para evitar parpadeo de UI que no corresponde al freelancer.
+  if (isFreelancer) {
     return null;
   }
 
