@@ -864,9 +864,9 @@ export default function SubscriptionPage() {
             {/* Beneficios */}
             <div className="space-y-2">
               {[
-                'Licencias liberadas al despedir un empleado quedan disponibles sin costo',
-                'Agrega nuevas licencias pagando solo los meses restantes con 15% de descuento',
-                'Un solo cobro al año, sin interrupciones ni cobros sorpresa',
+                'Un solo cobro al año, sin cobros mensuales recurrentes',
+                'Equivalente a 1.8 meses gratis al ano vs. pago mensual',
+                'Sin riesgo de suspension por pago atrasado',
               ].map((txt) => (
                 <div key={txt} className="flex items-start gap-2 text-sm text-gray-600">
                   <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: TEAL }}>
