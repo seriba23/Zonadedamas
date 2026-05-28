@@ -760,6 +760,7 @@ export class MarketplaceService {
         logoUrl: true,
         coverImageUrl: true,
         businessType: true,
+        tenantType: true,
         description: true,
         address: true,
         phone: true,

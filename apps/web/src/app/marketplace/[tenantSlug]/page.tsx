@@ -302,6 +302,26 @@ export default function BusinessDetailPage() {
 
   const biz = (data as any)?.data;
 
+  // Redirect a la vista del profesional si el tenant es FREELANCER.
+  // El perfil de "negocio" no aplica para un independiente; su pagina real
+  // es /marketplace/[slug]/professional/[employeeId].
+  //
+  // Solo redirigimos cuando NO hay flujo de reserva activo (sin bookEmployee
+  // ni service en query string ni bookingStep en marcha). Asi:
+  //   - Acceso directo a la URL del negocio freelancer -> profesional.
+  //   - Cerrar el modal de reserva tambien dispara redirect (bookingStep
+  //     vuelve a null, sin querystring).
+  //   - Pero el flujo de reserva en curso no se interrumpe.
+  useEffect(() => {
+    if (!biz || biz.tenantType !== 'FREELANCER') return;
+    if (bookingStep) return; // flujo activo
+    if (bookEmployeeId || preselectedServiceId) return; // recien llegando con intencion de reservar
+    const employee = (biz.employees || [])[0];
+    if (employee?.id) {
+      router.replace(`/marketplace/${tenantSlug}/professional/${employee.id}`);
+    }
+  }, [biz, tenantSlug, router, bookingStep, bookEmployeeId, preselectedServiceId]);
+
   // Pre-select employee from URL param (from professional profile)
   useEffect(() => {
     if (!bookEmployeeId || !biz) return;
