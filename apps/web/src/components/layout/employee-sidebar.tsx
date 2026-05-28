@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 import { getInitials, cn } from '@/lib/utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -37,6 +38,7 @@ const mobileNavItems = navItems.filter((item) => item.mobileNav);
 export function EmployeeSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { isFreelancer } = useTenantTier();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isAdmin = user?.isAdmin === true || user?.permissions?.includes('employees.create') || false;
   const moreItems = navItems.filter((item) => !item.mobileNav);
@@ -79,6 +81,28 @@ export function EmployeeSidebar() {
               </li>
             );
           })}
+
+          {/* Item destacado solo para freelancer (plan Pro): lleva a la
+             comparativa Pro vs Plus + CTA de upgrade. */}
+          {isFreelancer && (
+            <li className="mt-3 pt-3 border-t border-gray-200">
+              <Link
+                href="/employee/upgrade-to-plus"
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
+                  'bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100',
+                )}
+              >
+                <span className="w-5 h-5 flex-shrink-0">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
+                  </svg>
+                </span>
+                <span>Mejora a PLUS</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 
