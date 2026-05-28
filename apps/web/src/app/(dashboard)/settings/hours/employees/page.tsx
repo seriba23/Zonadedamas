@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
-import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
-import { PlusGateScreen } from '@/components/ui/plus-gate-screen';
 import { getInitials } from '@/lib/utils';
 
 interface Employee {
@@ -27,19 +25,6 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function EmployeeHoursPage() {
-  const { isFreelancer } = useTenantTier();
-  if (isFreelancer) {
-    return (
-      <PlusGateScreen
-        feature="Horarios por empleado"
-        description="Programa los turnos de cada empleado de tu equipo. Como independiente solo gestionas tu propio horario; el plan PLUS te permite gestionar al equipo completo."
-      />
-    );
-  }
-  return <EmployeeHoursPageContent />;
-}
-
-function EmployeeHoursPageContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({

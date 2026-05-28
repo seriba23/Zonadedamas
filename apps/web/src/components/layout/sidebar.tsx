@@ -5,12 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { usePermissions } from '@/lib/hooks/use-permissions';
-import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 import { getInitials } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { PlusBadge } from '@/components/ui/plus-badge';
-import { PlusGateModal } from '@/components/ui/plus-gate-modal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -25,9 +22,6 @@ interface NavItem {
   href: string;
   icon: React.ReactNode;
   permission?: string;
-  /** Si true, requiere plan PLUS. Para freelancers se muestra deshabilitado
-   *  con badge PLUS y abre PlusGateModal al click. */
-  requiresPlus?: boolean;
   children?: NavChild[];
 }
 
@@ -44,10 +38,10 @@ const navItems: NavItem[] = [
   { label: 'Citas', href: '/calendar', icon: I('M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5'), permission: 'appointments.read' },
   { label: 'Clientes', href: '/clients', icon: I('M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z'), permission: 'clients.read' },
   { label: 'Servicios', href: '/services', icon: I('M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z'), permission: 'services.read' },
-  { label: 'Personal', href: '/staff', icon: I('M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z'), permission: 'employees.read', requiresPlus: true },
+  { label: 'Personal', href: '/staff', icon: I('M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z'), permission: 'employees.read' },
   { label: 'Inventario', href: '/inventory', icon: I('M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z'), permission: 'inventory.read' },
   { label: 'Proveedores', href: '/suppliers', icon: I('M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12'), permission: 'inventory.read' },
-  { label: 'Tienda', href: '/shop', icon: I('M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z'), permission: 'inventory.read', requiresPlus: true },
+  { label: 'Tienda', href: '/shop', icon: I('M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z'), permission: 'inventory.read' },
   { label: 'Notificaciones', href: '/settings/notifications', icon: I('M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0'), permission: 'notifications.manage' },
   { label: 'Configuración', href: '/settings', icon: I('M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z M15 12a3 3 0 11-6 0 3 3 0 016 0z'), permission: 'tenant.update' },
 ];
@@ -61,8 +55,6 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { hasPermission } = usePermissions();
-  const { isFreelancer } = useTenantTier();
-  const [plusGateFeature, setPlusGateFeature] = useState<string | null>(null);
 
   const visibleItems = navItems.filter(
     (item) => !item.permission || hasPermission(item.permission),
@@ -210,27 +202,6 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
               pathname === item.href ||
               (item.href !== '/calendar' && pathname.startsWith(item.href));
 
-            // Freelancer: items que requieren PLUS se muestran deshabilitados
-            // con badge y al click abren PlusGateModal en vez de navegar.
-            if (item.requiresPlus && isFreelancer) {
-              return (
-                <li key={item.href}>
-                  <button
-                    type="button"
-                    onClick={() => setPlusGateFeature(item.label)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left',
-                      'text-[var(--text-secondary)] opacity-70 hover:opacity-100 hover:bg-[var(--bg-muted)]',
-                    )}
-                  >
-                    <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
-                    <span className="flex-1">{item.label}</span>
-                    <PlusBadge size="sm" />
-                  </button>
-                </li>
-              );
-            }
-
             return (
               <li key={item.href}>
                 <Link
@@ -249,36 +220,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
               </li>
             );
           })}
-
-          {/* Item destacado solo para freelancer: lleva a la pagina con la
-             comparativa BASICO vs PLUS y CTA de upgrade. */}
-          {isFreelancer && (
-            <li className="mt-3 pt-3 border-t border-[var(--border)]">
-              <Link
-                href="/upgrade-to-plus"
-                onClick={onClose}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
-                  'bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100',
-                )}
-              >
-                <span className="w-5 h-5 flex-shrink-0">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
-                  </svg>
-                </span>
-                <span>Mejora a PLUS</span>
-              </Link>
-            </li>
-          )}
         </ul>
       </nav>
-
-      <PlusGateModal
-        show={!!plusGateFeature}
-        feature={plusGateFeature}
-        onClose={() => setPlusGateFeature(null)}
-      />
 
       {/* User section */}
       {user && (

@@ -4,10 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
-import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 import { Modal } from '@/components/ui/modal';
 import { RolePermissionMatrix } from '@/components/rbac/role-permission-matrix';
-import { PlusGateScreen } from '@/components/ui/plus-gate-screen';
 
 interface Role {
   id: string;
@@ -17,19 +15,6 @@ interface Role {
 }
 
 export default function RolesPage() {
-  const { isFreelancer } = useTenantTier();
-  if (isFreelancer) {
-    return (
-      <PlusGateScreen
-        feature="Roles y permisos"
-        description="Define roles personalizados y asigna permisos granulares a tu equipo. Disponible cuando pasas al plan PLUS."
-      />
-    );
-  }
-  return <RolesPageContent />;
-}
-
-function RolesPageContent() {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
 
