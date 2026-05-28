@@ -634,9 +634,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                 {form.discountMode === 'FLAT' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-                    <select value={(form as any).currency || 'USD'} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value } as any))} className="input-field">
-                      <option value="USD">USD</option><option value="MXN">MXN</option><option value="DOP">DOP</option><option value="EUR">EUR</option><option value="COP">COP</option><option value="ARS">ARS</option><option value="CLP">CLP</option><option value="PEN">PEN</option><option value="BRL">BRL</option>
-                    </select>
+                    <div className="input-field bg-gray-50 text-gray-600 font-medium">MXN</div>
                   </div>
                 )}
               </div>

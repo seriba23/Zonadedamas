@@ -120,7 +120,7 @@ function InlinePaymentForm({ title, subtitle, amountUsd, breakdown, onSuccess, o
           ))}
           <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
             <span className="text-sm font-bold">Total</span>
-            <span className="text-base font-black" style={{ color: TEAL }}>${amountUsd.toFixed(2)} USD</span>
+            <span className="text-base font-black" style={{ color: TEAL }}>${amountUsd.toFixed(2)} MXN</span>
           </div>
         </div>
       )}
@@ -129,7 +129,7 @@ function InlinePaymentForm({ title, subtitle, amountUsd, breakdown, onSuccess, o
         <button type="submit" disabled={loading || !stripe}
           className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: TEAL }}>
-          {loading ? 'Procesando...' : `Pagar $${amountUsd.toFixed(2)} USD`}
+          {loading ? 'Procesando...' : `Pagar $${amountUsd.toFixed(2)} MXN`}
         </button>
         <button type="button" onClick={onCancel}
           className="px-4 py-3 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50">
@@ -510,7 +510,7 @@ export default function SubscriptionPage() {
                 subtitle={`${modalData?.monthsLeft} mes(es) restantes en tu plan anual · 15% desc.`}
                 amountUsd={modalData?.amountUsd || 0}
                 breakdown={[
-                  { label: `${modalData?.toCharge} licencia(s) nueva(s) × $8.50 × ${modalData?.monthsLeft} meses`, amount: `$${modalData?.amountUsd?.toFixed(2)} USD` },
+                  { label: `${modalData?.toCharge} licencia(s) nueva(s) × $8.50 × ${modalData?.monthsLeft} meses`, amount: `$${modalData?.amountUsd?.toFixed(2)} MXN` },
                   ...(modalData?.freeFromPool > 0 ? [{ label: `${modalData.freeFromPool} del pool disponible`, amount: 'Gratis' }] : []),
                 ]}
                 onSuccess={() => {
@@ -574,7 +574,7 @@ export default function SubscriptionPage() {
               <p className="text-xs text-gray-500 mb-1">{isAnnual ? 'Total anual' : 'Costo mensual'}</p>
               <p className="text-xl font-black text-gray-900">
                 ${isAnnual ? Number(sub.annualAmountUsd || 0).toFixed(0) : Number(sub.monthlyAmountUsd).toFixed(0)}
-                <span className="text-sm font-medium text-gray-400"> USD</span>
+                <span className="text-sm font-medium text-gray-400"> MXN</span>
               </p>
             </div>
             <div>
@@ -888,13 +888,13 @@ export default function SubscriptionPage() {
             {isAnnual && (
               <div className="flex items-center justify-between text-xs" style={{ color: TEAL }}>
                 <span>Descuento anual aplicado (15%)</span>
-                <span className="font-semibold">-${(preview.totalMonthly * 0.15 * 12).toFixed(2)} USD/año</span>
+                <span className="font-semibold">-${(preview.totalMonthly * 0.15 * 12).toFixed(2)} MXN/año</span>
               </div>
             )}
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-gray-900">{isAnnual ? 'Total anual' : 'Total mensual'}</span>
               <span className="text-lg font-black" style={{ color: TEAL }}>
-                ${isAnnual ? annualTotal.toFixed(0) : preview.totalMonthly.toFixed(2)} USD
+                ${isAnnual ? annualTotal.toFixed(0) : preview.totalMonthly.toFixed(2)} MXN
               </span>
             </div>
           </div>
@@ -916,7 +916,7 @@ export default function SubscriptionPage() {
                   <p className="text-xs text-gray-400">{inv.invoiceNumber}{inv.employeeCount != null && ` · ${inv.employeeCount} empleado${inv.employeeCount !== 1 ? 's' : ''}`}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">${Number(inv.amountUsd).toFixed(2)} USD</p>
+                  <p className="text-sm font-bold">${Number(inv.amountUsd).toFixed(2)} MXN</p>
                   <span className={`text-xs font-medium ${inv.status === 'PAID' ? 'text-green-600' : 'text-yellow-600'}`}>
                     {inv.status === 'PAID' ? 'Pagado' : 'Pendiente'}{inv.paidAt && ` · ${dayjs(inv.paidAt).format('D MMM YYYY')}`}
                   </span>
@@ -964,7 +964,7 @@ export default function SubscriptionPage() {
                   ${preview.totalMonthly.toFixed(0)}
                   <span className="text-xs font-normal text-gray-400">/mes</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">${(preview.totalMonthly * 12).toFixed(0)} USD/año</p>
+                <p className="text-xs text-gray-400 mt-0.5">${(preview.totalMonthly * 12).toFixed(0)} MXN/año</p>
               </div>
               <div className="rounded-xl px-4 py-3 relative overflow-hidden" style={{ backgroundColor: TEAL_LIGHT, border: `1.5px solid ${TEAL}` }}>
                 <p className="text-xs font-semibold mb-1" style={{ color: TEAL }}>Plan anual</p>
@@ -973,7 +973,7 @@ export default function SubscriptionPage() {
                   <span className="text-xs font-normal" style={{ color: '#006666' }}>/mes equiv.</span>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: '#006666' }}>
-                  Ahorras ${(preview.totalMonthly * 12 * 0.15).toFixed(0)} USD/año
+                  Ahorras ${(preview.totalMonthly * 12 * 0.15).toFixed(0)} MXN/año
                 </p>
               </div>
             </div>
@@ -1000,7 +1000,7 @@ export default function SubscriptionPage() {
               className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: TEAL }}
             >
-              {switchAnnualMutation.isPending ? 'Preparando...' : `Cambiar a plan anual · $${annualTotal.toFixed(0)} USD/año`}
+              {switchAnnualMutation.isPending ? 'Preparando...' : `Cambiar a plan anual · $${annualTotal.toFixed(0)} MXN/año`}
             </button>
           </div>
         </div>

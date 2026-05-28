@@ -153,7 +153,6 @@ function getSectionTitle(pathname: string): string {
   if (pathname.startsWith('/settings/locations')) return 'Ubicaciones';
   if (pathname.startsWith('/settings/hours/employees')) return 'Horarios de Empleados';
   if (pathname.startsWith('/settings/hours')) return 'Horarios del Negocio';
-  if (pathname.startsWith('/settings/currency')) return 'Moneda';
   if (pathname.startsWith('/settings/payments')) return 'Pagos';
   if (pathname.startsWith('/settings/qr')) return 'QR';
   if (pathname.startsWith('/settings/invite-codes')) return 'Códigos de invitación';

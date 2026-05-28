@@ -29,7 +29,7 @@ const FALLBACK_RATES: Record<string, number> = {
 
 export function useCurrency() {
   const { user } = useAuth();
-  const tenantCurrency = (user as any)?.tenantCurrency || 'USD';
+  const tenantCurrency = (user as any)?.tenantCurrency || 'MXN';
 
   const { data } = useQuery({
     queryKey: ['exchange-rates'],
@@ -48,7 +48,7 @@ export function useCurrency() {
   const rates = data?.rates ?? FALLBACK_RATES;
   const rateDate = data?.date || '';
 
-  function convert(amount: number, fromCurrency = 'USD'): number {
+  function convert(amount: number, fromCurrency = 'MXN'): number {
     if (fromCurrency === tenantCurrency) return amount;
     const fromRate = rates[fromCurrency] || 1;
     const toRate = rates[tenantCurrency] || 1;
@@ -85,8 +85,8 @@ export function useMarketplaceCurrency() {
 
   const rates = data?.rates ?? FALLBACK_RATES;
 
-  // Default to USD, marketplace pages can override with user preference
-  function format(amount: number, fromCurrency = 'USD', toCurrency = 'USD'): string {
+  // Default a MXN, paginas marketplace pueden overridear con preferencia del user.
+  function format(amount: number, fromCurrency = 'MXN', toCurrency = 'MXN'): string {
     if (fromCurrency === toCurrency) return rawFormat(amount, toCurrency);
     const fromRate = rates[fromCurrency] || 1;
     const toRate = rates[toCurrency] || 1;

@@ -495,20 +495,9 @@ export function ServicesContent() {
                   Precio *
                 </label>
                 <div className="flex">
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                    className="border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 px-2 text-sm text-gray-600 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                  >
-                    <option value="MXN">MXN</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="COP">COP</option>
-                    <option value="ARS">ARS</option>
-                    <option value="CLP">CLP</option>
-                    <option value="PEN">PEN</option>
-                    <option value="BRL">BRL</option>
-                  </select>
+                  <span className="inline-flex items-center border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 px-3 text-sm font-medium text-gray-600">
+                    MXN
+                  </span>
                   <input
                     type="number"
                     min="0"

@@ -62,7 +62,7 @@ const defaultFilters: Filters = {
   search: '',
 };
 
-function formatValue(reward: Redemption['reward'], currency = 'USD'): string {
+function formatValue(reward: Redemption['reward'], currency = 'MXN'): string {
   if (reward.type === 'SERVICIO') {
     return reward.service?.name ? `${reward.service.name} gratis` : 'Servicio gratis';
   }

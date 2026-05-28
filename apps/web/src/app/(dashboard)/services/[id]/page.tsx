@@ -90,7 +90,7 @@ export default function ServiceDetailPage() {
   }
 
   const employees = (service.employeeServices || []).filter((es: any) => es.employee.isActive);
-  const currency = currencyValue ?? service.currency ?? 'USD';
+  const currency = currencyValue ?? service.currency ?? 'MXN';
   const { format: formatCurrency } = useCurrency();
   const fmt = (n: number) => formatCurrency(n, currency);
 
@@ -154,21 +154,7 @@ export default function ServiceDetailPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Moneda</label>
-                <select
-                  value={currencyValue ?? service.currency ?? 'USD'}
-                  onChange={(e) => setCurrencyValue(e.target.value)}
-                  className="input-field text-lg font-bold"
-                >
-                  <option value="USD">USD</option>
-                  <option value="MXN">MXN</option>
-                  <option value="DOP">DOP</option>
-                  <option value="EUR">EUR</option>
-                  <option value="COP">COP</option>
-                  <option value="ARS">ARS</option>
-                  <option value="CLP">CLP</option>
-                  <option value="PEN">PEN</option>
-                  <option value="BRL">BRL</option>
-                </select>
+                <div className="input-field text-lg font-bold bg-gray-50 text-gray-600">MXN</div>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Duración (min)</label>
