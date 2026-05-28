@@ -26,7 +26,8 @@
     "db:seed-demo-services-classify": "ts-node prisma/seed-demo-services-classify.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "db:reset-admin-password": "ts-node prisma/reset-admin-password.ts"
+    "db:reset-admin-password": "ts-node prisma/reset-admin-password.ts",
+    "db:reset-employee-profile": "ts-node prisma/reset-employee-profile.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
