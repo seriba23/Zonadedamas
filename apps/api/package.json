@@ -27,7 +27,8 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset-admin-password": "ts-node prisma/reset-admin-password.ts",
-    "db:reset-employee-profile": "ts-node prisma/reset-employee-profile.ts"
+    "db:reset-employee-profile": "ts-node prisma/reset-employee-profile.ts",
+    "db:set-tenant-type": "ts-node prisma/set-tenant-type.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
