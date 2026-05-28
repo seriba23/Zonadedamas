@@ -47,12 +47,17 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
       await api.put('/api/employees/me', editForm);
       await api.put('/api/employees/me/personal-info', personalForm);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['employee-settings'] }); queryClient.invalidateQueries({ queryKey: ['employee-profile'] }); setIsEditing(false); },
+    // Recarga la pagina post-guardado: garantiza que el banner "Completa
+    // tu perfil" del layout reevalue el progreso desde cero (la query de
+    // empData solo invalida los hooks del componente, no el layout padre).
+    onSuccess: () => { window.location.reload(); },
   });
 
   const avatarMutation = useMutation({
     mutationFn: (file: File) => api.upload('/api/employees/me/avatar', file),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employee-settings'] }),
+    // Mismo motivo que saveMutation: el banner vive en employee/layout.tsx
+    // y solo refresca su estado cuando la pagina se vuelve a montar.
+    onSuccess: () => { window.location.reload(); },
   });
 
   const passwordMutation = useMutation({
@@ -86,12 +91,23 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
         {/* Avatar + Name card */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-4 mb-4">
-            <div className="relative group cursor-pointer flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
+            <div
+              className="relative group cursor-pointer flex-shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              title={empData?.avatarUrl ? 'Cambiar foto de perfil' : 'Agregar foto de perfil'}
+            >
               <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold text-white" style={{ backgroundColor: empData?.color || '#008080' }}>
                 {empData?.avatarUrl ? <img src={`${API_URL}${empData.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{empData?.firstName?.[0]}{empData?.lastName?.[0]}</>}
               </div>
+              {/* Overlay completo en hover (desktop) */}
               <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" /></svg>
+              </div>
+              {/* Badge camara permanente — visible siempre (mobile + desktop) */}
+              <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-[#008080] border-2 border-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
+                </svg>
               </div>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.target.value = ''; }} />
             </div>
