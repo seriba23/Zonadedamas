@@ -180,7 +180,7 @@ export class TenantsService {
           slug: dto.slug,
           email: dto.email,
           timezone: dto.timezone || 'UTC',
-          currency: dto.currency || 'USD',
+          currency: dto.currency || 'MXN',
         },
       });
 

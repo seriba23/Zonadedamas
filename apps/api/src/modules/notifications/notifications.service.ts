@@ -119,7 +119,7 @@ export class NotificationsService {
         clientName: base.clientName,
         clientFirstName: base.clientFirstName,
         amount: '45.00',
-        currency: 'USD',
+        currency: 'MXN',
         paymentMethod: 'CARD',
         date: base.date,
       };

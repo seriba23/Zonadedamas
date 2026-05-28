@@ -44,7 +44,7 @@ export class PaymentsService {
         discountAmount,
         taxAmount,
         totalAmount,
-        currency: 'USD',
+        currency: 'MXN',
         paymentMethod: dto.paymentMethod,
         status: 'COMPLETED',
         reference: dto.reference,
