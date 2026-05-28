@@ -297,7 +297,9 @@ function LoginPageInner() {
       if (availableProfiles.includes(profile)) {
         if (profile === 'admin') {
           if (isFreelancer) {
-            router.push('/employee');
+            // Freelancer tocando "Administrador" -> mostramos comparativa
+            // Pro vs Plus + CTA de upgrade en vez de llevarlo al admin.
+            router.push('/employee/upgrade-to-plus');
           } else {
             router.push(wantsBusiness ? redirectAfterLogin! : '/home');
           }
@@ -425,9 +427,21 @@ function LoginPageInner() {
                       {!hasAdmin && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">Crear</span>
                       )}
+                      {hasAdmin && isFreelancer && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#008080] text-white tracking-wide">
+                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
+                          </svg>
+                          PLUS
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {hasAdmin ? `Gestionar ${roleChoice.tenantName || 'mi negocio'}` : 'Crea tu empresa y administra tu negocio'}
+                      {isFreelancer
+                        ? 'Mejora a PLUS para gestionar un equipo'
+                        : hasAdmin
+                        ? `Gestionar ${roleChoice.tenantName || 'mi negocio'}`
+                        : 'Crea tu empresa y administra tu negocio'}
                     </p>
                   </div>
                 </div>

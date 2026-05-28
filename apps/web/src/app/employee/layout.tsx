@@ -407,6 +407,7 @@ function DeactivatedScreen({ user, onLogout, onSuccess }: {
 export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const { data: empData } = useQuery({
     queryKey: ['employee-profile-check', user?.employeeId],
@@ -467,8 +468,21 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <EmployeeSidebar />
+      <EmployeeSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
+        {/* Topbar mobile con hamburger */}
+        <header className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center px-3 py-2.5">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
+            aria-label="Abrir menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <span className="ml-2 text-base font-bold" style={{ color: '#008080' }}>Siliba</span>
+        </header>
         {profileIncomplete && (
           <div className="bg-teal-50 border-b border-teal-200 px-4 py-2.5">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
@@ -523,7 +537,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             </div>
           </div>
         )}
-        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">{children}</main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
