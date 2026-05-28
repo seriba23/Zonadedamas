@@ -213,16 +213,12 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                     />
                   </button>
 
-                  <span className={`text-xs w-14 flex-shrink-0 ${day.isWorking ? 'text-green-600' : 'text-[var(--text-muted)]'}`}>
-                    {day.isWorking ? 'Trabaja' : 'Libre'}
-                  </span>
-
                   {day.isWorking && (
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <select
                         value={day.startTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="input-field py-1 text-sm min-w-[90px] w-auto"
+                        className="py-1 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 max-w-[110px] focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>
@@ -232,7 +228,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                       <select
                         value={day.endTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="input-field py-1 text-sm min-w-[90px] w-auto"
+                        className="py-1 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 max-w-[110px] focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>
