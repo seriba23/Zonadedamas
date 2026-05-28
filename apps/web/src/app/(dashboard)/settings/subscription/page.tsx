@@ -727,6 +727,57 @@ export default function SubscriptionPage() {
         </div>
       )}
 
+      {/* ─── Personal afiliado (solo BUSINESS, sin costo por licencia) ─── */}
+      {sub && isActive && (user as any)?.tenantType !== 'FREELANCER' && activeEmployees.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Personal afiliado</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {activeEmployees.length} {activeEmployees.length === 1 ? 'persona con acceso' : 'personas con acceso'} a Siliba · sin cargo adicional
+              </p>
+            </div>
+            <Link
+              href="/staff"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Gestionar
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-50 px-2 py-2">
+            {activeEmployees.map((emp) => (
+              <Link
+                key={emp.id}
+                href={`/staff/${emp.id}`}
+                className="flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                    style={{ backgroundColor: emp.color || TEAL }}
+                  >
+                    {emp.avatarUrl
+                      ? <img src={emp.avatarUrl.startsWith('http') ? emp.avatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${emp.avatarUrl}`} alt={`${emp.firstName} ${emp.lastName}`} className="w-full h-full object-cover" />
+                      : <span>{emp.firstName?.[0]}{emp.lastName?.[0]}</span>
+                    }
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate group-hover:underline">{emp.firstName} {emp.lastName}</p>
+                    <p className="text-xs text-gray-400 truncate">{emp.email || 'Sin correo'}</p>
+                  </div>
+                </div>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
+                  Activa
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ─── Historial ───────────────────────────── */}
       {invoices.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
