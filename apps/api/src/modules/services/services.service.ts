@@ -110,13 +110,39 @@ export class ServicesService {
   }
 
   async create(tenantId: string, dto: CreateServiceDto) {
-    return this.prisma.service.create({
+    const service = await this.prisma.service.create({
       data: {
         ...dto,
         tenantId,
         isActive: dto.isActive ?? true,
       },
     });
+
+    // Auto-asignacion para FREELANCER: el flujo de "asignar empleados"
+    // no aplica cuando solo hay 1 persona (el dueno=empleado). El servicio
+    // se asigna automaticamente al unico empleado activo del tenant para
+    // que aparezca disponible para reservar de inmediato.
+    //
+    // Cuando el tenant migre a BUSINESS (upgrade Pro -> Plus) la
+    // asignacion del freelancer se conserva: solo agrega a los empleados
+    // nuevos al servicio, sin volver a marcarse a si mismo.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantType: true },
+    });
+    if (tenant?.tenantType === 'FREELANCER') {
+      const employee = await this.prisma.employee.findFirst({
+        where: { tenantId, isActive: true },
+        select: { id: true },
+      });
+      if (employee) {
+        await this.prisma.employeeService.create({
+          data: { employeeId: employee.id, serviceId: service.id },
+        });
+      }
+    }
+
+    return service;
   }
 
   async update(id: string, tenantId: string, dto: UpdateServiceDto) {
