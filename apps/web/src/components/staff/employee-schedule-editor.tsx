@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 
 interface Schedule {
   id?: string;
@@ -65,16 +66,23 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
       api.get<{ data: Schedule[] }>(`/api/employees/${employeeId}/schedules`),
   });
 
+  const { isFreelancer } = useTenantTier();
+
   const { data: businessHoursData } = useQuery({
     queryKey: ['business-hours'],
     queryFn: () => api.get<{ data: BusinessHour[] }>('/api/tenant/business-hours'),
+    // Freelancer no tiene "horario de negocio" que limite el suyo.
+    enabled: !isFreelancer,
   });
 
-  // Map of days the business is closed
+  // Map of days the business is closed. Freelancer puede activar/desactivar
+  // cualquier dia libremente (no hay "negocio cerrado" que lo restrinja).
   const businessClosedDays = new Set<string>(
-    (businessHoursData?.data || [])
-      .filter((h) => !h.isOpen)
-      .map((h) => h.dayOfWeek),
+    isFreelancer
+      ? []
+      : (businessHoursData?.data || [])
+          .filter((h) => !h.isOpen)
+          .map((h) => h.dayOfWeek),
   );
 
   useEffect(() => {
@@ -210,21 +218,21 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                   </span>
 
                   {day.isWorking && (
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <select
                         value={day.startTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="input-field py-1 text-sm"
+                        className="input-field py-1 text-sm min-w-[90px] w-auto"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>
                         ))}
                       </select>
-                      <span className="text-[var(--text-muted)] text-xs">a</span>
+                      <span className="text-[var(--text-muted)] text-xs flex-shrink-0">a</span>
                       <select
                         value={day.endTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="input-field py-1 text-sm"
+                        className="input-field py-1 text-sm min-w-[90px] w-auto"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>
