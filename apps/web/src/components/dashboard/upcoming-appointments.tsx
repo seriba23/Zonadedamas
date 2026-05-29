@@ -23,7 +23,7 @@ function statusInfo(status: string): { text: string; bg: string; textColor: stri
     IN_PROGRESS: { text: 'En curso', bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
     COMPLETED: { text: 'Completada', bg: 'bg-green-50', textColor: 'text-green-700', dot: '#059669' },
     CANCELLED: { text: 'Cancelada', bg: 'bg-red-50', textColor: 'text-red-700', dot: '#dc2626' },
-    NO_SHOW: { text: 'No-show', bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' },
+    NO_SHOW: { text: 'Ausente', bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' },
   };
   return map[status] || { text: status, bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' };
 }

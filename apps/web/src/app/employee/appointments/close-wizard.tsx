@@ -53,6 +53,7 @@ export function CloseAppointmentWizard({
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   // Servicio activo para el file picker (el "+ Añadir" elegido)
   const [pendingServiceId, setPendingServiceId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +86,7 @@ export function CloseAppointmentWizard({
     const photosForService = uploadedPhotos.filter((p) => p.serviceId === serviceId);
     if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) return;
     setUploadingFor(serviceId);
+    setUploadError(null);
     try {
       const res = await api.upload<{ data: { imageUrl: string } }>(
         `/api/appointments/${appointment.id}/photos`,
@@ -92,8 +94,9 @@ export function CloseAppointmentWizard({
         { serviceId },
       );
       setUploadedPhotos((prev) => [...prev, { serviceId, imageUrl: res.data.imageUrl }]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading photo:', err);
+      setUploadError(err?.message || 'No se pudo subir la foto. Verifica el archivo e intenta de nuevo.');
     } finally {
       setUploadingFor(null);
     }
@@ -189,12 +192,18 @@ export function CloseAppointmentWizard({
                   : `Sube hasta ${MAX_PHOTOS_PER_SERVICE} fotos por cada servicio`}
               </p>
 
+              {uploadError && (
+                <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                  {uploadError}
+                </div>
+              )}
+
               <div className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto pr-1">
-                {uniqueServices.map((svc) => {
+                {uniqueServices.map((svc, svcIdx) => {
                   const photosForService = uploadedPhotos.filter((p) => p.serviceId === svc.serviceId);
                   const isUploadingHere = uploadingFor === svc.serviceId;
                   return (
-                    <div key={svc.serviceId}>
+                    <div key={svc.serviceId || `svc-${svcIdx}`}>
                       {/* Encabezado de servicio (solo si hay 2+) */}
                       {!isSingleService && (
                         <div className="flex items-center justify-between mb-2">
@@ -209,8 +218,8 @@ export function CloseAppointmentWizard({
 
                       {/* Grid de 3 columnas */}
                       <div className="grid grid-cols-3 gap-2">
-                        {photosForService.map((photo) => (
-                          <div key={photo.imageUrl} className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
+                        {photosForService.map((photo, photoIdx) => (
+                          <div key={photo.imageUrl || `photo-${svc.serviceId}-${photoIdx}`} className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative">
                             <img src={`${API_URL}${photo.imageUrl}`} alt="" className="w-full h-full object-cover" />
                             <button
                               onClick={() => setUploadedPhotos((prev) => prev.filter((p) => p.imageUrl !== photo.imageUrl))}

@@ -60,7 +60,7 @@ export function AppointmentStatusBadge({
     in_progress: { label: 'En progreso', variant: 'purple' },
     completed: { label: 'Completada', variant: 'success' },
     cancelled: { label: 'Cancelada', variant: 'danger' },
-    no_show: { label: 'No-show', variant: 'default' },
+    no_show: { label: 'Ausente', variant: 'default' },
   };
 
   const { label, variant } = config[status] || {

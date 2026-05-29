@@ -219,7 +219,7 @@ export default function MarketplaceAppointmentsPage() {
     { value: 'IN_PROGRESS', label: 'En curso' },
     { value: 'COMPLETED',   label: 'Completada' },
     { value: 'CANCELLED',   label: 'Cancelada' },
-    { value: 'NO_SHOW',     label: 'No-show' },
+    { value: 'NO_SHOW',     label: 'Ausente' },
   ];
   const PURCHASE_STATUSES = [
     { value: 'PENDING',   label: 'Apartado' },
@@ -692,7 +692,7 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
       IN_PROGRESS: { text: 'En curso',    bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
       COMPLETED:   { text: 'Completada',  bg: 'bg-green-50',  textColor: 'text-green-700',  dot: '#059669' },
       CANCELLED:   { text: 'Cancelada',   bg: 'bg-red-50',    textColor: 'text-red-700',    dot: '#dc2626' },
-      NO_SHOW:     { text: 'No-show',     bg: 'bg-gray-100',  textColor: 'text-gray-600',   dot: '#94a3b8' },
+      NO_SHOW:     { text: 'Ausente',     bg: 'bg-gray-100',  textColor: 'text-gray-600',   dot: '#94a3b8' },
     };
     return map[appt.status] || { text: appt.status, bg: 'bg-gray-100', textColor: 'text-gray-600', dot: '#94a3b8' };
   })();

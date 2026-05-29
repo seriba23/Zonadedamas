@@ -868,7 +868,7 @@ export default function EmployeeProfilePage() {
                   loading={loadingStats}
                 />
                 <StatCard
-                  label="No-show"
+                  label="Ausente"
                   value={stats?.noShowCount ?? '-'}
                   loading={loadingStats}
                 />

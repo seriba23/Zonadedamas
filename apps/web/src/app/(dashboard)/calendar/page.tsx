@@ -686,7 +686,7 @@ export default function CalendarPage() {
                   { key: 'IN_PROGRESS', label: 'En curso', dot: '#3b82f6' },
                   { key: 'COMPLETED', label: 'Completada', dot: '#059669' },
                   { key: 'CANCELLED', label: 'Cancelada', dot: '#dc2626' },
-                  { key: 'NO_SHOW', label: 'No-show', dot: '#94a3b8' },
+                  { key: 'NO_SHOW', label: 'Ausente', dot: '#94a3b8' },
                 ].map((s) => {
                   const active = filterStatuses.includes(s.key);
                   return (
@@ -1037,7 +1037,7 @@ export default function CalendarPage() {
                     apt.status === 'PENDING' ? 'Sin confirmar' :
                     apt.status === 'CONFIRMED' ? 'Confirmada' :
                     apt.status === 'IN_PROGRESS' ? 'En curso' :
-                    apt.status === 'NO_SHOW' ? 'No-show' :
+                    apt.status === 'NO_SHOW' ? 'Ausente' :
                     apt.status;
                   const statusStyle =
                     apt.status === 'COMPLETED' ? { bg: 'bg-green-50', text: 'text-green-700', dot: '#059669' } :

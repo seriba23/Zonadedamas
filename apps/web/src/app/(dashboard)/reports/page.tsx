@@ -700,7 +700,7 @@ export default function ReportsPage() {
                 { label: 'Completadas', value: completed, color: '#059669' },
                 { label: 'Pendientes', value: otros, color: '#008080' },
                 { label: 'Canceladas', value: cancelled, color: '#dc2626' },
-                { label: 'No-show', value: noshow, color: '#94a3b8' },
+                { label: 'Ausente', value: noshow, color: '#94a3b8' },
               ].filter((s) => s.value > 0);
               return (
                 <div className="flex items-center gap-3 mt-2">
