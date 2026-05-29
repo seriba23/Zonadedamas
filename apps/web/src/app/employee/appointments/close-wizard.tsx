@@ -96,7 +96,9 @@ export function CloseAppointmentWizard({
       setUploadedPhotos((prev) => [...prev, { serviceId, imageUrl: res.data.imageUrl }]);
     } catch (err: any) {
       console.error('Error uploading photo:', err);
-      setUploadError(err?.message || 'No se pudo subir la foto. Verifica el archivo e intenta de nuevo.');
+      const code = err?.statusCode ? ` [${err.statusCode}]` : '';
+      const msg = err?.message || 'No se pudo subir la foto. Verifica el archivo e intenta de nuevo.';
+      setUploadError(`${msg}${code}`);
     } finally {
       setUploadingFor(null);
     }
