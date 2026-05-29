@@ -143,7 +143,7 @@ export default function EmployeeProfilePage() {
           {([
             { key: 'info' as Tab, label: 'Info Personal' },
             { key: 'public' as Tab, label: 'Perfil Público' },
-            { key: 'portfolio' as Tab, label: 'Portfolio' },
+            { key: 'portfolio' as Tab, label: 'Portafolio' },
             { key: 'stats' as Tab, label: 'Estadísticas' },
           ]).map((tab) => (
             <button
@@ -473,7 +473,7 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
             <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
             </svg>
-            Portfolio
+            Portafolio
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {pro.portfolio.map((img: any) => (
@@ -534,7 +534,7 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
 
       {(!pro.portfolio || pro.portfolio.length === 0) && (!pro.reviews || pro.reviews.length === 0) && (
         <div className="text-center py-12 text-gray-400 text-sm px-6">
-          <p>Tu perfil público aún no tiene portfolio ni reseñas.</p>
+          <p>Tu perfil público aún no tiene portafolio ni reseñas.</p>
           <p className="text-xs mt-1">Sube fotos a tu galería y completa servicios para que los clientes te califiquen.</p>
         </div>
       )}

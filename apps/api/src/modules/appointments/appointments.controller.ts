@@ -184,7 +184,11 @@ export class AppointmentsController {
   ) {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, tenantId },
-      include: { items: { select: { serviceId: true } } },
+      select: {
+        id: true,
+        employeeId: true,
+        items: { select: { serviceId: true } },
+      },
     });
     if (!appointment) {
       throw new Error('Cita no encontrada');
@@ -212,6 +216,28 @@ export class AppointmentsController {
         uploadedById: user.userId,
       },
     });
+
+    // Auto-copia al portafolio del empleado que atendio la cita. Asi la
+    // foto del resultado queda disponible en el perfil publico del
+    // profesional sin un paso manual extra. El empleado puede luego
+    // ocultarla con el toggle "No mostrar" desde su portafolio.
+    if (appointment.employeeId) {
+      try {
+        await this.prisma.employeePortfolioImage.create({
+          data: {
+            employeeId: appointment.employeeId,
+            serviceId: validatedServiceId,
+            imageUrl,
+            caption: caption || null,
+            isHidden: false,
+          },
+        });
+      } catch (e) {
+        // Si falla la auto-copia no rompemos el upload principal. La
+        // foto sigue en appointment_photos y la galeria del empleado.
+        console.error('Auto-copy to portfolio failed:', e);
+      }
+    }
 
     return { data: photo };
   }

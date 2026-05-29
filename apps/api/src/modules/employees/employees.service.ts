@@ -621,6 +621,28 @@ export class EmployeesService {
     return image; // Return so controller can delete the file
   }
 
+  /**
+   * Cambia isHidden de una foto del portafolio. true = la foto sigue en
+   * el portafolio del empleado pero no se muestra en su perfil publico
+   * del marketplace.
+   */
+  async togglePortfolioVisibility(
+    employeeId: string,
+    tenantId: string,
+    imageId: string,
+    isHidden: boolean,
+  ) {
+    await this.findOne(employeeId, tenantId);
+    const image = await this.prisma.employeePortfolioImage.findFirst({
+      where: { id: imageId, employeeId },
+    });
+    if (!image) throw new NotFoundException('Imagen de portafolio no encontrada');
+    return this.prisma.employeePortfolioImage.update({
+      where: { id: imageId },
+      data: { isHidden },
+    });
+  }
+
   // ─── REVIEWS ───────────────────────────────────────
 
   async getReviews(employeeId: string, tenantId: string) {

@@ -1224,8 +1224,11 @@ export class MarketplaceService {
       // Portfolio manual curado desde el dashboard (EmployeePortfolioImage).
       // Si tienen serviceId asignado, se incluye el service para categorizar.
       // Si no, aparecen solo en el tab "Todos".
+      // Las fotos con isHidden=true no se muestran en el perfil publico —
+      // siguen en el portafolio personal del empleado para que pueda
+      // revertir cuando quiera.
       this.prisma.employeePortfolioImage.findMany({
-        where: { employeeId },
+        where: { employeeId, isHidden: false },
         include: {
           service: { select: { id: true, name: true } },
         },

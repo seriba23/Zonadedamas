@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -551,6 +552,20 @@ export class EmployeesController {
     const image = await this.employeesService.removePortfolioImage(id, tenantId, imageId);
     await this.uploadsService.deleteFile(image.imageUrl);
     return { data: { message: 'Imagen eliminada' } };
+  }
+
+  @Patch(':id/portfolio/:imageId/visibility')
+  @RequirePermissions('employees.update')
+  async togglePortfolioVisibility(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @CurrentTenant() tenantId: string,
+    @Body() body: { isHidden: boolean },
+  ) {
+    const image = await this.employeesService.togglePortfolioVisibility(
+      id, tenantId, imageId, !!body.isHidden,
+    );
+    return { data: image };
   }
 
   // ─── REVIEWS ───────────────────────────────────────

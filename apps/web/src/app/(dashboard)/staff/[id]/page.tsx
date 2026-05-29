@@ -429,7 +429,7 @@ export default function EmployeeProfilePage() {
   const tabs: { key: ProfileTab; label: string }[] = [
     { key: 'estadisticas', label: 'Estadísticas' },
     { key: 'servicios', label: 'Servicios' },
-    { key: 'portfolio', label: 'Portfolio' },
+    { key: 'portfolio', label: 'Portafolio' },
     { key: 'formacion', label: 'Formación' },
     { key: 'resenas', label: 'Reseñas' },
     { key: 'info_personal', label: 'Info Personal' },
