@@ -54,11 +54,6 @@ export function CloseAppointmentWizard({
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
-  const log = (msg: string) => {
-    console.log('[upload-debug]', msg);
-    setDebugLog((prev) => [...prev, `${new Date().toLocaleTimeString()} · ${msg}`]);
-  };
   // Servicio activo para el file picker. Usamos useRef en vez de useState
   // porque setState no se aplica antes de fileInputRef.click(), y cuando
   // el onChange del input se dispara, el closure leeria el valor viejo
@@ -91,26 +86,19 @@ export function CloseAppointmentWizard({
   });
 
   const handleUploadPhoto = async (file: File, serviceId: string) => {
-    log(`handleUploadPhoto called: file=${file.name} (${file.size}b ${file.type})`);
     const photosForService = uploadedPhotos.filter((p) => p.serviceId === serviceId);
-    if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) {
-      log('limite alcanzado, abort');
-      return;
-    }
+    if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) return;
     setUploadingFor(serviceId);
     setUploadError(null);
     try {
-      log('antes de api.upload');
       const res = await api.upload<{ data: { imageUrl: string } }>(
         `/api/appointments/${appointment.id}/photos`,
         file,
         { serviceId },
       );
-      log(`api.upload OK: ${JSON.stringify(res).substring(0, 100)}`);
       setUploadedPhotos((prev) => [...prev, { serviceId, imageUrl: res.data.imageUrl }]);
     } catch (err: any) {
       console.error('Error uploading photo:', err);
-      log(`CATCH: ${err?.name || 'Err'} - ${err?.message || 'sin mensaje'} ${err?.statusCode ? '[' + err.statusCode + ']' : ''}`);
       const code = err?.statusCode ? ` [${err.statusCode}]` : '';
       const msg = err?.message || 'No se pudo subir la foto. Verifica el archivo e intenta de nuevo.';
       setUploadError(`${msg}${code}`);
@@ -120,7 +108,6 @@ export function CloseAppointmentWizard({
   };
 
   function openFilePicker(serviceId: string) {
-    log(`openFilePicker(${serviceId?.substring(0, 8)}) ref=${fileInputRef.current ? 'ok' : 'NULL'}`);
     pendingServiceIdRef.current = serviceId;
     fileInputRef.current?.click();
   }
@@ -215,13 +202,6 @@ export function CloseAppointmentWizard({
                   {uploadError}
                 </div>
               )}
-              {debugLog.length > 0 && (
-                <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-[10px] font-mono text-blue-900 max-h-40 overflow-y-auto space-y-0.5">
-                  {debugLog.map((line, i) => (
-                    <div key={i} className="break-all">{line}</div>
-                  ))}
-                </div>
-              )}
 
               <div className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto pr-1">
                 {uniqueServices.map((svc, svcIdx) => {
@@ -288,7 +268,6 @@ export function CloseAppointmentWizard({
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   const sid = pendingServiceIdRef.current;
-                  log(`onChange: file=${file?.name || 'NONE'} sid=${sid?.substring(0, 8) || 'NULL'}`);
                   if (file && sid) handleUploadPhoto(file, sid);
                   pendingServiceIdRef.current = null;
                   e.target.value = '';

@@ -422,7 +422,7 @@ export class AppointmentsService {
             },
           },
           employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
-          items: { select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true, commissionSnapshot: true } },
+          items: { select: { serviceId: true, serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true, commissionSnapshot: true } },
           // Para que el frontend pueda filtrar pagadas vs no pagadas sin
           // hacer queries adicionales. Trae todos los pagos; el frontend
           // filtra por status=COMPLETED.
