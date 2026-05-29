@@ -619,10 +619,25 @@ export class EmployeesService {
       }
     }
 
-    return this.prisma.employeePortfolioImage.findMany({
+    // Include service relation y transformar a shape `services[]` (mismo
+    // que devuelve marketplace.getProfessionalProfile, asi el componente
+    // de portafolio puede usar el mismo render para ambos contextos).
+    const images = await this.prisma.employeePortfolioImage.findMany({
       where: { employeeId },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      include: { service: { select: { id: true, name: true } } },
+      orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
+
+    return images.map((img) => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      caption: img.caption,
+      isHidden: img.isHidden,
+      isFeatured: img.isFeatured,
+      sortOrder: img.sortOrder,
+      createdAt: img.createdAt,
+      services: img.service ? [{ id: img.service.id, name: img.service.name }] : [],
+    }));
   }
 
   async addPortfolioImage(
@@ -671,6 +686,27 @@ export class EmployeesService {
     return this.prisma.employeePortfolioImage.update({
       where: { id: imageId },
       data: { isHidden },
+    });
+  }
+
+  /**
+   * Cambia isFeatured de una foto del portafolio. Las destacadas aparecen
+   * primero tanto en el portafolio personal como en el perfil publico.
+   */
+  async togglePortfolioFeatured(
+    employeeId: string,
+    tenantId: string,
+    imageId: string,
+    isFeatured: boolean,
+  ) {
+    await this.findOne(employeeId, tenantId);
+    const image = await this.prisma.employeePortfolioImage.findFirst({
+      where: { id: imageId, employeeId },
+    });
+    if (!image) throw new NotFoundException('Imagen de portafolio no encontrada');
+    return this.prisma.employeePortfolioImage.update({
+      where: { id: imageId },
+      data: { isFeatured },
     });
   }
 

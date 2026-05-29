@@ -1227,12 +1227,13 @@ export class MarketplaceService {
       // Las fotos con isHidden=true no se muestran en el perfil publico —
       // siguen en el portafolio personal del empleado para que pueda
       // revertir cuando quiera.
+      // Las isFeatured=true aparecen primero en el perfil publico.
       this.prisma.employeePortfolioImage.findMany({
         where: { employeeId, isHidden: false },
         include: {
           service: { select: { id: true, name: true } },
         },
-        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
         take: 60,
       }),
       // Fotos de resultado subidas al cerrar las citas COMPLETED del empleado.

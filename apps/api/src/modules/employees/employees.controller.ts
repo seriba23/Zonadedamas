@@ -568,6 +568,20 @@ export class EmployeesController {
     return { data: image };
   }
 
+  @Patch(':id/portfolio/:imageId/featured')
+  @RequirePermissions('employees.update')
+  async togglePortfolioFeatured(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @CurrentTenant() tenantId: string,
+    @Body() body: { isFeatured: boolean },
+  ) {
+    const image = await this.employeesService.togglePortfolioFeatured(
+      id, tenantId, imageId, !!body.isFeatured,
+    );
+    return { data: image };
+  }
+
   // ─── REVIEWS ───────────────────────────────────────
 
   @Get(':id/reviews')
