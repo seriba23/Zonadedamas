@@ -588,6 +588,37 @@ export class EmployeesService {
 
   async getPortfolio(employeeId: string, tenantId: string) {
     await this.findOne(employeeId, tenantId);
+
+    // Backfill on-the-fly: las fotos subidas en el wizard de cerrar cita
+    // (AppointmentPhoto) tambien deben aparecer en el portafolio personal.
+    // Para las viejas (subidas antes del auto-copy), o las que fallaron en
+    // copiarse, las creamos ahora si no existen ya por imageUrl.
+    const apptPhotos = await this.prisma.appointmentPhoto.findMany({
+      where: { appointment: { employeeId, tenantId } },
+      select: { imageUrl: true, caption: true, serviceId: true },
+    });
+
+    if (apptPhotos.length > 0) {
+      const urls = apptPhotos.map((p) => p.imageUrl);
+      const existing = await this.prisma.employeePortfolioImage.findMany({
+        where: { employeeId, imageUrl: { in: urls } },
+        select: { imageUrl: true },
+      });
+      const existingSet = new Set(existing.map((e) => e.imageUrl));
+      const toCreate = apptPhotos.filter((p) => !existingSet.has(p.imageUrl));
+      if (toCreate.length > 0) {
+        await this.prisma.employeePortfolioImage.createMany({
+          data: toCreate.map((p) => ({
+            employeeId,
+            serviceId: p.serviceId,
+            imageUrl: p.imageUrl,
+            caption: p.caption,
+            isHidden: false,
+          })),
+        });
+      }
+    }
+
     return this.prisma.employeePortfolioImage.findMany({
       where: { employeeId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
