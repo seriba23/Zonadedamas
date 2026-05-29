@@ -4429,7 +4429,10 @@ export default function BusinessDetailPage() {
 
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/marketplace/appointments')}
+                // Hard navigation con window.location para descartar la
+                // cache de React Query y mostrar la cita recien creada
+                // sin esperar a que expire staleTime.
+                onClick={() => { window.location.href = '/marketplace/appointments'; }}
                 className="w-full text-white py-3 rounded-xl font-medium text-sm transition-colors"
                 style={{ backgroundColor: TEAL }}
                 onMouseEnter={(e) =>

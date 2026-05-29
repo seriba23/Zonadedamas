@@ -379,7 +379,10 @@ function AppointmentProofRow({ appt }: { appt: any }) {
     },
     onSuccess: () => {
       setError('');
-      queryClient.invalidateQueries({ queryKey: ['marketplace-my-appointments'] });
+      // Full reload para garantizar que el cliente vea el nuevo estado de
+      // la cita (con comprobante adjunto) sin que la query cacheada le
+      // muestre el estado anterior por unos segundos.
+      window.location.reload();
     },
     onError: (err: any) => setError(err?.message || 'Error al subir el comprobante'),
   });
