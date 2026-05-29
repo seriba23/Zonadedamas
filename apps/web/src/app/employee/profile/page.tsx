@@ -567,6 +567,8 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
     emergencyContactRelation: employee.emergencyContactRelation || '',
   });
   const [saving, setSaving] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   async function handleSave() {
     setSaving(true);
@@ -579,8 +581,57 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
     setSaving(false);
   }
 
+  async function handleCoverUpload(file: File) {
+    setUploadingCover(true);
+    try {
+      await api.upload('/api/employees/me/cover', file);
+      // Reload para que el banner se actualice. Igual que avatarMutation.
+      window.location.reload();
+    } catch {
+      setUploadingCover(false);
+    }
+  }
+
   return (
     <div className="px-6 py-4 max-w-2xl mx-auto space-y-4">
+      {/* Foto de portada — banner editable arriba de la card de info */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div
+          className="relative h-28 cursor-pointer group"
+          onClick={() => coverFileInputRef.current?.click()}
+          style={{
+            backgroundImage: employee.coverImageUrl ? `url(${API_URL}${employee.coverImageUrl})` : undefined,
+            backgroundColor: employee.coverImageUrl ? undefined : (employee.color || '#008080'),
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+            {uploadingCover ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-gray-700 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
+                </svg>
+                {employee.coverImageUrl ? 'Cambiar portada' : 'Agregar portada'}
+              </div>
+            )}
+          </div>
+          <input
+            ref={coverFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleCoverUpload(f);
+              e.target.value = '';
+            }}
+          />
+        </div>
+      </div>
+
       {/* Basic info */}
       <div className={`bg-white rounded-xl border p-5 relative ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
         {!editing ? (
