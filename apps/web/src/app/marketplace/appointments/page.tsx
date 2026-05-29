@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatCurrency } from '@/lib/utils';
-import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
+import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday, isBookingUpcoming } from '@/lib/booking-time';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -127,13 +127,22 @@ export default function MarketplaceAppointmentsPage() {
   };
 
   // Próximas: ascendente (la más cercana al ahora arriba).
+  // Perdidas: citas PENDING/CONFIRMED cuyo startTime ya paso (no se
+  //   completaron, no se cancelaron, no se marcaron NO_SHOW). Antes
+  //   aparecian en "Proximas" lo cual era confuso visualmente.
   // Historial: descendente (la más reciente arriba).
   // Comparamos strings raw (substring 0..19) para no convertir TZ.
   const rawIso = (s: string | undefined) => (s || '').substring(0, 19);
+  const tzFor = (a: any) => a?.location?.timezone || a?.tenant?.timezone || null;
   const filteredAppointments = appointments.filter((a) => matchesAppointment(a) && matchesAppointmentStatus(a));
-  const upcoming = filteredAppointments
-    .filter((a) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status))
+  const upcomingOrInProgress = filteredAppointments
+    .filter((a) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status));
+  const upcoming = upcomingOrInProgress
+    .filter((a) => isBookingUpcoming(a.startTime, tzFor(a)) || a.status === 'IN_PROGRESS')
     .sort((a, b) => rawIso(a.startTime).localeCompare(rawIso(b.startTime)));
+  const missed = upcomingOrInProgress
+    .filter((a) => a.status !== 'IN_PROGRESS' && !isBookingUpcoming(a.startTime, tzFor(a)))
+    .sort((a, b) => rawIso(b.startTime).localeCompare(rawIso(a.startTime)));
   const past = filteredAppointments
     .filter((a) => ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status))
     .sort((a, b) => rawIso(b.startTime).localeCompare(rawIso(a.startTime)));
@@ -292,6 +301,19 @@ export default function MarketplaceAppointmentsPage() {
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Próximas</h2>
                   <div className="space-y-3">
                     {upcoming.map((appt) => (
+                      <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {missed.length > 0 && (
+                <section>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Perdidas</h2>
+                    <span className="text-xs text-gray-400">No se concluyeron a tiempo</span>
+                  </div>
+                  <div className="space-y-3">
+                    {missed.map((appt) => (
                       <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
