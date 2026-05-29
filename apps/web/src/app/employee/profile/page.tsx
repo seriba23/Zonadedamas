@@ -10,6 +10,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
 import { EmployeeSettingsContent } from '../settings/settings-content';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 import { AllergiesSelector } from '@/components/ui/allergies-selector';
 import Link from 'next/link';
 
@@ -572,6 +573,10 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  // Cuando el usuario selecciona archivo, lo guardamos aqui para
+  // mostrarlo en el crop modal correspondiente antes de subir.
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null);
+  const [avatarCropFile, setAvatarCropFile] = useState<File | null>(null);
 
   // Paleta para el color del banner cuando no hay foto de portada. Mismo
   // patron que usa /staff al crear empleado.
@@ -614,23 +619,23 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
 
   return (
     <div className="px-6 py-4 max-w-2xl mx-auto space-y-4">
-      {/* Foto de portada — solo editable cuando "Editar" esta activo.
-          Aspect 3/4 vertical para previsualizar como se ve en el perfil
-          publico del marketplace (que muestra cover a pantalla completa).
-          Fuera de edicion solo se muestra como display. */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Card unificada: portada + info personal en el mismo contenedor. */}
+      <div className={`bg-white rounded-xl border overflow-hidden relative ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
+        {/* Banner de portada — aspect vertical 9:16 (mismo que perfil
+            publico del marketplace). Solo editable en modo "Editar".
+            Sin gap: pegado a los bordes del card. */}
         <div
-          className={`relative aspect-[3/4] max-h-[260px] ${editing ? 'cursor-pointer' : ''} group`}
-          onClick={() => { if (editing && !uploadingCover) coverFileInputRef.current?.click(); }}
+          className={`relative w-full ${editing ? 'cursor-pointer' : ''} group`}
           style={{
+            aspectRatio: '9/16',
+            maxHeight: '320px',
             backgroundImage: employee.coverImageUrl ? `url(${API_URL}${employee.coverImageUrl})` : undefined,
             backgroundColor: employee.coverImageUrl ? undefined : (form.color || employee.color || '#008080'),
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
+          onClick={() => { if (editing && !uploadingCover) coverFileInputRef.current?.click(); }}
         >
-          {/* Overlay solo visible en modo edicion. Icono camara permanente
-              + texto "Cambiar/Agregar portada" en hover. */}
           {editing && (
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
               {uploadingCover ? (
@@ -647,23 +652,22 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
               )}
             </div>
           )}
-          <input
-            ref={coverFileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleCoverUpload(f);
-              e.target.value = '';
-            }}
-          />
         </div>
+        <input
+          ref={coverFileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) setCoverCropFile(f);
+            e.target.value = '';
+          }}
+        />
 
-        {/* Selector de color del banner — solo cuando editing Y sin foto.
-            Si tiene foto, no aplica porque la foto cubre el color. */}
+        {/* Selector de color del banner — solo cuando editing Y sin foto. */}
         {editing && !employee.coverImageUrl && (
-          <div className="px-4 py-3 border-t border-gray-100">
+          <div className="px-5 py-3 border-b border-gray-100">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Color del banner</p>
             <div className="flex flex-wrap gap-2">
               {COLOR_PALETTE.map((c) => {
@@ -689,25 +693,21 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
                 );
               })}
             </div>
-            <p className="text-[11px] text-gray-400 mt-2">
-              El color del banner se muestra cuando no tienes foto de portada.
-            </p>
           </div>
         )}
-      </div>
 
-      {/* Basic info */}
-      <div className={`bg-white rounded-xl border p-5 relative ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
-        {!editing ? (
-          <button onClick={() => setEditing(true)} className="absolute top-4 right-4 flex items-center gap-1.5 text-xs text-[#008080] hover:text-[#006666] font-medium">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-            </svg>
-            Editar
-          </button>
-        ) : null}
+        {/* Contenido: avatar + nombre + email + telefono + presentacion */}
+        <div className="p-5 relative">
+          {!editing ? (
+            <button onClick={() => setEditing(true)} className="absolute top-4 right-4 flex items-center gap-1.5 text-xs text-[#008080] hover:text-[#006666] font-medium">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+              </svg>
+              Editar
+            </button>
+          ) : null}
 
-        <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-4 mb-4">
           {/* Avatar — overlay con icono camara cuando editing para indicar
               que se puede cambiar. Click abre file picker. */}
           <div
@@ -735,7 +735,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handleAvatarUpload(f);
+              if (f) setAvatarCropFile(f);
               e.target.value = '';
             }}
           />
@@ -812,7 +812,8 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Relación</label><select value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field"><option value="">—</option>{RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
           </div>
         )}
-      </div>
+        </div>{/* fin p-5 contenido */}
+      </div>{/* fin card unificada */}
 
       {/* Save/Cancel buttons */}
       {editing && (
@@ -822,6 +823,37 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
           </button>
           <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50">Cancelar</button>
         </div>
+      )}
+
+      {/* Crop modals */}
+      {coverCropFile && (
+        <CoverCropModal
+          imageFile={coverCropFile}
+          aspect="portrait"
+          onCancel={() => setCoverCropFile(null)}
+          onChooseAnother={() => {
+            setCoverCropFile(null);
+            coverFileInputRef.current?.click();
+          }}
+          onAccept={(cropped) => {
+            setCoverCropFile(null);
+            handleCoverUpload(cropped);
+          }}
+        />
+      )}
+      {avatarCropFile && (
+        <AvatarCropModal
+          imageFile={avatarCropFile}
+          onCancel={() => setAvatarCropFile(null)}
+          onChooseAnother={() => {
+            setAvatarCropFile(null);
+            avatarFileInputRef.current?.click();
+          }}
+          onAccept={(cropped) => {
+            setAvatarCropFile(null);
+            handleAvatarUpload(cropped);
+          }}
+        />
       )}
     </div>
   );
