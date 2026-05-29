@@ -54,6 +54,7 @@ export function CloseAppointmentWizard({
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadDebug, setUploadDebug] = useState<string | null>(null);
   // Servicio activo para el file picker (el "+ Añadir" elegido)
   const [pendingServiceId, setPendingServiceId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,8 +84,12 @@ export function CloseAppointmentWizard({
   });
 
   const handleUploadPhoto = async (file: File, serviceId: string) => {
+    setUploadDebug(`Subiendo: ${file.name} (${Math.round(file.size / 1024)}KB, ${file.type})`);
     const photosForService = uploadedPhotos.filter((p) => p.serviceId === serviceId);
-    if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) return;
+    if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) {
+      setUploadDebug('Limite de fotos alcanzado');
+      return;
+    }
     setUploadingFor(serviceId);
     setUploadError(null);
     try {
@@ -94,17 +99,20 @@ export function CloseAppointmentWizard({
         { serviceId },
       );
       setUploadedPhotos((prev) => [...prev, { serviceId, imageUrl: res.data.imageUrl }]);
+      setUploadDebug(`OK: ${res.data.imageUrl}`);
     } catch (err: any) {
       console.error('Error uploading photo:', err);
       const code = err?.statusCode ? ` [${err.statusCode}]` : '';
       const msg = err?.message || 'No se pudo subir la foto. Verifica el archivo e intenta de nuevo.';
       setUploadError(`${msg}${code}`);
+      setUploadDebug(`ERROR: ${JSON.stringify({ message: err?.message, statusCode: err?.statusCode, name: err?.name }).substring(0, 200)}`);
     } finally {
       setUploadingFor(null);
     }
   };
 
   function openFilePicker(serviceId: string) {
+    setUploadDebug(`Click + servicio ${serviceId?.substring(0, 8) || 'null'}, ref=${fileInputRef.current ? 'ok' : 'null'}`);
     setPendingServiceId(serviceId);
     fileInputRef.current?.click();
   }
@@ -199,6 +207,11 @@ export function CloseAppointmentWizard({
                   {uploadError}
                 </div>
               )}
+              {uploadDebug && (
+                <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-[11px] font-mono text-blue-800 break-all">
+                  {uploadDebug}
+                </div>
+              )}
 
               <div className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto pr-1">
                 {uniqueServices.map((svc, svcIdx) => {
@@ -264,7 +277,10 @@ export function CloseAppointmentWizard({
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
+                  setUploadDebug(`onChange: file=${file?.name || 'null'}, pendingServiceId=${pendingServiceId?.substring(0, 8) || 'null'}`);
                   if (file && pendingServiceId) handleUploadPhoto(file, pendingServiceId);
+                  else if (!file) setUploadDebug('Cancelado por el usuario (sin archivo)');
+                  else if (!pendingServiceId) setUploadDebug('ERROR: pendingServiceId es null al recibir el archivo');
                   setPendingServiceId(null);
                   e.target.value = '';
                 }}
