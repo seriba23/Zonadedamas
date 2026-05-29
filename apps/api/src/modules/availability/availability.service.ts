@@ -75,8 +75,16 @@ export class AvailabilityService {
       return { data: [] };
     }
 
-    // 3. Fetch business hours and closures
-    const [businessHours, closures] = await Promise.all([
+    // 3. Fetch tenant, business hours and closures.
+    // Para FREELANCER no aplican los businessHours del "negocio" — el
+    // freelancer controla su disponibilidad solo con su employeeSchedule.
+    // Saltar dias enteros por businessHours haria desaparecer dias en los
+    // que el freelancer si trabaja (ej. viernes cerrado por default).
+    const [tenant, businessHours, closures] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { tenantType: true },
+      }),
       this.prisma.businessHours.findMany({
         where: { tenantId },
       }),
@@ -89,9 +97,11 @@ export class AvailabilityService {
       }),
     ]);
 
-    // Build set of days the business is closed
+    // Build set of days the business is closed. Vacio para freelancer.
     const businessClosedDays = new Set(
-      businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek),
+      tenant?.tenantType === 'FREELANCER'
+        ? []
+        : businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek),
     );
 
     // 4. Iterate over date range
@@ -669,7 +679,11 @@ export class AvailabilityService {
 
     const now = new Date();
 
-    const [businessHours, closures] = await Promise.all([
+    const [tenant, businessHours, closures] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { tenantType: true },
+      }),
       this.prisma.businessHours.findMany({ where: { tenantId } }),
       this.prisma.businessClosure.findMany({
         where: {
@@ -679,8 +693,11 @@ export class AvailabilityService {
       }),
     ]);
 
+    // Para FREELANCER no aplican businessHours del negocio.
     const closedDays = new Set(
-      businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek),
+      tenant?.tenantType === 'FREELANCER'
+        ? []
+        : businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek),
     );
 
     for (let i = 0; i < maxDays; i++) {
