@@ -20,6 +20,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [isEditing, setIsEditing] = useState(searchParams.get('edit') === 'true' || searchParams.get('section') === 'profile' || embedded === true);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '' });
@@ -60,6 +61,13 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
     onSuccess: () => { window.location.reload(); },
   });
 
+  const coverMutation = useMutation({
+    mutationFn: (file: File) => api.upload('/api/employees/me/cover', file),
+    // Mismo motivo que saveMutation: el banner vive en employee/layout.tsx
+    // y solo refresca su estado cuando la pagina se vuelve a montar.
+    onSuccess: () => { window.location.reload(); },
+  });
+
   const passwordMutation = useMutation({
     mutationFn: () => api.put('/api/auth/change-password', { currentPassword: passwordForm.current, newPassword: passwordForm.new }),
     onSuccess: () => { setPasswordSuccess(true); setPasswordForm({ current: '', new: '', confirm: '' }); setTimeout(() => setPasswordSuccess(false), 3000); },
@@ -89,7 +97,45 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
 
       <div className="space-y-4">
         {/* Avatar + Name card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {/* Foto de portada — banner editable. Click para cambiarla; si no
+              hay foto, fondo teal con icono camara. */}
+          <div
+            className="relative h-28 cursor-pointer group"
+            onClick={() => coverFileInputRef.current?.click()}
+            style={{
+              backgroundImage: empData?.coverImageUrl ? `url(${API_URL}${empData.coverImageUrl})` : undefined,
+              backgroundColor: empData?.coverImageUrl ? undefined : (empData?.color || '#008080'),
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          >
+            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+              {coverMutation.isPending ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+              ) : (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-gray-700 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
+                  </svg>
+                  {empData?.coverImageUrl ? 'Cambiar portada' : 'Agregar portada'}
+                </div>
+              )}
+            </div>
+            <input
+              ref={coverFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) coverMutation.mutate(f);
+                e.target.value = '';
+              }}
+            />
+          </div>
+
+          <div className="p-5">
           <div className="flex items-center gap-4 mb-4">
             <div
               className="relative group cursor-pointer flex-shrink-0"
@@ -169,6 +215,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* Password */}

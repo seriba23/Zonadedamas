@@ -30,7 +30,8 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxImage, setLightboxImage] = useState<PortfolioImage | null>(null);
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>(''); // service id, '' = todos
+  // Multi-seleccion de categorias: array de service ids. Vacio = "Todos".
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all');
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
@@ -115,8 +116,10 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   // Pipeline de filtros: categoria + visibilidad + busqueda + sort.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const categorySet = new Set(activeCategories);
     let result = images.filter((img) => {
-      if (activeCategory && !(img.services || []).some((s) => s.id === activeCategory)) return false;
+      // Si hay categorias activas, la foto debe estar en al menos una.
+      if (categorySet.size > 0 && !(img.services || []).some((s) => categorySet.has(s.id))) return false;
       if (visibilityFilter === 'visible' && img.isHidden) return false;
       if (visibilityFilter === 'hidden' && !img.isHidden) return false;
       if (visibilityFilter === 'featured' && !img.isFeatured) return false;
@@ -134,22 +137,28 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
       return sortBy === 'recent' ? bt - at : at - bt;
     });
     return result;
-  }, [images, activeCategory, visibilityFilter, search, sortBy]);
+  }, [images, activeCategories, visibilityFilter, search, sortBy]);
 
-  const hasFilters = !!search || !!activeCategory || visibilityFilter !== 'all' || sortBy !== 'recent';
+  const hasFilters = !!search || activeCategories.length > 0 || visibilityFilter !== 'all' || sortBy !== 'recent';
+
+  const toggleCategory = (id: string) => {
+    setActiveCategories((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+  };
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-1">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <div key={i} className="aspect-square bg-gray-100 rounded-xl animate-pulse" />
-        ))}
+      <div className="px-4 md:px-6">
+        <div className="grid grid-cols-3 gap-1">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="aspect-square bg-gray-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <>
+    <div className="px-4 md:px-6">
       {/* ─── Header: busqueda + filtros + upload ─────────── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="relative flex-1 min-w-0">
@@ -207,32 +216,41 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
         )}
       </div>
 
-      {/* ─── Tabs categorias ─────────────────────────── */}
+      {/* ─── Tabs categorias (multi-seleccion) ──────────
+          Pueden elegirse varias a la vez. "Todos" desmarca todas. */}
       {categories.length > 0 && (
         <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 -mx-1 px-1">
           <button
-            onClick={() => setActiveCategory('')}
+            onClick={() => setActiveCategories([])}
             className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors flex-shrink-0"
-            style={!activeCategory
+            style={activeCategories.length === 0
               ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
               : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
             }
           >
             Todos
           </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors flex-shrink-0"
-              style={activeCategory === cat.id
-                ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
-                : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
-              }
-            >
-              {cat.name}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const active = activeCategories.includes(cat.id);
+            return (
+              <button
+                key={cat.id}
+                onClick={() => toggleCategory(cat.id)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1"
+                style={active
+                  ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                  : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                }
+              >
+                {cat.name}
+                {active && (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -297,7 +315,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
             <div className="px-5 py-4">
               {hasFilters && (
                 <button
-                  onClick={() => { setSearch(''); setActiveCategory(''); setVisibilityFilter('all'); setSortBy('recent'); }}
+                  onClick={() => { setSearch(''); setActiveCategories([]); setVisibilityFilter('all'); setSortBy('recent'); }}
                   className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
                   style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
                 >
@@ -440,6 +458,6 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
