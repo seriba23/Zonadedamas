@@ -3507,7 +3507,10 @@ export default function BusinessDetailPage() {
                         availableSlots={uniqueSlots}
                         selectedSlot={selectedSlot}
                         onSelect={setSelectedSlot}
-                        businessHours={biz?.businessHours || []}
+                        // Para freelancer no hay "horario de negocio" que limite
+                        // la grilla — los slots reales vienen del schedule del
+                        // empleado y se renderizan con el fallback del grid.
+                        businessHours={biz?.tenantType === 'FREELANCER' ? [] : (biz?.businessHours || [])}
                         durationMinutes={totalDuration || 30}
                         preferredTime={preferredTime}
                       />
