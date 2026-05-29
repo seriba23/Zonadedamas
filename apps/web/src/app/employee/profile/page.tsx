@@ -560,6 +560,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
   const [form, setForm] = useState({
     firstName: employee.firstName, lastName: employee.lastName,
     email: employee.email || '', phone: employee.phone || '', bio: employee.bio || '',
+    color: employee.color || '#008080',
     bloodType: employee.bloodType || '', allergies: employee.allergies || '',
     emergencyContactName: employee.emergencyContactName || '',
     emergencyContactLastName: employee.emergencyContactLastName || '',
@@ -568,12 +569,22 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
   });
   const [saving, setSaving] = useState(false);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Paleta para el color del banner cuando no hay foto de portada. Mismo
+  // patron que usa /staff al crear empleado.
+  const COLOR_PALETTE = [
+    '#008080', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444',
+    '#A855F7', '#EC4899', '#F97316', '#6366F1', '#14B8A6',
+    '#84CC16', '#64748B',
+  ];
 
   async function handleSave() {
     setSaving(true);
     try {
-      await api.put('/api/employees/me', { firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, bio: form.bio });
+      await api.put('/api/employees/me', { firstName: form.firstName, lastName: form.lastName, email: form.email, phone: form.phone, bio: form.bio, color: form.color });
       await api.put('/api/employees/me/personal-info', { bloodType: form.bloodType, allergies: form.allergies, emergencyContactName: form.emergencyContactName, emergencyContactLastName: form.emergencyContactLastName, emergencyContactPhone: form.emergencyContactPhone, emergencyContactRelation: form.emergencyContactRelation });
       onSave();
       setEditing(false);
@@ -585,39 +596,57 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
     setUploadingCover(true);
     try {
       await api.upload('/api/employees/me/cover', file);
-      // Reload para que el banner se actualice. Igual que avatarMutation.
       window.location.reload();
     } catch {
       setUploadingCover(false);
     }
   }
 
+  async function handleAvatarUpload(file: File) {
+    setUploadingAvatar(true);
+    try {
+      await api.upload('/api/employees/me/avatar', file);
+      window.location.reload();
+    } catch {
+      setUploadingAvatar(false);
+    }
+  }
+
   return (
     <div className="px-6 py-4 max-w-2xl mx-auto space-y-4">
-      {/* Foto de portada — banner editable arriba de la card de info */}
+      {/* Foto de portada — solo editable cuando "Editar" esta activo.
+          Aspect 3/4 vertical para previsualizar como se ve en el perfil
+          publico del marketplace (que muestra cover a pantalla completa).
+          Fuera de edicion solo se muestra como display. */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div
-          className="relative h-28 cursor-pointer group"
-          onClick={() => coverFileInputRef.current?.click()}
+          className={`relative aspect-[3/4] max-h-[260px] ${editing ? 'cursor-pointer' : ''} group`}
+          onClick={() => { if (editing && !uploadingCover) coverFileInputRef.current?.click(); }}
           style={{
             backgroundImage: employee.coverImageUrl ? `url(${API_URL}${employee.coverImageUrl})` : undefined,
-            backgroundColor: employee.coverImageUrl ? undefined : (employee.color || '#008080'),
+            backgroundColor: employee.coverImageUrl ? undefined : (form.color || employee.color || '#008080'),
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         >
-          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-            {uploadingCover ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
-            ) : (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-gray-700 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
-                </svg>
-                {employee.coverImageUrl ? 'Cambiar portada' : 'Agregar portada'}
-              </div>
-            )}
-          </div>
+          {/* Overlay solo visible en modo edicion. Icono camara permanente
+              + texto "Cambiar/Agregar portada" en hover. */}
+          {editing && (
+            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+              {uploadingCover ? (
+                <div className="animate-spin rounded-full h-7 w-7 border-2 border-white border-t-transparent" />
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 text-white">
+                  <svg className="w-8 h-8 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
+                  </svg>
+                  <span className="text-xs font-semibold drop-shadow">
+                    {employee.coverImageUrl ? 'Cambiar portada' : 'Agregar portada'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           <input
             ref={coverFileInputRef}
             type="file"
@@ -630,6 +659,41 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
             }}
           />
         </div>
+
+        {/* Selector de color del banner — solo cuando editing Y sin foto.
+            Si tiene foto, no aplica porque la foto cubre el color. */}
+        {editing && !employee.coverImageUrl && (
+          <div className="px-4 py-3 border-t border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Color del banner</p>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_PALETTE.map((c) => {
+                const active = form.color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, color: c }))}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform ${active ? 'scale-110' : 'hover:scale-105'}`}
+                    style={{
+                      backgroundColor: c,
+                      borderColor: active ? '#1f2937' : 'rgba(0,0,0,0.1)',
+                    }}
+                    aria-label={`Color ${c}`}
+                  >
+                    {active && (
+                      <svg className="w-4 h-4 text-white mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">
+              El color del banner se muestra cuando no tienes foto de portada.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Basic info */}
@@ -644,9 +708,37 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
         ) : null}
 
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold text-white flex-shrink-0" style={{ backgroundColor: employee.color || '#008080' }}>
+          {/* Avatar — overlay con icono camara cuando editing para indicar
+              que se puede cambiar. Click abre file picker. */}
+          <div
+            className={`relative w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold text-white flex-shrink-0 ${editing ? 'cursor-pointer group' : ''}`}
+            style={{ backgroundColor: employee.color || '#008080' }}
+            onClick={() => { if (editing && !uploadingAvatar) avatarFileInputRef.current?.click(); }}
+          >
             {employee.avatarUrl ? <img src={`${API_URL}${employee.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{employee.firstName[0]}{employee.lastName[0]}</>}
+            {editing && (
+              <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                {uploadingAvatar ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
+                  </svg>
+                )}
+              </div>
+            )}
           </div>
+          <input
+            ref={avatarFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleAvatarUpload(f);
+              e.target.value = '';
+            }}
+          />
           <div>
             <p className="font-semibold text-gray-900">{employee.firstName} {employee.lastName}</p>
             {employee.jobTitle && <p className="text-xs text-[#008080] font-medium">{employee.jobTitle}</p>}
