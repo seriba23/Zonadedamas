@@ -64,6 +64,12 @@ export default function MarketplaceAppointmentsPage() {
   const [search, setSearch] = useState('');
   // Filtro de estado: '' = todos. Distintos sets por tab.
   const [statusFilter, setStatusFilter] = useState<string>('');
+  // Filtros nuevos para citas: '' = todos.
+  const [serviceFilter, setServiceFilter] = useState<string>('');
+  const [employeeFilter, setEmployeeFilter] = useState<string>('');
+  // Orden: 'default' usa el orden por seccion (proximas asc, historial desc).
+  type SortKey = 'default' | 'recent' | 'oldest' | 'employee' | 'price';
+  const [sortBy, setSortBy] = useState<SortKey>('default');
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
   // Cache 30s + sin refetch en focus/mount evita ráfagas de requests
@@ -119,6 +125,53 @@ export default function MarketplaceAppointmentsPage() {
     if (statusFilter === 'UNPAID') return !a.paymentProofUrl;
     return a.status === statusFilter;
   };
+  const matchesAppointmentService = (a: any) => {
+    if (!serviceFilter) return true;
+    return (a.items || []).some((i: any) => i.serviceNameSnapshot === serviceFilter);
+  };
+  const matchesAppointmentEmployee = (a: any) => {
+    if (!employeeFilter) return true;
+    return a.employee?.id === employeeFilter;
+  };
+
+  // Opciones disponibles (derivadas de las citas cargadas) para los
+  // dropdowns/chips de servicio y empleado en el sheet de filtros.
+  const serviceOptions = Array.from(
+    new Set(appointments.flatMap((a) => (a.items || []).map((i: any) => i.serviceNameSnapshot)).filter(Boolean)),
+  ).sort();
+  const employeeOptionsMap = new Map<string, { id: string; name: string }>();
+  for (const a of appointments) {
+    if (a.employee?.id) {
+      employeeOptionsMap.set(a.employee.id, {
+        id: a.employee.id,
+        name: `${a.employee.firstName || ''} ${a.employee.lastName || ''}`.trim() || 'Sin nombre',
+      });
+    }
+  }
+  const employeeOptions = Array.from(employeeOptionsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Total de una cita = suma de items.priceSnapshot.
+  const apptTotal = (a: any) =>
+    (a.items || []).reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0);
+
+  // Helpers de comparacion. Strings raw (substring 0..19) evitan
+  // convertir TZ del browser.
+  const rawIso = (s: string | undefined) => (s || '').substring(0, 19);
+  const tzFor = (a: any) => a?.location?.timezone || a?.tenant?.timezone || null;
+
+  // Comparador segun sortBy. 'default' devuelve 0 para que la seccion
+  // mantenga su orden natural (proximas asc, perdidas/historial desc).
+  const sortComparator = (a: any, b: any) => {
+    if (sortBy === 'recent') return rawIso(b.startTime).localeCompare(rawIso(a.startTime));
+    if (sortBy === 'oldest') return rawIso(a.startTime).localeCompare(rawIso(b.startTime));
+    if (sortBy === 'employee') {
+      const an = `${a.employee?.firstName || ''} ${a.employee?.lastName || ''}`.trim();
+      const bn = `${b.employee?.firstName || ''} ${b.employee?.lastName || ''}`.trim();
+      return an.localeCompare(bn);
+    }
+    if (sortBy === 'price') return apptTotal(b) - apptTotal(a);
+    return 0;
+  };
   const matchesPurchaseStatus = (p: any) => {
     if (!statusFilter) return true;
     if (statusFilter === 'PAID') return !!p.paymentProofUrl;
@@ -132,20 +185,27 @@ export default function MarketplaceAppointmentsPage() {
   //   aparecian en "Proximas" lo cual era confuso visualmente.
   // Historial: descendente (la más reciente arriba).
   // Comparamos strings raw (substring 0..19) para no convertir TZ.
-  const rawIso = (s: string | undefined) => (s || '').substring(0, 19);
-  const tzFor = (a: any) => a?.location?.timezone || a?.tenant?.timezone || null;
-  const filteredAppointments = appointments.filter((a) => matchesAppointment(a) && matchesAppointmentStatus(a));
+  const filteredAppointments = appointments.filter((a) =>
+    matchesAppointment(a) &&
+    matchesAppointmentStatus(a) &&
+    matchesAppointmentService(a) &&
+    matchesAppointmentEmployee(a),
+  );
   const upcomingOrInProgress = filteredAppointments
     .filter((a) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status));
+  // Cuando hay sortBy explicito, ese gana sobre el default de la seccion.
+  const upcomingDefaultSort = (a: any, b: any) => rawIso(a.startTime).localeCompare(rawIso(b.startTime));
+  const recentDefaultSort = (a: any, b: any) => rawIso(b.startTime).localeCompare(rawIso(a.startTime));
+  const useDefault = sortBy === 'default';
   const upcoming = upcomingOrInProgress
     .filter((a) => isBookingUpcoming(a.startTime, tzFor(a)) || a.status === 'IN_PROGRESS')
-    .sort((a, b) => rawIso(a.startTime).localeCompare(rawIso(b.startTime)));
+    .sort(useDefault ? upcomingDefaultSort : sortComparator);
   const missed = upcomingOrInProgress
     .filter((a) => a.status !== 'IN_PROGRESS' && !isBookingUpcoming(a.startTime, tzFor(a)))
-    .sort((a, b) => rawIso(b.startTime).localeCompare(rawIso(a.startTime)));
+    .sort(useDefault ? recentDefaultSort : sortComparator);
   const past = filteredAppointments
     .filter((a) => ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status))
-    .sort((a, b) => rawIso(b.startTime).localeCompare(rawIso(a.startTime)));
+    .sort(useDefault ? recentDefaultSort : sortComparator);
   const filteredPurchases = purchases.filter((p) => matchesPurchase(p) && matchesPurchaseStatus(p));
 
   // Reseteamos filtro de status cuando cambias de tab (los sets son distintos)
@@ -222,7 +282,7 @@ export default function MarketplaceAppointmentsPage() {
               onClick={() => setShowFiltersSheet(true)}
               title="Filtros"
               className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
-              style={statusFilter
+              style={(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default')
                 ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
                 : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
               }
@@ -230,7 +290,7 @@ export default function MarketplaceAppointmentsPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
               </svg>
-              {statusFilter && (
+              {(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default') && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
               )}
             </button>
@@ -252,7 +312,7 @@ export default function MarketplaceAppointmentsPage() {
           {/* Tabs Citas | Compras */}
           <div className="flex rounded-lg border border-gray-300 overflow-hidden">
             <button
-              onClick={() => { setTab('citas'); setStatusFilter(''); }}
+              onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setSortBy('default'); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                 tab === 'citas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
@@ -260,7 +320,7 @@ export default function MarketplaceAppointmentsPage() {
               Citas
             </button>
             <button
-              onClick={() => { setTab('compras'); setStatusFilter(''); }}
+              onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setSortBy('default'); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
                 tab === 'compras' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
@@ -372,9 +432,9 @@ export default function MarketplaceAppointmentsPage() {
               </button>
             </div>
             <div className="px-5 py-4">
-              {statusFilter && (
+              {(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default') && (
                 <button
-                  onClick={() => setStatusFilter('')}
+                  onClick={() => { setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setSortBy('default'); }}
                   className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
                   style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
                 >
@@ -425,6 +485,97 @@ export default function MarketplaceAppointmentsPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Nuevos filtros: solo aplican al tab de Citas y solo si hay
+                 opciones disponibles en las citas cargadas. */}
+              {tab === 'citas' && serviceOptions.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-5">Servicio</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      onClick={() => setServiceFilter('')}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                      style={!serviceFilter
+                        ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                        : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                      }
+                    >
+                      Todos
+                    </button>
+                    {serviceOptions.map((name) => (
+                      <button
+                        key={name}
+                        onClick={() => setServiceFilter(name)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                        style={serviceFilter === name
+                          ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                          : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                        }
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {tab === 'citas' && employeeOptions.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-5">Profesional</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      onClick={() => setEmployeeFilter('')}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                      style={!employeeFilter
+                        ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                        : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                      }
+                    >
+                      Todos
+                    </button>
+                    {employeeOptions.map((emp) => (
+                      <button
+                        key={emp.id}
+                        onClick={() => setEmployeeFilter(emp.id)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                        style={employeeFilter === emp.id
+                          ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                          : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                        }
+                      >
+                        {emp.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {tab === 'citas' && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-5">Ordenar por</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { value: 'default', label: 'Predeterminado' },
+                      { value: 'recent', label: 'Más reciente' },
+                      { value: 'oldest', label: 'Más antigua' },
+                      { value: 'employee', label: 'Profesional (A-Z)' },
+                      { value: 'price', label: 'Mayor monto' },
+                    ] as { value: SortKey; label: string }[]).map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setSortBy(opt.value)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                        style={sortBy === opt.value
+                          ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                          : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                        }
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <div className="px-4 py-4" />
           </div>
