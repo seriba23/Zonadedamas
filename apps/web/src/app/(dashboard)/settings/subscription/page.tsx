@@ -229,6 +229,7 @@ export default function SubscriptionPage() {
 
   const sub: SubscriptionData | null = (subData as any)?.data || null;
   const preview: PreviewData | null = (previewData as any)?.data || null;
+  const [stripeUnavailable, setStripeUnavailable] = useState(false);
   const invoices: Invoice[] = (invoicesData as any)?.data || [];
   const allEmployees: any[] = (employeesData as any)?.data || [];
   const activeEmployees = allEmployees.filter((e) => e.isActive);
@@ -252,13 +253,13 @@ export default function SubscriptionPage() {
       }
     },
     onError: (e: any) => {
-      // Mensaje claro cuando Stripe no esta configurado (tipico en local
-      // o entornos demo). En vez del "Bad Request" generico.
+      // Stripe SaaS no configurado en el backend — es problema del
+      // operador del SaaS, no del tenant. Mostramos un modal dedicado
+      // con info y CTA a soporte en lugar de un mensaje plano.
       const msg = e?.message || '';
-      if (msg.includes('STRIPE_PLATFORM_PRICE_ID')) {
-        setError(
-          'Los pagos no estan habilitados en este ambiente (Stripe no configurado). Contacta al administrador para activar tu suscripcion.',
-        );
+      if (msg.includes('STRIPE_PLATFORM_PRICE_ID') || msg.includes('Stripe')) {
+        setStripeUnavailable(true);
+        setError(null);
       } else {
         setError(msg || 'Error al activar.');
       }
@@ -975,6 +976,44 @@ export default function SubscriptionPage() {
 
       </div>{/* fin columna derecha */}
       </div>{/* fin grid */}
+
+      {/* Modal: Stripe SaaS no configurado en backend.
+          Es un problema operativo del SaaS, no del tenant. Aviso amigable
+          en vez de un error técnico. */}
+      {stripeUnavailable && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setStripeUnavailable(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-amber-50 flex items-center justify-center">
+              <svg className="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Cobros en línea no disponibles</h3>
+            <p className="text-sm text-gray-600 text-center mb-5 leading-relaxed">
+              Aún no está habilitada la pasarela de pago para activar tu suscripción.
+              Esto es algo que configuramos del lado de Siliba antes de poder cobrarte.
+              Mientras tanto, sigue usando la plataforma con normalidad.
+            </p>
+            <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1.5 text-xs text-gray-600">
+              <p className="font-semibold text-gray-700">¿Necesitas activarlo ya?</p>
+              <p>Escríbenos y lo habilitamos para ti en menos de 24 hrs:</p>
+              <a href="mailto:soporte@siliba.com" className="block font-medium text-[#008080] underline">
+                soporte@siliba.com
+              </a>
+              <a href="https://wa.me/525555555555" target="_blank" rel="noopener noreferrer" className="block font-medium text-[#008080] underline">
+                WhatsApp soporte
+              </a>
+            </div>
+            <button
+              onClick={() => setStripeUnavailable(false)}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white"
+              style={{ backgroundColor: '#008080' }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

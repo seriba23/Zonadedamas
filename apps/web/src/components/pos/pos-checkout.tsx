@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -53,6 +53,10 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialAppointmentId || null);
+  // Marca que appointment ya pre-cargamos (cliente, items, phone). Evita
+  // que refetches del query "pos-appointments" sobrescriban lo que el
+  // cajero acabe de editar.
+  const loadedAppointmentRef = useRef<string | null>(null);
   const [productDetail, setProductDetail] = useState<any | null>(null);
   const [transferProofFile, setTransferProofFile] = useState<File | null>(null);
   const [transferProofPreview, setTransferProofPreview] = useState<string | null>(null);
@@ -79,11 +83,18 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const clients = clientsData?.data || [];
   const posWhatsapp = tenantData?.data?.posWhatsappNumber || '';
 
-  // Pre-load from appointment
+  // Pre-load from appointment — solo UNA vez por appointmentId, no en cada
+  // refetch del query. Si no protegemos con el ref, cualquier edición del
+  // cajero (teléfono, items, etc.) se borra al siguiente refetch.
   useEffect(() => {
-    if (!selectedAppointmentId) return;
+    if (!selectedAppointmentId) {
+      loadedAppointmentRef.current = null;
+      return;
+    }
+    if (loadedAppointmentRef.current === selectedAppointmentId) return;
     const apt = appointments.find((a: any) => a.id === selectedAppointmentId);
     if (!apt) return;
+    loadedAppointmentRef.current = selectedAppointmentId;
     if (apt.client) {
       setSelectedClientId(apt.clientId);
       const cleaned = String(apt.client.phone || '').replace(/\D/g, '').slice(-10);

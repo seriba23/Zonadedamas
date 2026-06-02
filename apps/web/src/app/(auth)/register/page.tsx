@@ -192,6 +192,10 @@ function RegisterPageInner() {
 
   const [mode, setMode] = useState<RegisterMode>(initialMode);
   const [step, setStep] = useState(1);
+  // Modal de aviso de privacidad / términos: legal obliga a mostrar el
+  // contenido sin perder el progreso del registro. Lo abrimos en overlay
+  // y el usuario puede cerrarlo y volver al form intacto.
+  const [legalModal, setLegalModal] = useState<null | { url: string; title: string }>(null);
   const [form, setForm] = useState<FormState>({
     firstName: '',
     lastName: '',
@@ -433,7 +437,15 @@ function RegisterPageInner() {
 
   function handleNextStep() {
     setApiError(null);
-    if (step === 1 && validateStep1()) setStep(2);
+    if (step === 1 && validateStep1()) {
+      // Prefill del teléfono del negocio con el teléfono personal capturado
+      // en el paso 1, si el campo aún está vacío. El usuario puede editarlo
+      // después si su negocio tiene un número distinto.
+      if (!form.businessPhone && form.phone) {
+        setForm((f) => ({ ...f, businessPhone: f.phone }));
+      }
+      setStep(2);
+    }
   }
 
   async function handleSubmitIndividual(e: FormEvent) {
@@ -640,16 +652,16 @@ function RegisterPageInner() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">¿Cómo deseas ingresar?</h2>
-            <p className="text-xs text-gray-500 mb-4">Selecciona el modo en el que quieres trabajar hoy</p>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">¿Qué tipo de cuenta deseas crear?</h2>
+            <p className="text-xs text-gray-500 mb-4">Cada tipo es para un perfil distinto. Elige el que mejor se adapte a ti.</p>
 
             <div className="space-y-2">
               {/* Cliente */}
               <button
                 onClick={() => setMode('client')}
-                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -657,18 +669,19 @@ function RegisterPageInner() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">Cliente</p>
-                    <p className="text-xs text-gray-500">Explorar, reservar y comprar</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                      Para reservar servicios en negocios de belleza, bienestar y cuidado personal. Explora el marketplace, agenda citas, compra productos y acumula puntos.
+                    </p>
                   </div>
                 </div>
               </button>
 
-              {/* Profesional — va directo al form con pestañas Afiliarme/
-                  Independiente (eliminado el menu intermedio). */}
+              {/* Profesional */}
               <button
                 onClick={() => setMode('business')}
-                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -676,7 +689,9 @@ function RegisterPageInner() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">Profesional</p>
-                    <p className="text-xs text-gray-500">Mi agenda, perfil y citas</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                      Para estilistas, terapeutas, barberos o cualquier especialista que trabaje de manera independiente o dentro de un negocio existente. Gestiona tu agenda, perfil y citas.
+                    </p>
                   </div>
                 </div>
               </button>
@@ -684,9 +699,9 @@ function RegisterPageInner() {
               {/* Administrador */}
               <button
                 onClick={() => setMode('individual')}
-                className="w-full text-left p-3 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <div className="w-9 h-9 bg-[#e0f2f1] rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -694,10 +709,27 @@ function RegisterPageInner() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">Administrador</p>
-                    <p className="text-xs text-gray-500">Gestionar mi negocio</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                      Para dueños de negocios (salones, barberías, spas, clínicas) que gestionan un equipo. Administra empleados, sucursales, citas, inventario y reportes desde el panel administrativo.
+                    </p>
                   </div>
                 </div>
               </button>
+            </div>
+
+            {/* FAQ */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <details className="group">
+                <summary className="cursor-pointer text-xs text-gray-600 font-medium flex items-center justify-between list-none">
+                  <span>¿Puedo cambiar el tipo de cuenta después?</span>
+                  <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <p className="text-xs text-gray-500 mt-2 leading-snug">
+                  Sí. Puedes tener varios tipos de cuenta con el mismo correo y alternar entre ellos desde el selector de perfil al iniciar sesión. Por ejemplo: usar el sistema como Administrador de tu negocio y a la vez reservar citas como Cliente en otros negocios.
+                </p>
+              </details>
             </div>
           </div>
 
@@ -940,9 +972,9 @@ function RegisterPageInner() {
                     className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
                   <span className="text-xs text-gray-600">
                     Acepto los{' '}
-                    <a href="/marketplace/legal/terms" target="_blank" className="text-[#008080] underline font-medium">
+                    <button type="button" onClick={() => setLegalModal({ url: '/legal/terms', title: 'Términos y condiciones' })} className="text-[#008080] underline font-medium">
                       términos y condiciones
-                    </a>
+                    </button>
                   </span>
                 </div>
                 {errors.acceptContract && <p className="text-xs text-red-600 ml-6">{errors.acceptContract}</p>}
@@ -952,9 +984,9 @@ function RegisterPageInner() {
                     className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
                   <span className="text-xs text-gray-600">
                     Acepto el{' '}
-                    <a href="/marketplace/legal/privacy" target="_blank" className="text-[#008080] underline font-medium">
+                    <button type="button" onClick={() => setLegalModal({ url: '/legal/privacy', title: 'Aviso de privacidad' })} className="text-[#008080] underline font-medium">
                       aviso de privacidad
-                    </a>
+                    </button>
                   </span>
                 </div>
                 {errors.acceptPrivacy && <p className="text-xs text-red-600 ml-6">{errors.acceptPrivacy}</p>}
@@ -1410,7 +1442,7 @@ function RegisterPageInner() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Teléfono del negocio <span className="text-gray-400">(opcional)</span>
+                  Teléfono del negocio
                 </label>
                 <PhoneInput
                   value={form.businessPhone}
@@ -1426,10 +1458,10 @@ function RegisterPageInner() {
                     className="mt-1 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
                   <span className="text-sm text-gray-600">
                     Acepto los{' '}
-                    <a href="/marketplace/legal/terms" target="_blank" rel="noopener noreferrer"
+                    <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal({ url: '/legal/terms', title: 'Términos y condiciones' }); }}
                       className="text-[#008080] font-medium hover:underline">
                       términos y condiciones
-                    </a>
+                    </button>
                   </span>
                 </label>
                 {errors.acceptContract && <p className="text-xs text-red-600 ml-6">{errors.acceptContract}</p>}
@@ -1440,10 +1472,10 @@ function RegisterPageInner() {
                     className="mt-1 rounded border-gray-300 text-[#008080] focus:ring-[#008080]" />
                   <span className="text-sm text-gray-600">
                     Acepto el{' '}
-                    <a href="/marketplace/legal/privacy" target="_blank" rel="noopener noreferrer"
+                    <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal({ url: '/legal/privacy', title: 'Aviso de privacidad' }); }}
                       className="text-[#008080] font-medium hover:underline">
                       aviso de privacidad
-                    </a>
+                    </button>
                   </span>
                 </label>
                 {errors.acceptPrivacy && <p className="text-xs text-red-600 ml-6">{errors.acceptPrivacy}</p>}
@@ -1468,6 +1500,24 @@ function RegisterPageInner() {
           <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">Iniciar sesión</Link>
         </p>
       </div>
+
+      {/* Modal flotante con T&C o aviso de privacidad. Carga la página
+          pública en un iframe para no duplicar contenido. */}
+      {legalModal && (
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-3" onClick={() => setLegalModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
+              <h3 className="text-base font-semibold text-gray-900">{legalModal.title}</h3>
+              <button onClick={() => setLegalModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100" aria-label="Cerrar">
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <iframe src={legalModal.url} className="flex-1 w-full border-0" title={legalModal.title} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -44,7 +44,7 @@ type StaffTab = 'empleados' | 'permisos' | 'asistencias' | 'organigrama' | 'comi
 
 const TABS: { key: StaffTab; label: string }[] = [
   { key: 'empleados', label: 'Empleados' },
-  { key: 'organigrama', label: 'Organigrama' },
+  // 'organigrama' deshabilitado hasta V2: necesita pulido visual.
   { key: 'asistencias', label: 'Asistencias' },
   { key: 'horarios', label: 'Horarios' },
   { key: 'comisiones', label: 'Comisiones' },
