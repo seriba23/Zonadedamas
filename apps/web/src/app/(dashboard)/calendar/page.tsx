@@ -8,10 +8,10 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import { api } from '@/lib/api';
 import { CalendarView, type BusinessClosure, type EmployeeTimeOff } from '@/components/calendar/calendar-view';
 import { AppointmentModal } from '@/components/appointments/appointment-modal';
+import { AppointmentWizard } from '@/components/appointments/appointment-wizard';
 import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { formatBookingTime } from '@/lib/booking-time';
 import { useCurrency } from '@/lib/hooks/use-currency';
-import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
@@ -70,7 +70,6 @@ export default function CalendarPage() {
     string | null
   >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
@@ -514,13 +513,11 @@ export default function CalendarPage() {
   }
 
   function handleModalSave() {
-    // Only show confetti when creating a new appointment, not on cancel/complete/reschedule
-    const isCreating = !selectedAppointmentId;
+    // Antes mostrábamos confeti aquí al crear cita. Ahora el wizard
+    // (`AppointmentWizard`) muestra su propia pantalla de éxito con
+    // confeti integrado, así que solo cerramos y refrescamos.
     handleModalClose();
     refetch();
-    if (isCreating) {
-      setShowConfetti(true);
-    }
   }
 
   function handleCreateAnother(clientId: string, employeeId: string) {
@@ -1149,23 +1146,30 @@ export default function CalendarPage() {
       </>
 
 
+      {/* Detalle/edición de cita existente: AppointmentModal.
+          Creación de nueva cita: AppointmentWizard (steps estilo cliente). */}
       {isModalOpen && (
-        <AppointmentModal
-          appointmentId={selectedAppointmentId || undefined}
-          initialStartTime={selectedSlot || undefined}
-          initialClientId={prefillClientId}
-          initialEmployeeId={prefillEmployeeId}
-          onClose={handleModalClose}
-          onSave={handleModalSave}
-          onCreateAnother={handleCreateAnother}
-        />
+        selectedAppointmentId ? (
+          <AppointmentModal
+            appointmentId={selectedAppointmentId}
+            initialStartTime={selectedSlot || undefined}
+            initialClientId={prefillClientId}
+            initialEmployeeId={prefillEmployeeId}
+            onClose={handleModalClose}
+            onSave={handleModalSave}
+            onCreateAnother={handleCreateAnother}
+          />
+        ) : (
+          <AppointmentWizard
+            onClose={handleModalClose}
+            onSave={handleModalSave}
+            initialDate={selectedSlot ? selectedSlot.split('T')[0] : undefined}
+            initialTime={selectedSlot ? selectedSlot.split('T')[1]?.substring(0, 5) : undefined}
+            initialEmployeeId={prefillEmployeeId}
+          />
+        )
       )}
 
-      <ConfettiCelebration
-        show={showConfetti}
-        duration={10000}
-        onComplete={() => setShowConfetti(false)}
-      />
     </div>
   );
 }

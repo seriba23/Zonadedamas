@@ -441,7 +441,14 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
             {pro.businessName}
           </span>
           <h2 className="text-2xl font-bold text-white mb-0.5">{fullName}</h2>
-          {pro.bio && <p className="text-xs text-white/70 max-w-lg line-clamp-2">{pro.bio}</p>}
+          {pro.bio && (
+            <p
+              className="text-xs text-white/70 max-w-lg max-h-28 overflow-y-auto pr-1 whitespace-pre-line"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.3) transparent' }}
+            >
+              {pro.bio}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2 mt-3">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
               <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

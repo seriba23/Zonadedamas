@@ -18,6 +18,7 @@ import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
 import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
+import { CreateTenantReviewDto } from './dto/tenant-review.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { UploadsService } from '../uploads/uploads.service';
 
@@ -823,15 +824,29 @@ export class MarketplaceService {
       where: { tenantId: tenant.id, status: 'COMPLETED' },
     });
 
-    // Get rating (employee + business)
-    const ratingAgg = await this.prisma.employeeReview.aggregate({
-      where: { tenantId: tenant.id, isVisible: true },
-      _avg: { rating: true, businessRating: true },
-      _count: { id: true },
+    // Rating combinado (TenantReview + EmployeeReview.businessRating)
+    const combined = await this.getCombinedTenantRating(tenant.id);
+
+    // Reseñas directas del negocio (TenantReview). La reseña del usuario
+    // actual va primero para resaltarla en el frontend.
+    const tenantReviewsRaw = await this.prisma.tenantReview.findMany({
+      where: { tenantId: tenant.id },
+      include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+      orderBy: [{ updatedAt: 'desc' }],
     });
 
-    // Get recent reviews
-    const reviews = await this.prisma.employeeReview.findMany({
+    let myTenantReview: any = null;
+    const otherTenantReviews = tenantReviewsRaw.filter((r) => {
+      if (marketplaceUserId && r.userId === marketplaceUserId) {
+        myTenantReview = r;
+        return false;
+      }
+      return true;
+    });
+    const tenantReviews = myTenantReview ? [myTenantReview, ...otherTenantReviews] : otherTenantReviews;
+
+    // Reseñas de empleados (calificación del negocio dentro del flujo de cierre)
+    const employeeReviewsRaw = await this.prisma.employeeReview.findMany({
       where: { tenantId: tenant.id, isVisible: true },
       include: {
         client: { select: { firstName: true, lastName: true, avatarUrl: true } },
@@ -977,27 +992,49 @@ export class MarketplaceService {
         ...tenantData,
         acceptsOnlinePayment: !!stripeOnboardingComplete,
         shopEnabled: !!shopEnabled,
-        averageRating: ratingAgg._avg.rating
-          ? Math.round(ratingAgg._avg.rating * 10) / 10
+        averageRating: combined.avg,
+        averageBusinessRating: combined.avg,
+        totalReviews: combined.total,
+        myReview: myTenantReview
+          ? {
+              id: myTenantReview.id,
+              rating: myTenantReview.rating,
+              comment: myTenantReview.comment,
+              createdAt: myTenantReview.createdAt,
+              updatedAt: myTenantReview.updatedAt,
+            }
           : null,
-        averageBusinessRating: ratingAgg._avg.businessRating
-          ? Math.round(ratingAgg._avg.businessRating * 10) / 10
-          : null,
-        totalReviews: ratingAgg._count.id,
         completedAppointments,
         services,
         employees,
-        reviews: reviews.map((r) => ({
-          id: r.id,
-          rating: r.rating,
-          comment: r.comment,
-          businessRating: r.businessRating,
-          businessComment: r.businessComment,
-          createdAt: r.createdAt,
-          clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
-          clientAvatarUrl: (r.client as any).avatarUrl || null,
-          employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
-        })),
+        reviews: [
+          ...tenantReviews.map((r) => ({
+            id: r.id,
+            source: 'tenant' as const,
+            rating: r.rating,
+            comment: r.comment,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            isMine: marketplaceUserId ? r.userId === marketplaceUserId : false,
+            clientName: `${r.user.firstName} ${r.user.lastName?.[0] || ''}.`,
+            clientAvatarUrl: r.user.avatarUrl || null,
+            employeeName: null,
+          })),
+          ...employeeReviewsRaw.map((r) => ({
+            id: r.id,
+            source: 'employee' as const,
+            rating: r.rating,
+            comment: r.comment,
+            businessRating: r.businessRating,
+            businessComment: r.businessComment,
+            createdAt: r.createdAt,
+            updatedAt: r.createdAt,
+            isMine: false,
+            clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
+            clientAvatarUrl: (r.client as any).avatarUrl || null,
+            employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
+          })),
+        ],
         businessHours,
         locations,
         bundles,
@@ -1006,6 +1043,168 @@ export class MarketplaceService {
         isFavorited,
       },
     };
+  }
+
+  // ─── TENANT REVIEWS ────────────────────────────────────
+
+  /**
+   * Promedio combinado del negocio = todas las TenantReview + los businessRating
+   * no nulos de EmployeeReview. Una métrica que refleja tanto la reseña directa
+   * del marketplace como las que vienen del flujo de cierre de cita.
+   */
+  private async getCombinedTenantRating(tenantId: string) {
+    const [tenantAgg, employeeBusinessAgg] = await Promise.all([
+      this.prisma.tenantReview.aggregate({
+        where: { tenantId },
+        _avg: { rating: true },
+        _sum: { rating: true },
+        _count: { id: true },
+      }),
+      this.prisma.employeeReview.aggregate({
+        where: { tenantId, isVisible: true, businessRating: { not: null } },
+        _sum: { businessRating: true },
+        _count: { businessRating: true },
+      }),
+    ]);
+
+    const tenantSum = Number(tenantAgg._sum.rating || 0);
+    const tenantCount = tenantAgg._count.id;
+    const empBusinessSum = Number(employeeBusinessAgg._sum.businessRating || 0);
+    const empBusinessCount = employeeBusinessAgg._count.businessRating;
+
+    const totalCount = tenantCount + empBusinessCount;
+    const totalSum = tenantSum + empBusinessSum;
+    const avg = totalCount > 0 ? totalSum / totalCount : null;
+
+    return {
+      avg: avg !== null ? Math.round(avg * 10) / 10 : null,
+      total: totalCount,
+    };
+  }
+
+  /**
+   * Rating del empleado = sus EmployeeReview.rating + TODAS las TenantReview
+   * del negocio donde trabaja. Esto cumple la regla "la puntuación al negocio
+   * influye en el puntaje de los empleados".
+   */
+  private async getCombinedEmployeeRating(employeeId: string, tenantId: string) {
+    const [empAgg, tenantAgg] = await Promise.all([
+      this.prisma.employeeReview.aggregate({
+        where: { employeeId, isVisible: true },
+        _sum: { rating: true },
+        _count: { id: true },
+      }),
+      this.prisma.tenantReview.aggregate({
+        where: { tenantId },
+        _sum: { rating: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    const empSum = Number(empAgg._sum.rating || 0);
+    const empCount = empAgg._count.id;
+    const tnSum = Number(tenantAgg._sum.rating || 0);
+    const tnCount = tenantAgg._count.id;
+
+    const totalCount = empCount + tnCount;
+    const totalSum = empSum + tnSum;
+    const avg = totalCount > 0 ? totalSum / totalCount : null;
+
+    return {
+      avg: avg !== null ? Math.round(avg * 10) / 10 : null,
+      total: totalCount,
+    };
+  }
+
+  async getTenantReviews(tenantSlug: string, userId?: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+      select: { id: true, isMarketplaceListed: true },
+    });
+    if (!tenant || !tenant.isMarketplaceListed) {
+      throw new NotFoundException('Negocio no encontrado');
+    }
+
+    const reviews = await this.prisma.tenantReview.findMany({
+      where: { tenantId: tenant.id },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const summary = await this.getCombinedTenantRating(tenant.id);
+
+    return {
+      data: {
+        averageRating: summary.avg,
+        totalReviews: summary.total,
+        reviews: reviews.map((r) => ({
+          id: r.id,
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          userId: r.userId,
+          isMine: userId ? r.userId === userId : false,
+          userName: `${r.user.firstName} ${r.user.lastName?.[0] || ''}.`,
+          userAvatarUrl: r.user.avatarUrl || null,
+        })),
+      },
+    };
+  }
+
+  async upsertTenantReview(
+    tenantSlug: string,
+    userId: string,
+    dto: CreateTenantReviewDto,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+      select: { id: true, isMarketplaceListed: true },
+    });
+    if (!tenant || !tenant.isMarketplaceListed) {
+      throw new NotFoundException('Negocio no encontrado');
+    }
+
+    const review = await this.prisma.tenantReview.upsert({
+      where: { tenantId_userId: { tenantId: tenant.id, userId } },
+      create: {
+        tenantId: tenant.id,
+        userId,
+        rating: dto.rating,
+        comment: dto.comment?.trim() || null,
+      },
+      update: {
+        rating: dto.rating,
+        comment: dto.comment?.trim() || null,
+      },
+    });
+
+    return {
+      data: {
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt,
+        updatedAt: review.updatedAt,
+        isMine: true,
+      },
+    };
+  }
+
+  async deleteTenantReview(tenantSlug: string, userId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+      select: { id: true },
+    });
+    if (!tenant) throw new NotFoundException('Negocio no encontrado');
+
+    await this.prisma.tenantReview.deleteMany({
+      where: { tenantId: tenant.id, userId },
+    });
+
+    return { data: { message: 'Reseña eliminada' } };
   }
 
   // ─── PROFESSIONAL PROFILE (public) ─────────────────────
@@ -1281,8 +1480,28 @@ export class MarketplaceService {
     // Merge de las dos fuentes en un solo array. Cada item tiene services[]
     // (vacio para fotos manuales). El frontend agrupa por nombre de servicio
     // y muestra las fotos manuales solo en el tab "Todos".
-    const portfolio = [
-      ...worksRaw.map((p) => ({
+    //
+    // Deduplicacion por imageUrl: una misma foto puede estar en ambas
+    // tablas porque el wizard de cerrar cita crea AppointmentPhoto Y
+    // auto-copia a EmployeePortfolioImage. Manual gana (tiene metadata
+    // rica: isFeatured, isHidden, sortOrder).
+    const seen = new Set<string>();
+    const portfolio: any[] = [];
+    for (const p of manualPortfolio) {
+      if (seen.has(p.imageUrl)) continue;
+      seen.add(p.imageUrl);
+      portfolio.push({
+        id: p.id,
+        imageUrl: p.imageUrl,
+        caption: p.caption,
+        createdAt: p.createdAt,
+        services: p.service ? [{ id: p.service.id, name: p.service.name }] : [],
+      });
+    }
+    for (const p of worksRaw) {
+      if (seen.has(p.imageUrl)) continue;
+      seen.add(p.imageUrl);
+      portfolio.push({
         id: p.id,
         imageUrl: p.imageUrl,
         caption: p.caption,
@@ -1293,15 +1512,8 @@ export class MarketplaceService {
               id: it.serviceId,
               name: it.serviceNameSnapshot,
             })),
-      })),
-      ...manualPortfolio.map((p) => ({
-        id: p.id,
-        imageUrl: p.imageUrl,
-        caption: p.caption,
-        createdAt: p.createdAt,
-        services: p.service ? [{ id: p.service.id, name: p.service.name }] : [],
-      })),
-    ];
+      });
+    }
 
     // If no completed work yet, fallback to assigned services
     let finalTopServices: { serviceName: string; count: number }[];
@@ -1357,16 +1569,17 @@ export class MarketplaceService {
       .filter(Boolean)
       .sort((a: any, b: any) => a.name.localeCompare(b.name, 'es'));
 
+    // Rating combinado del empleado: incluye TenantReview del negocio.
+    const combinedEmpRating = await this.getCombinedEmployeeRating(employeeId, tenant.id);
+
     return {
       data: {
         ...employee,
         businessName: tenant.name,
         tenantSlug: tenant.slug,
         completedAppointments: completedCount,
-        averageRating: ratingAgg._avg.rating
-          ? Math.round(ratingAgg._avg.rating * 10) / 10
-          : null,
-        totalReviews: ratingAgg._count.id,
+        averageRating: combinedEmpRating.avg,
+        totalReviews: combinedEmpRating.total,
         portfolio,
         services,
         topServices: finalTopServices,

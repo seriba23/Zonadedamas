@@ -43,6 +43,16 @@ html[data-theme="dark"] {
   }
 }
 
+/* Oculta scrollbar manteniendo overflow funcional — útil para pills
+   horizontales y carruseles. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Safe area utilities for notch/status bar devices.
    `safe-top` aplica un padding superior MÍNIMO de 1rem (16px = mismo que
    los costados px-4) y toma el inset del sistema si es mayor (mobile con
@@ -119,3 +129,101 @@ html[data-theme="dark"] {
     border-color: var(--primary-tint-border);
   }
 }
+
+/* ─── DARK MODE: overrides para clases Tailwind hardcoded ─────────────
+   El sistema usa CSS vars en :root + html[data-theme="dark"], pero los
+   componentes individuales emplean clases Tailwind fijas (bg-white,
+   text-gray-900, etc). Mapeamos las más comunes aquí para que el modo
+   oscuro se vea consistente sin tener que tocar cada componente.
+
+   Excluimos elementos con .no-dark-invert si en algún punto necesitamos
+   conservar el blanco (ej. el botón flotante teal con texto blanco). */
+html[data-theme="dark"] .bg-white:not(.no-dark-invert) {
+  background-color: var(--bg-surface);
+}
+html[data-theme="dark"] .bg-gray-50:not(.no-dark-invert) {
+  background-color: var(--bg-muted);
+}
+html[data-theme="dark"] .bg-gray-100:not(.no-dark-invert) {
+  background-color: var(--bg-muted);
+}
+html[data-theme="dark"] .bg-gray-200:not(.no-dark-invert) {
+  background-color: var(--bg-subtle);
+}
+
+html[data-theme="dark"] .text-gray-900:not(.no-dark-invert) {
+  color: var(--text-primary);
+}
+html[data-theme="dark"] .text-gray-800:not(.no-dark-invert) {
+  color: var(--text-primary);
+}
+html[data-theme="dark"] .text-gray-700:not(.no-dark-invert) {
+  color: var(--text-primary);
+}
+html[data-theme="dark"] .text-gray-600:not(.no-dark-invert) {
+  color: var(--text-secondary);
+}
+html[data-theme="dark"] .text-gray-500:not(.no-dark-invert) {
+  color: var(--text-secondary);
+}
+html[data-theme="dark"] .text-gray-400:not(.no-dark-invert) {
+  color: var(--text-tertiary);
+}
+html[data-theme="dark"] .text-gray-300:not(.no-dark-invert) {
+  color: var(--text-tertiary);
+}
+
+html[data-theme="dark"] .border-gray-100:not(.no-dark-invert),
+html[data-theme="dark"] .border-gray-200:not(.no-dark-invert),
+html[data-theme="dark"] .border-gray-300:not(.no-dark-invert) {
+  border-color: var(--border);
+}
+html[data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+html[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border);
+}
+
+/* Hover states */
+html[data-theme="dark"] .hover\:bg-gray-50:hover:not(.no-dark-invert) {
+  background-color: var(--bg-muted);
+}
+html[data-theme="dark"] .hover\:bg-gray-100:hover:not(.no-dark-invert) {
+  background-color: var(--bg-subtle);
+}
+
+/* Placeholders y inputs */
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not(.no-dark-invert),
+html[data-theme="dark"] textarea:not(.no-dark-invert),
+html[data-theme="dark"] select:not(.no-dark-invert) {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Hover en cards con borde teal — mantener tint correcto */
+html[data-theme="dark"] .hover\:border-\[\#008080\]:hover {
+  border-color: var(--primary-tint-border);
+}
+html[data-theme="dark"] .bg-teal-50 {
+  background-color: var(--primary-tint);
+}
+html[data-theme="dark"] .border-teal-200 {
+  border-color: var(--primary-tint-border);
+}
+html[data-theme="dark"] .text-teal-600,
+html[data-theme="dark"] .text-teal-700,
+html[data-theme="dark"] .text-teal-800 {
+  color: var(--primary-tint-fg);
+}
+
+/* Tints "bg-gradient" + cards con fondos calcáreos típicos del POS y dashboard */
+html[data-theme="dark"] .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.12); }
+html[data-theme="dark"] .bg-green-50 { background-color: rgba(16, 185, 129, 0.12); }
+html[data-theme="dark"] .bg-red-50 { background-color: rgba(239, 68, 68, 0.12); }
+html[data-theme="dark"] .bg-purple-50 { background-color: rgba(124, 58, 237, 0.12); }
+html[data-theme="dark"] .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+html[data-theme="dark"] .bg-blue-50 { background-color: rgba(37, 99, 235, 0.12); }

@@ -92,7 +92,7 @@ export class PublicBookingController {
       assignments?: any[];
     }> = [];
 
-    for (const day of result.data || []) {
+    for (const day of (result.data || []) as any[]) {
       if (day.slots) {
         for (const slot of day.slots) {
           const first = slot.assignments?.[0];

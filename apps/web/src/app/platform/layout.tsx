@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { PlatformAuthProvider, usePlatformAuth } from '@/lib/hooks/use-platform-auth';
+import { ForceLightTheme } from '@/components/ui/force-light-theme';
 
 function PlatformSidebar() {
   const pathname = usePathname();
@@ -123,6 +124,7 @@ function PlatformLayoutInner({ children }: { children: React.ReactNode }) {
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   return (
     <PlatformAuthProvider>
+      <ForceLightTheme />
       <PlatformLayoutInner>{children}</PlatformLayoutInner>
     </PlatformAuthProvider>
   );

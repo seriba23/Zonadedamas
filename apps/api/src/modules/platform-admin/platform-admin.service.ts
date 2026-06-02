@@ -90,6 +90,7 @@ export class PlatformAdminService {
     status?: string;
     search?: string;
     sortBy?: string;
+    tenantType?: string;
   }) {
     const page = filters.page || 1;
     const perPage = Math.min(filters.perPage || 20, 100);
@@ -102,6 +103,10 @@ export class PlatformAdminService {
         { email: { contains: filters.search } },
         { slug: { contains: filters.search } },
       ];
+    }
+
+    if (filters.tenantType === 'FREELANCER' || filters.tenantType === 'BUSINESS') {
+      where.tenantType = filters.tenantType;
     }
 
     // Build subscription filter
@@ -133,6 +138,7 @@ export class PlatformAdminService {
           email: true,
           phone: true,
           businessType: true,
+          tenantType: true,
           createdAt: true,
           subscription: {
             select: { plan: true, status: true, monthlyAmountUsd: true, nextBillingDate: true, trialEndsAt: true },
@@ -155,6 +161,59 @@ export class PlatformAdminService {
         page,
         perPage,
         totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
+  async grantFreeMonths(tenantId: string, months: number) {
+    if (!Number.isFinite(months) || months <= 0 || months > 60) {
+      throw new BadRequestException('La cantidad de meses debe ser un número entre 1 y 60');
+    }
+
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { tenantId },
+    });
+    if (!subscription) throw new NotFoundException('Suscripción no encontrada');
+
+    const now = new Date();
+    const addMonths = (date: Date, n: number) => {
+      const d = new Date(date);
+      d.setMonth(d.getMonth() + n);
+      return d;
+    };
+
+    // Base para extender: la fecha futura más lejana entre trialEndsAt,
+    // nextBillingDate y "ahora". Así nunca acortamos un beneficio existente.
+    const candidates = [now];
+    if (subscription.trialEndsAt) candidates.push(subscription.trialEndsAt);
+    if (subscription.nextBillingDate) candidates.push(subscription.nextBillingDate);
+    const base = candidates.reduce((a, b) => (a > b ? a : b));
+    const newEnd = addMonths(base, months);
+
+    // El usuario quiere "regalar meses": independientemente del estado actual,
+    // dejamos la cuenta activa y movemos el próximo cobro y trial.
+    const updated = await this.prisma.subscription.update({
+      where: { tenantId },
+      data: {
+        status: 'TRIAL',
+        trialEndsAt: newEnd,
+        nextBillingDate: newEnd,
+        gracePeriodEndsAt: null,
+        cancelledAt: null,
+      },
+    });
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { subscriptionStatus: 'trial' },
+    });
+
+    return {
+      data: {
+        message: `Se regalaron ${months} mes${months !== 1 ? 'es' : ''} hasta ${newEnd.toISOString().slice(0, 10)}`,
+        trialEndsAt: updated.trialEndsAt,
+        nextBillingDate: updated.nextBillingDate,
+        status: updated.status,
       },
     };
   }

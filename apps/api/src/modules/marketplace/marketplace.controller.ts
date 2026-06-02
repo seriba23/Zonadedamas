@@ -22,6 +22,7 @@ import { ChangeMarketplacePasswordDto } from './dto/change-marketplace-password.
 import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dto';
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
 import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
+import { CreateTenantReviewDto } from './dto/tenant-review.dto';
 import { CreateCheckoutDto } from '../stripe/dto/create-checkout.dto';
 import { StripeService } from '../stripe/stripe.service';
 import { MarketplaceJwtGuard } from './guards/marketplace-jwt.guard';
@@ -286,6 +287,34 @@ export class MarketplaceController {
   ) {
     const marketplaceUserId = req.user?.marketplaceUserId;
     return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
+  }
+
+  @UseGuards(MarketplaceJwtOptionalGuard)
+  @Get('discover/:tenantSlug/reviews')
+  async getTenantReviews(
+    @Req() req: any,
+    @Param('tenantSlug') tenantSlug: string,
+  ) {
+    return this.marketplaceService.getTenantReviews(tenantSlug, req.user?.marketplaceUserId);
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('discover/:tenantSlug/reviews')
+  async upsertTenantReview(
+    @Req() req: any,
+    @Param('tenantSlug') tenantSlug: string,
+    @Body() dto: CreateTenantReviewDto,
+  ) {
+    return this.marketplaceService.upsertTenantReview(tenantSlug, req.user.marketplaceUserId, dto);
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Delete('discover/:tenantSlug/reviews/me')
+  async deleteTenantReview(
+    @Req() req: any,
+    @Param('tenantSlug') tenantSlug: string,
+  ) {
+    return this.marketplaceService.deleteTenantReview(tenantSlug, req.user.marketplaceUserId);
   }
 
   @UseGuards(MarketplaceJwtGuard)

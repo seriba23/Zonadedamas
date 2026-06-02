@@ -1,40 +1,58 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PosCheckout } from '@/components/pos/pos-checkout';
+import { PosHistory } from '@/components/pos/pos-history';
+
+type Tab = 'sale' | 'history';
 
 export default function PosPage() {
-  const [checkoutComplete, setCheckoutComplete] = useState(false);
+  const searchParams = useSearchParams();
+  // ?appointmentId=XYZ → el POS arranca con esa cita ya cargada en el flujo
+  // de cobro. Se usa cuando el cajero pulsa "Proceder al pago" tras
+  // finalizar una cita en /calendar.
+  const initialAppointmentId = searchParams.get('appointmentId') || undefined;
+  const [tab, setTab] = useState<Tab>('sale');
 
-  if (checkoutComplete) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Pago procesado</h2>
-            <p className="text-gray-500 mb-6">La transacción se completó exitosamente</p>
+  return (
+    <div className="flex flex-col h-full">
+      {/* Tabs Nueva venta / Historial — estándar del proyecto:
+          rounded-lg + border, activo teal sólido. */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
             <button
-              onClick={() => setCheckoutComplete(false)}
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
-              style={{ backgroundColor: '#008080' }}
+              onClick={() => setTab('sale')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                tab === 'sale' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
             >
               Nueva venta
+            </button>
+            <button
+              onClick={() => setTab('history')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                tab === 'history' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Historial
             </button>
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="flex flex-col h-full">
       <div className="flex-1 bg-gray-50 overflow-hidden">
-        <PosCheckout onComplete={() => setCheckoutComplete(true)} />
+        {tab === 'sale' ? (
+          // onComplete vacío: el cierre del flujo lo maneja el paso receipt
+          // dentro del propio PosCheckout (botón "Nueva venta" / "Confirmar pago").
+          <PosCheckout
+            onComplete={() => { /* no-op */ }}
+            initialAppointmentId={initialAppointmentId}
+          />
+        ) : (
+          <PosHistory />
+        )}
       </div>
     </div>
   );

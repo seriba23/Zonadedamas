@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+import { signOutAll } from '@/lib/sign-out-all';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, resolveImageUrl } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
@@ -407,9 +408,20 @@ export default function MarketplaceProfilePage() {
     ? galleryCategories.find((c) => c.name === selectedCategory)?.photos || []
     : galleryCategories.flatMap((c) => c.photos);
 
-  const handleLogout = () => {
-    logout();
-    router.push('/marketplace');
+  const handleLogout = async () => {
+    // Cierra TODAS las sesiones (admin/staff, marketplace, portal) y
+    // elimina el selector persistido. Sin esto el usuario que pasó por
+    // el selector queda con sesión admin viva y /login restaura el
+    // selector en vez del form de login.
+    await signOutAll();
+    router.push('/login');
+  };
+
+  // Sin logout: lleva al /login para que el sistema muestre el selector
+  // de perfil (cliente/profesional/administrador) si la sesión sigue
+  // viva, o el formulario de login si necesita autenticarse de nuevo.
+  const handleChangeProfile = () => {
+    router.push('/login');
   };
 
   if (authLoading) {
@@ -598,14 +610,22 @@ export default function MarketplaceProfilePage() {
             ahora viven como tercera pestaña dentro de /marketplace/appointments
             (Citas | Compras | Pagos). */}
 
-        {/* ─── Logout ────────────────────────────────── */}
+        {/* ─── Cambiar perfil + Logout ─────────────────── */}
         {activeSection === 'default' && (
-          <button
-            onClick={handleLogout}
-            className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
-          >
-            Cerrar sesión
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleChangeProfile}
+              className="w-full border border-gray-200 bg-white text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Cambiar perfil
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         )}
       </div>
 

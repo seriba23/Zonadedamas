@@ -1,17 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { IsOptional, IsString } from 'class-validator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsService } from '../events/events.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaginationDto, buildPaginatedResponse } from '../../common/dto/pagination.dto';
 
-export interface PaymentFilters extends PaginationDto {
-  clientId?: string;
-  appointmentId?: string;
-  locationId?: string;
-  paymentMethod?: string;
-  startDate?: string;
-  endDate?: string;
+// Antes era `interface extends PaginationDto`. Eso no funciona con
+// class-validator/transformer: el ValidationPipe no sabe transformar
+// los query params, así que `page` y `perPage` llegan como strings y
+// Prisma rompe en `take`/`skip` (espera Int).
+export class PaymentFilters extends PaginationDto {
+  @IsOptional() @IsString() clientId?: string;
+  @IsOptional() @IsString() appointmentId?: string;
+  @IsOptional() @IsString() locationId?: string;
+  @IsOptional() @IsString() paymentMethod?: string;
+  @IsOptional() @IsString() startDate?: string;
+  @IsOptional() @IsString() endDate?: string;
 }
 
 @Injectable()
@@ -117,8 +122,11 @@ export class PaymentsService {
   }
 
   async findAll(tenantId: string, filters: PaymentFilters) {
-    const page = filters.page ?? 1;
-    const perPage = filters.perPage ?? 20;
+    // Coerción defensiva: si por alguna razón el ValidationPipe no
+    // transformó los query params (interface vs class, pipe deshabilitado
+    // en algún test, etc.), forzamos Int aquí — Prisma rompe con strings.
+    const page = Number(filters.page) || 1;
+    const perPage = Math.min(Number(filters.perPage) || 20, 100);
     const skip = (page - 1) * perPage;
 
     const where: any = { tenantId };

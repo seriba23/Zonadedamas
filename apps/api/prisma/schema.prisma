@@ -231,6 +231,7 @@ model Tenant {
   serviceBundles        ServiceBundle[]
   productReservations   ProductReservation[]
   attendances           Attendance[]
+  tenantReviews         TenantReview[]
 
   @@map("tenants")
 }
@@ -374,6 +375,7 @@ model User {
   favorites             MarketplaceFavorite[]
   professionalFavorites MarketplaceProfessionalFavorite[]
   productReservations   ProductReservation[]
+  tenantReviews         TenantReview[]
 
   @@index([tenantId])
   @@index([isClient])
@@ -1201,6 +1203,24 @@ model EmployeeReview {
   @@index([employeeId])
   @@index([tenantId])
   @@map("employee_reviews")
+}
+
+model TenantReview {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_reviews")
 }
 
 // ─── EMPLOYEE DOCUMENTS ───────────────────────────

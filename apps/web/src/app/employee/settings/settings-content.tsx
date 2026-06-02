@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { signOutAll } from '@/lib/sign-out-all';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -231,8 +232,22 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
           </div>
         </div>
 
-        {/* Logout */}
-        <button onClick={() => logout()} className="w-full py-3 rounded-xl text-sm font-medium text-red-600 bg-white border border-gray-200 hover:bg-red-50 transition-colors">Cerrar sesión</button>
+        {/* Cambiar perfil + Logout */}
+        <button
+          onClick={() => router.push('/login')}
+          className="w-full py-3 rounded-xl text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors mb-2"
+        >
+          Cambiar perfil
+        </button>
+        <button
+          onClick={async () => {
+            await signOutAll();
+            router.push('/login');
+          }}
+          className="w-full py-3 rounded-xl text-sm font-medium text-red-600 bg-white border border-gray-200 hover:bg-red-50 transition-colors"
+        >
+          Cerrar sesión
+        </button>
       </div>
 
       {cropFile && (

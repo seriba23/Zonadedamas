@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery } from '@tanstack/react-query';
 import { EmployeeSidebar } from '@/components/layout/employee-sidebar';
 import { api } from '@/lib/api';
+import { ForceLightTheme } from '@/components/ui/force-light-theme';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -468,6 +469,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="flex h-screen bg-gray-50">
+      <ForceLightTheme />
       <EmployeeSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
         {/* Topbar mobile con hamburger */}

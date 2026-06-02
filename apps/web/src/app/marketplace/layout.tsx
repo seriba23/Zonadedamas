@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { CompleteProfileGate } from './complete-profile-gate';
 import { MarketplaceAuthGuard } from './auth-guard';
 import { BottomNav } from './bottom-nav';
+import { ForceLightTheme } from '@/components/ui/force-light-theme';
 
 const AUTH_PATHS = ['/marketplace/login', '/marketplace/register'];
 
@@ -30,6 +31,7 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ForceLightTheme />
       <MarketplaceAuthProvider>
         <MarketplaceAuthGuard>
           <LayoutInner>{children}</LayoutInner>

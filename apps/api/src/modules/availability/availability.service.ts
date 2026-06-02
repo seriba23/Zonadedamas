@@ -23,8 +23,12 @@ export class AvailabilityService {
     const services = await this.prisma.service.findMany({
       where: { id: { in: query.serviceIds }, tenantId },
     });
+    // CRÍTICO: incluir bufferAfterMinutes. El create de appointments lo
+    // suma para calcular endTime y validar overlap. Si availability lo
+    // omite, un slot puede aparecer libre y al crear caer en conflicto
+    // contra la siguiente cita.
     const totalDuration = services.reduce(
-      (sum, s) => sum + s.durationMinutes,
+      (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
       0,
     );
 
@@ -359,7 +363,13 @@ export class AvailabilityService {
     const services = await this.prisma.service.findMany({
       where: { id: { in: serviceIds }, tenantId },
     });
-    const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+    // CRÍTICO: incluir bufferAfterMinutes para mantener paridad con el
+    // cálculo de endTime en appointments.service.create. Sin esto, un
+    // slot puede aparecer libre y al confirmar entrar en conflicto.
+    const totalDuration = services.reduce(
+      (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
+      0,
+    );
 
     if (totalDuration === 0) {
       return { scheduleStart: null, scheduleEnd: null, slots: [] };
@@ -465,8 +475,9 @@ export class AvailabilityService {
     const services = await this.prisma.service.findMany({
       where: { id: { in: dto.serviceIds }, tenantId },
     });
+    // Incluye buffer para coincidir con el cálculo de endTime en create.
     const totalDuration = services.reduce(
-      (sum, s) => sum + s.durationMinutes,
+      (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
       0,
     );
     if (totalDuration === 0) {
@@ -1017,7 +1028,11 @@ export class AvailabilityService {
       }
       if (!windowStart || !windowEnd) continue;
 
-      const totalDuration = orderedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+      // Incluye buffer para paridad con appointments.service.create.
+      const totalDuration = orderedServices.reduce(
+        (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
+        0,
+      );
       const daySlots: Array<{
         startTime: string;
         endTime: string;
@@ -1188,7 +1203,11 @@ export class AvailabilityService {
     ]);
     const closedDays = new Set(businessHours.filter((h) => !h.isOpen).map((h) => h.dayOfWeek));
 
-    const totalDuration = orderedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+    // Incluye buffer para paridad con appointments.service.create.
+    const totalDuration = orderedServices.reduce(
+      (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
+      0,
+    );
 
     for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
       const dateStr = date.toISOString().split('T')[0];

@@ -146,6 +146,39 @@ export class AppointmentsController {
     return this.appointmentsService.recordPayment(id, tenantId, body, user.userId);
   }
 
+  // ─── COMPROBANTE DE PAGO (admin / POS) ───────────────
+  // Sube/reemplaza la captura del comprobante de pago en una cita. Lo usa
+  // el flujo de transferencia del POS cuando el cliente envía la captura
+  // y el cajero la adjunta antes de confirmar el pago.
+  @Post(':id/payment-proof')
+  @RequirePermissions('appointments.complete')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadPaymentProof(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) {
+      throw new Error('Archivo requerido');
+    }
+    const existing = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+      select: { paymentProofUrl: true },
+    });
+    if (!existing) {
+      throw new Error('Cita no encontrada');
+    }
+    const newUrl = await this.uploadsService.saveFile(file, 'payments');
+    await this.prisma.appointment.update({
+      where: { id },
+      data: { paymentProofUrl: newUrl },
+    });
+    if (existing.paymentProofUrl) {
+      await this.uploadsService.deleteFile(existing.paymentProofUrl).catch(() => {});
+    }
+    return { data: { paymentProofUrl: newUrl } };
+  }
+
   @Post(':id/no-show')
   @RequirePermissions('appointments.update')
   async noShow(

@@ -9,6 +9,8 @@ import 'dayjs/locale/es';
 dayjs.locale('es');
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
+import { SuccessPopup } from '@/components/ui/success-popup';
+import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
 import { isBookingUpcoming } from '@/lib/booking-time';
@@ -269,6 +271,9 @@ export default function BusinessDetailPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [bookingNotes, setBookingNotes] = useState('');
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
+  // Guarda el cupón "en espera" mientras el usuario activa pagar con puntos.
+  // Cuando desactiva pagar con puntos, lo restauramos automáticamente.
+  const [stashedCoupon, setStashedCoupon] = useState<any>(null);
   const [payWithPoints, setPayWithPoints] = useState(false);
   const [bookingCart, setBookingCart] = useState<BookingCartItem[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -628,24 +633,10 @@ export default function BusinessDetailPage() {
         localStorage.removeItem(`ref_${tenantSlug}`);
       }
 
-      // If business accepts online payment, redirect to Stripe Checkout
-      if (biz?.acceptsOnlinePayment && appointment?.id) {
-        try {
-          const checkoutRes: any = await marketplaceApi.post(`/checkout/${tenantSlug}`, {
-            appointmentId: appointment.id,
-            returnUrl: window.location.origin,
-          });
-          if (checkoutRes?.data?.checkoutUrl) {
-            window.location.href = checkoutRes.data.checkoutUrl;
-            return;
-          }
-        } catch (err: any) {
-          console.error('Checkout error:', err);
-          // Show success but note that payment is pending
-          setBookingStep('success');
-          return;
-        }
-      }
+      // Stripe checkout en línea para pago de citas DESACTIVADO temporalmente.
+      // Stripe solo se usa para que negocios paguen la mensualidad SaaS (ver
+      // /settings/subscription). Cualquier pago de cita por el cliente se
+      // resuelve presencialmente en el local. V2 reactivará checkout online.
       setBookingStep('success');
     },
   });
@@ -739,6 +730,56 @@ export default function BusinessDetailPage() {
     favMutation.mutate();
   };
 
+  // ─── Reseñas del negocio ─────────────────────────────
+  const [reviewForm, setReviewForm] = useState<{ open: boolean; rating: number; comment: string; saving: boolean; error?: string }>(
+    { open: false, rating: 0, comment: '', saving: false },
+  );
+  const [reviewSuccess, setReviewSuccess] = useState<string | null>(null);
+
+  const reviewMutation = useMutation({
+    mutationFn: (payload: { rating: number; comment: string }) =>
+      marketplaceApi.post<{ data: any }>(`/discover/${tenantSlug}/reviews`, payload),
+    onSuccess: () => {
+      setReviewForm({ open: false, rating: 0, comment: '', saving: false });
+      setReviewSuccess(biz?.myReview ? 'Tu reseña fue actualizada' : 'Gracias por tu reseña');
+      queryClient.invalidateQueries({ queryKey: ['marketplace-business', tenantSlug] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'No se pudo guardar la reseña';
+      setReviewForm((prev) => ({ ...prev, saving: false, error: msg }));
+    },
+  });
+
+  const deleteReviewMutation = useMutation({
+    mutationFn: () => marketplaceApi.del<{ data: any }>(`/discover/${tenantSlug}/reviews/me`),
+    onSuccess: () => {
+      setReviewSuccess('Tu reseña fue eliminada');
+      queryClient.invalidateQueries({ queryKey: ['marketplace-business', tenantSlug] });
+    },
+  });
+
+  function openReviewForm() {
+    if (!isAuthenticated) {
+      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      return;
+    }
+    setReviewForm({
+      open: true,
+      rating: biz?.myReview?.rating || 0,
+      comment: biz?.myReview?.comment || '',
+      saving: false,
+    });
+  }
+
+  function submitReview() {
+    if (reviewForm.rating < 1) {
+      setReviewForm((prev) => ({ ...prev, error: 'Elige una puntuación de 1 a 5 estrellas' }));
+      return;
+    }
+    setReviewForm((prev) => ({ ...prev, saving: true, error: undefined }));
+    reviewMutation.mutate({ rating: reviewForm.rating, comment: reviewForm.comment.trim() });
+  }
+
   const [redeemResult, setRedeemResult] = useState<{ code: string; name: string } | null>(null);
   // Modal de confirmacion para canjear desde la seccion "Cupones" del negocio
   // (panel publico, antes del booking). Mismo estilo que el modal del step
@@ -794,6 +835,8 @@ export default function BusinessDetailPage() {
     setSelectedServiceIds([]);
     setSelectedBundle(null);
     setSelectedCoupon(null);
+    setStashedCoupon(null);
+    setPayWithPoints(false);
     setReferralCodeInput(savedRef || '');
     setEarnedReferralCode(null);
     setSelectedEmployee(null);
@@ -842,6 +885,8 @@ export default function BusinessDetailPage() {
     setSelectedServiceIds([serviceId]);
     setSelectedBundle(null);
     setSelectedCoupon(null);
+    setStashedCoupon(null);
+    setPayWithPoints(false);
     setReferralCodeInput(savedRef || '');
     setEarnedReferralCode(null);
     setSelectedEmployee(null);
@@ -1973,50 +2018,171 @@ export default function BusinessDetailPage() {
         )}
 
         {/* Reviews */}
-        {biz.reviews?.length > 0 && (
-          <div id="reviews-section" className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">
-              Reseñas recientes
-            </h2>
-            <div className="space-y-4">
-              {biz.reviews.map((r: any) => (
-                <div
-                  key={r.id}
-                  className="border-b border-gray-50 last:border-b-0 pb-3 last:pb-0"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0 overflow-hidden">
-                        {r.clientAvatarUrl ? (
-                          <img src={`${API_URL}${r.clientAvatarUrl}`} alt="" className="w-full h-full object-cover" />
-                        ) : r.clientName?.[0] || '?'}
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">
-                        {r.clientName}
-                      </span>
+        <div id="reviews-section" className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">Reseñas</h2>
+            {biz.totalReviews > 0 && (
+              <span className="text-xs text-gray-500">
+                {biz.averageRating?.toFixed(1)} · {biz.totalReviews} reseña{biz.totalReviews !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Form: dejar / editar reseña propia */}
+          {!reviewForm.open ? (
+            biz.myReview ? (
+              <div className="mb-4 rounded-xl border-2 p-4" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[10px] font-bold flex-shrink-0 overflow-hidden" style={{ color: TEAL }}>
+                      {user?.avatarUrl ? (
+                        <img src={`${API_URL}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                      ) : (user?.firstName?.[0] || 'T')}
                     </div>
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <svg
-                          key={star}
-                          className={`w-3.5 h-3.5 ${star <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Tu reseña</p>
+                      <p className="text-[10px] text-gray-500">
+                        {new Date(biz.myReview.updatedAt || biz.myReview.createdAt).toLocaleDateString('es')}
+                      </p>
                     </div>
                   </div>
-                  {r.comment && (
-                    <p className="text-xs text-gray-500">{r.comment}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">Con {r.employeeName}</p>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <svg key={star} className={`w-4 h-4 ${star <= biz.myReview.rating ? 'text-amber-400' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
                 </div>
-              ))}
+                {biz.myReview.comment && (
+                  <p className="text-xs text-gray-700 mb-3 whitespace-pre-line">{biz.myReview.comment}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={openReviewForm}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-full text-white"
+                    style={{ backgroundColor: TEAL }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => deleteReviewMutation.mutate()}
+                    disabled={deleteReviewMutation.isPending}
+                    className="px-3 py-1.5 text-xs font-medium rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={openReviewForm}
+                className="w-full mb-4 px-4 py-3 rounded-xl border-2 border-dashed text-sm font-semibold transition-colors hover:bg-teal-50"
+                style={{ borderColor: TEAL, color: TEAL }}
+              >
+                + Dejar una reseña
+              </button>
+            )
+          ) : (
+            <div className="mb-4 rounded-xl border-2 p-4" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
+              <p className="text-xs font-semibold text-gray-900 mb-2">{biz.myReview ? 'Editar tu reseña' : 'Tu reseña'}</p>
+
+              <div className="flex items-center gap-1 mb-3">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewForm((prev) => ({ ...prev, rating: star }))}
+                    aria-label={`${star} estrella${star !== 1 ? 's' : ''}`}
+                  >
+                    <svg className={`w-7 h-7 ${star <= reviewForm.rating ? 'text-amber-400' : 'text-gray-300'} hover:text-amber-400 transition-colors`} fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={reviewForm.comment}
+                onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value.slice(0, 500) }))}
+                placeholder="Cuenta tu experiencia (opcional)"
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+              />
+              <p className="text-[10px] text-gray-400 mt-1 text-right">{reviewForm.comment.length}/500</p>
+
+              {reviewForm.error && (
+                <p className="text-xs text-red-600 mb-2">{reviewForm.error}</p>
+              )}
+
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={submitReview}
+                  disabled={reviewForm.saving || reviewForm.rating < 1}
+                  className="flex-1 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                  style={{ backgroundColor: TEAL }}
+                >
+                  {reviewForm.saving ? 'Publicando...' : biz.myReview ? 'Guardar cambios' : 'Publicar reseña'}
+                </button>
+                <button
+                  onClick={() => setReviewForm({ open: false, rating: 0, comment: '', saving: false })}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Lista de reseñas (excluye la propia — ya se muestra arriba destacada) */}
+          {biz.reviews?.filter((r: any) => !r.isMine).length > 0 ? (
+            <div className="space-y-4">
+              {biz.reviews
+                .filter((r: any) => !r.isMine)
+                .map((r: any) => (
+                  <div
+                    key={r.id}
+                    className="border-b border-gray-50 last:border-b-0 pb-3 last:pb-0"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0 overflow-hidden">
+                          {r.clientAvatarUrl ? (
+                            <img src={`${API_URL}${r.clientAvatarUrl}`} alt="" className="w-full h-full object-cover" />
+                          ) : r.clientName?.[0] || '?'}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">
+                          {r.clientName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <svg
+                            key={star}
+                            className={`w-3.5 h-3.5 ${star <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                    </div>
+                    {r.comment && (
+                      <p className="text-xs text-gray-500 whitespace-pre-line">{r.comment}</p>
+                    )}
+                    {r.employeeName && (
+                      <p className="text-xs text-gray-400 mt-1">Con {r.employeeName}</p>
+                    )}
+                  </div>
+                ))}
+            </div>
+          ) : (
+            !biz.myReview && (
+              <p className="text-xs text-gray-400 text-center py-4">Aún no hay reseñas. ¡Sé el primero!</p>
+            )
+          )}
+        </div>
       </div>
 
       {/* Floating CTA — sits above the bottom nav (bottom-20 = 5rem).
@@ -2703,9 +2869,11 @@ export default function BusinessDetailPage() {
                             onClick: () => {
                               if (isSelected) {
                                 setSelectedCoupon(null);
+                                setStashedCoupon(null);
                               } else {
                                 setSelectedCoupon(r);
                                 setPayWithPoints(false);
+                                setStashedCoupon(null);
                               }
                             },
                           }
@@ -3964,7 +4132,23 @@ export default function BusinessDetailPage() {
                         )}
                         <button
                           disabled={!!pointsBlockedByPromo}
-                          onClick={() => { setPayWithPoints(!payWithPoints); if (!payWithPoints) setSelectedCoupon(null); }}
+                          onClick={() => {
+                            const next = !payWithPoints;
+                            setPayWithPoints(next);
+                            if (next) {
+                              // Activando puntos: guardamos el cupón actual
+                              // (si lo había) y lo retiramos del booking.
+                              if (selectedCoupon) setStashedCoupon(selectedCoupon);
+                              setSelectedCoupon(null);
+                            } else {
+                              // Desactivando puntos: restauramos el cupón
+                              // que estaba antes (si existía).
+                              if (stashedCoupon) {
+                                setSelectedCoupon(stashedCoupon);
+                                setStashedCoupon(null);
+                              }
+                            }
+                          }}
                           className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
                             payWithPoints
                               ? 'border-teal-400 bg-teal-50'
@@ -4150,6 +4334,11 @@ export default function BusinessDetailPage() {
 
       {/* ─── SUCCESS SCREEN ──────────────────────────────── */}
       {bookingStep === 'success' && (
+        <>
+          {/* Confeti corto (5s, partículas reducidas) que celebra la reserva.
+              Como es decorativo y `onComplete` no es necesario aquí, lo
+              dejamos sin callback. */}
+          <ConfettiCelebration show duration={5000} particlesPerBurst={20} />
         <div className="fixed inset-0 z-50 bg-white flex items-center justify-center px-4">
           <div className="max-w-md w-full text-center">
             <div
@@ -4453,6 +4642,7 @@ export default function BusinessDetailPage() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* Gallery lightbox */}
@@ -4499,6 +4689,13 @@ export default function BusinessDetailPage() {
           onSkip={() => setShowCompleteProfile(false)}
         />
       )}
+
+      {/* Success popup para reseñas */}
+      <SuccessPopup
+        show={!!reviewSuccess}
+        title={reviewSuccess || ''}
+        onClose={() => setReviewSuccess(null)}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { api } from '@/lib/api';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import type { AuthUser } from '@/lib/auth';
+import { signOutAll } from '@/lib/sign-out-all';
 
 interface SocialProfile {
   email: string;
@@ -447,6 +448,21 @@ function LoginPageInner() {
                 </div>
               </button>
             </div>
+
+            {/* Salida: si llegaron aquí por error desde "Cambiar perfil" pero
+                en realidad querían salir, este botón cierra todas las sesiones
+                y refresca /login mostrando el form vacío. */}
+            <button
+              onClick={async () => {
+                await signOutAll();
+                setRoleChoice(null);
+                setAvailableProfiles([]);
+                router.replace('/login');
+              }}
+              className="w-full mt-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
+            >
+              Cerrar sesión
+            </button>
           </div>
         </div>
       </div>

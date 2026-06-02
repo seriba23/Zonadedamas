@@ -252,7 +252,10 @@ export default function ProfessionalProfilePage() {
 
           {/* Bio */}
           {pro.bio && (
-            <p className="text-xs text-white/75 leading-relaxed max-w-xl mb-3 line-clamp-2">
+            <p
+              className="text-xs text-white/75 leading-relaxed max-w-xl mb-3 max-h-28 overflow-y-auto pr-1 whitespace-pre-line"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.3) transparent' }}
+            >
               {pro.bio}
             </p>
           )}

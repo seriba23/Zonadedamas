@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useClientAuth } from '@/lib/hooks/use-client-auth';
 import { portalApi } from '@/lib/portal-api';
+import { signOutAll } from '@/lib/sign-out-all';
 import PortalNav from '../portal-nav';
 
 export default function PortalProfilePage() {
@@ -109,8 +110,17 @@ export default function PortalProfilePage() {
   };
 
   const handleLogout = async () => {
-    await logout();
-    router.push(`/portal/${tenantSlug}/login`);
+    // Cierra TODAS las sesiones (admin/staff, marketplace, portal) y
+    // elimina el selector persistido en sessionStorage para que /login
+    // muestre el form, no el selector.
+    await signOutAll();
+    router.push('/login');
+  };
+
+  // Sin logout: lleva al /login para que el sistema muestre el selector
+  // de perfil si la sesión sigue viva, o el formulario de login si no.
+  const handleChangeProfile = () => {
+    router.push('/login');
   };
 
   if (authLoading) {
@@ -322,7 +332,13 @@ export default function PortalProfilePage() {
           )}
         </div>
 
-        {/* Logout */}
+        {/* Cambiar perfil + Logout */}
+        <button
+          onClick={handleChangeProfile}
+          className="w-full border border-gray-200 bg-white text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors mb-2"
+        >
+          Cambiar perfil
+        </button>
         <button
           onClick={handleLogout}
           className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"

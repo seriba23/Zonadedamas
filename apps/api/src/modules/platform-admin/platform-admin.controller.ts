@@ -12,7 +12,8 @@ import {
 import { PlatformAdminService } from './platform-admin.service';
 import { PlatformJwtAuthGuard } from '../platform-auth/guards/platform-jwt-auth.guard';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
-import { IsString, IsIn, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 class UpdateStatusDto {
   @IsIn(['ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'])
@@ -27,6 +28,14 @@ class UpdatePlanDto {
 class DeactivateEmployeeByAdminDto {
   @IsIn(['KEEP', 'CANCEL', 'SMART_RESCHEDULE'])
   strategy: 'KEEP' | 'CANCEL' | 'SMART_RESCHEDULE';
+}
+
+class GrantMonthsDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  months: number;
 }
 
 @UseGuards(PlatformJwtAuthGuard)
@@ -48,6 +57,7 @@ export class PlatformAdminController {
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: string,
+    @Query('tenantType') tenantType?: string,
   ) {
     return this.adminService.getTenants({
       page: page ? parseInt(page, 10) : undefined,
@@ -56,6 +66,7 @@ export class PlatformAdminController {
       status,
       search,
       sortBy,
+      tenantType,
     });
   }
 
@@ -81,6 +92,14 @@ export class PlatformAdminController {
   ) {
     const data = await this.adminService.updateTenantPlan(id, dto.plan);
     return { data };
+  }
+
+  @Post('tenants/:id/grant-months')
+  async grantFreeMonths(
+    @Param('id') id: string,
+    @Body() dto: GrantMonthsDto,
+  ) {
+    return this.adminService.grantFreeMonths(id, dto.months);
   }
 
   @Get('invoices')

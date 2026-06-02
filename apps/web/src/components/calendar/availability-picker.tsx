@@ -59,10 +59,28 @@ export function AvailabilityPicker({
 
   const dateStr = selectedDate.format('YYYY-MM-DD');
 
+  // Si la fecha seleccionada es HOY, descartamos slots cuyo inicio ya pasó.
+  // El backend no filtra por hora actual; el cajero no debe poder agendar
+  // a las 9:00 cuando ya son las 9:45.
+  const isToday = selectedDate.isSame(dayjs(), 'day');
+  const isSlotPast = (slotStartTime: string): boolean => {
+    if (!isToday) return false;
+    // slotStartTime puede venir como "HH:mm" (all-slots) o como ISO completo.
+    const time = slotStartTime.includes('T')
+      ? slotStartTime.split('T')[1]?.substring(0, 5) || slotStartTime
+      : slotStartTime;
+    const [h, m] = time.split(':').map(Number);
+    const slotDate = selectedDate.hour(h).minute(m).second(0);
+    return slotDate.isBefore(dayjs());
+  };
+
   // Use all-slots endpoint when a specific employee is selected
   const useAllSlots = !!employeeId;
 
-  // Standard availability query (any employee or no specific employee)
+  // Standard availability query (any employee or no specific employee).
+  // staleTime=0 + refetchOnMount='always' garantiza que ver el componente
+  // siempre dispara una consulta nueva — la disponibilidad cambia con cada
+  // cita que se crea, no podemos servir cache stale.
   const standardQuery = useQuery({
     queryKey: ['availability', dateStr, serviceIds, employeeId, locationId],
     queryFn: () =>
@@ -74,6 +92,8 @@ export function AvailabilityPicker({
         locationId: locationId || undefined,
       }),
     enabled: serviceIds.length > 0 && !useAllSlots,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   // All-slots query (specific employee selected)
@@ -86,6 +106,8 @@ export function AvailabilityPicker({
         serviceIds,
       }),
     enabled: serviceIds.length > 0 && useAllSlots,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const isLoading = useAllSlots ? allSlotsQuery.isLoading : standardQuery.isLoading;
@@ -265,6 +287,21 @@ export function AvailabilityPicker({
               {allSlotsData.slots.map((slot) => {
                 const isSelected =
                   selectedSlot?.startTime === `${dateStr}T${slot.startTime}:00`;
+                const past = isSlotPast(slot.startTime);
+
+                // Horarios pasados (mismo día, hora ya vencida): no
+                // seleccionables y visualmente apagados.
+                if (past) {
+                  return (
+                    <div
+                      key={slot.startTime}
+                      className="py-1.5 text-sm rounded-lg border-2 border-gray-200 bg-gray-50 text-gray-300 text-center cursor-not-allowed"
+                      title="Ese horario ya pasó"
+                    >
+                      {formatTime(slot.startTime)}
+                    </div>
+                  );
+                }
 
                 if (slot.available) {
                   return (
@@ -296,34 +333,44 @@ export function AvailabilityPicker({
           )
         ) : (
           // Standard mode: only available slots
-          standardSlots.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">
-              No hay horarios disponibles para esta fecha
-            </p>
-          ) : (
-            <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
-              {standardSlots.map((slot) => {
-                const time = slot.startTime.includes('T')
-                  ? slot.startTime.split('T')[1].substring(0, 5)
-                  : slot.startTime.substring(0, 5);
-                const isSelected = selectedSlot?.startTime === slot.startTime;
-                return (
-                  <button
-                    key={`${slot.employeeId}-${slot.startTime}`}
-                    type="button"
-                    onClick={() => handleSlotSelect(slot)}
-                    className={`py-1.5 text-sm rounded-lg border transition-colors ${
-                      isSelected
-                        ? 'bg-primary-600 text-white border-primary-600'
-                        : 'border-gray-300 text-gray-700 hover:border-primary-400 hover:bg-primary-50'
-                    }`}
-                  >
-                    {formatTime(time)}
-                  </button>
-                );
-              })}
-            </div>
-          )
+          (() => {
+            // Filtramos los slots cuyo inicio ya pasó (solo aplica al día
+            // de hoy). Si tras el filtro no queda nada, mostramos vacío.
+            const futureStandardSlots = standardSlots.filter(
+              (s) => !isSlotPast(s.startTime),
+            );
+            if (futureStandardSlots.length === 0) {
+              return (
+                <p className="text-sm text-gray-400 py-4 text-center">
+                  No hay horarios disponibles para esta fecha
+                </p>
+              );
+            }
+            return (
+              <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                {futureStandardSlots.map((slot) => {
+                  const time = slot.startTime.includes('T')
+                    ? slot.startTime.split('T')[1].substring(0, 5)
+                    : slot.startTime.substring(0, 5);
+                  const isSelected = selectedSlot?.startTime === slot.startTime;
+                  return (
+                    <button
+                      key={`${slot.employeeId}-${slot.startTime}`}
+                      type="button"
+                      onClick={() => handleSlotSelect(slot)}
+                      className={`py-1.5 text-sm rounded-lg border transition-colors ${
+                        isSelected
+                          ? 'bg-primary-600 text-white border-primary-600'
+                          : 'border-gray-300 text-gray-700 hover:border-primary-400 hover:bg-primary-50'
+                      }`}
+                    >
+                      {formatTime(time)}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()
         )}
       </div>
     </div>
