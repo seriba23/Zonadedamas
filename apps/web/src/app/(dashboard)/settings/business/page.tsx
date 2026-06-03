@@ -256,7 +256,8 @@ export default function BusinessSettingsPage() {
         <button
           onClick={() => coverInputRef.current?.click()}
           disabled={coverMutation.isPending}
-          className="absolute bottom-3 right-3 px-3 py-1.5 bg-white/90 backdrop-blur rounded-lg text-sm font-medium text-gray-700 hover:bg-white transition-colors shadow-sm"
+          className="absolute bottom-3 right-3 px-3 py-1.5 backdrop-blur rounded-lg text-sm font-medium transition-colors shadow-sm hover:opacity-90"
+          style={{ backgroundColor: 'rgba(255,255,255,0.92)', color: '#374151' }}
         >
           {coverMutation.isPending ? 'Subiendo...' : tenant.coverImageUrl ? 'Cambiar portada' : 'Subir portada'}
         </button>
