@@ -195,6 +195,7 @@ model Tenant {
   shopSpeiClabe        String?   @map("shop_spei_clabe") @db.VarChar(18)
   confettiEnabled      Boolean   @default(true) @map("confetti_enabled")
   confettiStyle        String?   @map("confetti_style") @db.VarChar(40)
+  confettiStyles       Json?     @map("confetti_styles")
   confettiColors       Json?     @map("confetti_colors")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")

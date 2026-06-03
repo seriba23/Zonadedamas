@@ -4390,6 +4390,7 @@ export default function BusinessDetailPage() {
               show
               duration={5000}
               particlesPerBurst={20}
+              shapes={biz?.confettiStyles ?? null}
               shape={biz?.confettiStyle ?? null}
               colors={biz?.confettiColors ?? null}
             />

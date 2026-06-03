@@ -773,6 +773,7 @@ export class MarketplaceService {
         shopEnabled: true,
         confettiEnabled: true,
         confettiStyle: true,
+        confettiStyles: true,
         confettiColors: true,
       },
     });

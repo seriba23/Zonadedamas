@@ -14,7 +14,13 @@ interface ConfettiCelebrationProps {
   duration?: number;
   /** Partículas por burst. Default 20. */
   particlesPerBurst?: number;
-  /** Slug de la figura a usar. Si null/undefined o no válido, usa 'square'. */
+  /**
+   * Lista de figuras a mezclar (hasta 3). Cada partícula elige una al azar.
+   * Si no se pasa o queda vacío, se usa el legacy `shape` y, si tampoco
+   * existe, default 'square'.
+   */
+  shapes?: string[] | null;
+  /** Legacy: una sola figura. Mantener compatibilidad. */
   shape?: string | null;
   /** Paleta de hasta 4 colores. Si vacío/null, usa la paleta teal default. */
   colors?: string[] | null;
@@ -30,6 +36,7 @@ export function ConfettiCelebration({
   show,
   duration = 5000,
   particlesPerBurst = 20,
+  shapes,
   shape,
   colors,
   onComplete,
@@ -39,7 +46,16 @@ export function ConfettiCelebration({
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
-  const activeShape: ConfettiShape = isValidShape(shape) ? shape : 'square';
+  // Lista de figuras activas. Aceptamos `shapes` (plural, hasta 3) o el
+  // legacy `shape` (singular). Si nada es válido, default a ['square'].
+  const activeShapes: ConfettiShape[] = useMemo(() => {
+    const raw = (shapes && shapes.length > 0 ? shapes : shape ? [shape] : [])
+      .filter(isValidShape)
+      .slice(0, 3);
+    return raw.length > 0 ? (raw as ConfettiShape[]) : ['square'];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(shapes), shape]);
+
   // Memoize the palette para evitar que un nuevo array en cada render
   // invalide el useCallback y re-monte la animación en mitad del confeti.
   const palette = useMemo(
@@ -59,13 +75,12 @@ export function ConfettiCelebration({
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const draw = SHAPES[activeShape].draw;
-
     const particles: Array<{
       x: number;
       y: number;
       size: number;
       color: string;
+      shape: ConfettiShape;
       vx: number;
       vy: number;
       rotation: number;
@@ -74,15 +89,18 @@ export function ConfettiCelebration({
     }> = [];
 
     function createBurst() {
-      // Tamaño base de partícula: las figuras necesitan ~20-26px para que se
-      // distinga la silueta; el cuadrado clásico va un poco más chico.
-      const baseSize = activeShape === 'square' ? 12 : 22;
       for (let i = 0; i < particlesPerBurst; i++) {
+        // Cada partícula elige una de las figuras activas al azar.
+        const pickedShape = activeShapes[Math.floor(Math.random() * activeShapes.length)];
+        // Tamaño base: las figuras detalladas necesitan ~22-30px para que
+        // se distinga la silueta; el cuadrado clásico va un poco más chico.
+        const baseSize = pickedShape === 'square' ? 12 : 22;
         particles.push({
           x: Math.random() * canvas!.width,
           y: -20 - Math.random() * 80,
           size: baseSize + Math.random() * 8,
           color: palette[Math.floor(Math.random() * palette.length)],
+          shape: pickedShape,
           vx: (Math.random() - 0.5) * 1,
           vy: 0.4 + Math.random() * 0.7,
           rotation: Math.random() * 360,
@@ -129,7 +147,7 @@ export function ConfettiCelebration({
         ctx!.globalAlpha = p.opacity;
         ctx!.fillStyle = p.color;
         ctx!.strokeStyle = p.color;
-        draw(ctx!, p.size);
+        SHAPES[p.shape].draw(ctx!, p.size);
         ctx!.restore();
       }
 
@@ -143,7 +161,7 @@ export function ConfettiCelebration({
 
     createBurst();
     animate();
-  }, [duration, particlesPerBurst, activeShape, palette]);
+  }, [duration, particlesPerBurst, activeShapes, palette]);
 
   useEffect(() => {
     if (show) startConfetti();

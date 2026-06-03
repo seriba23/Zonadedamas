@@ -54,6 +54,13 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(3)
+  @IsString({ each: true })
+  confettiStyles?: string[] | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(4)
   @IsHexColor({ each: true })
   confettiColors?: string[] | null;

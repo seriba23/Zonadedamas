@@ -53,7 +53,7 @@ export default function BusinessSettingsPage() {
     isMarketplaceListed: false,
     cardColor: '#008080',
     confettiEnabled: true,
-    confettiStyle: 'square' as ConfettiShape,
+    confettiStyles: ['square'] as ConfettiShape[],
     confettiColors: DEFAULT_CONFETTI_COLORS.slice(),
   });
   const [initialized, setInitialized] = useState(false);
@@ -73,10 +73,16 @@ export default function BusinessSettingsPage() {
   // Initialize form when tenant loads
   useEffect(() => {
     if (tenant && !initialized) {
-      const storedShape = (tenant.confettiStyle as ConfettiShape | null) || 'square';
-      const validShape = SHAPE_NAMES.includes(storedShape as ConfettiShape)
-        ? (storedShape as ConfettiShape)
-        : 'square';
+      // Preferimos el array nuevo `confettiStyles`; si está vacío, caemos al
+      // legacy singular `confettiStyle`; y si tampoco hay nada, default.
+      const stylesRaw: string[] = Array.isArray(tenant.confettiStyles) && tenant.confettiStyles.length > 0
+        ? tenant.confettiStyles
+        : tenant.confettiStyle
+          ? [tenant.confettiStyle]
+          : ['square'];
+      const validStyles = stylesRaw
+        .filter((s): s is ConfettiShape => SHAPE_NAMES.includes(s as ConfettiShape))
+        .slice(0, 3);
       const storedColors = Array.isArray(tenant.confettiColors) && tenant.confettiColors.length > 0
         ? tenant.confettiColors.slice(0, 4)
         : DEFAULT_CONFETTI_COLORS.slice();
@@ -89,7 +95,7 @@ export default function BusinessSettingsPage() {
         isMarketplaceListed: tenant.isMarketplaceListed || false,
         cardColor: tenant.cardColor || '#008080',
         confettiEnabled: tenant.confettiEnabled !== false,
-        confettiStyle: validShape,
+        confettiStyles: validStyles.length > 0 ? validStyles : ['square'],
         confettiColors: storedColors,
       });
       setInitialized(true);
@@ -450,24 +456,53 @@ export default function BusinessSettingsPage() {
 
             {form.confettiEnabled && (
               <div className="mt-5 space-y-4">
-                {/* Selector de figura */}
+                {/* Selector de figuras (multi-select hasta 3) */}
                 <div>
-                  <p className="text-xs font-semibold text-gray-700 mb-2">Figura</p>
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <p className="text-xs font-semibold text-gray-700">
+                      Figuras ({form.confettiStyles.length}/3)
+                    </p>
+                    <p className="text-[10px] text-gray-400">Selecciona hasta 3</p>
+                  </div>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {SHAPE_NAMES.map((name) => {
-                      const isActive = form.confettiStyle === name;
+                      const isActive = form.confettiStyles.includes(name);
+                      const reachedMax = form.confettiStyles.length >= 3 && !isActive;
                       return (
                         <button
                           key={name}
                           type="button"
-                          onClick={() => setForm((f) => ({ ...f, confettiStyle: name }))}
-                          className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors ${
+                          disabled={reachedMax}
+                          onClick={() =>
+                            setForm((f) => {
+                              if (f.confettiStyles.includes(name)) {
+                                // Toggle off — pero garantizamos al menos 1
+                                const next = f.confettiStyles.filter((s) => s !== name);
+                                return { ...f, confettiStyles: next.length > 0 ? next : f.confettiStyles };
+                              }
+                              if (f.confettiStyles.length >= 3) return f;
+                              return { ...f, confettiStyles: [...f.confettiStyles, name] };
+                            })
+                          }
+                          className={`relative flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors ${
                             isActive
                               ? 'border-[#008080] bg-teal-50'
-                              : 'border-gray-200 bg-white hover:border-gray-300'
+                              : reachedMax
+                                ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                                : 'border-gray-200 bg-white hover:border-gray-300'
                           }`}
                         >
-                          <ShapePreview shape={name} color={form.confettiColors[0] || '#008080'} />
+                          {isActive && (
+                            <span
+                              className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-white"
+                              style={{ backgroundColor: '#008080' }}
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                          <ShapePreview shape={name} colors={form.confettiColors} />
                           <span className="text-[10px] font-medium text-gray-700">
                             {SHAPES[name].label}
                           </span>
@@ -844,7 +879,7 @@ export default function BusinessSettingsPage() {
           show
           duration={4000}
           particlesPerBurst={18}
-          shape={form.confettiStyle}
+          shapes={form.confettiStyles}
           colors={form.confettiColors}
         />
       )}
@@ -852,11 +887,34 @@ export default function BusinessSettingsPage() {
   );
 }
 
+// Distribuciones (x, y, size) en un canvas de 40x40 px según cuántos
+// colores hay que pintar. Permiten ver simultáneamente todos los tonos
+// elegidos en una sola miniatura.
+const PREVIEW_LAYOUTS: Record<number, Array<[number, number, number]>> = {
+  1: [[20, 20, 28]],
+  2: [
+    [11, 20, 18],
+    [29, 20, 18],
+  ],
+  3: [
+    [11, 13, 16],
+    [29, 13, 16],
+    [20, 28, 16],
+  ],
+  4: [
+    [11, 11, 15],
+    [29, 11, 15],
+    [11, 29, 15],
+    [29, 29, 15],
+  ],
+};
+
 /**
- * Render mini del shape para los botones del selector. Usa el mismo `draw()`
- * del catálogo sobre un canvas pequeño escalado al DPR del dispositivo.
+ * Render mini del shape para los botones del selector. Dibuja una instancia
+ * por cada color de la paleta para que el usuario vea cómo se ve la figura
+ * con cada color que está editando.
  */
-function ShapePreview({ shape, color }: { shape: ConfettiShape; color: string }) {
+function ShapePreview({ shape, colors }: { shape: ConfettiShape; colors: string[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -864,17 +922,22 @@ function ShapePreview({ shape, color }: { shape: ConfettiShape; color: string })
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
-    const display = 36;
+    const display = 40;
     canvas.width = display * dpr;
     canvas.height = display * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, display, display);
-    ctx.save();
-    ctx.translate(display / 2, display / 2);
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    SHAPES[shape].draw(ctx, 28);
-    ctx.restore();
-  }, [shape, color]);
-  return <canvas ref={ref} style={{ width: 36, height: 36 }} />;
+    const n = Math.max(1, Math.min(4, colors.length));
+    const layout = PREVIEW_LAYOUTS[n];
+    for (let i = 0; i < n; i++) {
+      const [x, y, size] = layout[i];
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = colors[i];
+      ctx.strokeStyle = colors[i];
+      SHAPES[shape].draw(ctx, size);
+      ctx.restore();
+    }
+  }, [shape, colors]);
+  return <canvas ref={ref} style={{ width: 40, height: 40 }} />;
 }

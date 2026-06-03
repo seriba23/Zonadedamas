@@ -106,6 +106,8 @@ export function AppointmentWizard({
   });
   const tenantConfettiEnabled =
     (tenantCurrentData as any)?.data?.confettiEnabled !== false;
+  const tenantConfettiShapes: string[] | null =
+    (tenantCurrentData as any)?.data?.confettiStyles ?? null;
   const tenantConfettiShape: string | null =
     (tenantCurrentData as any)?.data?.confettiStyle ?? null;
   const tenantConfettiColors: string[] | null =
@@ -383,6 +385,7 @@ export function AppointmentWizard({
         total={totalPrice}
         primaryLabel="Aceptar"
         confettiEnabled={tenantConfettiEnabled}
+        confettiShapes={tenantConfettiShapes}
         confettiShape={tenantConfettiShape}
         confettiColors={tenantConfettiColors}
         onPrimary={() => {
