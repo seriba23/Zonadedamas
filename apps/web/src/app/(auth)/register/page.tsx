@@ -1091,6 +1091,25 @@ function RegisterPageInner() {
             </div>
           </div>
         )}
+
+        {/* Modal de T&C / Aviso de privacidad. Vive en esta rama porque
+            el return de abajo nunca llega hasta el modal global del
+            individual/admin. Sin esto los links no abrían nada. */}
+        {legalModal && (
+          <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-3" onClick={() => setLegalModal(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
+                <h3 className="text-base font-semibold text-gray-900">{legalModal.title}</h3>
+                <button onClick={() => setLegalModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100" aria-label="Cerrar">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <iframe src={legalModal.url} className="flex-1 w-full border-0" title={legalModal.title} />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
