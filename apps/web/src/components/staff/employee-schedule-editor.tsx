@@ -126,6 +126,33 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
     setHasChanges(true);
   }
 
+  // Replica el horario del primer dia laboral activo (lunes por orden) a
+  // todos los demas dias en los que el negocio no este cerrado. Util para
+  // empleados que trabajan el mismo horario de lunes a sabado.
+  function applyToAllDays() {
+    const template = schedules.find(
+      (s) => s.isWorking && !businessClosedDays.has(s.dayOfWeek),
+    );
+    if (!template) {
+      alert(
+        'Configura el horario en al menos un dia laboral antes de replicar.',
+      );
+      return;
+    }
+    setSchedules((prev) =>
+      prev.map((s) => {
+        if (businessClosedDays.has(s.dayOfWeek)) return s;
+        return {
+          ...s,
+          isWorking: true,
+          startTime: template.startTime,
+          endTime: template.endTime,
+        };
+      }),
+    );
+    setHasChanges(true);
+  }
+
   function handleSave() {
     // Validate startTime < endTime for working days
     const invalid = schedules.find(
@@ -160,9 +187,22 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[var(--text-secondary)]">
-        Configura los días y horarios de trabajo de este empleado.
-      </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <p className="text-sm text-[var(--text-secondary)] flex-1 min-w-[200px]">
+          Configura los días y horarios de trabajo de este empleado.
+        </p>
+        <button
+          type="button"
+          onClick={applyToAllDays}
+          className="px-3 py-1.5 text-xs font-semibold rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5 flex-shrink-0"
+          title="Replica el horario del primer dia laboral a toda la semana"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          Aplicar a todos los días
+        </button>
+      </div>
 
       <div className="space-y-2">
         {schedules.map((day) => {

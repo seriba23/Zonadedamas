@@ -436,7 +436,9 @@ export function EmployeePersonalInfo({
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de sangre</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de sangre <span className="text-xs text-gray-400 font-normal">(opcional)</span>
+              </label>
               <select
                 value={form.bloodType}
                 onChange={(e) => setForm((f) => ({ ...f, bloodType: e.target.value }))}
@@ -449,7 +451,9 @@ export function EmployeePersonalInfo({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Alergias</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Alergias <span className="text-xs text-gray-400 font-normal">(opcional)</span>
+              </label>
               <input
                 type="text"
                 value={form.allergies}

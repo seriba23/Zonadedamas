@@ -32,4 +32,8 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  confettiEnabled?: boolean;
 }

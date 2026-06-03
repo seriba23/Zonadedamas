@@ -306,6 +306,7 @@ export class TenantsService {
         ...(dto.isMarketplaceListed !== undefined && { isMarketplaceListed: dto.isMarketplaceListed }),
         ...(dto.cardColor !== undefined && { cardColor: dto.cardColor }),
         ...(dto.currency !== undefined && { currency: dto.currency }),
+        ...(dto.confettiEnabled !== undefined && { confettiEnabled: dto.confettiEnabled }),
       },
     });
   }
@@ -543,5 +544,88 @@ export class TenantsService {
       },
     });
     return tenant;
+  }
+
+  // ─── REVIEWS ─────────────────────────────────────────
+  // Vista agregada para el owner. Devuelve:
+  //  - tenantReviews: reseñas directas al negocio (modelo TenantReview).
+  //  - employeeReviews: reseñas dejadas por cita en cada empleado
+  //    (modelo EmployeeReview), que pueden incluir businessRating/Comment.
+  //  - resumen: rating promedio combinado y totales.
+  async getReviewsForOwner(tenantId: string) {
+    const [tenantReviews, employeeReviews] = await Promise.all([
+      this.prisma.tenantReview.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+          },
+        },
+      }),
+      this.prisma.employeeReview.findMany({
+        where: { tenantId, isVisible: true },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          employee: {
+            select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true },
+          },
+          client: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          appointment: {
+            select: {
+              id: true,
+              startTime: true,
+              items: { select: { serviceNameSnapshot: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    // Rating del negocio: combinacion de TenantReview.rating y
+    // EmployeeReview.businessRating (cuando no es null).
+    const businessRatings: number[] = [
+      ...tenantReviews.map((r) => r.rating),
+      ...employeeReviews
+        .map((r) => r.businessRating)
+        .filter((r): r is number => r !== null && r !== undefined),
+    ];
+    const businessAvg = businessRatings.length
+      ? businessRatings.reduce((a, b) => a + b, 0) / businessRatings.length
+      : null;
+
+    const employeeRatings = employeeReviews.map((r) => r.rating);
+    const employeeAvg = employeeRatings.length
+      ? employeeRatings.reduce((a, b) => a + b, 0) / employeeRatings.length
+      : null;
+
+    return {
+      summary: {
+        businessAverage: businessAvg !== null ? Math.round(businessAvg * 10) / 10 : null,
+        businessTotal: businessRatings.length,
+        employeeAverage: employeeAvg !== null ? Math.round(employeeAvg * 10) / 10 : null,
+        employeeTotal: employeeRatings.length,
+      },
+      tenantReviews: tenantReviews.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        user: r.user,
+      })),
+      employeeReviews: employeeReviews.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        businessRating: r.businessRating,
+        businessComment: r.businessComment,
+        createdAt: r.createdAt,
+        employee: r.employee,
+        client: r.client,
+        appointment: r.appointment,
+      })),
+    };
   }
 }

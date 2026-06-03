@@ -183,12 +183,17 @@ function RegisterPageInner() {
 
   const BUSINESS_TYPES = businessTypesFromApi.length > 0 ? businessTypesFromApi : FALLBACK_BUSINESS_TYPES;
 
-  // Read ?type=individual|client|business from URL and skip the select screen
+  // Read ?type=individual|client|business from URL and skip the select screen.
+  // Si llega `?code=XXXX` (link de invitacion compartido por WhatsApp/link),
+  // forzamos mode='business' para que el empleado entre al flujo de afiliacion
+  // y precargamos el campo `inviteCode`.
   const typeParam = searchParams.get('type') as RegisterMode | null;
-  const initialMode: RegisterMode =
-    typeParam === 'individual' || typeParam === 'business' || typeParam === 'client'
-      ? typeParam
-      : 'select';
+  const codeParam = searchParams.get('code')?.trim().toUpperCase() || '';
+  const initialMode: RegisterMode = codeParam
+    ? 'business'
+    : typeParam === 'individual' || typeParam === 'business' || typeParam === 'client'
+    ? typeParam
+    : 'select';
 
   const [mode, setMode] = useState<RegisterMode>(initialMode);
   const [step, setStep] = useState(1);
@@ -203,7 +208,7 @@ function RegisterPageInner() {
     password: '',
     confirmPassword: '',
     phone: '',
-    inviteCode: '',
+    inviteCode: codeParam,
     businessName: '',
     businessTypes: [],
     businessPostalCode: '',

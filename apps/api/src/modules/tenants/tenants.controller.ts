@@ -210,6 +210,15 @@ export class TenantsController {
     return { data: settings };
   }
 
+  // Reviews (vista del owner sobre las reseñas que recibe su negocio)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('tenant.read')
+  @Get('tenants/reviews')
+  async getTenantReviewsForOwner(@CurrentTenant() tenantId: string) {
+    const data = await this.tenantsService.getReviewsForOwner(tenantId);
+    return { data };
+  }
+
   // Gallery
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermissions('tenant.read')

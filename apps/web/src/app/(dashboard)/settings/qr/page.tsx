@@ -19,6 +19,23 @@ interface QrData {
   locationName: string | null;
 }
 
+// Si el backend devuelve una URL con localhost (porque APP_BASE_URL no está
+// configurada en el .env del entorno), la sustituimos con el origin actual
+// del navegador. Así el QR siempre apunta a un dominio escaneable.
+function normalizeQrUrl(url: string): string {
+  if (typeof window === 'undefined') return url;
+  try {
+    const parsed = new URL(url);
+    const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname);
+    if (isLocal) {
+      return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export default function QrSettingsPage() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [linkCopied, setLinkCopied] = useState(false);
@@ -39,7 +56,8 @@ export default function QrSettingsPage() {
     },
   });
 
-  const qr: QrData | null = (qrData as any)?.data || null;
+  const rawQr: QrData | null = (qrData as any)?.data || null;
+  const qr: QrData | null = rawQr ? { ...rawQr, url: normalizeQrUrl(rawQr.url) } : null;
 
   const handlePrint = () => {
     const printContent = printRef.current;

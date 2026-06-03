@@ -130,38 +130,52 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
         ) : (
           <div className="space-y-3">
             {reservations.map((r: any) => (
-              <div key={r.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="p-4">
+              <div key={r.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="p-5">
                   {/* Header: product + status + price */}
-                  <div className="flex items-start gap-3 mb-3">
-                    {/* Product image */}
-                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  <div className="flex items-start gap-4 mb-4">
+                    {/* Product image — grande, foto principal del pedido */}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
                       {r.product?.imageUrl ? (
                         <img src={`${API_URL}${r.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
                         </svg>
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="text-base font-semibold text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
                         {r.code && (
-                          <span className="font-mono text-[10px] font-semibold text-gray-500 flex-shrink-0">#{r.code}</span>
+                          <span className="font-mono text-[11px] font-semibold text-gray-500 flex-shrink-0">#{r.code}</span>
                         )}
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${STATUS_COLORS[r.status] || 'text-gray-600 bg-gray-100'}`}>
                           {STATUS_LABELS[r.status] || r.status}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        {r.customerName}{r.customerPhone ? ` · ${r.customerPhone}` : ''}{r.customerEmail ? ` · ${r.customerEmail}` : ''}
-                      </p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{r.customerName}</p>
+                      {/* Telefono y email en lineas separadas, mas visibles, con
+                          accion directa de llamar/escribir desde el card. */}
+                      {r.customerPhone && (
+                        <a
+                          href={`tel:${r.customerPhone}`}
+                          className="inline-flex items-center gap-1.5 text-xs text-[#008080] hover:underline mt-0.5"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                          </svg>
+                          {r.customerPhone}
+                        </a>
+                      )}
+                      {r.customerEmail && (
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{r.customerEmail}</p>
+                      )}
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-gray-900">
+                      <p className="text-base font-bold text-gray-900">
                         {formatCurrency(Number(r.unitPrice) * r.quantity + (Number(r.shippingCost) || 0))}
                       </p>
                       <p className="text-xs font-medium text-gray-500">

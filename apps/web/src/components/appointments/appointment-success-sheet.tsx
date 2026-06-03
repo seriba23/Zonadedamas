@@ -38,6 +38,8 @@ interface AppointmentSuccessSheetProps {
   onPrimary: () => void;
   /** Callback del botón secundario. Opcional. */
   onSecondary?: () => void;
+  /** Si el tenant deshabilitó la animación de confeti, pásalo como false. */
+  confettiEnabled?: boolean;
 }
 
 /**
@@ -57,18 +59,21 @@ export function AppointmentSuccessSheet({
   secondaryLabel,
   onPrimary,
   onSecondary,
+  confettiEnabled = true,
 }: AppointmentSuccessSheetProps) {
   const { format: formatCurrency } = useCurrency();
   const [confettiDone, setConfettiDone] = useState(false);
 
   return (
     <>
-      <ConfettiCelebration
-        show={!confettiDone}
-        duration={5000}
-        particlesPerBurst={20}
-        onComplete={() => setConfettiDone(true)}
-      />
+      {confettiEnabled && (
+        <ConfettiCelebration
+          show={!confettiDone}
+          duration={5000}
+          particlesPerBurst={20}
+          onComplete={() => setConfettiDone(true)}
+        />
+      )}
 
       <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center px-4">
         <div

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
@@ -27,7 +26,6 @@ function formatTypes(types: string[]): string {
 }
 
 export default function BusinessSettingsPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +45,7 @@ export default function BusinessSettingsPage() {
     businessPhone: '',
     isMarketplaceListed: false,
     cardColor: '#008080',
+    confettiEnabled: true,
   });
   const [initialized, setInitialized] = useState(false);
 
@@ -72,6 +71,7 @@ export default function BusinessSettingsPage() {
         businessPhone: tenant.businessPhone || '',
         isMarketplaceListed: tenant.isMarketplaceListed || false,
         cardColor: tenant.cardColor || '#008080',
+        confettiEnabled: tenant.confettiEnabled !== false,
       });
       setInitialized(true);
     }
@@ -82,7 +82,6 @@ export default function BusinessSettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-current'] });
       queryClient.invalidateQueries({ queryKey: ['tenant-setup-check'] });
-      router.push('/home');
     },
   });
 
@@ -107,13 +106,6 @@ export default function BusinessSettingsPage() {
   });
   const galleryImages: { id: string; imageUrl: string; caption?: string }[] = (galleryData as any)?.data || [];
 
-  const galleryUploadMutation = useMutation({
-    mutationFn: (file: File) => api.upload<any>('/api/tenants/gallery', file),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-gallery'] });
-    },
-  });
-
   const galleryDeleteMutation = useMutation({
     mutationFn: (imageId: string) => api.delete(`/api/tenants/gallery/${imageId}`),
     onSuccess: () => {
@@ -124,21 +116,61 @@ export default function BusinessSettingsPage() {
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [lightboxImage, setLightboxImage] = useState<{ id: string; imageUrl: string; caption?: string } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  function handleGalleryFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      alert('Solo se permiten archivos JPEG, PNG o WebP');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('El archivo no puede superar 5MB');
-      return;
-    }
-    galleryUploadMutation.mutate(file);
+  async function handleGalleryFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const allFiles = Array.from(e.target.files || []);
     e.target.value = '';
+    if (allFiles.length === 0) return;
+
+    setUploadError(null);
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    const remaining = Math.max(0, 10 - galleryImages.length);
+    if (remaining === 0) {
+      setUploadError('Ya tienes el máximo de 10 fotos');
+      return;
+    }
+
+    const accepted: File[] = [];
+    const rejected: string[] = [];
+    for (const file of allFiles) {
+      if (!allowed.includes(file.type)) {
+        rejected.push(`${file.name}: formato no permitido`);
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        rejected.push(`${file.name}: supera 5MB`);
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    const toUpload = accepted.slice(0, remaining);
+    const skippedByLimit = accepted.length - toUpload.length;
+    if (toUpload.length === 0) {
+      setUploadError(rejected.join(' · ') || 'No se pudo procesar ninguna foto');
+      return;
+    }
+
+    setUploadProgress({ current: 0, total: toUpload.length });
+    let uploaded = 0;
+    for (const file of toUpload) {
+      try {
+        await api.upload<any>('/api/tenants/gallery', file);
+        uploaded += 1;
+        setUploadProgress({ current: uploaded, total: toUpload.length });
+      } catch (err) {
+        rejected.push(`${file.name}: ${(err as any)?.message || 'error al subir'}`);
+      }
+    }
+    setUploadProgress(null);
+    queryClient.invalidateQueries({ queryKey: ['tenant-gallery'] });
+
+    const notes: string[] = [];
+    if (skippedByLimit > 0) notes.push(`${skippedByLimit} omitidas por límite de 10`);
+    if (rejected.length > 0) notes.push(...rejected);
+    if (notes.length > 0) setUploadError(notes.join(' · '));
   }
 
   const handleSave = (e: React.FormEvent) => {
@@ -356,7 +388,7 @@ export default function BusinessSettingsPage() {
         </div>
 
         {/* Marketplace toggle */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <label className="flex items-center justify-between cursor-pointer">
             <div>
               <p className="text-sm font-semibold text-gray-900">Visible en el marketplace</p>
@@ -369,6 +401,25 @@ export default function BusinessSettingsPage() {
                 type="checkbox"
                 checked={form.isMarketplaceListed}
                 onChange={(e) => setForm((f) => ({ ...f, isMarketplaceListed: e.target.checked }))}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+              <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+            </div>
+          </label>
+
+          <label className="flex items-center justify-between cursor-pointer pt-4 border-t border-gray-100">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Confeti al confirmar reserva</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Animación celebratoria que ven los clientes al terminar de reservar
+              </p>
+            </div>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={form.confettiEnabled}
+                onChange={(e) => setForm((f) => ({ ...f, confettiEnabled: e.target.checked }))}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
@@ -418,10 +469,16 @@ export default function BusinessSettingsPage() {
           </div>
 
           {galleryImages.length < 3 && (
-            <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-xs text-amber-700">
+            <div className="mb-3 px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg">
+              <p className="text-xs text-teal-700">
                 Agrega al menos 3 fotos para que se muestren en el marketplace ({3 - galleryImages.length} más)
               </p>
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs text-red-700 break-words">{uploadError}</p>
             </div>
           )}
 
@@ -430,23 +487,32 @@ export default function BusinessSettingsPage() {
               <button
                 type="button"
                 onClick={() => galleryInputRef.current?.click()}
-                disabled={galleryUploadMutation.isPending}
-                className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-primary-400 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-primary-500 transition-colors"
+                disabled={uploadProgress !== null}
+                className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-primary-400 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-primary-500 transition-colors disabled:opacity-60"
               >
-                {galleryUploadMutation.isPending ? (
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" />
+                {uploadProgress ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" />
+                    <span className="text-xs text-gray-500">
+                      Subiendo {uploadProgress.current}/{uploadProgress.total}
+                    </span>
+                  </>
                 ) : (
                   <>
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    <span className="text-xs">Agregar foto</span>
+                    <span className="text-xs">Agregar fotos</span>
+                    <span className="text-[10px] text-gray-400 px-2 text-center leading-tight">
+                      Puedes seleccionar varias
+                    </span>
                   </>
                 )}
                 <input
                   ref={galleryInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
+                  multiple
                   onChange={handleGalleryFileSelect}
                   className="hidden"
                 />

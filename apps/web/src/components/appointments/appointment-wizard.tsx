@@ -97,6 +97,15 @@ export function AppointmentWizard({
   });
   const clients = clientsData?.data || [];
 
+  // Para saber si el tenant tiene el confeti activado en el modal de éxito.
+  // Si no hay data o el campo no llega, default a true (comportamiento previo).
+  const { data: tenantCurrentData } = useQuery({
+    queryKey: ['tenant-current'],
+    queryFn: () => api.get<{ data: any }>('/api/tenants/current'),
+  });
+  const tenantConfettiEnabled =
+    (tenantCurrentData as any)?.data?.confettiEnabled !== false;
+
   const { data: servicesData } = useQuery({
     queryKey: ['services-all'],
     queryFn: () => api.get<{ data: Service[] }>('/api/services?perPage=100'),
@@ -368,6 +377,7 @@ export function AppointmentWizard({
         employeeName={mainEmpName}
         total={totalPrice}
         primaryLabel="Aceptar"
+        confettiEnabled={tenantConfettiEnabled}
         onPrimary={() => {
           setCreatedAppointment(null);
           onSave();

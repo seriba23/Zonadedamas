@@ -1720,6 +1720,52 @@ export default function BusinessDetailPage() {
           </div>
         )}
 
+        {/* Tienda — atajo a la seccion /shop del negocio. Solo se muestra
+            cuando el owner tiene la tienda habilitada en /settings/shop. Lo
+            ponemos como card prominente (no solo el iconito del header) para
+            que el cliente vea con claridad que el negocio vende productos. */}
+        {biz.shopEnabled && (
+          <Link
+            href={`/marketplace/${tenantSlug}/shop`}
+            className="block bg-white rounded-xl border border-gray-200 p-4 mb-4 hover:border-[#008080] hover:shadow-sm transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: TEAL_LIGHT }}
+              >
+                <svg
+                  className="w-6 h-6"
+                  style={{ color: TEAL }}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.8}
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">Tienda</p>
+                <p className="text-xs text-gray-500">
+                  {shopProducts.length > 0
+                    ? `${shopProducts.length} producto${shopProducts.length === 1 ? '' : 's'} a la venta`
+                    : 'Ver productos disponibles'}
+                </p>
+              </div>
+              <svg
+                className="w-4 h-4 text-gray-400 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </Link>
+        )}
+
         {/* Cupones del negocio (catalogo). Estilo ticket consistente con
             el step "Cupones" del booking: stub con valor (2×1/GRATIS/-%/$),
             pill con costo en puntos, sub-label del tipo. */}
@@ -4336,9 +4382,11 @@ export default function BusinessDetailPage() {
       {bookingStep === 'success' && (
         <>
           {/* Confeti corto (5s, partículas reducidas) que celebra la reserva.
-              Como es decorativo y `onComplete` no es necesario aquí, lo
-              dejamos sin callback. */}
-          <ConfettiCelebration show duration={5000} particlesPerBurst={20} />
+              Se omite si el tenant lo deshabilitó en /settings/business
+              (campo confettiEnabled). */}
+          {biz?.confettiEnabled !== false && (
+            <ConfettiCelebration show duration={5000} particlesPerBurst={20} />
+          )}
         <div className="fixed inset-0 z-50 bg-white flex items-center justify-center px-4">
           <div className="max-w-md w-full text-center">
             <div

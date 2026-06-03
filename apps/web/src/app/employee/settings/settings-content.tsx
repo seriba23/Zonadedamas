@@ -191,14 +191,18 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
 
               <h4 className="text-xs font-semibold text-gray-500 uppercase pt-2">Información médica</h4>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de sangre</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Tipo de sangre <span className="text-[10px] text-gray-400 font-normal">(opcional)</span>
+                </label>
                 <select value={personalForm.bloodType} onChange={(e) => setPersonalForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field">
                   <option value="">—</option>
                   {BLOOD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Alergias</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Alergias <span className="text-[10px] text-gray-400 font-normal">(opcional)</span>
+                </label>
                 <AllergiesSelector value={personalForm.allergies} onChange={(v) => setPersonalForm((f) => ({ ...f, allergies: v }))} />
               </div>
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
@@ -58,7 +57,6 @@ function formatDateEs(dateStr: string): string {
 }
 
 export default function BusinessHoursPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [hours, setHours] = useState<BusinessHour[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -110,7 +108,6 @@ export default function BusinessHoursPage() {
       queryClient.invalidateQueries({ queryKey: ['business-hours'] });
       queryClient.invalidateQueries({ queryKey: ['business-hours-check'] });
       setHasChanges(false);
-      router.push('/home');
     },
   });
 
@@ -216,53 +213,56 @@ export default function BusinessHoursPage() {
               {hours.map((day) => (
                 <div
                   key={day.dayOfWeek}
-                  className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
+                  className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border transition-colors ${
                     day.isOpen
                       ? 'bg-white border-gray-200'
                       : 'bg-gray-50 border-gray-100'
                   }`}
                 >
-                  {/* Day label */}
-                  <div className="w-28 flex-shrink-0">
-                    <span className="text-sm font-medium text-gray-900">
-                      {DAY_LABELS[day.dayOfWeek]}
+                  {/* Fila superior en mobile (siempre visible): día + toggle + estado */}
+                  <div className="flex items-center gap-3 sm:contents">
+                    <div className="w-24 sm:w-28 flex-shrink-0">
+                      <span className="text-sm font-medium text-gray-900">
+                        {DAY_LABELS[day.dayOfWeek]}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => updateDay(day.dayOfWeek, 'isOpen', !day.isOpen)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                        day.isOpen ? 'bg-[#008080]' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          day.isOpen ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+
+                    <span className={`text-sm sm:w-16 flex-shrink-0 ${day.isOpen ? 'text-green-600' : 'text-gray-400'}`}>
+                      {day.isOpen ? 'Abierto' : 'Cerrado'}
                     </span>
                   </div>
 
-                  {/* Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => updateDay(day.dayOfWeek, 'isOpen', !day.isOpen)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                      day.isOpen ? 'bg-[#008080]' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        day.isOpen ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-
-                  <span className={`text-sm w-16 flex-shrink-0 ${day.isOpen ? 'text-green-600' : 'text-gray-400'}`}>
-                    {day.isOpen ? 'Abierto' : 'Cerrado'}
-                  </span>
-
-                  {/* Time inputs */}
+                  {/* Time inputs — se apilan en mobile bajo el header del día.
+                      `min-w-0` y `flex-1` permiten que el input type="time" de
+                      Safari iOS (ancho intrínseco grande) no rebose el card. */}
                   {day.isOpen && (
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <input
                         type="time"
                         value={day.openTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'openTime', e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] flex-1 min-w-0 max-w-[140px]"
                       />
-                      <span className="text-gray-400 text-sm">a</span>
+                      <span className="text-gray-400 text-sm flex-shrink-0">a</span>
                       <input
                         type="time"
                         value={day.closeTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'closeTime', e.target.value)}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] flex-1 min-w-0 max-w-[140px]"
                       />
                     </div>
                   )}

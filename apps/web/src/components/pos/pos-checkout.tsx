@@ -75,7 +75,10 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const { data: clientsData } = useQuery({ queryKey: ['pos-clients'], queryFn: () => api.get<{ data: any[] }>('/api/clients?perPage=100') });
   const { data: tenantData } = useQuery({ queryKey: ['tenant-current'], queryFn: () => api.get<{ data: any }>('/api/tenants/current') });
 
-  const appointments = (appointmentsData?.data || []).filter((a: any) => ['CONFIRMED', 'PENDING', 'IN_PROGRESS'].includes(a.status));
+  // Incluimos COMPLETED para casos en que la cita se finaliza primero
+  // (servicio dado) y se cobra despues por el POS — por ej. con propina
+  // ajustada al final o con metodo de pago acordado tras el servicio.
+  const appointments = (appointmentsData?.data || []).filter((a: any) => ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(a.status));
   const services = servicesData?.data || [];
   const products = (productsData?.data || []).filter((p: any) => p.isActive && p.isShopListed && p.stock > 0);
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
