@@ -389,12 +389,33 @@ export function ServicesContent() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Servicio *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Servicio *
+                </label>
+                {/* Botón "+" para crear servicio personalizado — visible
+                    junto al label para que sea descubrible sin tener que
+                    abrir el dropdown. */}
+                {form.catalogCategory && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, name: '__custom__' }))}
+                    className="inline-flex items-center gap-1 text-xs font-semibold transition-colors hover:opacity-80"
+                    style={{ color: '#008080' }}
+                    title="Crear servicio personalizado"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Crear personalizado
+                  </button>
+                )}
+              </div>
               {(() => {
                 // Si la profesion seleccionada tiene plantillas en el catalogo,
-                // mostramos dropdown con plantillas + opcion "Otro (escribir)".
+                // mostramos dropdown con plantillas. Si el usuario quiere
+                // crear uno propio, lo activa con el botón "+ Crear
+                // personalizado" del header del label.
                 // Si no tiene plantillas (caso Lashista recien creada), input
                 // de texto libre directamente.
                 const templates = catalogItems
@@ -424,36 +445,46 @@ export function ServicesContent() {
                     />
                   );
                 }
-                // Con plantillas: dropdown + opcion custom
-                return (
-                  <>
-                    <select
-                      value={isCustom ? CUSTOM_FLAG : form.name}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setForm((f) => ({ ...f, name: v === CUSTOM_FLAG ? '' : v }));
-                      }}
-                      className="input-field"
-                      required={!isCustom}
-                    >
-                      <option value="">Seleccionar servicio...</option>
-                      {templates.map((item) => (
-                        <option key={item.name} value={item.name}>{item.name}</option>
-                      ))}
-                      <option value={CUSTOM_FLAG}>+ Otro (escribir nombre)</option>
-                    </select>
-                    {isCustom && (
+                // Con plantillas: si está en modo personalizado, mostramos
+                // card destacada con input libre. Si no, dropdown limpio
+                // con el catálogo.
+                if (isCustom) {
+                  return (
+                    <div className="rounded-xl border-2 p-3" style={{ borderColor: '#008080', backgroundColor: '#e0f2f1' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold" style={{ color: '#008080' }}>Servicio personalizado</p>
+                        <button
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, name: '' }))}
+                          className="text-[11px] font-medium text-gray-500 hover:text-gray-700"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                       <input
                         type="text"
                         value={form.name === CUSTOM_FLAG ? '' : form.name}
                         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        placeholder="Nombre del servicio personalizado"
-                        className="input-field mt-2"
+                        placeholder="Ej: Tratamiento de keratina premium"
+                        className="input-field"
                         required
                         autoFocus
                       />
-                    )}
-                  </>
+                    </div>
+                  );
+                }
+                return (
+                  <select
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Seleccionar servicio del catálogo...</option>
+                    {templates.map((item) => (
+                      <option key={item.name} value={item.name}>{item.name}</option>
+                    ))}
+                  </select>
                 );
               })()}
             </div>
