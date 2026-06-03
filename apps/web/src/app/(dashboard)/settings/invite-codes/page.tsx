@@ -254,27 +254,43 @@ export default function InviteCodesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-5 gap-3">
-                <h2 className="text-lg font-bold text-gray-900 flex-1 min-w-0 truncate">Nuevo código de invitación</h2>
-                {/* Toggle entre "Solo habilitados" / "Ver todo el catálogo".
-                    En la esquina superior derecha del modal para que tenga
-                    protagonismo y el usuario lo descubra de inmediato. */}
-                <button
-                  type="button"
-                  onClick={() => setShowOnlyEnabled((v) => !v)}
-                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
-                    showOnlyEnabled
-                      ? 'bg-[#008080] text-white border-[#008080]'
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                  }`}
-                  title={showOnlyEnabled ? 'Mostrando solo los servicios que ya tienes habilitados' : 'Mostrando todo el catálogo, incluyendo no creados'}
-                >
-                  {showOnlyEnabled ? '✓ Solo habilitados' : 'Ver todo el catálogo'}
-                </button>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+              <div className="flex items-start justify-between mb-5 gap-3">
+                <h2 className="text-lg font-bold text-gray-900 flex-1 min-w-0">Nuevo código de invitación</h2>
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 flex-shrink-0 mt-0.5">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
+                </button>
+              </div>
+
+              {/* Switch "Solo habilitados" — estilo iOS, mismo patrón que el
+                  toggle de "Habilitar tienda" en configuración. ON = solo
+                  servicios del negocio; OFF = todo el catálogo (incluye los
+                  marcados "No creado"). */}
+              <div className="flex items-center justify-between mb-5 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">Solo habilitados</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {showOnlyEnabled
+                      ? 'Mostrando los servicios que ya tienes creados'
+                      : 'Mostrando todo el catálogo, incluyendo no creados'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOnlyEnabled((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                    showOnlyEnabled ? '' : 'bg-gray-300'
+                  }`}
+                  style={showOnlyEnabled ? { backgroundColor: '#008080' } : undefined}
+                  aria-pressed={showOnlyEnabled}
+                  aria-label="Mostrar solo servicios habilitados"
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${
+                      showOnlyEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
                 </button>
               </div>
 
