@@ -254,9 +254,24 @@ export default function InviteCodesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900">Nuevo código de invitación</h2>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <div className="flex items-center justify-between mb-5 gap-3">
+                <h2 className="text-lg font-bold text-gray-900 flex-1 min-w-0 truncate">Nuevo código de invitación</h2>
+                {/* Toggle entre "Solo habilitados" / "Ver todo el catálogo".
+                    En la esquina superior derecha del modal para que tenga
+                    protagonismo y el usuario lo descubra de inmediato. */}
+                <button
+                  type="button"
+                  onClick={() => setShowOnlyEnabled((v) => !v)}
+                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                    showOnlyEnabled
+                      ? 'bg-[#008080] text-white border-[#008080]'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  }`}
+                  title={showOnlyEnabled ? 'Mostrando solo los servicios que ya tienes habilitados' : 'Mostrando todo el catálogo, incluyendo no creados'}
+                >
+                  {showOnlyEnabled ? '✓ Solo habilitados' : 'Ver todo el catálogo'}
+                </button>
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -309,25 +324,9 @@ export default function InviteCodesPage() {
 
               {/* Servicios */}
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Servicios que puede realizar
-                  </label>
-                  {jobTitles.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowOnlyEnabled((v) => !v)}
-                      className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                        showOnlyEnabled
-                          ? 'bg-[#008080] text-white border-[#008080]'
-                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                      }`}
-                      title={showOnlyEnabled ? 'Mostrando solo los servicios que ya tienes habilitados' : 'Mostrando todo el catálogo, incluyendo no creados'}
-                    >
-                      {showOnlyEnabled ? '✓ Solo habilitados' : 'Ver todo el catálogo'}
-                    </button>
-                  )}
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Servicios que puede realizar
+                </label>
                 <p className="text-xs text-gray-400 mb-2">Puedes modificar esto después desde el perfil del empleado</p>
                 {jobTitles.length === 0 && (
                   <p className="text-xs text-gray-400 mb-2">Selecciona primero una profesión para ver los servicios disponibles</p>
@@ -336,79 +335,59 @@ export default function InviteCodesPage() {
                   {jobTitles.length > 0 ? (
                     <>
                       {(() => {
-                        // Pre-procesa las profesiones aplicando el filtro
-                        // showOnlyEnabled. Si una profesión no tiene NINGÚN
-                        // servicio habilitado por el negocio, no la pintamos
-                        // en la lista (con su empty state propio abajo).
                         const sorted = [...jobTitles].sort((a, b) => a.localeCompare(b, 'es'));
-                        const profsWithData = sorted.map((prof) => {
+                        return sorted.map((prof) => {
                           const allCatalog = catalogServicesForJob.filter((c) => c.category === prof);
                           const enabled = allCatalog.filter((c) => services.find((s) => s.name === c.name));
                           const visible = showOnlyEnabled ? enabled : allCatalog;
-                          return { prof, visible, enabled, allCatalog };
-                        });
-                        const totalEnabled = profsWithData.reduce((s, p) => s + p.enabled.length, 0);
+                          // Si esta profesión no tiene NADA habilitado y el
+                          // filtro está activo, mostramos el botón "+ Crear"
+                          // junto al nombre de la profesión en el header.
+                          const showCreateInHeader = showOnlyEnabled && enabled.length === 0;
 
-                        // Empty state: si el filtro está activo y no hay
-                        // ningún servicio habilitado para las profesiones
-                        // elegidas, mostrar CTA prominente para crear.
-                        if (showOnlyEnabled && totalEnabled === 0) {
                           return (
-                            <div className="px-4 py-6 text-center">
-                              <p className="text-xs text-gray-500 mb-3">
-                                Aún no tienes servicios habilitados para {jobTitles.length === 1 ? `la profesión ${jobTitles[0]}` : 'las profesiones seleccionadas'}.
-                              </p>
-                              <a
-                                href={`/services?new=true&returnTo=invite-codes${jobTitles[0] ? `&profession=${encodeURIComponent(jobTitles[0])}` : ''}`}
-                                target="_blank"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
-                                style={{ backgroundColor: '#008080' }}
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Crear servicios de {jobTitles[0]}
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => setShowOnlyEnabled(false)}
-                                className="block w-full text-[11px] text-gray-400 mt-3 hover:text-gray-600"
-                              >
-                                ¿Solo quieres explorar el catálogo? Ver todos los servicios
-                              </button>
+                            <div key={prof}>
+                              {/* Header sticky con fondo SÓLIDO y z-index alto
+                                  para no transparentarse encima de los items. */}
+                              <div className="px-4 py-2 bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm flex items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">{prof}</span>
+                                {showCreateInHeader && (
+                                  <a
+                                    href={`/services?new=true&returnTo=invite-codes&profession=${encodeURIComponent(prof)}`}
+                                    target="_blank"
+                                    className="inline-flex items-center gap-1 text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-full"
+                                    style={{ color: '#008080', border: '1px solid #008080' }}
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Crear servicios
+                                  </a>
+                                )}
+                              </div>
+                              {visible.length > 0 ? visible.sort((a, b) => a.name.localeCompare(b.name, 'es')).map((catalogSvc) => {
+                                const bizService = services.find((s) => s.name === catalogSvc.name);
+                                return (
+                                  <label key={`${prof}-${catalogSvc.name}`} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 border-b border-gray-50 ${!bizService ? 'opacity-40' : ''}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={bizService ? selectedServiceIds.includes(bizService.id) : false}
+                                      onChange={() => bizService && toggleService(bizService.id)}
+                                      disabled={!bizService}
+                                      className="h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080] disabled:opacity-30"
+                                    />
+                                    <span className="text-sm text-gray-700">{catalogSvc.name}</span>
+                                    {!bizService && <span className="text-[10px] text-gray-400 ml-auto">No creado</span>}
+                                  </label>
+                                );
+                              }) : (
+                                <div className="px-4 py-3 text-xs text-gray-400 text-center border-b border-gray-50">
+                                  {showOnlyEnabled ? 'Aún no tienes servicios habilitados para esta profesión' : 'Sin servicios en catálogo'}
+                                </div>
+                              )}
                             </div>
                           );
-                        }
-
-                        return profsWithData.map(({ prof, visible }) => (
-                          <div key={prof}>
-                            {/* Header sticky con fondo SÓLIDO y z-index alto
-                                para no transparentarse encima de los items. */}
-                            <div className="px-4 py-2 bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{prof}</span>
-                            </div>
-                            {visible.length > 0 ? visible.sort((a, b) => a.name.localeCompare(b.name, 'es')).map((catalogSvc) => {
-                              const bizService = services.find((s) => s.name === catalogSvc.name);
-                              return (
-                                <label key={`${prof}-${catalogSvc.name}`} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 border-b border-gray-50 ${!bizService ? 'opacity-40' : ''}`}>
-                                  <input
-                                    type="checkbox"
-                                    checked={bizService ? selectedServiceIds.includes(bizService.id) : false}
-                                    onChange={() => bizService && toggleService(bizService.id)}
-                                    disabled={!bizService}
-                                    className="h-4 w-4 rounded border-gray-300 text-[#008080] focus:ring-[#008080] disabled:opacity-30"
-                                  />
-                                  <span className="text-sm text-gray-700">{catalogSvc.name}</span>
-                                  {!bizService && <span className="text-[10px] text-gray-400 ml-auto">No creado</span>}
-                                </label>
-                              );
-                            }) : (
-                              <div className="px-4 py-3 text-xs text-gray-400 text-center border-b border-gray-50">
-                                {showOnlyEnabled ? 'Sin servicios habilitados para esta profesión' : 'Sin servicios en catálogo'}
-                              </div>
-                            )}
-                          </div>
-                        ));
+                        });
                       })()}
                     </>
                   ) : (
@@ -454,7 +433,7 @@ export default function InviteCodesPage() {
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
                 />
-                <p className="text-xs text-gray-400 mt-1">Cantidad de empleados que pueden usar este código para afiliarse a <span className="font-medium text-gray-600">{(tenantData as any)?.name || 'tu negocio'}</span></p>
+                <p className="text-xs text-gray-400 mt-1">Este número corresponde a la cantidad de empleados que pueden usar este código para afiliarse a <span className="font-medium text-gray-600">{(tenantData as any)?.name || 'tu negocio'}</span></p>
               </div>
 
               <div className="flex gap-3">
