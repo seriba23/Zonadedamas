@@ -1052,14 +1052,20 @@ function RegisterPageInner() {
               )}
               {invitePreview.services && invitePreview.services.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs text-gray-400 mb-1.5">Servicios asignados</p>
-                  <div className="flex flex-wrap justify-center gap-1">
+                  <p className="text-xs text-gray-400 mb-2">Servicios asignados</p>
+                  {/* Lista vertical con check teal por servicio. Más
+                      legible cuando hay varios servicios; las cápsulas en
+                      una sola fila quedaban apretadas. */}
+                  <ul className="text-left rounded-xl border border-gray-100 bg-gray-50 max-h-40 overflow-y-auto divide-y divide-gray-100">
                     {invitePreview.services.map((s) => (
-                      <span key={s.id} className="text-xs bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2.5 py-1">
-                        {s.name}
-                      </span>
+                      <li key={s.id} className="flex items-center gap-2 px-3 py-2">
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#008080' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-gray-700">{s.name}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )}
               <p className="text-sm text-gray-600 mb-5">
