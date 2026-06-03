@@ -36,6 +36,7 @@ export default function BusinessSettingsPage() {
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const addColorInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bizTypesData } = useQuery({
     queryKey: ['business-types-catalog'],
@@ -515,19 +516,33 @@ export default function BusinessSettingsPage() {
                       </div>
                     ))}
                     {form.confettiColors.length < 4 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setForm((f) => ({
-                            ...f,
-                            confettiColors: [...f.confettiColors, '#ffffff'],
-                          }))
-                        }
-                        className="w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-[#008080] hover:text-[#008080] transition-colors text-lg"
-                        title="Agregar color"
-                      >
-                        +
-                      </button>
+                      <>
+                        <input
+                          ref={addColorInputRef}
+                          type="color"
+                          defaultValue="#ffd166"
+                          onChange={(e) => {
+                            const picked = e.target.value;
+                            setForm((f) => ({
+                              ...f,
+                              confettiColors: [...f.confettiColors, picked].slice(0, 4),
+                            }));
+                            // Reset para que la próxima vez el picker abra
+                            // sin sesgo del color recién elegido.
+                            e.target.value = '#ffd166';
+                          }}
+                          className="sr-only"
+                          aria-label="Elegir color nuevo"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addColorInputRef.current?.click()}
+                          className="w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-[#008080] hover:text-[#008080] transition-colors text-lg"
+                          title="Agregar color"
+                        >
+                          +
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
