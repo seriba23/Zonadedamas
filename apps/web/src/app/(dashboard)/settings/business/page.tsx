@@ -36,7 +36,6 @@ export default function BusinessSettingsPage() {
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const addColorInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bizTypesData } = useQuery({
     queryKey: ['business-types-catalog'],
@@ -480,9 +479,27 @@ export default function BusinessSettingsPage() {
 
                 {/* Selector de colores */}
                 <div>
-                  <p className="text-xs font-semibold text-gray-700 mb-2">
-                    Colores ({form.confettiColors.length}/4)
-                  </p>
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <p className="text-xs font-semibold text-gray-700">
+                      Colores ({form.confettiColors.length}/4)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          confettiColors: DEFAULT_CONFETTI_COLORS.slice(),
+                        }))
+                      }
+                      className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors inline-flex items-center gap-1"
+                      title="Restaurar la paleta predeterminada (teal)"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      Predeterminados
+                    </button>
+                  </div>
                   <div className="flex items-center gap-3 flex-wrap">
                     {form.confettiColors.map((color, idx) => (
                       <div key={idx} className="flex items-center gap-1">
@@ -516,9 +533,16 @@ export default function BusinessSettingsPage() {
                       </div>
                     ))}
                     {form.confettiColors.length < 4 && (
-                      <>
+                      <div
+                        className="relative w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#008080] transition-colors flex items-center justify-center"
+                        title="Agregar color"
+                      >
+                        <span className="text-gray-400 text-lg pointer-events-none select-none">+</span>
                         <input
-                          ref={addColorInputRef}
+                          // `key` fuerza el remount del input al agregar uno
+                          // nuevo, asi el picker siempre abre con el default
+                          // y no con el ultimo color elegido.
+                          key={`add-color-${form.confettiColors.length}`}
                           type="color"
                           defaultValue="#ffd166"
                           onChange={(e) => {
@@ -527,22 +551,11 @@ export default function BusinessSettingsPage() {
                               ...f,
                               confettiColors: [...f.confettiColors, picked].slice(0, 4),
                             }));
-                            // Reset para que la próxima vez el picker abra
-                            // sin sesgo del color recién elegido.
-                            e.target.value = '#ffd166';
                           }}
-                          className="sr-only"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           aria-label="Elegir color nuevo"
                         />
-                        <button
-                          type="button"
-                          onClick={() => addColorInputRef.current?.click()}
-                          className="w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-[#008080] hover:text-[#008080] transition-colors text-lg"
-                          title="Agregar color"
-                        >
-                          +
-                        </button>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
