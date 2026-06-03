@@ -40,6 +40,10 @@ interface AppointmentSuccessSheetProps {
   onSecondary?: () => void;
   /** Si el tenant deshabilitó la animación de confeti, pásalo como false. */
   confettiEnabled?: boolean;
+  /** Slug de la figura del confeti (square/scissors/razor/...). */
+  confettiShape?: string | null;
+  /** Paleta de colores del confeti (hasta 4 hex). */
+  confettiColors?: string[] | null;
 }
 
 /**
@@ -60,6 +64,8 @@ export function AppointmentSuccessSheet({
   onPrimary,
   onSecondary,
   confettiEnabled = true,
+  confettiShape,
+  confettiColors,
 }: AppointmentSuccessSheetProps) {
   const { format: formatCurrency } = useCurrency();
   const [confettiDone, setConfettiDone] = useState(false);
@@ -71,6 +77,8 @@ export function AppointmentSuccessSheet({
           show={!confettiDone}
           duration={5000}
           particlesPerBurst={20}
+          shape={confettiShape}
+          colors={confettiColors}
           onComplete={() => setConfettiDone(true)}
         />
       )}

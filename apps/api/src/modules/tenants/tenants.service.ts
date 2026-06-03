@@ -307,6 +307,8 @@ export class TenantsService {
         ...(dto.cardColor !== undefined && { cardColor: dto.cardColor }),
         ...(dto.currency !== undefined && { currency: dto.currency }),
         ...(dto.confettiEnabled !== undefined && { confettiEnabled: dto.confettiEnabled }),
+        ...(dto.confettiStyle !== undefined && { confettiStyle: dto.confettiStyle }),
+        ...(dto.confettiColors !== undefined && { confettiColors: dto.confettiColors as any }),
       },
     });
   }

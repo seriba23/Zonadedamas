@@ -4382,10 +4382,17 @@ export default function BusinessDetailPage() {
       {bookingStep === 'success' && (
         <>
           {/* Confeti corto (5s, partículas reducidas) que celebra la reserva.
-              Se omite si el tenant lo deshabilitó en /settings/business
-              (campo confettiEnabled). */}
+              Se omite si el tenant lo deshabilitó en /settings/business.
+              Usa la figura (confettiStyle) y paleta (confettiColors) que el
+              dueño configuró; si no hay nada, cae a cuadrados teal default. */}
           {biz?.confettiEnabled !== false && (
-            <ConfettiCelebration show duration={5000} particlesPerBurst={20} />
+            <ConfettiCelebration
+              show
+              duration={5000}
+              particlesPerBurst={20}
+              shape={biz?.confettiStyle ?? null}
+              colors={biz?.confettiColors ?? null}
+            />
           )}
         <div className="fixed inset-0 z-50 bg-white flex items-center justify-center px-4">
           <div className="max-w-md w-full text-center">

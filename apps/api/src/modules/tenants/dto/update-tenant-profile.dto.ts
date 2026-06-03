@@ -1,4 +1,13 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsHexColor,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateTenantProfileDto {
   @IsOptional()
@@ -36,4 +45,16 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsBoolean()
   confettiEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  confettiStyle?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(4)
+  @IsHexColor({ each: true })
+  confettiColors?: string[] | null;
 }

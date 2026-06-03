@@ -772,6 +772,8 @@ export class MarketplaceService {
         stripeOnboardingComplete: true,
         shopEnabled: true,
         confettiEnabled: true,
+        confettiStyle: true,
+        confettiColors: true,
       },
     });
 

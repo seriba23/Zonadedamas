@@ -1,39 +1,54 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useCallback } from 'react';
+import {
+  SHAPES,
+  DEFAULT_CONFETTI_COLORS,
+  isValidShape,
+  type ConfettiShape,
+} from '@/lib/confetti-shapes';
 
 interface ConfettiCelebrationProps {
   show: boolean;
-  /** Duración total en ms. Default 5000 (la mitad del valor anterior).
-   * Mantén corto: el confeti es decorativo, no debe estorbar. */
+  /** Duración total en ms. Default 5000. */
   duration?: number;
-  /** Partículas por burst. Default 20 (la mitad del valor anterior). */
+  /** Partículas por burst. Default 20. */
   particlesPerBurst?: number;
+  /** Slug de la figura a usar. Si null/undefined o no válido, usa 'square'. */
+  shape?: string | null;
+  /** Paleta de hasta 4 colores. Si vacío/null, usa la paleta teal default. */
+  colors?: string[] | null;
   onComplete?: () => void;
 }
 
-const COLORS = ['#00cccc', '#00b3b3', '#009999', '#008080', '#004d4d', '#003333', '#ffffff', '#001919'];
-
 /**
- * Solo el confeti — render del canvas con partículas teal cayendo desde
- * arriba. NO incluye modal ni texto: ese papel ahora lo cumple
- * `AppointmentSuccessSheet` u otro card específico de cada flujo.
- *
- * Cambios respecto a la versión anterior:
- *  - Sin modal interno; este componente sólo dibuja confeti.
- *  - Duración default 5s (antes 10s) y partículas 20/burst (antes 40).
- *  - Fade out en los últimos 1.5s en lugar de 3s para cerrar más rápido.
+ * Canvas con partículas cayendo desde arriba. Cada partícula es una figura
+ * del catálogo `SHAPES`, pintada con uno de los colores configurados. Las
+ * partículas rotan mientras caen y se desvanecen al final.
  */
 export function ConfettiCelebration({
   show,
   duration = 5000,
   particlesPerBurst = 20,
+  shape,
+  colors,
   onComplete,
 }: ConfettiCelebrationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+
+  const activeShape: ConfettiShape = isValidShape(shape) ? shape : 'square';
+  // Memoize the palette para evitar que un nuevo array en cada render
+  // invalide el useCallback y re-monte la animación en mitad del confeti.
+  const palette = useMemo(
+    () => (colors && colors.length > 0 ? colors.slice(0, 4) : DEFAULT_CONFETTI_COLORS),
+    // Comparamos por contenido serializado para tolerar arrays distintos
+    // con los mismos valores (lo típico cuando el padre re-renderea).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(colors)],
+  );
 
   const startConfetti = useCallback(() => {
     const canvas = canvasRef.current;
@@ -44,20 +59,30 @@ export function ConfettiCelebration({
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+    const draw = SHAPES[activeShape].draw;
+
     const particles: Array<{
-      x: number; y: number; w: number; h: number;
-      color: string; vx: number; vy: number;
-      rotation: number; rotationSpeed: number; opacity: number;
+      x: number;
+      y: number;
+      size: number;
+      color: string;
+      vx: number;
+      vy: number;
+      rotation: number;
+      rotationSpeed: number;
+      opacity: number;
     }> = [];
 
     function createBurst() {
+      // Tamaño base de partícula: las figuras necesitan ~20-26px para que se
+      // distinga la silueta; el cuadrado clásico va un poco más chico.
+      const baseSize = activeShape === 'square' ? 12 : 22;
       for (let i = 0; i < particlesPerBurst; i++) {
         particles.push({
           x: Math.random() * canvas!.width,
           y: -20 - Math.random() * 80,
-          w: 10 + Math.random() * 12,
-          h: 8 + Math.random() * 12,
-          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          size: baseSize + Math.random() * 8,
+          color: palette[Math.floor(Math.random() * palette.length)],
           vx: (Math.random() - 0.5) * 1,
           vy: 0.4 + Math.random() * 0.7,
           rotation: Math.random() * 360,
@@ -93,7 +118,7 @@ export function ConfettiCelebration({
         if (elapsed > fadeStart) {
           p.opacity = Math.max(0, p.opacity - 0.015);
         }
-        if (p.y > canvas!.height + 20 || p.opacity <= 0) {
+        if (p.y > canvas!.height + 40 || p.opacity <= 0) {
           particles.splice(i, 1);
           continue;
         }
@@ -103,7 +128,8 @@ export function ConfettiCelebration({
         ctx!.rotate((p.rotation * Math.PI) / 180);
         ctx!.globalAlpha = p.opacity;
         ctx!.fillStyle = p.color;
-        ctx!.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx!.strokeStyle = p.color;
+        draw(ctx!, p.size);
         ctx!.restore();
       }
 
@@ -117,7 +143,7 @@ export function ConfettiCelebration({
 
     createBurst();
     animate();
-  }, [duration, particlesPerBurst]);
+  }, [duration, particlesPerBurst, activeShape, palette]);
 
   useEffect(() => {
     if (show) startConfetti();

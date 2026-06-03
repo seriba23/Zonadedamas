@@ -6,6 +6,13 @@ import { api } from '@/lib/api';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
+import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
+import {
+  SHAPES,
+  SHAPE_NAMES,
+  DEFAULT_CONFETTI_COLORS,
+  type ConfettiShape,
+} from '@/lib/confetti-shapes';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -46,8 +53,11 @@ export default function BusinessSettingsPage() {
     isMarketplaceListed: false,
     cardColor: '#008080',
     confettiEnabled: true,
+    confettiStyle: 'square' as ConfettiShape,
+    confettiColors: DEFAULT_CONFETTI_COLORS.slice(),
   });
   const [initialized, setInitialized] = useState(false);
+  const [confettiPreviewKey, setConfettiPreviewKey] = useState(0);
 
   // Crop modal states
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
@@ -63,6 +73,13 @@ export default function BusinessSettingsPage() {
   // Initialize form when tenant loads
   useEffect(() => {
     if (tenant && !initialized) {
+      const storedShape = (tenant.confettiStyle as ConfettiShape | null) || 'square';
+      const validShape = SHAPE_NAMES.includes(storedShape as ConfettiShape)
+        ? (storedShape as ConfettiShape)
+        : 'square';
+      const storedColors = Array.isArray(tenant.confettiColors) && tenant.confettiColors.length > 0
+        ? tenant.confettiColors.slice(0, 4)
+        : DEFAULT_CONFETTI_COLORS.slice();
       setForm({
         name: tenant.name || '',
         description: tenant.description || '',
@@ -72,6 +89,8 @@ export default function BusinessSettingsPage() {
         isMarketplaceListed: tenant.isMarketplaceListed || false,
         cardColor: tenant.cardColor || '#008080',
         confettiEnabled: tenant.confettiEnabled !== false,
+        confettiStyle: validShape,
+        confettiColors: storedColors,
       });
       setInitialized(true);
     }
@@ -408,24 +427,122 @@ export default function BusinessSettingsPage() {
             </div>
           </label>
 
-          <label className="flex items-center justify-between cursor-pointer pt-4 border-t border-gray-100">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Confeti al confirmar reserva</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Animación celebratoria que ven los clientes al terminar de reservar
-              </p>
-            </div>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={form.confettiEnabled}
-                onChange={(e) => setForm((f) => ({ ...f, confettiEnabled: e.target.checked }))}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
-              <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-            </div>
-          </label>
+          <div className="pt-4 border-t border-gray-100">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Confeti al confirmar reserva</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Animación celebratoria que ven los clientes al terminar de reservar
+                </p>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={form.confettiEnabled}
+                  onChange={(e) => setForm((f) => ({ ...f, confettiEnabled: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
+                <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+              </div>
+            </label>
+
+            {form.confettiEnabled && (
+              <div className="mt-5 space-y-4">
+                {/* Selector de figura */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Figura</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {SHAPE_NAMES.map((name) => {
+                      const isActive = form.confettiStyle === name;
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, confettiStyle: name }))}
+                          className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-colors ${
+                            isActive
+                              ? 'border-[#008080] bg-teal-50'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          }`}
+                        >
+                          <ShapePreview shape={name} color={form.confettiColors[0] || '#008080'} />
+                          <span className="text-[10px] font-medium text-gray-700">
+                            {SHAPES[name].label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Selector de colores */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">
+                    Colores ({form.confettiColors.length}/4)
+                  </p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {form.confettiColors.map((color, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <input
+                          type="color"
+                          value={color}
+                          onChange={(e) =>
+                            setForm((f) => {
+                              const next = [...f.confettiColors];
+                              next[idx] = e.target.value;
+                              return { ...f, confettiColors: next };
+                            })
+                          }
+                          className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5"
+                        />
+                        {form.confettiColors.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm((f) => ({
+                                ...f,
+                                confettiColors: f.confettiColors.filter((_, i) => i !== idx),
+                              }))
+                            }
+                            className="text-gray-400 hover:text-red-500 text-xs px-1"
+                            title="Quitar color"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {form.confettiColors.length < 4 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            confettiColors: [...f.confettiColors, '#ffffff'],
+                          }))
+                        }
+                        className="w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-[#008080] hover:text-[#008080] transition-colors text-lg"
+                        title="Agregar color"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vista previa */}
+                <button
+                  type="button"
+                  onClick={() => setConfettiPreviewKey((k) => k + 1)}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold border-2 border-dashed transition-colors hover:bg-teal-50"
+                  style={{ borderColor: '#008080', color: '#008080' }}
+                >
+                  Ver vista previa
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Card color */}
@@ -688,6 +805,47 @@ export default function BusinessSettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Confeti vista previa: cada click al botón "Ver vista previa"
+          incrementa la key y monta una instancia nueva del componente,
+          disparando la animación. */}
+      {confettiPreviewKey > 0 && (
+        <ConfettiCelebration
+          key={confettiPreviewKey}
+          show
+          duration={4000}
+          particlesPerBurst={18}
+          shape={form.confettiStyle}
+          colors={form.confettiColors}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * Render mini del shape para los botones del selector. Usa el mismo `draw()`
+ * del catálogo sobre un canvas pequeño escalado al DPR del dispositivo.
+ */
+function ShapePreview({ shape, color }: { shape: ConfettiShape; color: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const display = 36;
+    canvas.width = display * dpr;
+    canvas.height = display * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, display, display);
+    ctx.save();
+    ctx.translate(display / 2, display / 2);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    SHAPES[shape].draw(ctx, 28);
+    ctx.restore();
+  }, [shape, color]);
+  return <canvas ref={ref} style={{ width: 36, height: 36 }} />;
 }
