@@ -53,7 +53,7 @@ export default function BusinessSettingsPage() {
     isMarketplaceListed: false,
     cardColor: '#008080',
     confettiEnabled: true,
-    confettiStyles: ['square'] as ConfettiShape[],
+    confettiStyles: [] as ConfettiShape[],
     confettiColors: DEFAULT_CONFETTI_COLORS.slice(),
   });
   const [initialized, setInitialized] = useState(false);
@@ -73,13 +73,15 @@ export default function BusinessSettingsPage() {
   // Initialize form when tenant loads
   useEffect(() => {
     if (tenant && !initialized) {
-      // Preferimos el array nuevo `confettiStyles`; si está vacío, caemos al
-      // legacy singular `confettiStyle`; y si tampoco hay nada, default.
+      // Preferimos el array nuevo `confettiStyles`. Si esta vacio o no
+      // existe, caemos al legacy singular `confettiStyle`. Si tampoco hay
+      // nada, el array queda vacio — el ConfettiCelebration interpreta
+      // eso como "cuadrado clasico" por fallback.
       const stylesRaw: string[] = Array.isArray(tenant.confettiStyles) && tenant.confettiStyles.length > 0
         ? tenant.confettiStyles
         : tenant.confettiStyle
           ? [tenant.confettiStyle]
-          : ['square'];
+          : [];
       const validStyles = stylesRaw
         .filter((s): s is ConfettiShape => SHAPE_NAMES.includes(s as ConfettiShape))
         .slice(0, 3);
@@ -95,7 +97,7 @@ export default function BusinessSettingsPage() {
         isMarketplaceListed: tenant.isMarketplaceListed || false,
         cardColor: tenant.cardColor || '#008080',
         confettiEnabled: tenant.confettiEnabled !== false,
-        confettiStyles: validStyles.length > 0 ? validStyles : ['square'],
+        confettiStyles: validStyles,
         confettiColors: storedColors,
       });
       setInitialized(true);
@@ -462,7 +464,11 @@ export default function BusinessSettingsPage() {
                     <p className="text-xs font-semibold text-gray-700">
                       Figuras ({form.confettiStyles.length}/3)
                     </p>
-                    <p className="text-[10px] text-gray-400">Selecciona hasta 3</p>
+                    <p className="text-[10px] text-gray-400">
+                      {form.confettiStyles.length === 0
+                        ? 'Sin selección — se usará el cuadrado clásico'
+                        : 'Selecciona hasta 3'}
+                    </p>
                   </div>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {SHAPE_NAMES.map((name) => {
@@ -476,9 +482,10 @@ export default function BusinessSettingsPage() {
                           onClick={() =>
                             setForm((f) => {
                               if (f.confettiStyles.includes(name)) {
-                                // Toggle off — pero garantizamos al menos 1
-                                const next = f.confettiStyles.filter((s) => s !== name);
-                                return { ...f, confettiStyles: next.length > 0 ? next : f.confettiStyles };
+                                // Toggle off — se permite quedar vacio; el
+                                // ConfettiCelebration usa el cuadrado por
+                                // defecto si no hay ninguna seleccionada.
+                                return { ...f, confettiStyles: f.confettiStyles.filter((s) => s !== name) };
                               }
                               if (f.confettiStyles.length >= 3) return f;
                               return { ...f, confettiStyles: [...f.confettiStyles, name] };
