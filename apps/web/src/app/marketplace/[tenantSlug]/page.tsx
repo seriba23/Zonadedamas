@@ -209,6 +209,9 @@ export default function BusinessDetailPage() {
   const tenantSlug = params.tenantSlug as string;
   const bookEmployeeId = searchParams.get('bookEmployee');
   const preselectedServiceId = searchParams.get('service');
+  // fromAdmin=1: el dueño vino desde el preview de /settings/business. Mostramos
+  // un banner sticky para que pueda volver al panel sin perderse en el portal cliente.
+  const fromAdmin = searchParams.get('fromAdmin') === '1';
 
   // Referral code from shared link
   const refFromUrl = searchParams.get('ref');
@@ -1166,6 +1169,32 @@ export default function BusinessDetailPage() {
   // safe area en su propio bloque.
   return (
     <div className="min-h-screen pb-36">
+      {/* Banner cuando se entra desde el preview de /settings/business — permite volver al panel admin */}
+      {fromAdmin && (
+        <div
+          className="sticky top-0 z-40 px-4 py-2.5 flex items-center justify-between gap-3 shadow-sm"
+          style={{ backgroundColor: TEAL, color: 'white' }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <span className="text-sm font-medium truncate">Vista previa · así lo ven tus clientes</span>
+          </div>
+          <button
+            onClick={() => router.push('/settings/business')}
+            className="flex items-center gap-1 px-3 py-1.5 bg-white rounded-full text-xs font-semibold flex-shrink-0 hover:bg-gray-100 transition-colors"
+            style={{ color: TEAL }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Volver al panel
+          </button>
+        </div>
+      )}
+
       {/* Payment cancelled banner */}
       {paymentStatus === 'cancelled' && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">

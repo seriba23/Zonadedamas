@@ -772,7 +772,9 @@ export default function BusinessSettingsPage() {
           }}
           onClick={() => {
             if (tenant.slug) {
-              window.open(`/marketplace/${tenant.slug}`, '_blank', 'noopener,noreferrer');
+              // ?fromAdmin=1 hace que el marketplace muestre un banner sticky
+              // con "Volver al panel" para que el admin no se pierda en el portal cliente.
+              window.open(`/marketplace/${tenant.slug}?fromAdmin=1`, '_blank', 'noopener,noreferrer');
             }
           }}
         />
