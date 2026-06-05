@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
@@ -52,6 +52,10 @@ interface Professional {
 export default function ProfessionalProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Modo preview admin: viene desde /settings/business → /marketplace/[slug]?fromAdmin=1
+  // y de ahi al perfil del empleado con el mismo query param. Bloquea reservas.
+  const fromAdmin = searchParams.get('fromAdmin') === '1';
   const tenantSlug = params.tenantSlug as string;
   const employeeId = params.employeeId as string;
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
@@ -305,8 +309,11 @@ export default function ProfessionalProfilePage() {
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => router.push(`/marketplace/${tenantSlug}?bookEmployee=${employeeId}&service=${s.id}`)}
-                    className="w-full text-left p-4 rounded-xl border-2 transition-all hover:border-[#008080]/40"
+                    onClick={() => {
+                      if (fromAdmin) return;
+                      router.push(`/marketplace/${tenantSlug}?bookEmployee=${employeeId}&service=${s.id}`);
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${fromAdmin ? 'cursor-default' : 'hover:border-[#008080]/40'}`}
                     style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
                   >
                     <div className="flex items-center gap-3">
@@ -540,20 +547,22 @@ export default function ProfessionalProfilePage() {
         </div>
       </div>
 
-      {/* Floating CTA */}
-      <div className="fixed bottom-20 left-0 right-0 px-6 pointer-events-none z-30">
-        <div className="max-w-3xl mx-auto pointer-events-auto">
-          <button
-            onClick={() => router.push(`/marketplace/${pro.tenantSlug}?bookEmployee=${employeeId}`)}
-            className="w-full py-3 rounded-2xl font-semibold text-sm text-white shadow-lg transition-colors"
-            style={{ backgroundColor: '#008080', boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
-          >
-            Agendar cita
-          </button>
+      {/* Floating CTA — escondido en modo preview admin (no se permite reservar) */}
+      {!fromAdmin && (
+        <div className="fixed bottom-20 left-0 right-0 px-6 pointer-events-none z-30">
+          <div className="max-w-3xl mx-auto pointer-events-auto">
+            <button
+              onClick={() => router.push(`/marketplace/${pro.tenantSlug}?bookEmployee=${employeeId}`)}
+              className="w-full py-3 rounded-2xl font-semibold text-sm text-white shadow-lg transition-colors"
+              style={{ backgroundColor: '#008080', boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#006666')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#008080')}
+            >
+              Agendar cita
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Lightbox */}
       {lightboxImg && (

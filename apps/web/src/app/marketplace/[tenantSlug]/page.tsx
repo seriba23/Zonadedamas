@@ -691,8 +691,11 @@ export default function BusinessDetailPage() {
   }, [selectedServiceIds]);
 
   const redeemRewardMutation = useMutation({
-    mutationFn: ({ rewardId }: { rewardId: string }) =>
-      marketplaceApi.post<{ data: any }>('/rewards/redeem', { rewardId, tenantSlug }),
+    mutationFn: ({ rewardId }: { rewardId: string }) => {
+      // Modo preview admin: no se permite canjear nada.
+      if (fromAdmin) return Promise.reject(new Error('preview-readonly'));
+      return marketplaceApi.post<{ data: any }>('/rewards/redeem', { rewardId, tenantSlug });
+    },
     onSuccess: (res: any) => {
       const redemption = res?.data?.data || res?.data || res;
       if (redemption?.id) {
@@ -726,6 +729,7 @@ export default function BusinessDetailPage() {
   });
 
   const handleToggleFavorite = () => {
+    if (fromAdmin) return;
     if (!isAuthenticated) {
       router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
       return;
@@ -797,11 +801,13 @@ export default function BusinessDetailPage() {
   const [redeemBizError, setRedeemBizError] = useState<string | null>(null);
 
   const redeemMutation = useMutation({
-    mutationFn: (rewardId: string) =>
-      marketplaceApi.post('/rewards/redeem', {
+    mutationFn: (rewardId: string) => {
+      if (fromAdmin) return Promise.reject(new Error('preview-readonly'));
+      return marketplaceApi.post('/rewards/redeem', {
         rewardId,
         tenantSlug,
-      }),
+      });
+    },
     onSuccess: (res: any) => {
       const result = res?.data || res;
       setRedeemResult({ code: result.code, name: result.reward?.name || 'Recompensa' });
@@ -818,6 +824,9 @@ export default function BusinessDetailPage() {
   });
 
   const handleBook = () => {
+    // Modo preview admin: no se permite reservar. Cualquier boton que
+    // termine llamando handleBook queda no-op aunque siga renderizado.
+    if (fromAdmin) return;
     if (!isAuthenticated) {
       const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
       const redirect = savedRef
@@ -1218,20 +1227,22 @@ export default function BusinessDetailPage() {
             />
           )}
         </div>
-        <button
-          onClick={() => router.push('/marketplace')}
-          className="absolute top-4 left-4 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
-        >
-          <svg
-            className="w-5 h-5 text-gray-700"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
+        {!fromAdmin && (
+          <button
+            onClick={() => router.push('/marketplace')}
+            className="absolute top-4 left-4 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+            <svg
+              className="w-5 h-5 text-gray-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
         <div className="absolute top-4 right-4 flex items-center gap-2">
           {biz.shopEnabled && (
             <Link
@@ -1251,21 +1262,23 @@ export default function BusinessDetailPage() {
               </svg>
             </Link>
           )}
-          <button
-            onClick={handleToggleFavorite}
-            className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
-            title={isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos'}
-          >
-            <svg
-              className="w-5 h-5"
-              fill={isFavorited ? '#008080' : 'none'}
-              stroke={isFavorited ? '#008080' : '#6b7280'}
-              viewBox="0 0 24 24"
-              strokeWidth={2}
+          {!fromAdmin && (
+            <button
+              onClick={handleToggleFavorite}
+              className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
+              title={isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos'}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-            </svg>
-          </button>
+              <svg
+                className="w-5 h-5"
+                fill={isFavorited ? '#008080' : 'none'}
+                stroke={isFavorited ? '#008080' : '#6b7280'}
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1717,7 +1730,7 @@ export default function BusinessDetailPage() {
               {employees.map((emp) => (
                 <Link
                   key={emp.id}
-                  href={`/marketplace/${tenantSlug}/professional/${emp.id}`}
+                  href={`/marketplace/${tenantSlug}/professional/${emp.id}${fromAdmin ? '?fromAdmin=1' : ''}`}
                   className="flex flex-col items-center group"
                 >
                   <div
@@ -2261,8 +2274,9 @@ export default function BusinessDetailPage() {
       </div>
 
       {/* Floating CTA — sits above the bottom nav (bottom-20 = 5rem).
-          z-40 para quedar por encima de las flechas del carousel de fotos. */}
-      {!bookingStep && (
+          z-40 para quedar por encima de las flechas del carousel de fotos.
+          Escondido en modo preview admin (el dueno solo viene a ver). */}
+      {!bookingStep && !fromAdmin && (
         <div className="fixed bottom-20 left-0 right-0 px-4 pointer-events-none z-40">
           <div className="max-w-2xl mx-auto pointer-events-auto">
             <button

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 const TEAL = '#008080';
 
@@ -49,8 +49,13 @@ const HIDDEN_PATHS = ['/marketplace/login', '/marketplace/register'];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Modo preview admin (?fromAdmin=1 desde /settings/business): no mostramos
+  // el nav porque el admin solo viene a ver, no a navegar el portal cliente.
+  const fromAdmin = searchParams.get('fromAdmin') === '1';
 
   if (HIDDEN_PATHS.some((p) => pathname.startsWith(p))) return null;
+  if (fromAdmin) return null;
 
   return (
     <div
