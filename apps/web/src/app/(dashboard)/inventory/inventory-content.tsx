@@ -512,7 +512,7 @@ export function InventoryContent() {
                       <th className="text-center px-4 py-3 font-medium text-gray-600">Stock</th>
                       <th className="text-center px-4 py-3 font-medium text-gray-600">Mín.</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">Estado</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">Archivado</th>
                       <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
                     </tr>
                   </thead>
@@ -597,14 +597,12 @@ export function InventoryContent() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {product.isActive ? (
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                                Activo
+                            {!product.isActive ? (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
+                                Archivado
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
-                                Inactivo
-                              </span>
+                              <span className="text-xs text-gray-300">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1010,22 +1008,29 @@ export function InventoryContent() {
                 </li>
               )}
 
-              {/* Estado / Activo */}
-              <li className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                  Estado
-                </span>
+              {/* Archivar — invierte el campo isActive de BD (toggle ON = archivado).
+                  Archivado: oculto del marketplace, no genera alertas de stock bajo,
+                  pero conserva historial de ventas. */}
+              <li className="flex items-start justify-between gap-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide block">
+                    Archivar producto
+                  </span>
+                  <span className="text-[11px] text-[var(--text-secondary)] mt-0.5 block leading-snug">
+                    Si lo archivas, deja de aparecer en el marketplace pero conserva su historial
+                  </span>
+                </div>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={form.isActive}
+                  aria-checked={!form.isActive}
                   onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
-                  className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                  style={{ backgroundColor: form.isActive ? '#008080' : 'var(--border)' }}
+                  className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0 mt-0.5"
+                  style={{ backgroundColor: !form.isActive ? '#008080' : 'var(--border)' }}
                 >
                   <span
                     className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                    style={{ transform: form.isActive ? 'translateX(20px)' : 'translateX(0)' }}
+                    style={{ transform: !form.isActive ? 'translateX(20px)' : 'translateX(0)' }}
                   />
                 </button>
               </li>
@@ -1363,11 +1368,11 @@ export function InventoryContent() {
                     : 'No',
                 )}
                 {inlineRow(
-                  'Estado',
+                  'Archivado',
                   p.isActive ? (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Activo</span>
+                    <span className="text-sm text-[var(--text-secondary)]">No</span>
                   ) : (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Inactivo</span>
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Sí</span>
                   ),
                 )}
               </ul>
