@@ -7,6 +7,7 @@ import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
+import { MarketplaceBusinessCard } from '@/components/marketplace/business-card';
 import {
   SHAPES,
   SHAPE_NAMES,
@@ -749,57 +750,38 @@ export default function BusinessSettingsPage() {
         )}
       </form>
 
-      {/* Marketplace preview */}
+      {/* Marketplace preview — usa el mismo componente que el cliente ve.
+          Mezclamos los valores del form (edicion en vivo) con los datos
+          reales del tenant para que el preview refleje exactamente lo que
+          el cliente vera al guardar. Clickeable: abre el marketplace real
+          en una pestaña nueva. */}
       <div className="mt-8">
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Vista previa en el marketplace</h3>
-        <div className="max-w-xs pointer-events-none">
-          <div className="rounded-2xl overflow-hidden relative" style={{ height: 140 }}>
-            {/* Background */}
-            {tenant.coverImageUrl ? (
-              <img
-                src={`${API_URL}${tenant.coverImageUrl}`}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0" style={{ backgroundColor: form.cardColor || '#008080' }} />
-            )}
-            {/* Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10" />
-            {/* Content */}
-            <div className="relative h-full flex flex-col justify-between p-3">
-              <div className="flex items-start gap-2">
-                <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {tenant.logoUrl ? (
-                    <img src={`${API_URL}${tenant.logoUrl}`} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-bold text-white">{(form.name || tenant.name)?.[0]}</span>
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white leading-tight">{form.name || tenant.name}</p>
-                  {parseTypes(form.businessType)[0] && (
-                    <span className="text-[10px] text-white/80">{getTypeLabel(parseTypes(form.businessType)[0])}</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-0.5">
-                  <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  <span className="text-xs font-semibold text-white">4.8</span>
-                  <span className="text-[10px] text-white/70">(12)</span>
-                </div>
-                {form.address && (
-                  <span className="text-[10px] text-white/80 truncate max-w-[120px]">{form.address}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <MarketplaceBusinessCard
+          biz={{
+            id: tenant.id,
+            name: form.name || tenant.name,
+            slug: tenant.slug,
+            logoUrl: tenant.logoUrl,
+            coverImageUrl: tenant.coverImageUrl,
+            cardColor: form.cardColor || tenant.cardColor,
+            businessType: form.businessType || tenant.businessType,
+            averageRating: tenant.averageRating ?? null,
+            totalReviews: tenant.totalReviews ?? 0,
+            completedAppointments: tenant.completedAppointments ?? 0,
+          }}
+          onClick={() => {
+            if (tenant.slug) {
+              window.open(`/marketplace/${tenant.slug}`, '_blank', 'noopener,noreferrer');
+            }
+          }}
+        />
         <p className="text-xs text-gray-400 mt-2">
-          Así se verá tu negocio en el marketplace · {tenant.coverImageUrl ? 'Usando imagen de portada' : `Color: ${form.cardColor}`}
+          {form.isMarketplaceListed
+            ? 'Así se ve tu negocio en el marketplace · click para abrirlo'
+            : 'Activa "Mostrar en el marketplace" para que los clientes lo vean'}
+          {' · '}
+          {tenant.coverImageUrl ? 'Usando imagen de portada' : `Fondo color ${form.cardColor}`}
         </p>
       </div>
 

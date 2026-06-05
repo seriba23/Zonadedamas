@@ -291,7 +291,41 @@ export class TenantsService {
       },
     });
     if (!tenant) throw new NotFoundException('Negocio no encontrado');
-    return tenant;
+
+    // Aggregates que el preview del marketplace en /settings/business necesita
+    // para mostrar la tarjeta IGUAL a la que ve el cliente (estrellas o badge
+    // NUEVO). Combinamos TenantReview + EmployeeReview.businessRating, misma
+    // logica que getCombinedTenantRating del MarketplaceService.
+    const [tenantAgg, employeeBusinessAgg, completedAppointments] = await Promise.all([
+      this.prisma.tenantReview.aggregate({
+        where: { tenantId },
+        _sum: { rating: true },
+        _count: { id: true },
+      }),
+      this.prisma.employeeReview.aggregate({
+        where: { tenantId, isVisible: true, businessRating: { not: null } },
+        _sum: { businessRating: true },
+        _count: { businessRating: true },
+      }),
+      this.prisma.appointment.count({
+        where: { tenantId, status: 'COMPLETED' },
+      }),
+    ]);
+
+    const tenantSum = Number(tenantAgg._sum.rating || 0);
+    const tenantCount = tenantAgg._count.id;
+    const empSum = Number(employeeBusinessAgg._sum.businessRating || 0);
+    const empCount = employeeBusinessAgg._count.businessRating;
+    const totalCount = tenantCount + empCount;
+    const totalSum = tenantSum + empSum;
+    const averageRating = totalCount > 0 ? Math.round((totalSum / totalCount) * 10) / 10 : null;
+
+    return {
+      ...tenant,
+      averageRating,
+      totalReviews: totalCount,
+      completedAppointments,
+    };
   }
 
   async updateProfile(tenantId: string, dto: UpdateTenantProfileDto) {
