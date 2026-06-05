@@ -16,6 +16,7 @@ export class ReportsService {
       clients,
       newClients,
       recentActivity,
+      productSales,
     ] = await Promise.all([
       // All appointments in range
       this.prisma.appointment.findMany({
@@ -24,7 +25,7 @@ export class ReportsService {
           startTime: { gte: start, lte: end },
         },
         include: {
-          items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
+          items: { select: { serviceNameSnapshot: true, priceSnapshot: true, commissionSnapshot: true } },
           employee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true } },
           client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, source: true } },
           payments: { select: { status: true, totalAmount: true, paymentMethod: true } },
@@ -52,6 +53,21 @@ export class ReportsService {
         take: 10,
         select: { eventName: true, payload: true, createdAt: true },
       }),
+      // Product sales (DELIVERED reservations) — for combined revenue + profit.
+      // updatedAt es cuando paso a DELIVERED (entrega real). Si en el futuro
+      // agregamos deliveredAt explicito, cambiamos a ese campo.
+      this.prisma.productReservation.findMany({
+        where: {
+          tenantId,
+          status: 'DELIVERED',
+          updatedAt: { gte: start, lte: end },
+        },
+        select: {
+          quantity: true,
+          unitPrice: true,
+          product: { select: { costPrice: true } },
+        },
+      }),
     ]);
 
     // ─── KPIs ───────────────────────────────────────
@@ -67,6 +83,27 @@ export class ReportsService {
       (sum, a) => sum + a.items.reduce((s, i) => s + Number(i.priceSnapshot), 0), 0,
     );
     const averageTicket = completedAppointments > 0 ? Math.round((totalRevenue / completedAppointments) * 100) / 100 : 0;
+
+    // ─── Combined revenue (services + products) + profit ──
+    // Servicios: ya esta calculado en totalRevenue
+    // Comisiones de servicios: suma de commissionSnapshot en items de citas completadas
+    const serviceCommissions = completedApts.reduce(
+      (sum, a) => sum + a.items.reduce((s, i) => s + Number(i.commissionSnapshot || 0), 0), 0,
+    );
+    // Productos: revenue = sum(unitPrice * quantity), cost = sum(costPrice * quantity)
+    // costPrice puede ser null (producto sin costo registrado) → contamos 0 para no
+    // inflar la ganancia con costos desconocidos. El revenue siempre suma.
+    let productRevenue = 0;
+    let productCost = 0;
+    for (const sale of productSales) {
+      const qty = sale.quantity;
+      productRevenue += Number(sale.unitPrice) * qty;
+      productCost += Number(sale.product.costPrice || 0) * qty;
+    }
+    // Fase A: ganancia = (servicios - comisiones servicios) + (ventas productos - costo productos).
+    // Cuando se agreguen comisiones de productos (Fase B), restarlas aqui tambien.
+    const totalRevenueAll = totalRevenue + productRevenue;
+    const totalProfit = (totalRevenue - serviceCommissions) + (productRevenue - productCost);
 
     // ─── Revenue by day (from completed appointments) ──
     const revenueByDay: Record<string, { revenue: number; count: number }> = {};
@@ -188,6 +225,12 @@ export class ReportsService {
     return {
       kpis: {
         totalRevenue: Math.round(totalRevenue * 100) / 100,
+        // Fase A — desglose para cards "Todos los ingresos" y "Todas las ganancias"
+        productRevenue: Math.round(productRevenue * 100) / 100,
+        productCost: Math.round(productCost * 100) / 100,
+        serviceCommissions: Math.round(serviceCommissions * 100) / 100,
+        totalRevenueAll: Math.round(totalRevenueAll * 100) / 100,
+        totalProfit: Math.round(totalProfit * 100) / 100,
         totalAppointments,
         completedAppointments,
         cancelledAppointments,
