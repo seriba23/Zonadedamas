@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { formatCurrency } from '@/lib/utils';
 import { SuccessPopup } from '@/components/ui/success-popup';
@@ -60,8 +60,12 @@ function buildAddress(f: { addrStreet: string; addrNumber: string; addrColonia: 
 export default function ShopPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const tenantSlug = params.tenantSlug as string;
   const { user, isAuthenticated, refreshUser } = useMarketplaceAuth();
+  // Modo preview admin: viene desde /settings/business → click en icono de tienda.
+  // Puede ver el catalogo pero no agregar al carrito ni comprar.
+  const fromAdmin = searchParams.get('fromAdmin') === '1';
 
   // UI state
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
@@ -117,6 +121,7 @@ export default function ShopPage() {
 
   // Cart functions
   const addToCart = (product: ShopProduct, qty: number = 1) => {
+    if (fromAdmin) return; // preview readonly
     setCart((prev) => {
       const existing = prev.find((c) => c.product.id === product.id);
       if (existing) {
@@ -147,6 +152,7 @@ export default function ShopPage() {
 
   const reserveMutation = useMutation({
     mutationFn: async (body: any) => {
+      if (fromAdmin) throw new Error('preview-readonly'); // no compras en preview
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = marketplaceApi.getAccessToken();
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -266,15 +272,17 @@ export default function ShopPage() {
             <h1 className="text-base font-bold text-gray-900">Tienda {settings?.tenantName || ''}</h1>
             <p className="text-[10px] text-gray-500">{filtered.length} producto{filtered.length !== 1 ? 's' : ''}</p>
           </div>
-          {/* Cart button */}
-          <button onClick={() => setShowCart(true)} className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100">
-            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-            </svg>
-            {cartCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: TEAL }}>{cartCount}</span>
-            )}
-          </button>
+          {/* Cart button — escondido en preview admin (no se puede comprar) */}
+          {!fromAdmin && (
+            <button onClick={() => setShowCart(true)} className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100">
+              <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: TEAL }}>{cartCount}</span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -346,26 +354,28 @@ export default function ShopPage() {
                       <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-tight min-h-[2.5rem]">{product.name}</p>
                       <p className="text-sm font-bold mt-1" style={{ color: TEAL }}>{formatCurrency(Number(product.price), product.currency || 'MXN')}</p>
                     </button>
-                    <div className="mt-2">
-                    {inCart ? (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => inCart.quantity <= 1 ? removeFromCart(product.id) : updateCartQty(product.id, inCart.quantity - 1)}
-                            className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-sm">-</button>
-                          <span className="text-sm font-semibold w-5 text-center">{inCart.quantity}</span>
-                          <button onClick={() => updateCartQty(product.id, inCart.quantity + 1)}
-                            className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-sm">+</button>
+                    {!fromAdmin && (
+                      <div className="mt-2">
+                      {inCart ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => inCart.quantity <= 1 ? removeFromCart(product.id) : updateCartQty(product.id, inCart.quantity - 1)}
+                              className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-sm">-</button>
+                            <span className="text-sm font-semibold w-5 text-center">{inCart.quantity}</span>
+                            <button onClick={() => updateCartQty(product.id, inCart.quantity + 1)}
+                              className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-sm">+</button>
+                          </div>
+                          <button onClick={() => removeFromCart(product.id)} className="text-[10px] text-red-500 hover:text-red-700">Quitar</button>
                         </div>
-                        <button onClick={() => removeFromCart(product.id)} className="text-[10px] text-red-500 hover:text-red-700">Quitar</button>
+                      ) : (
+                        <button onClick={() => addToCart(product)}
+                          className="w-full py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ backgroundColor: TEAL }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}
+                        >Anadir al carrito</button>
+                      )}
                       </div>
-                    ) : (
-                      <button onClick={() => addToCart(product)}
-                        className="w-full py-1.5 text-xs font-medium rounded-lg text-white transition-colors" style={{ backgroundColor: TEAL }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}
-                      >Anadir al carrito</button>
                     )}
-                    </div>
                   </div>
                 </div>
               );
@@ -451,12 +461,14 @@ export default function ShopPage() {
                 </svg>
                 {selectedProduct.shippingEnabled ? <span className="text-green-600 font-medium">Envio disponible</span> : <span className="text-gray-500">Solo recoger en tienda</span>}
               </div>
-              <button onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}
-                className="w-full mt-5 py-3 text-white text-sm font-semibold rounded-xl transition-colors" style={{ backgroundColor: TEAL }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}>
-                Anadir al carrito
-              </button>
+              {!fromAdmin && (
+                <button onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}
+                  className="w-full mt-5 py-3 text-white text-sm font-semibold rounded-xl transition-colors" style={{ backgroundColor: TEAL }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = TEAL_DARK}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = TEAL}>
+                  Anadir al carrito
+                </button>
+              )}
             </div>
           </div>
         </div>

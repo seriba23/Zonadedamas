@@ -744,8 +744,10 @@ export default function BusinessDetailPage() {
   const [reviewSuccess, setReviewSuccess] = useState<string | null>(null);
 
   const reviewMutation = useMutation({
-    mutationFn: (payload: { rating: number; comment: string }) =>
-      marketplaceApi.post<{ data: any }>(`/discover/${tenantSlug}/reviews`, payload),
+    mutationFn: (payload: { rating: number; comment: string }) => {
+      if (fromAdmin) return Promise.reject(new Error('preview-readonly'));
+      return marketplaceApi.post<{ data: any }>(`/discover/${tenantSlug}/reviews`, payload);
+    },
     onSuccess: () => {
       setReviewForm({ open: false, rating: 0, comment: '', saving: false });
       setReviewSuccess(biz?.myReview ? 'Tu reseña fue actualizada' : 'Gracias por tu reseña');
@@ -758,7 +760,10 @@ export default function BusinessDetailPage() {
   });
 
   const deleteReviewMutation = useMutation({
-    mutationFn: () => marketplaceApi.del<{ data: any }>(`/discover/${tenantSlug}/reviews/me`),
+    mutationFn: () => {
+      if (fromAdmin) return Promise.reject(new Error('preview-readonly'));
+      return marketplaceApi.del<{ data: any }>(`/discover/${tenantSlug}/reviews/me`);
+    },
     onSuccess: () => {
       setReviewSuccess('Tu reseña fue eliminada');
       queryClient.invalidateQueries({ queryKey: ['marketplace-business', tenantSlug] });
@@ -766,6 +771,7 @@ export default function BusinessDetailPage() {
   });
 
   function openReviewForm() {
+    if (fromAdmin) return;
     if (!isAuthenticated) {
       router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
       return;
@@ -880,6 +886,7 @@ export default function BusinessDetailPage() {
   // Helpers para abrir el wizard ya con un servicio o paquete preseleccionado.
   // Se usan desde el listado de servicios del perfil del negocio.
   const startBookingWithService = (serviceId: string) => {
+    if (fromAdmin) return;
     if (!isAuthenticated) {
       const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
       const redirect = savedRef
@@ -915,6 +922,7 @@ export default function BusinessDetailPage() {
   };
 
   const startBookingWithBundle = (bundle: any) => {
+    if (fromAdmin) return;
     if (!isAuthenticated) {
       router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
       return;
@@ -1246,7 +1254,7 @@ export default function BusinessDetailPage() {
         <div className="absolute top-4 right-4 flex items-center gap-2">
           {biz.shopEnabled && (
             <Link
-              href={`/marketplace/${tenantSlug}/shop`}
+              href={`/marketplace/${tenantSlug}/shop${fromAdmin ? '?fromAdmin=1' : ''}`}
               className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
               title="Tienda"
             >
