@@ -25,6 +25,20 @@ export class ReportsController {
     return { data };
   }
 
+  @Get('sales-breakdown')
+  @RequirePermissions('reports.revenue')
+  async getSalesBreakdown(
+    @Req() req: any,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    const now = new Date();
+    const start = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const end = endDate || now.toISOString().split('T')[0];
+    const data = await this.reportsService.getSalesBreakdown(req.user.tenantId, start, end);
+    return { data };
+  }
+
   @Get('today')
   @RequirePermissions('reports.revenue')
   async getTodaySummary(@Req() req: any) {

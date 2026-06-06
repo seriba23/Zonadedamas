@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort } from '@/lib/booking-time';
 import { DetailSheet } from '@/components/ui/detail-sheet';
+import { SalesBreakdownGrid } from '@/components/dashboard/sales-breakdown-grid';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -136,6 +137,24 @@ export function PosHistory() {
 
   const range = useMemo(() => buildDateRange(period), [period]);
 
+  // Rango (YYYY-MM-DD local) para el grid Venta Total. Sigue el período activo
+  // del POS history. Si "Todo" → desde 2020-01-01 hasta hoy.
+  const breakdownRange = useMemo(() => {
+    const today = new Date();
+    const end = fmtLocal(today);
+    if (period === 'today') return { start: end, end };
+    if (period === 'week') {
+      const s = new Date(today);
+      s.setDate(s.getDate() - 6);
+      return { start: fmtLocal(s), end };
+    }
+    if (period === 'month') {
+      const s = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start: fmtLocal(s), end };
+    }
+    return { start: '2020-01-01', end };
+  }, [period]);
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['pos-history', range.startDate, range.endDate, method],
     queryFn: () => {
@@ -244,6 +263,15 @@ export function PosHistory() {
               )}
             </div>
           )}
+
+          {/* Venta total del periodo — servicios + paquetes + productos del negocio */}
+          <div className="mb-3">
+            <SalesBreakdownGrid
+              startDate={breakdownRange.start}
+              endDate={breakdownRange.end}
+              periodLabel={PERIOD_LABEL[period]}
+            />
+          </div>
 
           {/* Resumen del período */}
           {!isLoading && (

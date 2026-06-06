@@ -6,6 +6,59 @@ import { LOW_STOCK_WHERE, isLowStockRow } from '../products/products.service';
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Desglose de "Venta Total" del período: servicios sueltos | paquetes | productos.
+   * Endpoint ligero usado en /reports, /home y /pos history para el grid
+   * "Venta Total". Mantiene el mismo criterio de fechas que getDashboardReport
+   * (startTime para servicios/paquetes; updatedAt para productos DELIVERED).
+   */
+  async getSalesBreakdown(tenantId: string, startDate: string, endDate: string) {
+    const start = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T23:59:59Z`);
+
+    const [completedAppts, productSales] = await Promise.all([
+      this.prisma.appointment.findMany({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          startTime: { gte: start, lte: end },
+        },
+        select: {
+          bundleId: true,
+          items: { select: { priceSnapshot: true } },
+        },
+      }),
+      this.prisma.productReservation.findMany({
+        where: {
+          tenantId,
+          status: 'DELIVERED',
+          updatedAt: { gte: start, lte: end },
+        },
+        select: { quantity: true, unitPrice: true },
+      }),
+    ]);
+
+    let services = 0;
+    let bundles = 0;
+    for (const apt of completedAppts) {
+      const itemsTotal = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+      if (apt.bundleId) bundles += itemsTotal;
+      else services += itemsTotal;
+    }
+    let products = 0;
+    for (const sale of productSales) {
+      products += Number(sale.unitPrice) * sale.quantity;
+    }
+    const total = services + bundles + products;
+
+    return {
+      total: Math.round(total * 100) / 100,
+      services: Math.round(services * 100) / 100,
+      bundles: Math.round(bundles * 100) / 100,
+      products: Math.round(products * 100) / 100,
+    };
+  }
+
   async getDashboardReport(tenantId: string, startDate: string, endDate: string) {
     const start = new Date(`${startDate}T00:00:00Z`);
     const end = new Date(`${endDate}T23:59:59Z`);

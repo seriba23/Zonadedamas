@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { KpiCard } from './kpi-card';
+import { SalesBreakdownGrid } from './sales-breakdown-grid';
 import { Last7DaysChart } from './last-7-days-chart';
 import { UpcomingAppointments } from './upcoming-appointments';
 import { AlertsPanel } from './alerts-panel';
@@ -35,6 +36,16 @@ export function DashboardView() {
 
   const report = data?.data;
 
+  // Rango "este mes" para el grid Venta Total — coherente con los KPIs de mes
+  // del row inferior (citas del mes, ticket promedio). Se evalua una sola vez
+  // por render; el cambio de dia natural reabre la vista igualmente.
+  const monthBounds = (() => {
+    const now = new Date();
+    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const end = now.toISOString().split('T')[0];
+    return { start, end };
+  })();
+
   if (isLoading || !report) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -53,6 +64,13 @@ export function DashboardView() {
 
   return (
     <div className="space-y-6">
+      {/* Row 0: Venta total del mes (servicios + paquetes + productos) */}
+      <SalesBreakdownGrid
+        startDate={monthBounds.start}
+        endDate={monthBounds.end}
+        periodLabel="Este mes"
+      />
+
       {/* Row 1: KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
