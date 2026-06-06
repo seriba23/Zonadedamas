@@ -809,6 +809,44 @@ export class AppointmentsService {
       employeeId: appointment.employeeId,
     });
 
+    // Notificación push de "Califica tu experiencia" — registramos la
+    // intención. Cuando se conecte FCM/APNS, el worker que consuma
+    // NotificationLog con status=SENT y channel=PUSH disparará el envío
+    // real. Si hay confirmationToken, incluimos el deeplink al QR/page;
+    // si no, link genérico al portal del cliente.
+    try {
+      const client = appointment.clientId
+        ? await this.prisma.client.findUnique({
+            where: { id: appointment.clientId },
+            select: { firstName: true, email: true, phone: true },
+          })
+        : null;
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { slug: true, name: true },
+      });
+      const deepLink = updated.confirmationToken
+        ? `/confirm-payment/${updated.confirmationToken}`
+        : `/portal/${tenant?.slug || ''}/appointments/${id}`;
+      await this.prisma.notificationLog.create({
+        data: {
+          tenantId,
+          channel: 'PUSH',
+          eventName: 'appointment.completed',
+          recipientEmail: client?.email || null,
+          recipientPhone: client?.phone || null,
+          subject: 'Califica tu experiencia',
+          body: `Hola ${client?.firstName || ''}, tu cita en ${tenant?.name || ''} fue completada. Califica tu experiencia: ${deepLink}`.trim(),
+          status: 'SENT',
+          metadata: { appointmentId: id, deepLink },
+          sentAt: new Date(),
+        },
+      });
+    } catch (err) {
+      // No bloqueamos el cierre de la cita si el log de notificación falla.
+      this.logger.warn(`Failed to log appointment.completed push intent: ${err}`);
+    }
+
     return { data: updated };
   }
 
@@ -893,6 +931,38 @@ export class AppointmentsService {
     });
 
     return { data: payment };
+  }
+
+  /**
+   * Genera el token de confirmación que el cliente usa para confirmar el
+   * cobro y dejar su reseña desde su móvil (QR/link al cierre de cita).
+   * Idempotente: si ya existe token y no se confirmó, lo devuelve. Si ya
+   * se confirmó (confirmedAt set), no se vuelve a generar.
+   */
+  async generateConfirmationToken(id: string, tenantId: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+      select: { id: true, status: true, confirmationToken: true, confirmedAt: true },
+    });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+    if (appointment.confirmedAt) {
+      return { data: { token: appointment.confirmationToken, alreadyConfirmed: true } };
+    }
+    if (appointment.confirmationToken) {
+      return { data: { token: appointment.confirmationToken, alreadyConfirmed: false } };
+    }
+    // Token de 12 chars (sin ambiguos 0/O, 1/I/L). 32^12 ~ 1.15e18 combinaciones.
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let token = '';
+    for (let i = 0; i < 12; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { confirmationToken: token },
+      select: { confirmationToken: true },
+    });
+    return { data: { token: updated.confirmationToken, alreadyConfirmed: false } };
   }
 
   async confirm(id: string, tenantId: string, userId?: string) {

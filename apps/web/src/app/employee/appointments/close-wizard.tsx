@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '@/lib/api';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -28,7 +29,7 @@ interface UploadedPhoto {
   imageUrl: string;
 }
 
-type Step = 'consent' | 'photos' | 'payment' | 'done';
+type Step = 'consent' | 'photos' | 'payment' | 'qr' | 'done';
 
 const PAYMENT_METHODS = [
   { key: 'CASH', label: 'Efectivo', icon: '💵' },
@@ -112,16 +113,35 @@ export function CloseAppointmentWizard({
     fileInputRef.current?.click();
   }
 
+  const [confirmationToken, setConfirmationToken] = useState<string | null>(null);
+
   const recordPaymentMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointment.id}/record-payment`, {
         paymentMethod,
         amount: total,
       }),
-    onSuccess: () => setStep('done'),
+    onSuccess: () => generateTokenMutation.mutate(),
     onError: (err: any) => {
-      // 409 = payment already recorded, skip to done
-      if (err?.statusCode === 409) setStep('done');
+      // 409 = payment already recorded, salta al QR igualmente
+      if (err?.statusCode === 409) generateTokenMutation.mutate();
+    },
+  });
+
+  const generateTokenMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ data: { token: string; alreadyConfirmed: boolean } }>(
+        `/api/appointments/${appointment.id}/generate-confirmation-token`,
+        {},
+      ),
+    onSuccess: (res) => {
+      setConfirmationToken(res.data.token);
+      setStep('qr');
+    },
+    onError: () => {
+      // Si falla la generacion (BD aun sin la columna, p.ej.), saltamos al
+      // step done con el flujo viejo sin QR para no bloquear al empleado.
+      setStep('done');
     },
   });
 
@@ -131,8 +151,13 @@ export function CloseAppointmentWizard({
     onSuccess: onDone,
   });
 
-  const stepNumber = { consent: 1, photos: 2, payment: 3, done: 4 }[step];
-  const totalSteps = photoConsent === false ? 3 : 4;
+  const stepNumber = { consent: 1, photos: 2, payment: 3, qr: 4, done: 5 }[step];
+  const totalSteps = photoConsent === false ? 4 : 5;
+
+  // URL que el cliente abre en su movil (QR + link copiable).
+  const confirmationUrl = confirmationToken
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/confirm-payment/${confirmationToken}`
+    : '';
 
   return (
     <div
@@ -343,7 +368,49 @@ export function CloseAppointmentWizard({
             </div>
           )}
 
-          {/* ─── Step 4: Done ────────────────────────────── */}
+          {/* ─── Step 4: QR de confirmacion al cliente ───── */}
+          {step === 'qr' && confirmationToken && (
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 mb-1 text-center">Confirmación del cliente</h2>
+              <p className="text-sm text-gray-500 text-center mb-4">
+                Pide a <span className="font-semibold">{appointment.client.firstName}</span> que escanee el QR para
+                ver el desglose, confirmar el cobro y dejar su reseña.
+              </p>
+
+              <div className="bg-gray-50 rounded-2xl p-4 mb-4 flex items-center justify-center">
+                <div className="bg-white p-3 rounded-xl">
+                  <QRCodeSVG value={confirmationUrl} size={180} level="M" />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-3 mb-4 flex items-center gap-2">
+                <p className="text-[11px] text-gray-600 flex-1 min-w-0 truncate font-mono">
+                  {confirmationUrl}
+                </p>
+                <button
+                  onClick={() => {
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(confirmationUrl).catch(() => {});
+                    }
+                  }}
+                  className="text-[11px] font-semibold text-white px-2.5 py-1 rounded-lg flex-shrink-0"
+                  style={{ backgroundColor: TEAL }}
+                >
+                  Copiar
+                </button>
+              </div>
+
+              <button
+                onClick={() => setStep('done')}
+                className="w-full py-3 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: TEAL }}
+              >
+                Continuar
+              </button>
+            </div>
+          )}
+
+          {/* ─── Step 5: Done ────────────────────────────── */}
           {step === 'done' && (
             <div className="text-center py-2">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 mx-auto" style={{ backgroundColor: '#e0f2f1' }}>

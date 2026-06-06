@@ -146,6 +146,21 @@ export class AppointmentsController {
     return this.appointmentsService.recordPayment(id, tenantId, body, user.userId);
   }
 
+  /**
+   * Genera (o devuelve si ya existe) el token de confirmación que el cliente
+   * usa para confirmar el cobro y dejar su reseña desde su móvil.
+   * Idempotente: regenerarlo devuelve el mismo token mientras no se haya
+   * confirmado. Una vez confirmedAt está seteado, no se regenera.
+   */
+  @Post(':id/generate-confirmation-token')
+  @RequirePermissions('appointments.complete')
+  async generateConfirmationToken(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.generateConfirmationToken(id, tenantId);
+  }
+
   // ─── COMPROBANTE DE PAGO (admin / POS) ───────────────
   // Sube/reemplaza la captura del comprobante de pago en una cita. Lo usa
   // el flujo de transferencia del POS cuando el cliente envía la captura

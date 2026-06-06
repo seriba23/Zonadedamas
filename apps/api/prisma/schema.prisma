@@ -829,6 +829,11 @@ model Appointment {
   createdBy          String?           @map("created_by")
   photoConsent       Boolean?          @map("photo_consent")
   photoConsentAt     DateTime?         @map("photo_consent_at")
+  // Token de "Confirmación del cliente" — se le entrega al cliente via QR
+  // o link al cerrar la cita; al abrir el link confirma el cobro y deja
+  // su reseña. Idempotente: el empleado puede regenerar el mismo si lo pide.
+  confirmationToken  String?           @unique @map("confirmation_token")
+  confirmedAt        DateTime?         @map("confirmed_at")
   bundleId           String?           @map("bundle_id")
   redemptionId       String?           @unique @map("redemption_id")
   discountAmount     Decimal?          @map("discount_amount") @db.Decimal(10, 2)
