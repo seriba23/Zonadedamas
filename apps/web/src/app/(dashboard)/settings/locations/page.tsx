@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
+import {
+  AddressFields,
+  emptyAddress,
+  parseAddress,
+  serializeAddress,
+  validateAddress,
+  type AddressValue,
+} from '@/components/ui/address-fields';
 
 interface Location {
   id: string;
@@ -16,36 +24,11 @@ interface Location {
   isActive: boolean;
 }
 
-interface AddressFields {
-  street: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-}
-
 interface LocationForm {
   name: string;
-  addressFields: AddressFields;
+  addressFields: AddressValue;
   phone: string;
   email: string;
-}
-
-const EMPTY_ADDRESS: AddressFields = { street: '', city: '', state: '', postalCode: '', country: '' };
-
-function buildFullAddress(f: AddressFields): string {
-  return [f.street, f.city, f.state, f.postalCode, f.country].filter(Boolean).join(', ');
-}
-
-function parseAddress(addr: string): AddressFields {
-  const parts = addr.split(',').map((s) => s.trim());
-  return {
-    street: parts[0] || '',
-    city: parts[1] || '',
-    state: parts[2] || '',
-    postalCode: parts[3] || '',
-    country: parts[4] || '',
-  };
 }
 
 // Forward-geocode full address → lat/lng using Nominatim (no API key needed)
@@ -66,7 +49,9 @@ async function forwardGeocode(address: string): Promise<{ lat: number; lng: numb
 }
 
 function emptyForm(adminEmail: string): LocationForm {
-  return { name: '', addressFields: EMPTY_ADDRESS, phone: '', email: adminEmail };
+  // Default country MX para que el dropdown de subdivisions/ciudades arranque
+  // listo (la mayoría de tenants son MX). Se puede cambiar en el dropdown.
+  return { name: '', addressFields: emptyAddress('mx'), phone: '', email: adminEmail };
 }
 
 export default function LocationsPage() {
@@ -105,23 +90,42 @@ export default function LocationsPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); setDeleteConfirm(null); },
   });
 
-  function openCreate() { setEditing(null); setForm(emptyForm(adminEmail)); setShowModal(true); }
+  function openCreate() { setEditing(null); setForm(emptyForm(adminEmail)); setShowModal(true); setAddrErrors({}); }
   function openEdit(loc: Location) {
     setEditing(loc);
     setForm({
       name: loc.name,
-      addressFields: loc.address ? parseAddress(loc.address) : EMPTY_ADDRESS,
+      // parseAddress intenta reconstruir los campos a partir del string
+      // serializado (Calle Num, Colonia, Ciudad, Region, CP, Pais). Si la
+      // dirección guardada es del formato viejo, los campos que no matchean
+      // quedan vacíos y el usuario puede completar.
+      addressFields: loc.address ? parseAddress(loc.address) : emptyAddress('mx'),
       phone: loc.phone || '',
       email: loc.email || adminEmail,
     });
     setShowModal(true);
+    setAddrErrors({});
   }
-  function closeModal() { setShowModal(false); setEditing(null); }
+  function closeModal() { setShowModal(false); setEditing(null); setAddrErrors({}); }
+
+  const [addrErrors, setAddrErrors] = useState<Partial<Record<keyof AddressValue, string>>>({});
+  // Rastrea si el mousedown del clic empezó en el overlay. Sin esto, si el
+  // usuario selecciona texto dentro de un input y arrastra el mouse fuera
+  // del input, el mouseup cae en el overlay y dispara un click que cierra
+  // el modal — perdiendo lo que estaba escribiendo. Solo cerramos si tanto
+  // el mousedown COMO el click ocurrieron en el overlay mismo.
+  const [downOnOverlay, setDownOnOverlay] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const errs = validateAddress(form.addressFields);
+    if (Object.keys(errs).length > 0) {
+      setAddrErrors(errs);
+      return;
+    }
+    setAddrErrors({});
     setSaving(true);
-    const fullAddress = buildFullAddress(form.addressFields);
+    const fullAddress = serializeAddress(form.addressFields);
     // Auto-geocode the address silently
     const coords = await forwardGeocode(fullAddress);
     const payload = {
@@ -141,9 +145,6 @@ export default function LocationsPage() {
   }
 
   const isPending = saving || createMutation.isPending || updateMutation.isPending;
-
-  const setAddr = (field: keyof AddressFields, value: string) =>
-    setForm((prev) => ({ ...prev, addressFields: { ...prev.addressFields, [field]: value } }));
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -226,7 +227,14 @@ export default function LocationsPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto" onClick={closeModal}>
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+          onMouseDown={(e) => setDownOnOverlay(e.target === e.currentTarget)}
+          onClick={(e) => {
+            if (downOnOverlay && e.target === e.currentTarget) closeModal();
+            setDownOnOverlay(false);
+          }}
+        >
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl my-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-5">
@@ -248,50 +256,18 @@ export default function LocationsPage() {
                   />
                 </div>
 
-                {/* Address fields */}
-                <div className="space-y-3">
+                {/* Dirección — mismo bloque reutilizable que el form de cliente:
+                    País dropdown, subdivisiones (estado/provincia/departamento)
+                    según país, ciudades MX por estado, CP, calle + número y
+                    colonia opcional. Se geocodifica al guardar. */}
+                <div className="space-y-2">
                   <p className="text-sm font-medium text-gray-700">Dirección</p>
-                  <div>
-                    <input
-                      type="text"
-                      value={form.addressFields.street}
-                      onChange={(e) => setAddr('street', e.target.value)}
-                      placeholder="Calle y número"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={form.addressFields.city}
-                      onChange={(e) => setAddr('city', e.target.value)}
-                      placeholder="Ciudad"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                    <input
-                      type="text"
-                      value={form.addressFields.state}
-                      onChange={(e) => setAddr('state', e.target.value)}
-                      placeholder="Estado / Provincia"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={form.addressFields.postalCode}
-                      onChange={(e) => setAddr('postalCode', e.target.value)}
-                      placeholder="Código postal"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                    <input
-                      type="text"
-                      value={form.addressFields.country}
-                      onChange={(e) => setAddr('country', e.target.value)}
-                      placeholder="País"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                    />
-                  </div>
+                  <AddressFields
+                    value={form.addressFields}
+                    onChange={(next) => setForm((prev) => ({ ...prev, addressFields: next }))}
+                    required
+                    errors={addrErrors}
+                  />
                 </div>
 
                 {/* Phone */}
@@ -341,7 +317,14 @@ export default function LocationsPage() {
 
       {/* Delete confirm */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={() => setDeleteConfirm(null)}>
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4"
+          onMouseDown={(e) => setDownOnOverlay(e.target === e.currentTarget)}
+          onClick={(e) => {
+            if (downOnOverlay && e.target === e.currentTarget) setDeleteConfirm(null);
+            setDownOnOverlay(false);
+          }}
+        >
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
