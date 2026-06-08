@@ -23,6 +23,7 @@ interface AppointmentWizardProps {
   initialDate?: string;  // YYYY-MM-DD
   initialTime?: string;  // HH:mm
   initialEmployeeId?: string;
+  initialClientId?: string;
 }
 
 interface Client {
@@ -59,13 +60,16 @@ export function AppointmentWizard({
   initialDate,
   initialTime,
   initialEmployeeId,
+  initialClientId,
 }: AppointmentWizardProps) {
   const queryClient = useQueryClient();
   const { format: formatCurrency } = useCurrency();
 
   // ── Estado del wizard ──
-  const [step, setStep] = useState<WizardStep>('client');
-  const [selectedClientId, setSelectedClientId] = useState('');
+  // Si viene un cliente preseleccionado (rebook tras cerrar cita), saltamos
+  // el step 'client' al step de servicios para ahorrar un paso.
+  const [step, setStep] = useState<WizardStep>(initialClientId ? 'service' : 'client');
+  const [selectedClientId, setSelectedClientId] = useState(initialClientId || '');
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialEmployeeId || '');
   const [anyEmployee, setAnyEmployee] = useState(false);

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -2022,6 +2023,66 @@ export class MarketplaceService {
     return { message: 'Contraseña actualizada' };
   }
 
+  /**
+   * El cliente deja la reseña de SU cita ya completada desde el marketplace.
+   * Valida pertenencia (clientId.userId === marketplaceUserId), estado
+   * COMPLETED, y que no exista review previa. Idéntica forma a la creada por
+   * el flujo confirm-payment.
+   */
+  async createReviewForMyAppointment(
+    marketplaceUserId: string,
+    appointmentId: string,
+    dto: { rating: number; comment?: string; businessRating?: number; businessComment?: string },
+  ) {
+    if (!Number.isInteger(dto.rating) || dto.rating < 1 || dto.rating > 5) {
+      throw new BadRequestException('La calificación principal debe ser un entero entre 1 y 5');
+    }
+    if (dto.businessRating !== undefined && dto.businessRating !== null) {
+      if (!Number.isInteger(dto.businessRating) || dto.businessRating < 1 || dto.businessRating > 5) {
+        throw new BadRequestException('La calificación secundaria debe ser un entero entre 1 y 5');
+      }
+    }
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        id: true,
+        tenantId: true,
+        employeeId: true,
+        clientId: true,
+        status: true,
+        client: { select: { userId: true } },
+      },
+    });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+    if (appointment.client?.userId !== marketplaceUserId) {
+      throw new ForbiddenException('No puedes reseñar una cita ajena');
+    }
+    if (appointment.status !== 'COMPLETED') {
+      throw new BadRequestException('Solo puedes reseñar citas completadas');
+    }
+    const existing = await this.prisma.employeeReview.findUnique({
+      where: { appointmentId: appointment.id },
+    });
+    if (existing) {
+      throw new BadRequestException('Esta cita ya tiene una reseña');
+    }
+    const review = await this.prisma.employeeReview.create({
+      data: {
+        tenantId: appointment.tenantId,
+        employeeId: appointment.employeeId,
+        clientId: appointment.clientId,
+        appointmentId: appointment.id,
+        rating: dto.rating,
+        comment: dto.comment || null,
+        businessRating: dto.businessRating ?? null,
+        businessComment: dto.businessComment || null,
+        reviewedAt: new Date(),
+      },
+      select: { id: true, rating: true, businessRating: true, reviewedAt: true },
+    });
+    return { data: review };
+  }
+
   async getMyAppointments(
     marketplaceUserId: string,
     filter: 'upcoming' | 'past' | 'all',
@@ -2065,6 +2126,7 @@ export class MarketplaceService {
           select: {
             id: true, name: true, slug: true, logoUrl: true,
             timezone: true, businessPhone: true, currency: true,
+            tenantType: true,
           },
         },
         location: {
@@ -2088,6 +2150,8 @@ export class MarketplaceService {
             reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
           },
         },
+        // Para saber si la cita ya tiene reseña (oculta el modal en marketplace).
+        review: { select: { id: true, rating: true, businessRating: true } },
       },
     });
 

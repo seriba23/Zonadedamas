@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '@/lib/api';
+import { RebookPromptModal } from '@/components/ui/rebook-prompt-modal';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Modal } from '@/components/ui/modal';
@@ -61,6 +63,14 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const [transferProofFile, setTransferProofFile] = useState<File | null>(null);
   const [transferProofPreview, setTransferProofPreview] = useState<string | null>(null);
   const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
+  // Tras cobrar una cita, generamos el token de reseña para que el cliente
+  // escanee el QR aquí mismo en recepción. Si no puede/no quiere, el cajero
+  // pulsa "Saltar reseña" y el cliente la dejará luego desde su app.
+  const [confirmationToken, setConfirmationToken] = useState<string | null>(null);
+  const [reviewSkipped, setReviewSkipped] = useState(false);
+  // Modal "¿Agendar nueva cita?" al cerrar la venta. Solo aparece si la
+  // venta tuvo cliente conocido (cita pre-cargada o cliente seleccionado).
+  const [showRebook, setShowRebook] = useState(false);
 
   // Queries
   const today = new Date().toISOString().split('T')[0];
@@ -78,7 +88,15 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   // Incluimos COMPLETED para casos en que la cita se finaliza primero
   // (servicio dado) y se cobra despues por el POS — por ej. con propina
   // ajustada al final o con metodo de pago acordado tras el servicio.
-  const appointments = (appointmentsData?.data || []).filter((a: any) => ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(a.status));
+  // Citas con pendingPosPayment van arriba (las dejó el empleado para cobrar
+  // aquí; tienen badge naranja "Por cobrar" en la card).
+  const appointments = (appointmentsData?.data || [])
+    .filter((a: any) => ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(a.status))
+    .sort((a: any, b: any) => {
+      if (a.pendingPosPayment && !b.pendingPosPayment) return -1;
+      if (!a.pendingPosPayment && b.pendingPosPayment) return 1;
+      return 0;
+    });
   const services = servicesData?.data || [];
   const products = (productsData?.data || []).filter((p: any) => p.isActive && p.isShopListed && p.stock > 0);
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
@@ -192,6 +210,16 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
       // de React Query devuelve los datos viejos).
       queryClient.invalidateQueries({ queryKey: ['pos-history'] });
       queryClient.invalidateQueries({ queryKey: ['pos-appointments'] });
+      // Si hay cita asociada (sea pendingPosPayment o cobro estándar de
+      // cita), generamos el token de reseña para mostrar el QR aquí.
+      if (appointmentId) {
+        api.post<{ data: { token: string; alreadyConfirmed: boolean } }>(
+          `/api/appointments/${appointmentId}/generate-confirmation-token`,
+          {},
+        )
+          .then((res) => setConfirmationToken(res.data.token))
+          .catch(() => { /* silencioso — el receipt sigue funcionando sin QR */ });
+      }
       setStep('receipt');
     },
     onError: (err: any) => setError(err.message || 'Error al procesar el pago'),
@@ -229,6 +257,8 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
     setTransferProofFile(null);
     setTransferProofPreview(null);
     setProductDetail(null);
+    setConfirmationToken(null);
+    setReviewSkipped(false);
     setStep('start');
   }
 
@@ -625,13 +655,21 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
                       PENDING:     { text: 'Sin confirmar',  bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
                       IN_PROGRESS: { text: 'En curso',       bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
                     };
-                    const status = statusInfo[apt.status] || { text: apt.status, bg: 'bg-gray-100', textColor: 'text-gray-600', dot: '#94a3b8' };
+                    // pendingPosPayment gana al status — la cita ya fue
+                    // finalizada por el empleado y solo falta el cobro.
+                    const status = apt.pendingPosPayment
+                      ? { text: 'Por cobrar', bg: 'bg-orange-50', textColor: 'text-orange-700', dot: '#f97316' }
+                      : (statusInfo[apt.status] || { text: apt.status, bg: 'bg-gray-100', textColor: 'text-gray-600', dot: '#94a3b8' });
 
                     return (
                       <button
                         key={apt.id}
                         onClick={() => setSelectedAppointmentId(apt.id)}
-                        className="w-full bg-white rounded-2xl border border-gray-200 p-3 text-left hover:bg-gray-50 transition-colors"
+                        className={`w-full bg-white rounded-2xl p-3 text-left hover:bg-gray-50 transition-colors ${
+                          apt.pendingPosPayment
+                            ? 'border-2 border-orange-300 ring-1 ring-orange-100'
+                            : 'border border-gray-200'
+                        }`}
                       >
                         <div className="grid items-center gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: 'auto auto 1fr auto' }}>
                           {/* Col 1: fecha + hora */}
@@ -1063,6 +1101,34 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
               </div>
             </div>
 
+            {/* QR de reseña — solo cuando se cobró una cita y el cajero no
+                ha saltado la reseña. Si el cliente no quiere o no puede,
+                "Saltar reseña" la oculta; el cliente la dejará luego desde
+                /marketplace/appointments. */}
+            {confirmationToken && !reviewSkipped && (
+              <div className="bg-white rounded-xl border-2 border-teal-200 p-4 mb-4">
+                <p className="text-xs font-semibold text-teal-700 uppercase tracking-wider mb-1">Reseña del cliente</p>
+                <p className="text-sm text-gray-600 mb-3">
+                  Pide al cliente que escanee el QR para calificar el servicio.
+                </p>
+                <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-center mb-3">
+                  <div className="bg-white p-2 rounded-lg">
+                    <QRCodeSVG
+                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/confirm-payment/${confirmationToken}`}
+                      size={160}
+                      level="M"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReviewSkipped(true)}
+                  className="w-full py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  Saltar reseña (el cliente la deja después)
+                </button>
+              </div>
+            )}
+
             {/* Enviar comprobante por WhatsApp */}
             {whatsappUrl ? (
               <a
@@ -1159,7 +1225,12 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
             )}
 
             <button
-              onClick={resetCheckout}
+              onClick={() => {
+                // Si hubo cliente conocido en la venta, ofrecemos reagendar.
+                // El modal se encarga de redirigir o cerrar.
+                if (selectedClientId) setShowRebook(true);
+                else resetCheckout();
+              }}
               disabled={isTransfer && pendingPaymentId != null && !transferProofPreview}
               className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#008080' }}
@@ -1168,6 +1239,13 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
             </button>
           </div>
         </div>
+
+        <RebookPromptModal
+          show={showRebook}
+          clientId={selectedClientId}
+          clientFirstName={clientForReceipt?.firstName || 'el cliente'}
+          onDismiss={() => { setShowRebook(false); resetCheckout(); }}
+        />
       </div>
     );
   }

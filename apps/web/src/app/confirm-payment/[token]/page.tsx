@@ -22,7 +22,7 @@ interface AppointmentData {
   }>;
   payments: Array<{ paymentMethod: string; totalAmount: string | number; status: string; createdAt: string }>;
   photos: Array<{ id: string; imageUrl: string; serviceId: string }>;
-  tenant: { name: string; slug: string; logoUrl: string | null };
+  tenant: { name: string; slug: string; logoUrl: string | null; tenantType: 'FREELANCER' | 'BUSINESS' };
   review: { id: string; rating: number; businessRating: number | null } | null;
 }
 
@@ -282,6 +282,7 @@ export default function ConfirmPaymentPage({ params }: { params: Promise<{ token
         show={showReview && !hasReview}
         employeeName={`${data.employee.firstName} ${data.employee.lastName}`}
         businessName={data.tenant.name}
+        mode={data.tenant.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
         onSubmit={handleSubmitReview}
         onSkip={() => setShowReview(false)}
         isLoading={submittingReview}

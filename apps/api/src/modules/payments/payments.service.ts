@@ -81,7 +81,7 @@ export class PaymentsService {
       ) {
         await this.prisma.appointment.update({
           where: { id: dto.appointmentId },
-          data: { status: 'COMPLETED' },
+          data: { status: 'COMPLETED', pendingPosPayment: false },
         });
         await this.prisma.appointmentStatusHistory.create({
           data: {

@@ -185,6 +185,23 @@ export class MarketplaceController {
     );
   }
 
+  // El cliente deja la reseña de su cita ya completada desde el marketplace.
+  // Misma semántica que el flujo de confirm-payment (rating + opcional negocio
+  // o profesional según el tipo de tenant).
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('my-appointments/:id/review')
+  async createMyAppointmentReview(
+    @Req() req: any,
+    @Param('id') appointmentId: string,
+    @Body() dto: { rating: number; comment?: string; businessRating?: number; businessComment?: string },
+  ) {
+    return this.marketplaceService.createReviewForMyAppointment(
+      req.user.marketplaceUserId,
+      appointmentId,
+      dto,
+    );
+  }
+
   @UseGuards(MarketplaceJwtGuard)
   @Get('my-purchases')
   async getMyPurchases(

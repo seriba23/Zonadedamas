@@ -94,8 +94,12 @@ export default function CalendarPage() {
       return;
     }
     // ?new=1 → open modal directly in create mode (used from "Nueva cita" shortcut)
-    if (searchParams.get('new') === '1') {
+    // ?clientId=XXX → preselect a client (used by "Agendar nueva cita" tras
+    // cerrar una cita, para reagendar al mismo cliente sin retipear).
+    const newClientId = searchParams.get('clientId');
+    if (searchParams.get('new') === '1' || newClientId) {
       setSelectedAppointmentId(null);
+      if (newClientId) setPrefillClientId(newClientId);
       setIsModalOpen(true);
     }
   }, [searchParams]);
@@ -1166,6 +1170,7 @@ export default function CalendarPage() {
             initialDate={selectedSlot ? selectedSlot.split('T')[0] : undefined}
             initialTime={selectedSlot ? selectedSlot.split('T')[1]?.substring(0, 5) : undefined}
             initialEmployeeId={prefillEmployeeId}
+            initialClientId={prefillClientId}
           />
         )
       )}

@@ -829,6 +829,10 @@ model Appointment {
   createdBy          String?           @map("created_by")
   photoConsent       Boolean?          @map("photo_consent")
   photoConsentAt     DateTime?         @map("photo_consent_at")
+  // El empleado finalizó el servicio (consent + fotos) pero delegó el cobro
+  // al POS de recepción. La cita queda IN_PROGRESS y aparece en /pos con
+  // badge "Por cobrar" hasta que el cajero registre el pago.
+  pendingPosPayment  Boolean           @default(false) @map("pending_pos_payment")
   // Token de "Confirmación del cliente" — se le entrega al cliente via QR
   // o link al cerrar la cita; al abrir el link confirma el cobro y deja
   // su reseña. Idempotente: el empleado puede regenerar el mismo si lo pide.
@@ -861,6 +865,7 @@ model Appointment {
   @@index([employeeId, startTime, endTime])
   @@index([clientId])
   @@index([status])
+  @@index([pendingPosPayment])
   @@map("appointments")
 }
 

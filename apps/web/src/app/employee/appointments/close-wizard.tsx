@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { api } from '@/lib/api';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { RebookPromptModal } from '@/components/ui/rebook-prompt-modal';
 
 const TEAL = '#008080';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -20,7 +21,7 @@ interface AppointmentItem {
 
 interface Appointment {
   id: string;
-  client: { firstName: string; lastName: string };
+  client: { id: string; firstName: string; lastName: string };
   items: AppointmentItem[];
 }
 
@@ -29,13 +30,13 @@ interface UploadedPhoto {
   imageUrl: string;
 }
 
-type Step = 'consent' | 'photos' | 'payment' | 'qr' | 'done';
+type Step = 'consent' | 'photos' | 'payment' | 'qr' | 'done' | 'deferred';
 
 const PAYMENT_METHODS = [
   { key: 'CASH', label: 'Efectivo', icon: '💵' },
   { key: 'CARD', label: 'Tarjeta', icon: '💳' },
   { key: 'TRANSFER', label: 'Transferencia', icon: '🏦' },
-  { key: 'OTHER', label: 'Otro', icon: '•••' },
+  { key: 'POS', label: 'Pagar en recepción', icon: '🛎️' },
 ];
 
 export function CloseAppointmentWizard({
@@ -128,6 +129,22 @@ export function CloseAppointmentWizard({
     },
   });
 
+  // Delega el cobro al POS de recepción. El empleado ya terminó (consent +
+  // fotos), pero el pago lo registra el cajero desde /pos. La cita queda
+  // IN_PROGRESS con pendingPosPayment=true y aparece con badge "Por cobrar".
+  const deferToPosMutation = useMutation({
+    mutationFn: () => api.post(`/api/appointments/${appointment.id}/defer-to-pos`, {}),
+    onSuccess: () => setStep('deferred'),
+  });
+
+  function handleSubmitPayment() {
+    if (paymentMethod === 'POS') {
+      deferToPosMutation.mutate();
+    } else {
+      recordPaymentMutation.mutate();
+    }
+  }
+
   const generateTokenMutation = useMutation({
     mutationFn: () =>
       api.post<{ data: { token: string; alreadyConfirmed: boolean } }>(
@@ -145,13 +162,17 @@ export function CloseAppointmentWizard({
     },
   });
 
+  const [showRebook, setShowRebook] = useState(false);
+
   const completeMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointment.id}/complete`, {}),
-    onSuccess: onDone,
+    // En vez de cerrar al instante, ofrecemos al empleado agendar otra cita
+    // al mismo cliente (rebook). El modal lo decide.
+    onSuccess: () => setShowRebook(true),
   });
 
-  const stepNumber = { consent: 1, photos: 2, payment: 3, qr: 4, done: 5 }[step];
+  const stepNumber = { consent: 1, photos: 2, payment: 3, qr: 4, done: 5, deferred: 4 }[step];
   const totalSteps = photoConsent === false ? 4 : 5;
 
   // URL que el cliente abre en su movil (QR + link copiable).
@@ -358,12 +379,14 @@ export function CloseAppointmentWizard({
               </div>
 
               <button
-                onClick={() => recordPaymentMutation.mutate()}
-                disabled={recordPaymentMutation.isPending}
+                onClick={handleSubmitPayment}
+                disabled={recordPaymentMutation.isPending || deferToPosMutation.isPending}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50"
                 style={{ backgroundColor: TEAL }}
               >
-                {recordPaymentMutation.isPending ? 'Registrando...' : 'Pago realizado ✓'}
+                {paymentMethod === 'POS'
+                  ? (deferToPosMutation.isPending ? 'Enviando...' : 'Enviar a recepción →')
+                  : (recordPaymentMutation.isPending ? 'Registrando...' : 'Pago realizado ✓')}
               </button>
             </div>
           )}
@@ -410,6 +433,29 @@ export function CloseAppointmentWizard({
             </div>
           )}
 
+          {/* ─── Step alternativo: Enviado al POS ────────── */}
+          {step === 'deferred' && (
+            <div className="text-center py-2">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 mx-auto" style={{ backgroundColor: '#e0f2f1' }}>
+                <span className="text-3xl">🛎️</span>
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Enviado a recepción</h2>
+              <p className="text-sm text-gray-500 mb-2">
+                <span className="font-semibold">{appointment.client.firstName}</span> debe pasar a recepción a pagar.
+              </p>
+              <p className="text-xs text-gray-400 mb-6">
+                La cita aparecerá en el punto de venta con la etiqueta <span className="font-semibold text-orange-600">Por cobrar</span>. El cajero registrará el pago y le mostrará la pantalla de reseña.
+              </p>
+              <button
+                onClick={() => setShowRebook(true)}
+                className="w-full py-3 rounded-xl text-sm font-bold text-white"
+                style={{ backgroundColor: TEAL }}
+              >
+                Cerrar
+              </button>
+            </div>
+          )}
+
           {/* ─── Step 5: Done ────────────────────────────── */}
           {step === 'done' && (
             <div className="text-center py-2">
@@ -434,6 +480,13 @@ export function CloseAppointmentWizard({
           )}
         </div>
       </div>
+
+      <RebookPromptModal
+        show={showRebook}
+        clientId={appointment.client.id}
+        clientFirstName={appointment.client.firstName}
+        onDismiss={() => { setShowRebook(false); onDone(); }}
+      />
     </div>
   );
 }

@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { formatCurrency } from '@/lib/utils';
 import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday, isBookingUpcoming } from '@/lib/booking-time';
 import Link from 'next/link';
+import { DualReviewModal } from '@/components/ui/dual-review-modal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
@@ -96,6 +97,36 @@ export default function MarketplaceAppointmentsPage() {
 
   const appointments: any[] = (data as any)?.data || [];
   const purchases: any[] = (purchasesData as any)?.data || [];
+
+  // Auto-pop reseña: al entrar a la sección de citas, si hay una COMPLETED
+  // sin reseña, abrir el modal para que la deje. Solo una vez por sesión
+  // de la página — si el usuario cierra el modal con "Omitir" no vuelve a
+  // saltar en este montaje.
+  const queryClient = useQueryClient();
+  const [reviewTarget, setReviewTarget] = useState<any | null>(null);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
+  useEffect(() => {
+    if (reviewDismissed || reviewTarget || tab !== 'citas') return;
+    // Buscamos la cita COMPLETED más reciente sin review.
+    // Exigimos también pago registrado: una cita meramente reservada
+    // (CONFIRMED/PENDING) no tiene payments, por lo que aunque por error
+    // estuviera en COMPLETED tampoco dispararía el modal.
+    const pending = appointments
+      .filter((a) => a.status === 'COMPLETED' && !a.review && (a.payments || []).length > 0)
+      .sort((a, b) => (b.startTime || '').localeCompare(a.startTime || ''));
+    if (pending.length > 0) setReviewTarget(pending[0]);
+  }, [appointments, tab, reviewDismissed, reviewTarget]);
+
+  const submitReviewMutation = useMutation({
+    mutationFn: (payload: { rating: number; comment?: string; businessRating?: number; businessComment?: string }) =>
+      marketplaceApi.post(`/my-appointments/${reviewTarget?.id}/review`, payload),
+    onSuccess: () => {
+      setReviewTarget(null);
+      setReviewDismissed(true);
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-appointments'] });
+    },
+    onError: (err: any) => alert(err?.message || 'No se pudo enviar la reseña'),
+  });
 
   // Buscador: matchea contra negocio, empleado y nombre de servicio (citas)
   // o contra negocio + nombre del producto (compras). Case-insensitive.
@@ -581,6 +612,18 @@ export default function MarketplaceAppointmentsPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de reseña — auto-abre al entrar si hay una cita COMPLETED
+          sin review. El "Omitir" lo descarta hasta el próximo montaje. */}
+      <DualReviewModal
+        show={!!reviewTarget}
+        employeeName={`${reviewTarget?.employee?.firstName || ''} ${reviewTarget?.employee?.lastName || ''}`.trim()}
+        businessName={reviewTarget?.tenant?.name || ''}
+        mode={reviewTarget?.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
+        onSubmit={(payload) => submitReviewMutation.mutate(payload)}
+        onSkip={() => { setReviewTarget(null); setReviewDismissed(true); }}
+        isLoading={submitReviewMutation.isPending}
+      />
     </div>
   );
 }

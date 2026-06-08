@@ -876,6 +876,51 @@ export class AppointmentsService {
     return { data: updated };
   }
 
+  /**
+   * El empleado finalizó el servicio (consent + fotos opcionales) pero el
+   * cliente pagará en recepción. Marca la cita pendingPosPayment=true para
+   * que aparezca en /pos con badge "Por cobrar". La cita queda IN_PROGRESS;
+   * el POS la completará tras registrar el pago.
+   */
+  async deferToPos(id: string, tenantId: string, userId?: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+      include: { payments: true },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Cita no encontrada');
+    }
+
+    if (['COMPLETED', 'CANCELLED'].includes(appointment.status)) {
+      throw new BadRequestException('No se puede delegar al POS una cita finalizada');
+    }
+
+    if (appointment.payments.length > 0) {
+      throw new ConflictException('Esta cita ya tiene un pago registrado');
+    }
+
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: {
+        pendingPosPayment: true,
+        status: appointment.status === 'PENDING' || appointment.status === 'CONFIRMED'
+          ? 'IN_PROGRESS'
+          : appointment.status,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'appointment.deferred_to_pos',
+      entityType: 'appointment',
+      entityId: id,
+    });
+
+    return { data: updated };
+  }
+
   async recordPayment(
     id: string,
     tenantId: string,

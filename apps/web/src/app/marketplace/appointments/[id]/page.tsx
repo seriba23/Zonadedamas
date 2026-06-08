@@ -9,6 +9,7 @@ import { formatBookingTime, formatBookingDate } from '@/lib/booking-time';
 import { formatCurrency } from '@/lib/utils';
 import { WhatsAppButton } from '@/components/ui/whatsapp-button';
 import { buildAppointmentMessage } from '@/lib/whatsapp';
+import { DualReviewModal } from '@/components/ui/dual-review-modal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -42,7 +43,10 @@ function formatDateTime(dateStr: string) {
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+  const [showReview, setShowReview] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
@@ -58,6 +62,34 @@ export default function AppointmentDetailPage() {
       router.replace('/marketplace/appointments');
     }
   }, [isLoading, authLoading, appt, appointments.length]);
+
+  // Auto-abre el modal de reseña al entrar al detalle si la cita está
+  // COMPLETED, tiene pago registrado, y aún no tiene review. Si el usuario
+  // lo cierra, no vuelve a saltar en esta navegación.
+  useEffect(() => {
+    if (
+      appt &&
+      appt.status === 'COMPLETED' &&
+      (appt.payments || []).length > 0 &&
+      !appt.review &&
+      !reviewSubmitted
+    ) {
+      setShowReview(true);
+    }
+  }, [appt?.id, appt?.status, appt?.review, appt?.payments?.length, reviewSubmitted]);
+
+  const submitReviewMutation = useMutation({
+    mutationFn: (payload: { rating: number; comment?: string; businessRating?: number; businessComment?: string }) =>
+      marketplaceApi.post(`/my-appointments/${id}/review`, payload),
+    onSuccess: () => {
+      setReviewSubmitted(true);
+      setShowReview(false);
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-appointments'] });
+    },
+    onError: (err: any) => {
+      alert(err?.message || 'No se pudo enviar la reseña');
+    },
+  });
 
   if (authLoading || isLoading) {
     return (
@@ -262,7 +294,29 @@ export default function AppointmentDetailPage() {
             <p className="text-sm text-gray-600">{appt.notes}</p>
           </div>
         )}
+
+        {/* CTA "Dejar reseña" si ya pasó pero no se ha dejado y el usuario
+            cerró el modal. Mismo gate: COMPLETED + pago registrado. */}
+        {appt.status === 'COMPLETED' && (appt.payments || []).length > 0 && !appt.review && !reviewSubmitted && !showReview && (
+          <button
+            onClick={() => setShowReview(true)}
+            className="w-full py-3 rounded-xl text-sm font-bold text-white"
+            style={{ backgroundColor: '#008080' }}
+          >
+            Dejar mi reseña
+          </button>
+        )}
       </div>
+
+      <DualReviewModal
+        show={showReview}
+        employeeName={`${appt.employee?.firstName || ''} ${appt.employee?.lastName || ''}`.trim()}
+        businessName={appt.tenant?.name || ''}
+        mode={appt.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
+        onSubmit={(payload) => submitReviewMutation.mutate(payload)}
+        onSkip={() => setShowReview(false)}
+        isLoading={submitReviewMutation.isPending}
+      />
     </div>
   );
 }

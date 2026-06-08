@@ -146,6 +146,16 @@ export class AppointmentsController {
     return this.appointmentsService.recordPayment(id, tenantId, body, user.userId);
   }
 
+  @Post(':id/defer-to-pos')
+  @RequirePermissions('appointments.complete')
+  async deferToPos(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.deferToPos(id, tenantId, user.userId);
+  }
+
   /**
    * Genera (o devuelve si ya existe) el token de confirmación que el cliente
    * usa para confirmar el cobro y dejar su reseña desde su móvil.
