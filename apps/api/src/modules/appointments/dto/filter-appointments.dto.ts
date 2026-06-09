@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsBooleanString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 export class FilterAppointmentsDto extends PaginationDto {
@@ -30,4 +30,10 @@ export class FilterAppointmentsDto extends PaginationDto {
   @IsOptional()
   @IsString()
   endDate?: string; // ISO date
+
+  // Si "true", devuelve citas con pendingPosPayment=true ignorando el filtro
+  // de fechas. Usado por /pos para listar lo "Por cobrar" de cualquier día.
+  @IsOptional()
+  @IsBooleanString()
+  pendingPosPayment?: string;
 }

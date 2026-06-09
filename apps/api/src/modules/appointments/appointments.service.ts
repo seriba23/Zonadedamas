@@ -387,7 +387,12 @@ export class AppointmentsService {
     if (filters.clientId) where.clientId = filters.clientId;
     if (filters.status) where.status = filters.status;
 
-    if (filters.startDate || filters.endDate) {
+    // pendingPosPayment=true: el POS lista "Por cobrar" de cualquier dia.
+    // Cuando este filtro está activo, ignoramos startDate/endDate.
+    const isPendingPos = filters.pendingPosPayment === 'true';
+    if (isPendingPos) {
+      where.pendingPosPayment = true;
+    } else if (filters.startDate || filters.endDate) {
       where.startTime = {};
       // Aceptamos ISO completo ("2026-06-12T00:00:00.000-06:00") o YYYY-MM-DD.
       // Si es solo fecha, se agrega T00:00:00Z (start) o T23:59:59Z (end).

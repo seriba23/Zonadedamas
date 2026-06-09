@@ -78,6 +78,13 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
     queryKey: ['pos-appointments', today],
     queryFn: () => api.get<{ data: any[] }>(`/api/appointments?startDate=${today}&endDate=${today}&perPage=50`),
   });
+  // Citas "Por cobrar" de CUALQUIER día — el wizard del empleado puede
+  // delegar al POS una cita de mañana o pasado mañana; el cajero las
+  // debe ver aunque no sean de hoy.
+  const { data: pendingPosData } = useQuery({
+    queryKey: ['pos-pending-pos'],
+    queryFn: () => api.get<{ data: any[] }>(`/api/appointments?pendingPosPayment=true&perPage=50`),
+  });
   const { data: servicesData } = useQuery({ queryKey: ['pos-services'], queryFn: () => api.get<{ data: any[] }>('/api/services?perPage=100') });
   const { data: productsData } = useQuery({ queryKey: ['pos-products'], queryFn: () => api.get<{ data: any[] }>('/api/products?perPage=100') });
   const { data: employeesData } = useQuery({ queryKey: ['pos-employees'], queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100') });
@@ -85,18 +92,24 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const { data: clientsData } = useQuery({ queryKey: ['pos-clients'], queryFn: () => api.get<{ data: any[] }>('/api/clients?perPage=100') });
   const { data: tenantData } = useQuery({ queryKey: ['tenant-current'], queryFn: () => api.get<{ data: any }>('/api/tenants/current') });
 
-  // Incluimos COMPLETED para casos en que la cita se finaliza primero
-  // (servicio dado) y se cobra despues por el POS — por ej. con propina
-  // ajustada al final o con metodo de pago acordado tras el servicio.
-  // Citas con pendingPosPayment van arriba (las dejó el empleado para cobrar
-  // aquí; tienen badge naranja "Por cobrar" en la card).
-  const appointments = (appointmentsData?.data || [])
-    .filter((a: any) => ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(a.status))
-    .sort((a: any, b: any) => {
+  // Mergeamos:
+  //  - Citas de HOY (filtro por fecha)
+  //  - Citas pending POS de cualquier dia
+  // Dedup por id. Las pending POS van siempre arriba.
+  const appointments = (() => {
+    const today = (appointmentsData?.data || []).filter((a: any) =>
+      ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(a.status),
+    );
+    const pending = pendingPosData?.data || [];
+    const byId = new Map<string, any>();
+    for (const a of today) byId.set(a.id, a);
+    for (const a of pending) byId.set(a.id, a);
+    return Array.from(byId.values()).sort((a: any, b: any) => {
       if (a.pendingPosPayment && !b.pendingPosPayment) return -1;
       if (!a.pendingPosPayment && b.pendingPosPayment) return 1;
       return 0;
     });
+  })();
   const services = servicesData?.data || [];
   const products = (productsData?.data || []).filter((p: any) => p.isActive && p.isShopListed && p.stock > 0);
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
@@ -210,6 +223,7 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
       // de React Query devuelve los datos viejos).
       queryClient.invalidateQueries({ queryKey: ['pos-history'] });
       queryClient.invalidateQueries({ queryKey: ['pos-appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['pos-pending-pos'] });
       // Si hay cita asociada (sea pendingPosPayment o cobro estándar de
       // cita), generamos el token de reseña para mostrar el QR aquí.
       if (appointmentId) {

@@ -101,10 +101,10 @@ export function ConfettiCelebration({
           size: baseSize + Math.random() * 8,
           color: palette[Math.floor(Math.random() * palette.length)],
           shape: pickedShape,
-          vx: (Math.random() - 0.5) * 1,
-          vy: 0.6 + Math.random() * 1.05,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: 1.0 + Math.random() * 1.6,
           rotation: Math.random() * 360,
-          rotationSpeed: (Math.random() - 0.5) * 2,
+          rotationSpeed: (Math.random() - 0.5) * 3,
           opacity: 1,
         });
       }
@@ -127,7 +127,7 @@ export function ConfettiCelebration({
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.x += p.vx;
-        p.vy += 0.025;
+        p.vy += 0.04;
         p.y += p.vy;
         p.rotation += p.rotationSpeed;
         p.vx *= 0.999;
