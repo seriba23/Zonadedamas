@@ -121,7 +121,7 @@ export function AppointmentSuccessSheet({
 
             <Row
               label="Fecha y hora"
-              value={dayjs(startTime).format('D [de] MMM [de] YYYY, h:mm A')}
+              value={dayjs.utc(startTime).format('D [de] MMM [de] YYYY, h:mm A')}
             />
 
             {employeeName && (

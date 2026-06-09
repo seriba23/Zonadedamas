@@ -144,8 +144,8 @@ export default function PortalAppointmentsPage() {
                       {formatDate(apt.startTime, 'ddd, D [de] MMM')}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {dayjs(apt.startTime).format('h:mm A')} -{' '}
-                      {dayjs(apt.endTime).format('h:mm A')}
+                      {dayjs.utc(apt.startTime).format('h:mm A')} -{' '}
+                      {dayjs.utc(apt.endTime).format('h:mm A')}
                     </p>
                   </div>
                   <span

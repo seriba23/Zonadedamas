@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseRangeBound } from '../../common/utils/date-range.util';
+import { parseWallClock } from '../../common/utils/parse-wall-clock';
 import { CreateEmployeeDto, UpdateEmployeeDto } from './dto/create-employee.dto';
 import { SetSchedulesDto } from './dto/schedule.dto';
 import { CreateTimeOffDto, ServiceConfigDto } from './dto/time-off.dto';
@@ -283,8 +284,10 @@ export class EmployeesService {
     return this.prisma.employeeTimeOff.create({
       data: {
         employeeId,
-        startDatetime: new Date(dto.startDatetime),
-        endDatetime: new Date(dto.endDatetime),
+        // parseWallClock: time-off datetimes son wall-clock de la sucursal,
+        // mismo tratamiento que startTime de cita.
+        startDatetime: parseWallClock(dto.startDatetime),
+        endDatetime: parseWallClock(dto.endDatetime),
         reason: dto.reason,
         status: dto.status || 'APPROVED',
       },

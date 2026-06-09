@@ -173,7 +173,7 @@ export default function EmployeeReviewsPage() {
                       <p className="text-xs text-gray-500">
                         Servicio: {review.appointment.items.map((i) => i.serviceNameSnapshot).join(', ')}
                         {' — '}
-                        {dayjs(review.appointment.startTime).format('D MMM YYYY')}
+                        {dayjs.utc(review.appointment.startTime).format('D MMM YYYY')}
                       </p>
                     </div>
                   )}

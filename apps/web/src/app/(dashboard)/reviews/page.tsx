@@ -304,7 +304,7 @@ function EmployeeReviewsList({ reviews }: { reviews: EmployeeReviewItem[] }) {
               <p className="text-xs text-gray-500">
                 Servicio: {r.appointment.items.map((i) => i.serviceNameSnapshot).join(', ')}
                 {' · '}
-                {dayjs(r.appointment.startTime).format('D MMM YYYY')}
+                {dayjs.utc(r.appointment.startTime).format('D MMM YYYY')}
               </p>
             </div>
           )}

@@ -915,10 +915,10 @@ export default function EmployeeProfilePage() {
                       >
                         <div className="text-center flex-shrink-0 w-12">
                           <p className="text-xs text-gray-400">
-                            {dayjs(apt.startTime).format('MMM')}
+                            {dayjs.utc(apt.startTime).format('MMM')}
                           </p>
                           <p className="text-lg font-bold text-gray-900">
-                            {dayjs(apt.startTime).format('DD')}
+                            {dayjs.utc(apt.startTime).format('DD')}
                           </p>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -931,7 +931,7 @@ export default function EmployeeProfilePage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm text-gray-700">
-                            {dayjs(apt.startTime).format('h:mm A')}
+                            {dayjs.utc(apt.startTime).format('h:mm A')}
                           </p>
                           <span
                             className={`text-xs px-1.5 py-0.5 rounded-full ${
@@ -1124,7 +1124,7 @@ export default function EmployeeProfilePage() {
                         <span className="text-green-600 font-medium flex-shrink-0 ml-2">{r.newEmployeeName}</span>
                       </div>
                       <p className="text-xs text-gray-400 mt-1">
-                        {dayjs(r.startTime).format('D/M/YYYY HH:mm')} - {dayjs(r.endTime).format('HH:mm')}
+                        {dayjs.utc(r.startTime).format('D/M/YYYY HH:mm')} - {dayjs.utc(r.endTime).format('HH:mm')}
                       </p>
                     </div>
                   ))}
@@ -1143,7 +1143,7 @@ export default function EmployeeProfilePage() {
                     <div key={c.id} className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs">
                       <p className="font-medium text-gray-800">{c.clientName}</p>
                       <p className="text-gray-500">{c.services.map((s) => s.serviceName).join(', ')}</p>
-                      <p className="text-amber-600 mt-1">{dayjs(c.startTime).format('D/M/YYYY HH:mm')} - {dayjs(c.endTime).format('HH:mm')}</p>
+                      <p className="text-amber-600 mt-1">{dayjs.utc(c.startTime).format('D/M/YYYY HH:mm')} - {dayjs.utc(c.endTime).format('HH:mm')}</p>
                     </div>
                   ))}
                 </div>
@@ -1228,14 +1228,14 @@ export default function EmployeeProfilePage() {
                       {conflict.services.map((s) => s.serviceName).join(', ')}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      {dayjs(conflict.startTime).format('D/M/YYYY HH:mm')} - {dayjs(conflict.endTime).format('HH:mm')}
+                      {dayjs.utc(conflict.startTime).format('D/M/YYYY HH:mm')} - {dayjs.utc(conflict.endTime).format('HH:mm')}
                     </p>
                     {conflict.conflictsWith ? (
                       <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
                         <p className="text-xs text-amber-700">
                           Conflicto: el empleado destino tiene una cita de{' '}
-                          {dayjs(conflict.conflictsWith.startTime).format('HH:mm')} a{' '}
-                          {dayjs(conflict.conflictsWith.endTime).format('HH:mm')}
+                          {dayjs.utc(conflict.conflictsWith.startTime).format('HH:mm')} a{' '}
+                          {dayjs.utc(conflict.conflictsWith.endTime).format('HH:mm')}
                         </p>
                       </div>
                     ) : (

@@ -155,7 +155,7 @@ export default function EmployeeAppointmentsPage() {
   // Group by date for week/month view
   const grouped = new Map<string, Appointment[]>();
   sorted.forEach((apt) => {
-    const dateKey = dayjs(apt.startTime).format('YYYY-MM-DD');
+    const dateKey = dayjs.utc(apt.startTime).format('YYYY-MM-DD');
     if (!grouped.has(dateKey)) grouped.set(dateKey, []);
     grouped.get(dateKey)!.push(apt);
   });
@@ -297,10 +297,10 @@ export default function EmployeeAppointmentsPage() {
                   </svg>
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {dayjs(selectedApt.startTime).format('dddd, D [de] MMMM YYYY')}
+                      {dayjs.utc(selectedApt.startTime).format('dddd, D [de] MMMM YYYY')}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {dayjs(selectedApt.startTime).format('h:mm A')} - {dayjs(selectedApt.endTime).format('h:mm A')}
+                      {dayjs.utc(selectedApt.startTime).format('h:mm A')} - {dayjs.utc(selectedApt.endTime).format('h:mm A')}
                     </p>
                   </div>
                 </div>

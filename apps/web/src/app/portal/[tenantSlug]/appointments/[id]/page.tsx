@@ -117,8 +117,8 @@ export default function AppointmentDetailPage() {
                 {formatDate(appointment.startTime, 'ddd, D [de] MMMM')}
               </p>
               <p className="text-sm text-gray-500">
-                {dayjs(appointment.startTime).format('h:mm A')} -{' '}
-                {dayjs(appointment.endTime).format('h:mm A')}
+                {dayjs.utc(appointment.startTime).format('h:mm A')} -{' '}
+                {dayjs.utc(appointment.endTime).format('h:mm A')}
               </p>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.color}`}>

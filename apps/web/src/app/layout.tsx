@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import '@/lib/dayjs-setup';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {

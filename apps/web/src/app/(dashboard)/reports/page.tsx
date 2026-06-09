@@ -366,7 +366,7 @@ export default function ReportsPage() {
                   onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}
                 >
                   <div className="flex items-start justify-between mb-1.5">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{dayjs(apt.startTime).format('DD/MM/YYYY')} · {dayjs(apt.startTime).format('HH:mm')}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{dayjs.utc(apt.startTime).format('DD/MM/YYYY')} · {dayjs.utc(apt.startTime).format('HH:mm')}</p>
                     <span className="text-sm font-semibold text-[var(--text-primary)] flex-shrink-0 ml-2">{formatCurrency(total)}</span>
                   </div>
                   <dl className="space-y-1 text-xs">
@@ -418,8 +418,8 @@ export default function ReportsPage() {
                 const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
                 return (
                   <tr key={apt.id} className="hover:bg-[var(--bg-muted)] cursor-pointer" onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}>
-                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs(apt.startTime).format('DD/MM/YYYY')}</td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs(apt.startTime).format('HH:mm')} - {dayjs(apt.endTime).format('HH:mm')}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs.utc(apt.startTime).format('DD/MM/YYYY')}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs.utc(apt.startTime).format('HH:mm')} - {dayjs.utc(apt.endTime).format('HH:mm')}</td>
                     <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{apt.client.firstName} {apt.client.lastName}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import { CreateAppointmentDto, UpdateAppointmentDto } from './dto/create-appoint
 import { RescheduleDto, CancelDto } from './dto/reschedule.dto';
 import { FilterAppointmentsDto } from './dto/filter-appointments.dto';
 import { buildPaginatedResponse } from '../../common/dto/pagination.dto';
+import { parseWallClock } from '../../common/utils/parse-wall-clock';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -118,7 +119,10 @@ export class AppointmentsService {
       (sum, s) => sum + s.durationMinutes + s.bufferAfterMinutes,
       0,
     );
-    const startTime = new Date(dto.startTime);
+    // Wall-clock literal: parseWallClock fuerza UTC si el ISO viene naive,
+    // así el valor guardado coincide con la hora que el cliente seleccionó
+    // independientemente de la TZ del proceso. Ver doc en parse-wall-clock.ts.
+    const startTime = parseWallClock(dto.startTime);
     const endTime = new Date(startTime.getTime() + totalDuration * 60000);
 
     try {
@@ -543,7 +547,8 @@ export class AppointmentsService {
         sum + item.durationSnapshot + (serviceBufferMap.get(item.serviceId) ?? 0),
       0,
     );
-    const newStartTime = new Date(dto.startTime);
+    // Igual que en create: forzar UTC para preservar wall-clock literal.
+    const newStartTime = parseWallClock(dto.startTime);
     const newEndTime = new Date(newStartTime.getTime() + totalDuration * 60000);
     const employeeId = dto.employeeId || appointment.employeeId;
     const oldDate = appointment.startTime.toISOString().split('T')[0];

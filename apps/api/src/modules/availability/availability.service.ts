@@ -5,6 +5,7 @@ import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { BundleAvailabilityQueryDto } from './dto/bundle-availability-query.dto';
 import { CompositeAvailabilityQueryDto } from './dto/composite-availability-query.dto';
 import { CheckAfterDto } from './dto/check-after.dto';
+import { parseWallClock } from '../../common/utils/parse-wall-clock';
 import * as crypto from 'crypto';
 
 type TimeBlock = { start: Date; end: Date };
@@ -488,7 +489,7 @@ export class AvailabilityService {
       };
     }
 
-    const afterTime = new Date(dto.afterTime);
+    const afterTime = parseWallClock(dto.afterTime);
     const afterDateStr = afterTime.toISOString().split('T')[0];
 
     // 2. Direct conflict check: see if the slot right after the appointment is free

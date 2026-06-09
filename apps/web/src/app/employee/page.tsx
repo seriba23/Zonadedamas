@@ -206,7 +206,7 @@ export default function EmployeeDashboard() {
             <div>
               <p className="text-xs font-medium text-[#008080] mb-1">Próxima cita</p>
               <p className="text-lg font-bold text-gray-900">
-                {dayjs(nextAppointment.startTime).format('h:mm A')}
+                {dayjs.utc(nextAppointment.startTime).format('h:mm A')}
               </p>
               <p className="text-sm text-gray-600">
                 {nextAppointment.client.firstName} {nextAppointment.client.lastName}
@@ -253,10 +253,10 @@ export default function EmployeeDashboard() {
                     <div className="flex items-center gap-4">
                       <div className="text-center min-w-[60px]">
                         <p className="text-sm font-semibold text-gray-900">
-                          {dayjs(apt.startTime).format('h:mm A')}
+                          {dayjs.utc(apt.startTime).format('h:mm A')}
                         </p>
                         <p className="text-xs text-gray-400">
-                          {dayjs(apt.endTime).format('h:mm A')}
+                          {dayjs.utc(apt.endTime).format('h:mm A')}
                         </p>
                       </div>
                       <div>

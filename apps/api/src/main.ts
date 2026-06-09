@@ -47,6 +47,21 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  // Warning crítico de TZ: las citas se guardan como wall-clock literal
+  // (ver parse-wall-clock.ts). Para que `new Date()` con timestamps absolutos
+  // y comparaciones funcionen igual en dev y prod, el server DEBERIA estar
+  // en UTC. parseWallClock blinda el flujo de citas, pero un server con TZ
+  // distinta puede shifteear otros campos (notificaciones, reportes).
+  const serverTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (serverTz !== 'UTC' && process.env.TZ !== 'UTC') {
+    logger.warn(
+      `[TZ] Server NO esta en UTC (TZ del proceso: ${serverTz}, env TZ: ${process.env.TZ || '(unset)'}). ` +
+      `Recomendado: export TZ=UTC en el entorno (ecosystem.config.js en prod, .env en dev).`,
+    );
+  } else {
+    logger.log(`[TZ] Server en UTC. OK.`);
+  }
+
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
   logger.log(`API running on http://localhost:${port}`);

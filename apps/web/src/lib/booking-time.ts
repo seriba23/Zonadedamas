@@ -1,7 +1,12 @@
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import 'dayjs/locale/es';
 
 dayjs.locale('es');
+// Plugin utc: necesario para `dayjs.utc(iso).format(...)`. Sin esto, dayjs
+// interpreta el ISO con `Z` y lo convierte al TZ del browser al formatear,
+// rompiendo la convención de wall-clock raw del proyecto (ver doc abajo).
+dayjs.extend(utc);
 
 /**
  * Helpers para mostrar horas de citas SIN convertir a TZ del browser.

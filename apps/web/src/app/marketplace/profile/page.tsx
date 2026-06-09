@@ -214,10 +214,10 @@ function AppointmentCard({
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-sm font-semibold text-gray-900">
-            {dayjs(apt.startTime).format('ddd, D [de] MMM YYYY')}
+            {dayjs.utc(apt.startTime).format('ddd, D [de] MMM YYYY')}
           </p>
           <p className="text-xs text-gray-500">
-            {dayjs(apt.startTime).format('h:mm A')} – {dayjs(apt.endTime).format('h:mm A')}
+            {dayjs.utc(apt.startTime).format('h:mm A')} – {dayjs.utc(apt.endTime).format('h:mm A')}
             {totalDuration > 0 && (
               <span className="ml-1.5 text-gray-400">
                 · {totalDuration >= 60

@@ -1142,7 +1142,7 @@ function CompositeSlotPicker({
                     : 'border-green-400 bg-green-50 text-green-700 hover:bg-green-100'
                 }`}
               >
-                {dayjs(slot.startTime).format('HH:mm')}
+                {dayjs.utc(slot.startTime).format('HH:mm')}
               </button>
             );
           })}

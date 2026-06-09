@@ -349,7 +349,7 @@ export default function CalendarPage() {
     // Group appointments by date
     const countsByDate: Record<string, Appointment[]> = {};
     for (const apt of appointments) {
-      const dateKey = dayjs(apt.startTime).format('YYYY-MM-DD');
+      const dateKey = dayjs.utc(apt.startTime).format('YYYY-MM-DD');
       if (!countsByDate[dateKey]) countsByDate[dateKey] = [];
       countsByDate[dateKey].push(apt);
     }

@@ -322,7 +322,7 @@ export default function PortalBookPage() {
                           : 'bg-white border border-gray-200 text-gray-700 hover:border-indigo-300'
                       }`}
                     >
-                      {dayjs(slot.startTime).format('h:mm A')}
+                      {dayjs.utc(slot.startTime).format('h:mm A')}
                     </button>
                   );
                 })}
@@ -352,13 +352,13 @@ export default function PortalBookPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Fecha</span>
                   <span className="font-medium text-gray-900">
-                    {dayjs(selectedSlot.startTime).format('ddd, D [de] MMM YYYY')}
+                    {dayjs.utc(selectedSlot.startTime).format('ddd, D [de] MMM YYYY')}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Hora</span>
                   <span className="font-medium text-gray-900">
-                    {dayjs(selectedSlot.startTime).format('h:mm A')}
+                    {dayjs.utc(selectedSlot.startTime).format('h:mm A')}
                   </span>
                 </div>
                 <div className="flex justify-between">
