@@ -132,6 +132,108 @@ export class TenantsController {
     return { data: result };
   }
 
+  /**
+   * Proxy a Nominatim para geocodificar una dirección. Va por backend porque:
+   * 1) los browsers ignoran el header User-Agent y Nominatim aplica rate
+   *    limit agresivo / bloquea User-Agents genericos de browser.
+   * 2) podemos enviar un User-Agent identificable (Siliba/1.0 contact@siliba.com)
+   *    como pide la politica de uso de Nominatim.
+   * Se usa al editar/crear sucursales (boton "Buscar dirección en mapa").
+   */
+  /**
+   * Proxy a Nominatim para geocodificar. Va por backend porque:
+   * 1) browsers ignoran el header User-Agent y Nominatim aplica rate limit
+   *    agresivo a User-Agents genericos de browser.
+   * 2) podemos identificarnos correctamente segun politica de Nominatim.
+   *
+   * Acepta params estructurados (street, city, state, postalcode, country)
+   * que Nominatim usa con mucha mayor precisión que un query libre. Si solo
+   * viene `q=`, fallback al modo libre.
+   *
+   * Hace fallback progresivo desde la combinación mas precisa hasta solo
+   * ciudad+pais, devolviendo `precision` para que el frontend avise al
+   * usuario qué nivel se logró.
+   */
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('locations.update')
+  @Get('geocode')
+  async geocodeAddress(
+    @Query('q') q: string,
+    @Query('street') street?: string,
+    @Query('city') city?: string,
+    @Query('state') state?: string,
+    @Query('postalcode') postalcode?: string,
+    @Query('country') country?: string,
+  ) {
+    // Modo estructurado (preferido): construimos combos progresivos.
+    if (street || city || country) {
+      const combos: Array<{ params: Record<string, string>; precision: string }> = [];
+      // 1. street + city + state + postalcode + country (mas preciso)
+      if (street && city && country) {
+        const full: Record<string, string> = { street, city, country };
+        if (state) full.state = state;
+        if (postalcode) full.postalcode = postalcode;
+        combos.push({ params: full, precision: 'address' });
+      }
+      // 2. street + city + country (sin estado ni CP)
+      if (street && city && country) {
+        combos.push({ params: { street, city, country }, precision: 'address' });
+      }
+      // 3. city + state + country
+      if (city && country) {
+        const c: Record<string, string> = { city, country };
+        if (state) c.state = state;
+        combos.push({ params: c, precision: 'city' });
+      }
+      // 4. solo city + country
+      if (city && country) {
+        combos.push({ params: { city, country }, precision: 'city' });
+      }
+      for (const combo of combos) {
+        const hit = await this.queryNominatim(combo.params);
+        if (hit) return { data: { ...hit, precision: combo.precision } };
+      }
+      return { data: null };
+    }
+
+    // Modo legacy: query libre tipo "Calle Num, Colonia, Ciudad, Region, CP, Pais".
+    if (!q || !q.trim()) return { data: null };
+    const hit = await this.queryNominatim({ q });
+    return { data: hit ? { ...hit, precision: 'unknown' } : null };
+  }
+
+  private async queryNominatim(
+    params: Record<string, string>,
+  ): Promise<{ lat: number; lng: number; displayName: string } | null> {
+    const search = new URLSearchParams({
+      format: 'jsonv2',
+      limit: '1',
+      'accept-language': 'es',
+      addressdetails: '0',
+      ...params,
+    });
+    const url = `https://nominatim.openstreetmap.org/search?${search.toString()}`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Siliba/1.0 (contact@siliba.com)',
+          'Accept-Language': 'es',
+        },
+      });
+      if (!res.ok) return null;
+      const json: any = await res.json();
+      if (!Array.isArray(json) || json.length === 0) return null;
+      const top = json[0];
+      return {
+        lat: parseFloat(top.lat),
+        lng: parseFloat(top.lon),
+        displayName: top.display_name,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   // Business Hours
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermissions('tenant.read')

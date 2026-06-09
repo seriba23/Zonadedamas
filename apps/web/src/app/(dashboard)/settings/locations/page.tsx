@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -12,6 +13,12 @@ import {
   validateAddress,
   type AddressValue,
 } from '@/components/ui/address-fields';
+
+// Leaflet usa window — solo cliente.
+const LocationMapPicker = dynamic(
+  () => import('@/components/ui/location-map-picker'),
+  { ssr: false, loading: () => <div className="h-[280px] rounded-xl bg-gray-100 flex items-center justify-center text-xs text-gray-400">Cargando mapa…</div> },
+);
 
 interface Location {
   id: string;
@@ -29,20 +36,51 @@ interface LocationForm {
   addressFields: AddressValue;
   phone: string;
   email: string;
+  // Coords finales que se guardan. El usuario puede arrastrarlas en el mapa
+  // para corregir cuando Nominatim geocodifica mal.
+  coords: { lat: number; lng: number } | null;
 }
 
-// Forward-geocode full address → lat/lng using Nominatim (no API key needed)
-async function forwardGeocode(address: string): Promise<{ lat: number; lng: number } | null> {
-  if (!address.trim()) return null;
+type GeocodeHit = {
+  lat: number;
+  lng: number;
+  precision: 'address' | 'city' | 'unknown';
+};
+
+// Geocodificación vía endpoint backend (proxy a Nominatim con User-Agent
+// identificable). Recibe los campos separados — Nominatim es mucho mas
+// preciso cuando le decimos qué es calle, ciudad, estado, CP y país
+// (parametros estructurados) que cuando le pasamos todo concatenado.
+async function forwardGeocode(addr: AddressValue): Promise<GeocodeHit | null> {
+  const street = [addr.street, addr.number].filter(Boolean).join(' ').trim();
+  const city = addr.city.trim();
+  const state = addr.region.trim();
+  const postalcode = addr.postalCode.trim();
+  // Nombre del pais en español a partir del codigo. Si falta, no construimos
+  // el query — Nominatim sin pais devuelve coincidencias de cualquier sitio.
+  const countryName = (() => {
+    const map: Record<string, string> = {
+      mx: 'México', us: 'Estados Unidos', es: 'España', ar: 'Argentina',
+      co: 'Colombia', cl: 'Chile', pe: 'Perú', ve: 'Venezuela', ec: 'Ecuador',
+      gt: 'Guatemala', cr: 'Costa Rica', pa: 'Panamá', do: 'República Dominicana',
+      uy: 'Uruguay', py: 'Paraguay', bo: 'Bolivia', sv: 'El Salvador',
+      hn: 'Honduras', ni: 'Nicaragua', cu: 'Cuba', pr: 'Puerto Rico',
+    };
+    return map[addr.countryCode.toLowerCase()] || '';
+  })();
+  if (!city && !street) return null;
+  const qs = new URLSearchParams();
+  if (street) qs.set('street', street);
+  if (city) qs.set('city', city);
+  if (state) qs.set('state', state);
+  if (postalcode) qs.set('postalcode', postalcode);
+  if (countryName) qs.set('country', countryName);
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&limit=1&accept-language=es`,
-      { headers: { 'User-Agent': 'Siliba/1.0' } },
+    const res = await api.get<{ data: (GeocodeHit & { displayName: string }) | null }>(
+      `/api/geocode?${qs.toString()}`,
     );
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (!json?.length) return null;
-    return { lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon) };
+    if (!res?.data) return null;
+    return { lat: res.data.lat, lng: res.data.lng, precision: res.data.precision };
   } catch {
     return null;
   }
@@ -51,7 +89,7 @@ async function forwardGeocode(address: string): Promise<{ lat: number; lng: numb
 function emptyForm(adminEmail: string): LocationForm {
   // Default country MX para que el dropdown de subdivisions/ciudades arranque
   // listo (la mayoría de tenants son MX). Se puede cambiar en el dropdown.
-  return { name: '', addressFields: emptyAddress('mx'), phone: '', email: adminEmail };
+  return { name: '', addressFields: emptyAddress('mx'), phone: '', email: adminEmail, coords: null };
 }
 
 export default function LocationsPage() {
@@ -102,6 +140,9 @@ export default function LocationsPage() {
       addressFields: loc.address ? parseAddress(loc.address) : emptyAddress('mx'),
       phone: loc.phone || '',
       email: loc.email || adminEmail,
+      coords: loc.latitude != null && loc.longitude != null
+        ? { lat: Number(loc.latitude), lng: Number(loc.longitude) }
+        : null,
     });
     setShowModal(true);
     setAddrErrors({});
@@ -126,8 +167,14 @@ export default function LocationsPage() {
     setAddrErrors({});
     setSaving(true);
     const fullAddress = serializeAddress(form.addressFields);
-    // Auto-geocode the address silently
-    const coords = await forwardGeocode(fullAddress);
+    // Coords finales = lo que muestra el pin del mapa. Si por algun motivo
+    // sigue null (usuario no toco el mapa ni se geocodifico), intentamos
+    // Nominatim como ultimo recurso para no guardar sin coords.
+    let coords: { lat: number; lng: number } | null = form.coords;
+    if (!coords) {
+      const hit = await forwardGeocode(form.addressFields);
+      coords = hit ? { lat: hit.lat, lng: hit.lng } : null;
+    }
     const payload = {
       name: form.name,
       address: fullAddress,
@@ -143,6 +190,42 @@ export default function LocationsPage() {
     }
     setSaving(false);
   }
+
+  // Geocodifica la direccion actual y mueve el pin a esa sugerencia. Es lo
+  // que el usuario pulsa cuando termina de escribir la direccion o cuando
+  // siente que el pin quedo en otro lugar.
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodePrecision, setGeocodePrecision] = useState<'address' | 'city' | 'unknown' | null>(null);
+  async function suggestCoordsFromAddress() {
+    setGeocoding(true);
+    const hit = await forwardGeocode(form.addressFields);
+    setGeocoding(false);
+    if (hit) {
+      setForm((prev) => ({ ...prev, coords: { lat: hit.lat, lng: hit.lng } }));
+      setGeocodePrecision(hit.precision);
+    } else {
+      setGeocodePrecision(null);
+      alert('No se pudo encontrar esa dirección. Arrastra el pin manualmente al lugar exacto.');
+    }
+  }
+
+  // Auto-geocode la primera vez que la direccion este completa y aun no hay
+  // coords (ni del edit ni del usuario). Solo dispara una vez por apertura
+  // del modal — despues respeta lo que el usuario arrastre.
+  const [autoGeocodedOnce, setAutoGeocodedOnce] = useState(false);
+  useEffect(() => {
+    if (!showModal) { setAutoGeocodedOnce(false); return; }
+    if (autoGeocodedOnce || form.coords) return;
+    const a = form.addressFields;
+    const complete = a.street && a.city && a.countryCode;
+    if (!complete) return;
+    const timer = setTimeout(() => {
+      suggestCoordsFromAddress();
+      setAutoGeocodedOnce(true);
+    }, 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal, form.addressFields.street, form.addressFields.city, form.addressFields.countryCode]);
 
   const isPending = saving || createMutation.isPending || updateMutation.isPending;
 
@@ -268,6 +351,56 @@ export default function LocationsPage() {
                     required
                     errors={addrErrors}
                   />
+                </div>
+
+                {/* Mapa con pin arrastrable — el geocoding automatico via
+                    Nominatim puede caer a varios km del lugar real. Aqui el
+                    dueño verifica visualmente y arrastra el pin al sitio
+                    exacto. Lo que se guarda son las coords del pin. */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-gray-700">Ubicación en el mapa</p>
+
+                  {/* CTA grande y llamativo para disparar la búsqueda */}
+                  <button
+                    type="button"
+                    onClick={suggestCoordsFromAddress}
+                    disabled={geocoding}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-colors hover:opacity-90"
+                    style={{ backgroundColor: '#008080' }}
+                  >
+                    {geocoding ? (
+                      <>
+                        <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                        Buscando dirección…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        {form.coords ? 'Volver a buscar dirección en mapa' : 'Buscar dirección en mapa'}
+                      </>
+                    )}
+                  </button>
+
+                  <LocationMapPicker
+                    value={form.coords}
+                    onChange={(coords) => { setForm((prev) => ({ ...prev, coords })); setGeocodePrecision('address'); }}
+                  />
+
+                  {/* Aviso de precisión: si Nominatim solo pudo ubicar la
+                      ciudad, le decimos al usuario que arrastre el pin. */}
+                  {form.coords && geocodePrecision === 'city' && (
+                    <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                      ⚠️ Solo pudimos ubicar la ciudad. <strong>Arrastra el pin al lugar exacto del local</strong> para que tus clientes vean la distancia correcta.
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    {form.coords
+                      ? '✓ Arrastra el pin si la ubicación no es exacta. Estas coordenadas se usarán para calcular la distancia a tus clientes.'
+                      : 'Llena al menos calle, ciudad y país y pulsa "Buscar dirección en mapa".'}
+                  </p>
                 </div>
 
                 {/* Phone */}
