@@ -1,6 +1,8 @@
 /**
- * Setup global de dayjs. Importar UNA vez en el layout root para garantizar
- * que `dayjs.utc(...)` esté disponible en todas las páginas.
+ * Setup global de dayjs. Se importa desde DOS lugares: el RootLayout (server)
+ * y Providers (client). Ambos son necesarios porque Next.js App Router tiene
+ * bundles separados para server y client — si solo se importa en el layout,
+ * los Client Components ven una instancia de dayjs sin el plugin extendido.
  *
  * El plugin utc es crítico: las horas de citas se almacenan como "wall-clock
  * raw" etiquetado como UTC en la DB (ver `parseWallClock` en backend y la
