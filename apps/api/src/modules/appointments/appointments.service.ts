@@ -315,6 +315,17 @@ export class AppointmentsService {
         where: { id: existingAppointment.id },
         data: { status: 'COMPLETED' },
       });
+      // Si la cita tenia productos reservados al hacer el booking,
+      // marcarlos como DELIVERED ahora que se cobro (mismo motivo que en
+      // payments.service y complete()).
+      await this.prisma.productReservation.updateMany({
+        where: {
+          appointmentId: existingAppointment.id,
+          tenantId,
+          status: { in: ['PENDING', 'CONFIRMED', 'READY'] },
+        },
+        data: { status: 'DELIVERED' },
+      });
       return { data: existingAppointment };
     }
 
@@ -776,6 +787,21 @@ export class AppointmentsService {
     const updated = await this.prisma.appointment.update({
       where: { id },
       data: { status: 'COMPLETED' },
+    });
+
+    // Productos reservados al hacer el booking: marcarlos como DELIVERED
+    // cuando la cita se completa por el wizard del empleado (pago en
+    // recepción o sin pago). Mismo razonamiento que en payments.service:
+    // si no marcamos, quedan en PENDING y los reportes los muestran como
+    // "por entregar" para siempre. El stock ya se descontó al crear la
+    // reservación, aquí solo cambia el estado.
+    await this.prisma.productReservation.updateMany({
+      where: {
+        appointmentId: id,
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'READY'] },
+      },
+      data: { status: 'DELIVERED' },
     });
 
     // Award loyalty points to client

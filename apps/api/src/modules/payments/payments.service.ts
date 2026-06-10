@@ -101,6 +101,21 @@ export class PaymentsService {
           },
         );
       }
+
+      // Productos reservados al hacer el booking: marcarlos como DELIVERED.
+      // El cliente acaba de pagar y se lleva la mercancía. Si no marcamos,
+      // quedan en PENDING para siempre y los reportes de inventario las
+      // siguen contando como "por entregar". El stock ya se descontó al
+      // crear la reservación (ver shop.service.ts), así que aquí solo se
+      // ajusta el estado, no hay efecto sobre Product.stock.
+      await this.prisma.productReservation.updateMany({
+        where: {
+          appointmentId: dto.appointmentId,
+          tenantId,
+          status: { in: ['PENDING', 'CONFIRMED', 'READY'] },
+        },
+        data: { status: 'DELIVERED' },
+      });
     }
 
     await this.auditService.log({
