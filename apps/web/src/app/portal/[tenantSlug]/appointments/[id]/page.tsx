@@ -86,10 +86,20 @@ export default function AppointmentDetailPage() {
   if (!appointment) return null;
 
   const status = STATUS_LABELS[appointment.status] || STATUS_LABELS.PENDING;
-  const totalPrice = appointment.items.reduce(
+  const servicesSubtotal = appointment.items.reduce(
     (sum: number, i: any) => sum + Number(i.priceSnapshot),
     0,
   );
+  // Productos reservados con la cita (carrito de tienda durante el booking).
+  // Excluimos CANCELLED — el resto es cobrable o ya cobrado.
+  const visibleProducts = (appointment.productReservations || []).filter(
+    (r: any) => r.status !== 'CANCELLED',
+  );
+  const productsSubtotal = visibleProducts.reduce(
+    (sum: number, r: any) => sum + Number(r.unitPrice || 0) * Number(r.quantity || 1),
+    0,
+  );
+  const totalPrice = servicesSubtotal + productsSubtotal;
   const canCancel = ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(appointment.status);
   const canReview = appointment.status === 'COMPLETED' && !appointment.review;
 
@@ -157,7 +167,32 @@ export default function AppointmentDetailPage() {
                 </span>
               </div>
             ))}
-            <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-100">
+          </div>
+
+          {/* Productos reservados al hacer el booking */}
+          {visibleProducts.length > 0 && (
+            <div className="py-3 border-t border-gray-100">
+              <p className="text-xs font-medium text-gray-500 mb-2">Productos</p>
+              {visibleProducts.map((r: any) => {
+                const lineTotal = Number(r.unitPrice || 0) * Number(r.quantity || 1);
+                return (
+                  <div key={r.id} className="flex items-center justify-between py-1">
+                    <span className="text-sm text-gray-700 truncate">
+                      {r.product?.name || 'Producto'}
+                      {Number(r.quantity) > 1 ? ` × ${r.quantity}` : ''}
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatCurrency(lineTotal)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Total general (servicios + productos) */}
+          <div className="py-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-900">Total</span>
               <span className="text-sm font-bold text-gray-900">
                 {formatCurrency(totalPrice)}

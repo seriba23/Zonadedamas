@@ -55,6 +55,10 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialAppointmentId || null);
+  // Cupón/descuento heredado de la cita pre-cargada. Se muestra como badge
+  // encima del campo discount para que el cajero sepa de dónde viene el
+  // descuento precargado y pueda removerlo o sumar más manualmente.
+  const [appointmentCoupon, setAppointmentCoupon] = useState<{ amount: number; label: string; code: string | null } | null>(null);
   // Marca que appointment ya pre-cargamos (cliente, items, phone). Evita
   // que refetches del query "pos-appointments" sobrescriban lo que el
   // cajero acabe de editar.
@@ -73,10 +77,17 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const [showRebook, setShowRebook] = useState(false);
 
   // Queries
+  // Citas desde hoy y hasta los próximos 30 días — el cajero puede adelantar
+  // pagos de citas futuras (por ej. el cliente llegó antes o quiere prepagar).
   const today = new Date().toISOString().split('T')[0];
+  const horizon = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  })();
   const { data: appointmentsData } = useQuery({
-    queryKey: ['pos-appointments', today],
-    queryFn: () => api.get<{ data: any[] }>(`/api/appointments?startDate=${today}&endDate=${today}&perPage=50`),
+    queryKey: ['pos-appointments', today, horizon],
+    queryFn: () => api.get<{ data: any[] }>(`/api/appointments?startDate=${today}&endDate=${horizon}&perPage=100`),
   });
   // Citas "Por cobrar" de CUALQUIER día — el wizard del empleado puede
   // delegar al POS una cita de mañana o pasado mañana; el cajero las
@@ -93,21 +104,24 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const { data: tenantData } = useQuery({ queryKey: ['tenant-current'], queryFn: () => api.get<{ data: any }>('/api/tenants/current') });
 
   // Mergeamos:
-  //  - Citas de HOY (filtro por fecha)
-  //  - Citas pending POS de cualquier dia
-  // Dedup por id. Las pending POS van siempre arriba.
+  //  - Citas próximas (hoy → +30 días)
+  //  - Citas pending POS de cualquier día (puede ser de ayer si el empleado
+  //    delegó el cobro y el cliente vuelve hoy)
+  // Dedup por id. Las pending POS siempre arriba, después por startTime asc
+  // (la más próxima primero).
   const appointments = (() => {
-    const today = (appointmentsData?.data || []).filter((a: any) =>
-      ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'COMPLETED'].includes(a.status),
+    const upcoming = (appointmentsData?.data || []).filter((a: any) =>
+      ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'RESCHEDULED'].includes(a.status),
     );
     const pending = pendingPosData?.data || [];
     const byId = new Map<string, any>();
-    for (const a of today) byId.set(a.id, a);
+    for (const a of upcoming) byId.set(a.id, a);
     for (const a of pending) byId.set(a.id, a);
     return Array.from(byId.values()).sort((a: any, b: any) => {
       if (a.pendingPosPayment && !b.pendingPosPayment) return -1;
       if (!a.pendingPosPayment && b.pendingPosPayment) return 1;
-      return 0;
+      // Orden cronológico: la más próxima arriba.
+      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
   })();
   const services = servicesData?.data || [];
@@ -135,8 +149,13 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
       setPhone(cleaned);
     }
     if (apt.locationId) setSelectedLocationId(apt.locationId);
+    // Items del cart = servicios de la cita + productos reservados pendientes.
+    // Si el cliente agregó productos al booking (carrito de tienda en la
+    // reserva), van en apt.productReservations. Solo cargamos los que aún
+    // no están cobrados/entregados — DELIVERED y CANCELLED se omiten.
+    const cartItems: CartItem[] = [];
     if (apt.items?.length) {
-      setItems(apt.items.map((item: any) => ({
+      cartItems.push(...apt.items.map((item: any) => ({
         id: `svc-${item.serviceId || item.id}`,
         name: item.serviceNameSnapshot,
         price: Number(item.priceSnapshot),
@@ -146,6 +165,41 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
         employeeName: apt.employee ? `${apt.employee.firstName} ${apt.employee.lastName}` : undefined,
         duration: item.durationSnapshot,
       })));
+    }
+    if (apt.productReservations?.length) {
+      cartItems.push(
+        ...apt.productReservations
+          .filter((r: any) => ['PENDING', 'CONFIRMED', 'READY'].includes(r.status))
+          .map((r: any) => ({
+            id: `prod-${r.productId}`,
+            name: r.product?.name || 'Producto',
+            price: Number(r.unitPrice),
+            quantity: Number(r.quantity) || 1,
+            type: 'product' as const,
+            imageUrl: r.product?.imageUrl,
+          })),
+      );
+    }
+    if (cartItems.length > 0) {
+      setItems(cartItems);
+    }
+    // Cupón/descuento aplicado a la cita: lo precargamos en el campo
+    // discount para que el cobro respete lo que el cliente ya consiguió.
+    // El cajero sigue pudiendo sumar descuento manual encima editando el
+    // input. El badge informa qué cupón viene.
+    if (apt.discountAmount && Number(apt.discountAmount) > 0) {
+      setDiscount(String(Number(apt.discountAmount)));
+      setDiscountType('amount');
+      setAppointmentCoupon({
+        amount: Number(apt.discountAmount),
+        label: apt.redemption?.reward?.name
+          || (apt.notes?.match(/\[Cup[oó]n: ([^\]]+)\]/)?.[1])
+          || (apt.notes?.match(/\[Promoci[oó]n: ([^\]]+)\]/)?.[1])
+          || 'Cupón',
+        code: apt.redemption?.code || null,
+      });
+    } else {
+      setAppointmentCoupon(null);
     }
     setStep('details');
   }, [selectedAppointmentId, appointments]);
@@ -273,6 +327,7 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
     setProductDetail(null);
     setConfirmationToken(null);
     setReviewSkipped(false);
+    setAppointmentCoupon(null);
     setStep('start');
   }
 
@@ -654,11 +709,22 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
 
             {appointments.length > 0 && (
               <>
-                <p className="text-xs text-gray-400 text-center uppercase tracking-wider">o selecciona una cita de hoy</p>
+                <p className="text-xs text-gray-400 text-center uppercase tracking-wider">o selecciona una próxima cita</p>
                 <div className="space-y-2 max-h-[28rem] overflow-y-auto">
                   {appointments.map((apt: any) => {
                     const services = apt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
-                    const totalPrice = (apt.items || []).reduce((s: number, i: any) => s + Number(i.priceSnapshot || 0), 0);
+                    const servicesPrice = (apt.items || []).reduce((s: number, i: any) => s + Number(i.priceSnapshot || 0), 0);
+                    // Productos asociados a la cita (carrito del booking). El
+                    // monto de la card debe reflejar lo que se cobrará en el
+                    // POS, no solo el servicio — el cajero ve el total real.
+                    const productsPrice = (apt.productReservations || [])
+                      .filter((r: any) => r.status !== 'CANCELLED')
+                      .reduce((s: number, r: any) => s + Number(r.unitPrice || 0) * Number(r.quantity || 1), 0);
+                    // Descuento ya aplicado a la cita (cupón/puntos). Lo
+                    // restamos del total mostrado para que coincida con lo
+                    // que el cajero va a cobrar realmente.
+                    const apptDiscount = Number(apt.discountAmount || 0);
+                    const totalPrice = Math.max(0, servicesPrice + productsPrice - apptDiscount);
                     const empColor = apt.employee?.color || '#008080';
                     const day = formatBookingDay(apt.startTime);
                     const month = formatBookingMonthShort(apt.startTime);
@@ -965,6 +1031,33 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
           {/* Discount */}
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <label className="block text-xs font-medium text-gray-600 mb-1">Descuento</label>
+
+            {/* Cupón heredado de la cita: el cajero ve qué cupón viene y
+                puede quitarlo si no aplica. Al quitar, el campo discount se
+                limpia para que pueda meter otro descuento manual. */}
+            {appointmentCoupon && (
+              <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-50 border border-teal-200">
+                <svg className="w-4 h-4 flex-shrink-0" style={{ color: '#008080' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-teal-800 truncate">
+                    {appointmentCoupon.label}
+                  </p>
+                  <p className="text-[10px] text-teal-700">
+                    -{formatCurrency(appointmentCoupon.amount)}
+                    {appointmentCoupon.code && <span className="font-mono ml-1.5">· {appointmentCoupon.code}</span>}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setAppointmentCoupon(null); setDiscount('0'); }}
+                  className="text-[10px] text-teal-700 hover:text-teal-900 font-medium px-2 py-1 rounded hover:bg-teal-100"
+                >
+                  Quitar
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} min="0" className="input-field flex-1" placeholder="0" />
               <div className="flex rounded-lg border border-gray-300 overflow-hidden">
@@ -972,6 +1065,11 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
                 <button onClick={() => setDiscountType('percent')} className={`px-3 py-2 text-sm border-l border-gray-300 ${discountType === 'percent' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700'}`}>%</button>
               </div>
             </div>
+            {appointmentCoupon && (
+              <p className="text-[10px] text-gray-400 mt-1.5">
+                El cupón ya está aplicado en este campo. Súmale más si vas a otorgar descuento adicional.
+              </p>
+            )}
           </div>
 
           {/* Tip */}

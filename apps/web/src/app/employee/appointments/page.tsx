@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -9,6 +9,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 import dayjs from 'dayjs';
 import { DatePicker } from '@/components/ui/date-picker';
 import { CloseAppointmentWizard } from './close-wizard';
+import { AppointmentWizard } from '@/components/appointments/appointment-wizard';
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
 
 interface AppointmentItem {
@@ -53,7 +54,7 @@ interface Appointment {
   redemption?: AppointmentRedemption | null;
 }
 
-type RangeFilter = 'today' | 'week' | 'month' | 'custom';
+type SectionTab = 'upcoming' | 'past' | 'today';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
@@ -86,17 +87,17 @@ const STATUS_LABEL: Record<string, string> = {
   NO_SHOW: 'Ausente',
 };
 
-function getDateRange(range: RangeFilter, customStart?: string, customEnd?: string): { startDate: string; endDate: string } {
+function getDateRangeForSection(section: SectionTab): { startDate: string; endDate: string } {
   const today = dayjs();
-  switch (range) {
+  switch (section) {
     case 'today':
       return { startDate: today.format('YYYY-MM-DD'), endDate: today.format('YYYY-MM-DD') };
-    case 'week':
-      return { startDate: today.startOf('week').format('YYYY-MM-DD'), endDate: today.endOf('week').format('YYYY-MM-DD') };
-    case 'month':
-      return { startDate: today.startOf('month').format('YYYY-MM-DD'), endDate: today.endOf('month').format('YYYY-MM-DD') };
-    case 'custom':
-      return { startDate: customStart || today.format('YYYY-MM-DD'), endDate: customEnd || today.format('YYYY-MM-DD') };
+    case 'upcoming':
+      // Próximas 6 semanas. Suficiente para ver agenda futura sin overhead.
+      return { startDate: today.format('YYYY-MM-DD'), endDate: today.add(42, 'day').format('YYYY-MM-DD') };
+    case 'past':
+      // Últimos 90 días. Historial reciente para reseñas/cobros pendientes.
+      return { startDate: today.subtract(90, 'day').format('YYYY-MM-DD'), endDate: today.format('YYYY-MM-DD') };
   }
 }
 
@@ -105,13 +106,15 @@ export default function EmployeeAppointmentsPage() {
   const currencyHook = useCurrency();
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
   const queryClient = useQueryClient();
-  const [range, setRange] = useState<RangeFilter>('today');
-  const [customStart, setCustomStart] = useState(dayjs().format('YYYY-MM-DD'));
-  const [customEnd, setCustomEnd] = useState(dayjs().format('YYYY-MM-DD'));
+  const [section, setSection] = useState<SectionTab>('upcoming');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>(''); // '' = todos
+  const [serviceFilter, setServiceFilter] = useState<string>('');
+  const [showNewWizard, setShowNewWizard] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [wizardApt, setWizardApt] = useState<Appointment | null>(null);
 
-  const { startDate, endDate } = getDateRange(range, customStart, customEnd);
+  const { startDate, endDate } = getDateRangeForSection(section);
 
   const { data: appointments, isLoading } = useQuery({
     queryKey: ['employee-appointments', user?.employeeId, startDate, endDate],
@@ -149,10 +152,59 @@ export default function EmployeeAppointmentsPage() {
     },
   });
 
-  const sorted = (appointments || [])
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  // Lista filtrada: por sección (próximas/pasadas), search, status y servicio.
+  const sorted = useMemo(() => {
+    const list = appointments || [];
+    const now = dayjs();
+    const q = search.trim().toLowerCase();
+    return list
+      .filter((apt) => {
+        // Sección: upcoming = futuras + en curso/confirmadas. past = pasadas o
+        // canceladas/completadas/no-show.
+        if (section === 'upcoming') {
+          const isFuture = dayjs.utc(apt.startTime).isAfter(now);
+          const isOpen = ['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS'].includes(apt.status);
+          if (!isFuture && !isOpen) return false;
+          if (['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(apt.status)) return false;
+        }
+        if (section === 'past') {
+          const isPast = dayjs.utc(apt.startTime).isBefore(now);
+          const isClosed = ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status);
+          if (!isPast && !isClosed) return false;
+        }
+        // Búsqueda libre
+        if (q) {
+          const fields = [
+            apt.client.firstName,
+            apt.client.lastName,
+            apt.client.email,
+            apt.client.phone,
+            ...apt.items.map((i) => i.serviceNameSnapshot),
+          ];
+          if (!fields.some((f) => (f || '').toLowerCase().includes(q))) return false;
+        }
+        // Status
+        if (statusFilter && apt.status !== statusFilter) return false;
+        // Servicio
+        if (serviceFilter && !apt.items.some((i) => i.serviceNameSnapshot === serviceFilter)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const at = new Date(a.startTime).getTime();
+        const bt = new Date(b.startTime).getTime();
+        // upcoming asc (la más próxima arriba). past/today desc (la más reciente arriba).
+        return section === 'upcoming' ? at - bt : bt - at;
+      });
+  }, [appointments, section, search, statusFilter, serviceFilter]);
 
-  // Group by date for week/month view
+  // Opciones de servicio para el dropdown (derivadas del set actual).
+  const serviceOptions = useMemo(() => {
+    const names = new Set<string>();
+    (appointments || []).forEach((a) => a.items.forEach((i) => names.add(i.serviceNameSnapshot)));
+    return Array.from(names).sort();
+  }, [appointments]);
+
+  // Group by date para el render de upcoming/past (siempre por fecha).
   const grouped = new Map<string, Appointment[]>();
   sorted.forEach((apt) => {
     const dateKey = dayjs.utc(apt.startTime).format('YYYY-MM-DD');
@@ -162,35 +214,87 @@ export default function EmployeeAppointmentsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Mis Citas</h1>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-            {([
-              { key: 'today' as RangeFilter, label: 'Día' },
-              { key: 'week' as RangeFilter, label: 'Semana' },
-              { key: 'month' as RangeFilter, label: 'Mes' },
-              { key: 'custom' as RangeFilter, label: 'Personalizado' },
-            ]).map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => setRange(filter.key)}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-r border-gray-300 last:border-r-0 ${
-                  range === filter.key
-                    ? 'bg-[#008080] text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
+      <div className="mb-5">
+        {/* Header: titulo + CTA Nueva cita */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">Mis Citas</h1>
+          <button
+            onClick={() => setShowNewWizard(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ backgroundColor: '#008080' }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.4} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Nueva cita
+          </button>
+        </div>
+
+        {/* Tabs sección: Próximas / Hoy / Pasadas — mismo estilo segmentado
+            que /marketplace/appointments (rounded-lg + border, activo teal). */}
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-3 max-w-md">
+          {([
+            { key: 'upcoming' as SectionTab, label: 'Próximas' },
+            { key: 'today' as SectionTab, label: 'Hoy' },
+            { key: 'past' as SectionTab, label: 'Pasadas' },
+          ]).map((tab, idx) => (
+            <button
+              key={tab.key}
+              onClick={() => setSection(tab.key)}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${idx > 0 ? 'border-l border-gray-300' : ''} ${
+                section === tab.key
+                  ? 'bg-[#008080] text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Buscador + filtros */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente o servicio..."
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+            />
           </div>
-          {range === 'custom' && (
-            <div className="flex items-center gap-2">
-              <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="input-field w-auto text-sm py-1.5" />
-              <span className="text-gray-500">-</span>
-              <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="input-field w-auto text-sm py-1.5" />
-            </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="text-sm rounded-xl border border-gray-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+          >
+            <option value="">Todos los estados</option>
+            {Object.entries(STATUS_LABEL).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          {serviceOptions.length > 0 && (
+            <select
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+              className="text-sm rounded-xl border border-gray-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+            >
+              <option value="">Todos los servicios</option>
+              {serviceOptions.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          )}
+          {(search || statusFilter || serviceFilter) && (
+            <button
+              onClick={() => { setSearch(''); setStatusFilter(''); setServiceFilter(''); }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              Limpiar
+            </button>
           )}
         </div>
       </div>
@@ -217,9 +321,11 @@ export default function EmployeeAppointmentsPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">Cargando...</div>
         ) : sorted.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-            No hay citas en este período
+            {section === 'upcoming' && 'No tienes citas próximas'}
+            {section === 'today' && 'No tienes citas para hoy'}
+            {section === 'past' && 'No hay citas pasadas en este rango'}
           </div>
-        ) : range === 'today' ? (
+        ) : section === 'today' ? (
           <div className="space-y-3">
             {sorted.map((apt) => (
               <AppointmentRow
@@ -479,6 +585,20 @@ export default function EmployeeAppointmentsPage() {
           onClose={() => setWizardApt(null)}
         />
       )}
+
+      {/* Wizard de creación de nueva cita — reusa el wizard del calendario */}
+      {showNewWizard && (
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+          <AppointmentWizard
+            onClose={() => setShowNewWizard(false)}
+            onSave={() => {
+              queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
+              setShowNewWizard(false);
+            }}
+            initialEmployeeId={user?.employeeId}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -500,7 +620,11 @@ function AppointmentRow({
     (sum, i) => sum + Number(i.priceSnapshot),
     0,
   );
-  const productsSubtotal = (apt.productReservations || []).reduce(
+  const activeProducts = (apt.productReservations || []).filter((p) => p.status !== 'CANCELLED');
+  const productsLabel = activeProducts
+    .map((p) => (p.quantity > 1 ? `${p.quantity}× ${p.product.name}` : p.product.name))
+    .join(', ');
+  const productsSubtotal = activeProducts.reduce(
     (sum, p) => sum + Number(p.unitPrice) * p.quantity,
     0,
   );
@@ -576,6 +700,14 @@ function AppointmentRow({
         {/* Servicios + total */}
         <div className="flex-1 min-w-0">
           <p className="text-xs text-gray-500 truncate">{services}</p>
+          {productsLabel && (
+            <p className="text-[11px] text-gray-400 truncate flex items-center gap-1 mt-0.5">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
+              </svg>
+              <span className="truncate">{productsLabel}</span>
+            </p>
+          )}
           <div className="flex items-baseline gap-2 mt-0.5">
             {hasDiscount && (
               <span className="text-[10px] text-gray-400 line-through leading-none">

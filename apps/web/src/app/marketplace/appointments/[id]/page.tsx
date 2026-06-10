@@ -104,10 +104,19 @@ export default function AppointmentDetailPage() {
   const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
   const { date, time } = formatDateTime(appt.startTime);
   const endTime = formatBookingTime(appt.endTime || appt.startTime);
-  const total = appt.items?.reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0) ?? 0;
+  const servicesSubtotal = appt.items?.reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0) ?? 0;
+  // Productos reservados en el booking (si el cliente sumó del carrito de
+  // tienda al reservar). Incluimos cantidad para que un mismo producto con
+  // qty=2 cuente doble. Excluimos solo CANCELLED — los demás (PENDING/
+  // CONFIRMED/READY/DELIVERED) son cobrables o ya cobrados.
+  const productsSubtotal = (appt.productReservations || [])
+    .filter((r: any) => r.status !== 'CANCELLED')
+    .reduce((sum: number, r: any) => sum + Number(r.unitPrice || 0) * Number(r.quantity || 1), 0);
+  const total = servicesSubtotal + productsSubtotal;
   // Moneda del negocio; default a MXN si por algún motivo no viene.
   const currency: string = appt.tenant?.currency || 'MXN';
   const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + Number(i.durationSnapshot || 0), 0) ?? 0;
+  const visibleProducts = (appt.productReservations || []).filter((r: any) => r.status !== 'CANCELLED');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -229,9 +238,63 @@ export default function AppointmentDetailPage() {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Productos reservados con la cita */}
+        {visibleProducts.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Productos</h2>
+            <div className="space-y-2">
+              {visibleProducts.map((r: any) => {
+                const lineTotal = Number(r.unitPrice || 0) * Number(r.quantity || 1);
+                return (
+                  <div key={r.id} className="flex items-center gap-3">
+                    {r.product?.imageUrl ? (
+                      <img
+                        src={`${API_URL}${r.product.imageUrl}`}
+                        alt=""
+                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-gray-100"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
+                      <p className="text-xs text-gray-400">
+                        {formatCurrency(Number(r.unitPrice || 0), currency)}
+                        {Number(r.quantity) > 1 ? ` × ${r.quantity}` : ''}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">{formatCurrency(lineTotal, currency)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Resumen del cobro: muestra subtotales por categoría, descuento y
+            total. Solo se muestra cuando hay algo que sumar — sino la
+            sección sería ruido visual. */}
+        {(appt.items?.length > 0 || visibleProducts.length > 0) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Resumen</h2>
+            <div className="space-y-1.5">
+              {servicesSubtotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <p className="text-gray-500">Servicios</p>
+                  <p className="text-gray-700">{formatCurrency(servicesSubtotal, currency)}</p>
+                </div>
+              )}
+              {productsSubtotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <p className="text-gray-500">Productos</p>
+                  <p className="text-gray-700">{formatCurrency(productsSubtotal, currency)}</p>
+                </div>
+              )}
               {Number(appt.discountAmount) > 0 && (() => {
-                // Nombre del cupón: redemption (puntos), o promoción extraída
-                // de las notas, o fallback genérico.
                 const fromRedemption = appt.redemption?.reward?.name;
                 const fromNotes = (() => {
                   const m = (appt.notes || '').match(/\[Promoci[oó]n: ([^\]]+)\]/);
@@ -242,15 +305,9 @@ export default function AppointmentDetailPage() {
                 })();
                 const label = fromRedemption || fromNotes || 'Cupón aplicado';
                 return (
-                  <div className="pt-2 mt-2 border-t border-gray-100">
-                    <div className="flex justify-between mb-1">
-                      <p className="text-sm text-gray-500">Subtotal</p>
-                      <p className="text-sm text-gray-500">{formatCurrency(total, currency)}</p>
-                    </div>
-                    <div className="flex justify-between">
-                      <p className="text-sm text-green-600 font-medium">{label}</p>
-                      <p className="text-sm text-green-600 font-medium">-{formatCurrency(Number(appt.discountAmount), currency)}</p>
-                    </div>
+                  <div className="flex justify-between text-sm">
+                    <p className="text-green-600 font-medium">{label}</p>
+                    <p className="text-green-600 font-medium">-{formatCurrency(Number(appt.discountAmount), currency)}</p>
                   </div>
                 );
               })()}
