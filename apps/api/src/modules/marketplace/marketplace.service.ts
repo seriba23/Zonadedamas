@@ -1767,10 +1767,18 @@ export class MarketplaceService {
       },
     });
 
-    // Sync linked Client records
+    // Sync linked Client records. Cada tenant donde el marketplace user está
+    // registrado tiene una fila en `clients` con userId apuntando al User.
+    // Si solo propagamos firstName/lastName, el POS de cada negocio sigue
+    // mostrando phone/email viejos cuando el usuario actualiza su perfil —
+    // el cajero termina con teléfono incorrecto en el campo de WhatsApp.
+    // Propagamos todos los campos espejados en la tabla clients.
     const clientUpdate: any = {};
     if (dto.firstName !== undefined) clientUpdate.firstName = dto.firstName;
     if (dto.lastName !== undefined) clientUpdate.lastName = dto.lastName;
+    if (dto.phone !== undefined) clientUpdate.phone = dto.phone || null;
+    if (dto.gender !== undefined) clientUpdate.gender = dto.gender || null;
+    if (dto.birthDate !== undefined) clientUpdate.dateOfBirth = dto.birthDate ? new Date(dto.birthDate) : null;
 
     if (Object.keys(clientUpdate).length > 0) {
       await this.prisma.client.updateMany({
@@ -1983,6 +1991,13 @@ export class MarketplaceService {
 
     await this.prisma.user.update({
       where: { id: marketplaceUserId },
+      data: { avatarUrl },
+    });
+
+    // Propagar avatar a los Client rows espejados en cada tenant — si no,
+    // el avatar viejo persiste en el avatar mostrado por staff/POS.
+    await this.prisma.client.updateMany({
+      where: { userId: marketplaceUserId },
       data: { avatarUrl },
     });
 
