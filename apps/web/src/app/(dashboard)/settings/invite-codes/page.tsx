@@ -163,12 +163,13 @@ export default function InviteCodesPage() {
         {hasServices && (
           <button
             onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center gap-2"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0"
+            style={{ backgroundColor: '#008080' }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.4}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Generar código
+            Nuevo
           </button>
         )}
       </div>
@@ -194,58 +195,64 @@ export default function InviteCodesPage() {
         </div>
       )}
 
-      {hasServices && <div className="bg-white rounded-xl border border-gray-200">
-        {isLoading ? (
-          <div className="p-8 text-center text-gray-400">Cargando...</div>
-        ) : !codes || codes.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
-            No hay códigos activos. Genera uno para empezar.
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {codes.map((code) => (
-              <li key={code.id} className="px-5 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
+      {hasServices && (
+        <>
+          {isLoading ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">Cargando...</div>
+          ) : !codes || codes.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
+              No hay códigos activos. Genera uno para empezar.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {codes.map((code) => (
+                <div key={code.id} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+                  {/* Header: codigo grande + jobTitle */}
+                  <div className="flex items-start gap-3 mb-3">
                     <div className="bg-gray-100 px-3 py-1.5 rounded-lg flex-shrink-0">
-                      <code className="text-lg font-mono font-bold tracking-widest text-gray-900">
+                      <code className="text-base font-mono font-bold tracking-widest text-gray-900">
                         {code.code}
                       </code>
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       {code.jobTitle && (
-                        <p className="text-sm font-semibold text-gray-800 mb-0.5">{code.jobTitle}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{code.jobTitle}</p>
                       )}
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs text-gray-500">
                         Usos: {code.usedCount}
                         {code.maxUses > 0 ? ` / ${code.maxUses}` : ' (ilimitado)'}
                       </p>
-                      <p className="text-xs text-gray-400">
-                        Creado {dayjs(code.createdAt).format('D MMM YYYY')}
-                        {code.expiresAt &&
-                          ` · Expira ${dayjs(code.expiresAt).format('D MMM YYYY')}`}
-                      </p>
-                      {code.services && code.services.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {code.services.map((s) => (
-                            <span key={s.service.id} className="text-[11px] bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2 py-0.5">
-                              {s.service.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+
+                  {/* Meta: creado / expira */}
+                  <p className="text-xs text-gray-400 mb-2">
+                    Creado {dayjs(code.createdAt).format('D MMM YYYY')}
+                    {code.expiresAt && ` · Expira ${dayjs(code.expiresAt).format('D MMM YYYY')}`}
+                  </p>
+
+                  {/* Servicios (chips) */}
+                  {code.services && code.services.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {code.services.map((s) => (
+                        <span key={s.service.id} className="text-[11px] bg-teal-50 text-[#008080] border border-teal-100 rounded-full px-2 py-0.5">
+                          {s.service.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Acciones: en mobile ocupan toda la fila y wrappean; en desktop quedan en una linea */}
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
                     <button
                       onClick={() => copyToClipboard(code.code, code.id)}
-                      className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="flex-1 min-w-[80px] px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       {copiedId === code.id ? '¡Copiado!' : 'Copiar'}
                     </button>
                     <button
                       onClick={() => shareWhatsApp(code.code, code.jobTitle)}
-                      className="px-3 py-1.5 text-sm font-medium text-white bg-[#25D366] hover:bg-[#1ebe57] rounded-lg transition-colors inline-flex items-center gap-1.5"
+                      className="flex-1 min-w-[120px] px-3 py-2 text-sm font-medium text-white bg-[#25D366] hover:bg-[#1ebe57] rounded-lg transition-colors inline-flex items-center justify-center gap-1.5"
                       title="Compartir por WhatsApp"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -256,17 +263,17 @@ export default function InviteCodesPage() {
                     <button
                       onClick={() => deleteMutation.mutate(code.id)}
                       disabled={deleteMutation.isPending}
-                      className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                      className="flex-1 min-w-[100px] px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
                     >
                       Desactivar
                     </button>
                   </div>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>}
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {/* Modal crear código */}
       {showModal && (

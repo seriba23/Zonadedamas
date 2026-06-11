@@ -241,13 +241,13 @@ export default function LocationsPage() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0"
           style={{ backgroundColor: '#008080' }}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.4} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Nueva sucursal
+          Nueva
         </button>
       </div>
 
@@ -286,9 +286,6 @@ export default function LocationsPage() {
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
                   {loc.phone && <span className="text-xs text-gray-400">{loc.phone}</span>}
                   {loc.email && <span className="text-xs text-gray-400">{loc.email}</span>}
-                  {loc.latitude && loc.longitude && (
-                    <span className="text-xs font-medium" style={{ color: '#008080' }}>📍 Geolocalización activa</span>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -391,8 +388,11 @@ export default function LocationsPage() {
                   {/* Aviso de precisión: si Nominatim solo pudo ubicar la
                       ciudad, le decimos al usuario que arrastre el pin. */}
                   {form.coords && geocodePrecision === 'city' && (
-                    <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                      ⚠️ Solo pudimos ubicar la ciudad. <strong>Arrastra el pin al lugar exacto del local</strong> para que tus clientes vean la distancia correcta.
+                    <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+                      </svg>
+                      <span>Solo pudimos ubicar la ciudad. <strong>Arrastra el pin al lugar exacto del local</strong> para que tus clientes vean la distancia correcta.</span>
                     </div>
                   )}
 

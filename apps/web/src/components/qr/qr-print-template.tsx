@@ -12,10 +12,24 @@ interface QrPrintTemplateProps {
 }
 
 export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: QrPrintTemplateProps) {
+  // URL legible para imprimir en el footer: quitamos el protocolo para que
+  // se vea limpio (`app.siliba.com/marketplace/foo` en vez de
+  // `https://app.siliba.com/marketplace/foo`). Es el mismo URL que esta
+  // codificado en el QR, asi la gente que escanee ve por anticipado el
+  // destino y la persona que lo NO pueda escanear puede tipearlo a mano.
+  const displayUrl = (() => {
+    try {
+      const u = new URL(qrUrl);
+      return `${u.host}${u.pathname}${u.search}`.replace(/\/$/, '');
+    } catch {
+      return qrUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    }
+  })();
+
   return (
-    <div className="w-full min-h-[80vh] bg-white flex flex-col items-center justify-center py-16 px-8 mx-auto print:w-[210mm] print:min-h-[297mm] print:p-8">
+    <div className="w-full bg-white flex flex-col items-center py-12 px-8 mx-auto print:w-[210mm] print:min-h-[297mm] print:p-8">
       {/* App branding */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-10">
         <h1 className="text-5xl font-bold text-[#008080] tracking-tight print:text-4xl">Siliba</h1>
         <p className="text-xl text-gray-500 mt-2 print:text-lg">Tu confianza, en manos de profesionales</p>
       </div>
@@ -83,9 +97,12 @@ export function QrPrintTemplate({ qrUrl, tenantName, logoUrl, locationName }: Qr
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-auto pt-12 text-center print:pt-10">
-        <p className="text-base text-gray-400 print:text-sm">www.siliba.com</p>
+      {/* Footer con la URL completa del negocio (sin protocolo). Es lo
+          ultimo del documento — sin mt-auto, asi el contenido fluye
+          natural y no deja espacio vacio en pantalla. En impresion el
+          min-h-[297mm] empuja a A4 completo. */}
+      <div className="pt-10 text-center">
+        <p className="text-base text-gray-400 print:text-sm break-all">{displayUrl}</p>
       </div>
     </div>
   );

@@ -369,7 +369,9 @@ export default function SubscriptionPage() {
       <Modal onClose={closeModal}>
         <div className="bg-red-600 px-6 py-5 text-white">
           <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">⚠️</span>
+            <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+            </svg>
             <h2 className="text-lg font-bold">¿Cancelar tu suscripción?</h2>
           </div>
           <p className="text-sm text-red-100">Esta acción tiene consecuencias importantes.</p>
@@ -379,7 +381,10 @@ export default function SubscriptionPage() {
             <p className="text-sm font-semibold text-gray-800">Al cancelar perderás acceso a:</p>
             {['Panel de administración y todas sus funciones', 'Tu perfil público en el marketplace', 'Sistema de reservas en línea para tus clientes', 'Historial de citas, clientes y reportes', 'Notificaciones y comunicaciones automáticas'].map((item) => (
               <div key={item} className="flex items-start gap-2 text-sm text-gray-600">
-                <span className="text-red-500 mt-0.5 flex-shrink-0">✕</span>{item}
+                <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                {item}
               </div>
             ))}
           </div>
@@ -418,7 +423,9 @@ export default function SubscriptionPage() {
           <div className="px-6 pt-6 pb-5 space-y-4">
             <div className="text-center">
               <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl">📭</span>
+                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
               <h2 className="text-lg font-bold text-gray-900">Suscripción cancelada</h2>
               <p className="text-sm text-gray-500 mt-1">Tu suscripción fue cancelada correctamente.</p>
@@ -430,7 +437,12 @@ export default function SubscriptionPage() {
             </div>
             <ul className="text-xs text-gray-500 space-y-1">
               {['Panel de administración', 'Perfil público en el marketplace', 'Sistema de reservas en línea', 'Historial y reportes'].map((item) => (
-                <li key={item} className="flex items-center gap-1.5"><span className="text-red-400">✕</span>{item}</li>
+                <li key={item} className="flex items-center gap-1.5">
+                  <svg className="w-3 h-3 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  {item}
+                </li>
               ))}
             </ul>
             <p className="text-xs text-center text-gray-400">Si te resuscribes ahora, los días restantes se aplican al próximo ciclo.</p>
@@ -519,9 +531,18 @@ export default function SubscriptionPage() {
 
       {/* ─── Error global ────────────────────────── */}
       {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center justify-between">
-          <span>⚠️ {error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+            </svg>
+            {error}
+          </span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 flex-shrink-0" aria-label="Cerrar">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 
@@ -534,12 +555,12 @@ export default function SubscriptionPage() {
       {/* ─── Card estado ─────────────────────────── */}
       {sub && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-semibold text-gray-900">Estado de la suscripción</h2>
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                style={{ backgroundColor: isAnnual ? '#fef3c7' : TEAL_LIGHT, color: isAnnual ? '#92400e' : TEAL }}>
-                {isAnnual ? '⭐ Anual' : '📅 Mensual'}
+                style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
+                {isAnnual ? 'Anual' : 'Mensual'}
               </span>
             </div>
             {statusCfg && (
@@ -583,43 +604,45 @@ export default function SubscriptionPage() {
 
           {/* Pago anticipado activo */}
           {sub.advancePaid && isMonthly && (
-            <div className="mx-6 mb-4 p-3 rounded-xl text-sm text-green-800 flex items-center gap-2" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-              ✅ Tienes un mes adelantado. Tu acceso está extendido hasta {dayjs(sub.nextBillingDate).format('D [de] MMMM')}.
+            <div className="mx-6 mb-4 p-3 rounded-xl text-sm text-green-800" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+              Tienes un mes adelantado. Tu acceso está extendido hasta {dayjs(sub.nextBillingDate).format('D [de] MMMM')}.
             </div>
           )}
 
           {/* Banners de estado */}
           {isCancelled && daysLeft > 0 && (
             <div className="mx-6 mb-4 p-3 rounded-xl text-sm" style={{ backgroundColor: TEAL_LIGHT, border: `1px solid ${TEAL}`, color: '#005555' }}>
-              📅 Suscripción cancelada. Acceso activo hasta el <strong>{dayjs(sub.nextBillingDate).format('D [de] MMMM')}</strong>.
+              Suscripción cancelada. Acceso activo hasta el <strong>{dayjs(sub.nextBillingDate).format('D [de] MMMM')}</strong>.
             </div>
           )}
           {sub.status === 'PAST_DUE' && (
             <div className="mx-6 mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
-              ⚠️ Hay un pago pendiente. Realiza tu pago para evitar la suspensión.
+              Hay un pago pendiente. Realiza tu pago para evitar la suspensión.
             </div>
           )}
           {sub.status === 'SUSPENDED' && (
             <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
-              🔒 Cuenta suspendida por falta de pago. Regulariza tu suscripción para recuperar el acceso.
+              Cuenta suspendida por falta de pago. Regulariza tu suscripción para recuperar el acceso.
             </div>
           )}
 
-          {/* Botones */}
+          {/* Botones — uniformes en mobile: flex-1 min-w[140px] hace que
+              cada uno ocupe el mismo ancho y wrappee a 2 por fila en
+              pantallas chicas, manteniendo proporcion visual. */}
           <div className="px-6 pb-5 flex gap-2 flex-wrap">
             {/* Cancelada → reactivar */}
             {isCancelled && (
               <button onClick={() => reactivateMutation.mutate()} disabled={reactivateMutation.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 text-center"
                 style={{ backgroundColor: TEAL }}>
-                {reactivateMutation.isPending ? 'Procesando...' : '↩ Reactivar suscripción'}
+                {reactivateMutation.isPending ? 'Procesando...' : 'Reactivar suscripción'}
               </button>
             )}
 
             {/* Sin stripe o suspendida → activar */}
             {!sub.stripeSubscriptionId && !isCancelled && (
               <button onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 text-center"
                 style={{ backgroundColor: TEAL }}>
                 {activateMutation.isPending ? 'Preparando...' : 'Activar suscripción'}
               </button>
@@ -628,7 +651,7 @@ export default function SubscriptionPage() {
             {/* Pago pendiente */}
             {(sub.status === 'PAST_DUE' || sub.status === 'SUSPENDED') && (
               <button onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 text-center"
                 style={{ backgroundColor: TEAL }}>
                 {activateMutation.isPending ? 'Preparando...' : 'Realizar pago'}
               </button>
@@ -637,25 +660,25 @@ export default function SubscriptionPage() {
             {/* Activo mensual: adelantar */}
             {isActive && isMonthly && !sub.advancePaid && (
               <button onClick={() => advanceMutation.mutate()} disabled={advanceMutation.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-medium border disabled:opacity-50"
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-50 text-center"
                 style={{ borderColor: TEAL, color: TEAL }}>
-                {advanceMutation.isPending ? 'Preparando...' : '📅 Adelantar un mes'}
+                {advanceMutation.isPending ? 'Preparando...' : 'Adelantar un mes'}
               </button>
             )}
 
             {/* Activo: domiciliar */}
             {isActive && (
               <button onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending}
-                className="px-4 py-2 rounded-xl text-sm font-medium border disabled:opacity-50"
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-50 text-center"
                 style={{ borderColor: TEAL, color: TEAL }}>
-                {setupMutation.isPending ? 'Preparando...' : '💳 Domiciliar tarjeta'}
+                {setupMutation.isPending ? 'Preparando...' : 'Domiciliar tarjeta'}
               </button>
             )}
 
             {/* Activo con stripe ID: cancelar */}
             {sub.stripeSubscriptionId && isActive && (
               <button onClick={() => setModal('cancel-confirm')}
-                className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50">
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold border border-red-200 text-red-600 hover:bg-red-50 text-center">
                 Cancelar suscripción
               </button>
             )}
@@ -792,30 +815,50 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* ─── Historial ───────────────────────────── */}
-      {invoices.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-gray-900">Historial de pagos</h2>
-          </div>
+      {/* ─── Historial de pagos ────────────────────
+          Siempre visible para que el dueño del negocio sepa que existe la
+          seccion incluso si aun no hay pagos (cuenta nueva). Empty state
+          informativo en lugar de ocultar la card. */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-900">Historial de pagos</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {invoices.length > 0
+              ? `${invoices.length} cobro${invoices.length !== 1 ? 's' : ''} registrado${invoices.length !== 1 ? 's' : ''} a la plataforma`
+              : 'Aquí aparecerán todos los cobros de tu suscripción mes a mes'}
+          </p>
+        </div>
+        {invoices.length > 0 ? (
           <div className="divide-y divide-gray-100">
             {invoices.map((inv) => (
-              <div key={inv.id} className="px-6 py-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{dayjs(inv.periodStart).format('MMM YYYY')}</p>
-                  <p className="text-xs text-gray-400">{inv.invoiceNumber}{inv.employeeCount != null && ` · ${inv.employeeCount} empleado${inv.employeeCount !== 1 ? 's' : ''}`}</p>
+              <div key={inv.id} className="px-6 py-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 capitalize">{dayjs(inv.periodStart).format('MMMM YYYY')}</p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {inv.invoiceNumber}
+                    {inv.employeeCount != null && ` · ${inv.employeeCount} empleado${inv.employeeCount !== 1 ? 's' : ''}`}
+                  </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <p className="text-sm font-bold">${Number(inv.amountUsd).toFixed(2)} MXN</p>
                   <span className={`text-xs font-medium ${inv.status === 'PAID' ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {inv.status === 'PAID' ? 'Pagado' : 'Pendiente'}{inv.paidAt && ` · ${dayjs(inv.paidAt).format('D MMM YYYY')}`}
+                    {inv.status === 'PAID' ? 'Pagado' : 'Pendiente'}
+                    {inv.paidAt && ` · ${dayjs(inv.paidAt).format('D MMM YYYY')}`}
                   </span>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="px-6 py-10 text-center">
+            <svg className="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.4}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+            </svg>
+            <p className="text-sm font-medium text-gray-700">Sin cobros aún</p>
+            <p className="text-xs text-gray-400 mt-1">Cuando hagas tu primer pago, aparecerá aquí.</p>
+          </div>
+        )}
+      </div>
 
       </div>{/* fin columna izquierda */}
 
