@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@siliba/shared'],
-  output: 'standalone',
+  // `output: 'standalone'` esta DESACTIVADO a proposito. El VPS arranca con
+  // `next start` (via ecosystem.config.js) y `standalone` exige arrancar con
+  // `node .next/standalone/server.js`. Tener ambos a la vez generaba el
+  // warning recurrente en cada arranque de PM2. Si en el futuro se migra a
+  // Docker o se quiere un bundle reducido, reactivarlo Y cambiar el comando
+  // de arranque en ecosystem.config.js.
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
