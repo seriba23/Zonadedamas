@@ -585,9 +585,18 @@ export default function BusinessSettingsPage() {
                           // `key` fuerza el remount del input al agregar uno
                           // nuevo, asi el picker siempre abre con el default
                           // y no con el ultimo color elegido.
+                          //
+                          // defaultValue = #ff0000 (rojo puro, HSV 0/100/100).
+                          // El picker nativo del SO arranca sus sliders en la
+                          // posicion del color recibido — con S=100 y V=100
+                          // ambos quedan al extremo derecho, asi el cuadro 2D
+                          // muestra colores saturados y vibrantes en lugar de
+                          // negros/grises. Tono al extremo izquierdo (0°),
+                          // listo para que el usuario lo deslice al matiz que
+                          // quiera sin perder visibilidad.
                           key={`add-color-${form.confettiColors.length}`}
                           type="color"
-                          defaultValue="#ffd166"
+                          defaultValue="#ff0000"
                           onChange={(e) => {
                             const picked = e.target.value;
                             setForm((f) => ({
