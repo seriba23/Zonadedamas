@@ -1714,7 +1714,15 @@ export class MarketplaceService {
       locationName = location?.name || null;
     }
 
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+    // Base URL para el QR del negocio: ordena de mas especifico a generico.
+    // APP_BASE_URL es la variable canonica para el dominio publico del web;
+    // FRONTEND_URL es la que ya existe en .env de produccion (la usa CORS,
+    // emails, etc), asi cubre tenants ya desplegados sin tener que editar
+    // .env. El localhost queda solo como fallback de desarrollo local.
+    const baseUrl =
+      process.env.APP_BASE_URL ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:3000';
     const qrUrl = locationId
       ? `${baseUrl}/qr/${tenant.slug}?location=${locationId}`
       : `${baseUrl}/qr/${tenant.slug}`;
