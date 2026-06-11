@@ -518,6 +518,12 @@ model Client {
   refreshTokens     ClientRefreshToken[]
   rewardRedemptions RewardRedemption[]
 
+  // Un marketplace user solo puede tener UN Client por tenant. Esto bloquea
+  // a nivel DB el caso de race condition donde dos requests del booking
+  // pasan el findFirst y ambos crean (era el bug original al investigar
+  // los 3 "Alfredo Ibarra"). MySQL permite multiples NULLs en un unique,
+  // asi que walk-in clients sin userId siguen funcionando.
+  @@unique([tenantId, userId])
   @@index([tenantId])
   @@index([tenantId, email])
   @@index([tenantId, phone])
