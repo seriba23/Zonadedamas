@@ -27,7 +27,6 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
   const [aniosPagInicio, setAniosPagInicio] = useState(0);
   const [inputText, setInputText] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const max = maxDate || new Date();
   const maxAnio = max.getFullYear();
@@ -52,43 +51,16 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
     }
   }, []);
 
-  // Position dropdown using fixed positioning to avoid overflow clipping
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-  useEffect(() => {
-    if (!open || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const spaceRight = window.innerWidth - rect.left;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const style: React.CSSProperties = {
-      position: 'fixed',
-      width: 280,
-      zIndex: 9999,
-    };
-    // Vertical: below or above
-    if (spaceBelow > 320) {
-      style.top = rect.bottom + 4;
-    } else {
-      style.bottom = window.innerHeight - rect.top + 4;
-    }
-    // Horizontal: align left or right
-    if (spaceRight >= 290) {
-      style.left = rect.left;
-    } else {
-      style.right = window.innerWidth - rect.right;
-    }
-    setDropdownStyle(style);
-  }, [open]);
-
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
   // Parse selected date from value
@@ -312,12 +284,17 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
         </button>
       </div>
 
-      {/* Dropdown */}
+      {/* Modal */}
       {open && (
         <div
-          ref={dropdownRef}
-          className="bg-white border border-gray-200 rounded-xl shadow-lg p-3"
-          style={dropdownStyle}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+        <div
+          className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-[280px] max-w-full"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-2.5">
@@ -393,6 +370,7 @@ export function DatePicker({ value, onChange, placeholder = 'dd/mm/aaaa', maxDat
               </button>
             </div>
           )}
+        </div>
         </div>
       )}
 
