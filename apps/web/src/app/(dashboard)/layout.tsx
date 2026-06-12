@@ -10,6 +10,8 @@ import { useWebSocket, EmployeeJoinedEvent, PurchaseCreatedEvent } from '@/lib/h
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { TopbarActionProvider, useTopbarAction } from '@/lib/hooks/use-topbar-action';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { useEnsurePushSubscription } from '@/lib/hooks/use-staff-notifications';
 
 function EmployeeJoinedNotification({
   employee,
@@ -185,6 +187,8 @@ function DashboardLayoutContent({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const topbarAction = useTopbarAction();
 
+  useEnsurePushSubscription();
+
   // Cerrar drawer al navegar entre paginas (mobile).
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -281,9 +285,10 @@ function DashboardLayoutContent({
           <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center text-base font-semibold text-[var(--text-primary)] truncate px-24 md:relative md:px-0 md:inset-auto md:flex-1 md:justify-start md:text-xl md:pointer-events-auto">
             <span className="truncate">{sectionTitle}</span>
           </h1>
-          {topbarAction && (
-            <div className="relative z-10 ml-auto flex-shrink-0">{topbarAction}</div>
-          )}
+          <div className="relative z-10 ml-auto flex items-center gap-1 flex-shrink-0">
+            <NotificationBell basePath="/dashboard" />
+            {topbarAction && <div>{topbarAction}</div>}
+          </div>
         </header>
 
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />

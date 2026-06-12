@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import { EmployeeSidebar } from '@/components/layout/employee-sidebar';
 import { api } from '@/lib/api';
 import { ForceLightTheme } from '@/components/ui/force-light-theme';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { useEnsurePushSubscription } from '@/lib/hooks/use-staff-notifications';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -410,6 +412,9 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Registra el service worker y suscribe al push si ya hay permiso
+  useEnsurePushSubscription();
+
   const { data: empData } = useQuery({
     queryKey: ['employee-profile-check', user?.employeeId],
     queryFn: async () => {
@@ -472,7 +477,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       <ForceLightTheme />
       <EmployeeSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
-        {/* Topbar mobile con hamburger */}
+        {/* Topbar mobile con hamburger + bell */}
         <header className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center px-3 py-2.5">
           <button
             onClick={() => setIsSidebarOpen(true)}
@@ -484,6 +489,13 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             </svg>
           </button>
           <span className="ml-2 text-base font-bold" style={{ color: '#008080' }}>Siliba</span>
+          <div className="ml-auto">
+            <NotificationBell basePath="/employee" />
+          </div>
+        </header>
+        {/* Topbar desktop solo para el bell */}
+        <header className="hidden lg:flex sticky top-0 z-20 bg-white border-b border-gray-200 items-center justify-end px-4 py-2">
+          <NotificationBell basePath="/employee" />
         </header>
         {profileIncomplete && (
           <div className="bg-teal-50 border-b border-teal-200 px-4 py-2.5">
