@@ -119,6 +119,7 @@ function SlotGrid({
   businessHours,
   durationMinutes,
   preferredTime,
+  clientBlocks = [],
 }: {
   dateStr: string;
   availableSlots: AvailableSlot[];
@@ -127,12 +128,22 @@ function SlotGrid({
   businessHours: any[];
   durationMinutes: number;
   preferredTime?: string;
+  clientBlocks?: Array<{ start: Date; end: Date }>;
 }) {
   const dayOfWeek = dayjs(dateStr).day();
   const dayHours = businessHours?.find((h: any) => h.dayOfWeek === DOW_MAP[dayOfWeek]);
 
+  // Para un slot [timeStr, timeStr + durationMinutes] del dia `dateStr`,
+  // chequea si solapa con alguna cita existente del cliente.
+  function clientHasConflict(timeStr: string): boolean {
+    if (clientBlocks.length === 0) return false;
+    const slotStart = new Date(`${dateStr}T${timeStr}:00Z`);
+    const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+    return clientBlocks.some((b) => b.start < slotEnd && b.end > slotStart);
+  }
+
   // Build full list of 30-min slots from business hours
-  const allSlots: { time: string; available: boolean; slot: AvailableSlot | null }[] = [];
+  const allSlots: { time: string; available: boolean; conflicted: boolean; slot: AvailableSlot | null }[] = [];
 
   if (dayHours?.isOpen && dayHours.openTime && dayHours.closeTime) {
     const start = parseTimeToMinutes(dayHours.openTime);
@@ -143,13 +154,20 @@ function SlotGrid({
         const slotTime = s.startTime.split('T')[1]?.substring(0, 5);
         return slotTime === timeStr;
       });
-      allSlots.push({ time: timeStr, available: !!matchingSlot, slot: matchingSlot || null });
+      const conflicted = !!matchingSlot && clientHasConflict(timeStr);
+      allSlots.push({
+        time: timeStr,
+        available: !!matchingSlot && !conflicted,
+        conflicted,
+        slot: matchingSlot || null,
+      });
     }
   } else {
     // Fallback: only show available slots
     availableSlots.forEach((s) => {
       const timeStr = s.startTime.split('T')[1]?.substring(0, 5) || '';
-      allSlots.push({ time: timeStr, available: true, slot: s });
+      const conflicted = clientHasConflict(timeStr);
+      allSlots.push({ time: timeStr, available: !conflicted, conflicted, slot: s });
     });
   }
 
@@ -163,14 +181,20 @@ function SlotGrid({
 
   return (
     <div className="grid grid-cols-3 gap-2 p-4">
-      {allSlots.map(({ time, available, slot }) => {
+      {allSlots.map(({ time, available, conflicted, slot }) => {
         const isSelected = selectedSlot?.startTime?.includes(time);
         const isPreferred = !isSelected && preferredTime === time && available;
+        const title = conflicted
+          ? 'Ya tienes una cita en este horario'
+          : !available
+            ? 'Horario no disponible'
+            : undefined;
         return (
           <button
             key={time}
             disabled={!available}
             onClick={() => slot && onSelect(slot)}
+            title={title}
             className="py-2.5 rounded-xl text-sm font-medium transition-all"
             style={
               isSelected
@@ -179,7 +203,9 @@ function SlotGrid({
                   ? { backgroundColor: '#e0f2f1', color: '#008080', border: '2px solid #008080', boxShadow: '0 0 0 2px rgba(0,128,128,0.15)' }
                   : available
                     ? { backgroundColor: '#e0f2f1', color: '#008080', border: '1.5px solid #b2dfdb' }
-                    : { backgroundColor: '#f3f4f6', color: '#d1d5db', cursor: 'not-allowed', textDecoration: 'line-through' }
+                    : conflicted
+                      ? { backgroundColor: '#fef2f2', color: '#b91c1c', border: '1.5px solid #fecaca', cursor: 'not-allowed', textDecoration: 'line-through' }
+                      : { backgroundColor: '#e5e7eb', color: '#6b7280', border: '1.5px solid #d1d5db', cursor: 'not-allowed', textDecoration: 'line-through' }
             }
           >
             {time}
@@ -561,6 +587,22 @@ export default function BusinessDetailPage() {
     queryFn: () => marketplaceApi.get<{ data: any }>('/my-stats'),
     enabled: !!user,
   });
+
+  // Citas futuras del cliente (cualquier negocio) para bloquear horarios
+  // ocupados en el picker. Si el cliente no esta autenticado, no aplica.
+  const { data: myApptsData } = useQuery({
+    queryKey: ['my-appointments-booking', user?.id],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any[] }>('/my-appointments?filter=upcoming&perPage=100'),
+    enabled: !!user && bookingStep === 'datetime',
+  });
+  const clientBlocks: Array<{ start: Date; end: Date }> = (
+    (myApptsData as any)?.data || []
+  )
+    .filter((a: any) =>
+      a?.startTime && a?.endTime && !['CANCELLED', 'NO_SHOW'].includes(a.status),
+    )
+    .map((a: any) => ({ start: new Date(a.startTime), end: new Date(a.endTime) }));
   const myPointsHere = ((userStatsData as any)?.data?.pointsByTenant || []).find((t: any) => t.tenantSlug === tenantSlug)?.points || 0;
 
   const bookingCartTotal = bookingCart.reduce((s, c) => s + Number(c.price) * c.quantity, 0);
@@ -3778,6 +3820,7 @@ export default function BusinessDetailPage() {
                         businessHours={biz?.tenantType === 'FREELANCER' ? [] : (biz?.businessHours || [])}
                         durationMinutes={totalDuration || 30}
                         preferredTime={preferredTime}
+                        clientBlocks={clientBlocks}
                       />
                     )}
                   </div>

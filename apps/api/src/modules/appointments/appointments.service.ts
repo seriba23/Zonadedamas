@@ -172,6 +172,26 @@ export class AppointmentsService {
             }
           }
 
+          // Check client overlap (cliente no puede tener 2 citas a la vez,
+          // ni siquiera con empleados distintos). Se valida contra el rango
+          // completo [startTime, endTime] de la cita nueva, no solo el slot
+          // de inicio — asi una cita de 2 horas bloquea las 2 horas enteras.
+          const clientOverlap = await tx.appointment.findFirst({
+            where: {
+              clientId: dto.clientId,
+              tenantId,
+              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+              startTime: { lt: endTime },
+              endTime: { gt: startTime },
+            },
+            select: { id: true },
+          });
+          if (clientOverlap) {
+            throw new ConflictException(
+              'Ya tienes una cita en este horario. Selecciona otra hora.',
+            );
+          }
+
           // Create the appointment
           const appointment = await tx.appointment.create({
             data: {
@@ -587,6 +607,25 @@ export class AppointmentsService {
           if (overlap) {
             throw new ConflictException(
               'Este horario ya está reservado.',
+            );
+          }
+
+          // Same check pero contra el propio cliente: no puede tener dos
+          // citas que se solapen, ni siquiera con empleados distintos.
+          const clientOverlap = await tx.appointment.findFirst({
+            where: {
+              clientId: appointment.clientId,
+              tenantId,
+              id: { not: id },
+              status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+              startTime: { lt: newEndTime },
+              endTime: { gt: newStartTime },
+            },
+            select: { id: true },
+          });
+          if (clientOverlap) {
+            throw new ConflictException(
+              'Ya tienes una cita en este horario. Selecciona otra hora.',
             );
           }
 
