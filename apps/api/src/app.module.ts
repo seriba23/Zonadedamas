@@ -25,6 +25,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { PlatformAuthModule } from './modules/platform-auth/platform-auth.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { StaffNotificationsModule } from './modules/staff-notifications/staff-notifications.module';
 import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
@@ -77,6 +78,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     PlatformAuthModule,
     PlatformAdminModule,
     NotificationsModule,
+    StaffNotificationsModule,
     ClientPortalModule,
     MarketplaceModule,
     RewardsModule,

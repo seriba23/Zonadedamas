@@ -209,6 +209,14 @@ export class ShopService {
       );
     }
 
+    // Stock crossings to alert on after the transaction commits
+    const stockAlerts: Array<{
+      id: string;
+      name: string;
+      stock: number;
+      minStock: number;
+    }> = [];
+
     // Transactional: validate stock and create reservation
     const reservation = await this.prisma.$transaction(
       async (tx) => {
@@ -229,10 +237,19 @@ export class ShopService {
         }
 
         // Decrement stock
-        await tx.product.update({
+        const updatedProduct = await tx.product.update({
           where: { id: product.id },
           data: { stock: { decrement: dto.quantity } },
+          select: { id: true, name: true, stock: true, minStock: true },
         });
+        // Only alert when *crossing* the threshold (was above, now below)
+        if (
+          updatedProduct.minStock > 0 &&
+          product.stock > updatedProduct.minStock &&
+          updatedProduct.stock <= updatedProduct.minStock
+        ) {
+          stockAlerts.push(updatedProduct);
+        }
 
         // Create reservation with price snapshot
         return tx.productReservation.create({
@@ -287,6 +304,26 @@ export class ShopService {
       },
     });
 
+    if (reservation.appointmentId) {
+      this.eventEmitter.emit('product_reservation.created', {
+        tenantId: tenant.id,
+        reservationId: reservation.id,
+        productName: reservation.product.name,
+        clientName: reservation.customerName,
+        quantity: reservation.quantity,
+      });
+    }
+
+    for (const p of stockAlerts) {
+      this.eventEmitter.emit('inventory.low_stock', {
+        tenantId: tenant.id,
+        productId: p.id,
+        productName: p.name,
+        stock: p.stock,
+        threshold: p.minStock,
+      });
+    }
+
     return { data: reservation };
   }
 
@@ -312,6 +349,13 @@ export class ShopService {
       throw new BadRequestException('Direccion de envio requerida');
     }
 
+    const stockAlerts: Array<{
+      id: string;
+      name: string;
+      stock: number;
+      minStock: number;
+    }> = [];
+
     const reservations = await this.prisma.$transaction(
       async (tx) => {
         const results: any[] = [];
@@ -330,10 +374,18 @@ export class ShopService {
             throw new BadRequestException(`Stock insuficiente para "${product.name}". Disponible: ${product.stock}`);
           }
 
-          await tx.product.update({
+          const updatedProduct = await tx.product.update({
             where: { id: product.id },
             data: { stock: { decrement: item.quantity } },
+            select: { id: true, name: true, stock: true, minStock: true },
           });
+          if (
+            updatedProduct.minStock > 0 &&
+            product.stock > updatedProduct.minStock &&
+            updatedProduct.stock <= updatedProduct.minStock
+          ) {
+            stockAlerts.push(updatedProduct);
+          }
 
           const reservation = await tx.productReservation.create({
             data: {
@@ -391,6 +443,28 @@ export class ShopService {
           total,
           createdAt: first.createdAt,
         },
+      });
+
+      if (first.appointmentId) {
+        for (const r of reservations) {
+          this.eventEmitter.emit('product_reservation.created', {
+            tenantId: tenant.id,
+            reservationId: r.id,
+            productName: r.product.name,
+            clientName: first.customerName,
+            quantity: r.quantity,
+          });
+        }
+      }
+    }
+
+    for (const p of stockAlerts) {
+      this.eventEmitter.emit('inventory.low_stock', {
+        tenantId: tenant.id,
+        productId: p.id,
+        productName: p.name,
+        stock: p.stock,
+        threshold: p.minStock,
       });
     }
 

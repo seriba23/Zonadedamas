@@ -236,6 +236,7 @@ model Tenant {
   productReservations   ProductReservation[]
   attendances           Attendance[]
   tenantReviews         TenantReview[]
+  staffNotifications    StaffNotification[]
 
   @@map("tenants")
 }
@@ -380,6 +381,8 @@ model User {
   professionalFavorites MarketplaceProfessionalFavorite[]
   productReservations   ProductReservation[]
   tenantReviews         TenantReview[]
+  staffNotifications    StaffNotification[]
+  pushSubscriptions     PushSubscription[]
 
   @@index([tenantId])
   @@index([isClient])
@@ -1643,4 +1646,47 @@ model ServiceBundle {
 
   @@index([tenantId, isActive])
   @@map("service_bundles")
+}
+
+// ─── STAFF NOTIFICATIONS (in-app + push) ───────────
+
+model StaffNotification {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  userId     String    @map("user_id")
+  type       String    @db.VarChar(64)
+  section    String    @db.VarChar(32)
+  title      String    @db.VarChar(200)
+  body       String    @db.Text
+  link       String?   @db.VarChar(500)
+  entityType String?   @map("entity_type") @db.VarChar(40)
+  entityId   String?   @map("entity_id")
+  metadata   Json?
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, section, readAt])
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@map("staff_notifications")
+}
+
+model PushSubscription {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  endpoint   String    @unique @db.VarChar(500)
+  p256dh     String    @db.VarChar(255)
+  auth       String    @db.VarChar(255)
+  userAgent  String?   @map("user_agent") @db.VarChar(300)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }

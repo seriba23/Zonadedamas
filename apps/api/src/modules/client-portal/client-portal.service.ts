@@ -16,6 +16,7 @@ import { ClientRegisterDto } from './dto/client-register.dto';
 import { ClientLoginDto } from './dto/client-login.dto';
 import { ClientUpdateProfileDto, ClientChangePasswordDto } from './dto/client-update-profile.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class ClientPortalService {
@@ -25,6 +26,7 @@ export class ClientPortalService {
     private readonly tenantsService: TenantsService,
     private readonly appointmentsService: AppointmentsService,
     private readonly availabilityService: AvailabilityService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─── TENANT RESOLUTION ──────────────────────────────
@@ -532,6 +534,18 @@ export class ClientPortalService {
         businessComment: dto.businessComment,
         reviewedAt: new Date(),
       },
+    });
+
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { firstName: true, lastName: true },
+    });
+    this.eventEmitter.emit('review.created', {
+      tenantId,
+      reviewId: review.id,
+      employeeId: appointment.employeeId,
+      rating: review.rating,
+      clientName: client ? `${client.firstName} ${client.lastName}` : 'Un cliente',
     });
 
     return { data: review };

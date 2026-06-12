@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ConfirmPaymentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async resolve(token: string) {
     const appointment = await this.prisma.appointment.findUnique({
@@ -92,6 +96,17 @@ export class ConfirmPaymentService {
         reviewedAt: new Date(),
       },
       select: { id: true, rating: true, businessRating: true, reviewedAt: true },
+    });
+    const client = await this.prisma.client.findUnique({
+      where: { id: appointment.clientId },
+      select: { firstName: true, lastName: true },
+    });
+    this.eventEmitter.emit('review.created', {
+      tenantId: appointment.tenantId,
+      reviewId: review.id,
+      employeeId: appointment.employeeId,
+      rating: review.rating,
+      clientName: client ? `${client.firstName} ${client.lastName}` : 'Un cliente',
     });
     return { data: review };
   }

@@ -22,6 +22,7 @@ import { EventsService } from '../events/events.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { PlanLimitsService } from '../subscriptions/plan-limits.service';
 import { StripeService } from '../stripe/stripe.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class EmployeesService {
@@ -32,6 +33,7 @@ export class EmployeesService {
     private readonly availabilityService: AvailabilityService,
     private readonly planLimitsService: PlanLimitsService,
     private readonly stripeService: StripeService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private async syncSubscriptionEmployeeCount(tenantId: string, employeeDeactivated = false) {
@@ -783,7 +785,7 @@ export class EmployeesService {
       throw new ConflictException('Ya existe una reseña para esta cita');
     }
 
-    return this.prisma.employeeReview.create({
+    const review = await this.prisma.employeeReview.create({
       data: {
         tenantId,
         employeeId,
@@ -796,6 +798,14 @@ export class EmployeesService {
         client: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+    this.eventEmitter.emit('review.created', {
+      tenantId,
+      reviewId: review.id,
+      employeeId,
+      rating: review.rating,
+      clientName: `${review.client.firstName} ${review.client.lastName}`,
+    });
+    return review;
   }
 
   // ─── PERSONAL INFO ──────────────────────────────────

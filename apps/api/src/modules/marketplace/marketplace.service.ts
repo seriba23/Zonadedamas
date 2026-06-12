@@ -22,6 +22,7 @@ import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
 import { CreateTenantReviewDto } from './dto/tenant-review.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { UploadsService } from '../uploads/uploads.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class MarketplaceService {
@@ -36,6 +37,7 @@ export class MarketplaceService {
     private readonly tenantsService: TenantsService,
     private readonly appointmentsService: AppointmentsService,
     private readonly uploads: UploadsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /** True si la URL ya es un path local de uploads (no hotlink externo). */
@@ -2102,6 +2104,17 @@ export class MarketplaceService {
         reviewedAt: new Date(),
       },
       select: { id: true, rating: true, businessRating: true, reviewedAt: true },
+    });
+    const client = await this.prisma.client.findUnique({
+      where: { id: appointment.clientId },
+      select: { firstName: true, lastName: true },
+    });
+    this.eventEmitter.emit('review.created', {
+      tenantId: appointment.tenantId,
+      reviewId: review.id,
+      employeeId: appointment.employeeId,
+      rating: review.rating,
+      clientName: client ? `${client.firstName} ${client.lastName}` : 'Un cliente',
     });
     return { data: review };
   }
