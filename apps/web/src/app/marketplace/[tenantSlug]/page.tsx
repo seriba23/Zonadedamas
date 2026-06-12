@@ -179,8 +179,12 @@ function SlotGrid({
     );
   }
 
+  const hasConflicted = allSlots.some((s) => s.conflicted);
+  const hasUnavailable = allSlots.some((s) => !s.available && !s.conflicted);
+
   return (
-    <div className="grid grid-cols-3 gap-2 p-4">
+    <>
+    <div className="grid grid-cols-3 gap-2 p-4 pb-2">
       {allSlots.map(({ time, available, conflicted, slot }) => {
         const isSelected = selectedSlot?.startTime?.includes(time);
         const isPreferred = !isSelected && preferredTime === time && available;
@@ -213,6 +217,25 @@ function SlotGrid({
         );
       })}
     </div>
+    <div className="px-4 pb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-gray-500">
+      <span className="inline-flex items-center gap-1">
+        <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#e0f2f1', border: '1.5px solid #b2dfdb' }} />
+        Disponible
+      </span>
+      {hasConflicted && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#fef2f2', border: '1.5px solid #fecaca' }} />
+          Ya tienes una cita
+        </span>
+      )}
+      {hasUnavailable && (
+        <span className="inline-flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#e5e7eb', border: '1.5px solid #d1d5db' }} />
+          No disponible
+        </span>
+      )}
+    </div>
+    </>
   );
 }
 
