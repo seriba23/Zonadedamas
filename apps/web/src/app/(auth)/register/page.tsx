@@ -189,6 +189,12 @@ function RegisterPageInner() {
   // y precargamos el campo `inviteCode`.
   const typeParam = searchParams.get('type') as RegisterMode | null;
   const codeParam = searchParams.get('code')?.trim().toUpperCase() || '';
+  // Si el usuario llego con ?redirect= (ej. desde el QR de un negocio que
+  // le pidio login), respetar ese destino al terminar el registro.
+  const redirectParam = searchParams.get('redirect');
+  const clientRedirect = redirectParam?.startsWith('/marketplace')
+    ? redirectParam
+    : '/marketplace';
   const initialMode: RegisterMode = codeParam
     ? 'business'
     : typeParam === 'individual' || typeParam === 'business' || typeParam === 'client'
@@ -607,7 +613,7 @@ function RegisterPageInner() {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('marketplace_profile_dismissed');
       }
-      router.push('/marketplace');
+      router.push(clientRedirect);
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -1147,7 +1153,7 @@ function RegisterPageInner() {
                   if (typeof window !== 'undefined') {
                     sessionStorage.removeItem('marketplace_profile_dismissed');
                   }
-                  router.push('/marketplace');
+                  router.push(clientRedirect);
                 } catch (err: unknown) {
                   const error = err as { message?: string };
                   setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');

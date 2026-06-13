@@ -91,6 +91,21 @@ function ReservationDetailModal({
   const avatarUrl = r.user?.avatarUrl ? `${API_URL}${r.user.avatarUrl}` : null;
   // Para wa.me solo digitos del telefono (sin +, espacios, parentesis).
   const waPhone = (r.customerPhone || '').replace(/[^\d]/g, '');
+  // Mensaje pre-llenado para WhatsApp: saludo + resumen + link al pedido
+  // en el marketplace (donde el cliente ve estado, comprobante, etc).
+  const firstName = (r.customerName || '').trim().split(/\s+/)[0] || '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const purchaseLink = origin ? `${origin}/marketplace/purchases/${r.id}` : '';
+  const productName = r.product?.name || 'tu producto';
+  const codeRef = r.code ? ` #${r.code}` : '';
+  const totalStr = formatCurrency(total);
+  const waMessage =
+    `Hola ${firstName}! Te escribo de parte del negocio sobre tu apartado${codeRef}: ` +
+    `${r.quantity} x ${productName} (Total: ${totalStr}).` +
+    (purchaseLink ? `\n\nPuedes ver el detalle aqui: ${purchaseLink}` : '');
+  const waHref = waPhone
+    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`
+    : '';
 
   return (
     <div
@@ -167,12 +182,12 @@ function ReservationDetailModal({
                       </svg>
                     </a>
                   )}
-                  {waPhone && (
+                  {waHref && (
                     <a
-                      href={`https://wa.me/${waPhone}`}
+                      href={waHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title={`WhatsApp a ${r.customerPhone}`}
+                      title={`WhatsApp a ${r.customerPhone} con resumen del apartado`}
                       className="w-9 h-9 rounded-full bg-green-50 border border-green-200 text-green-700 flex items-center justify-center hover:bg-green-100 transition-colors"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

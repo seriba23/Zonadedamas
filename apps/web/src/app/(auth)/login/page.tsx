@@ -217,7 +217,13 @@ function LoginPageInner() {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('marketplace_profile_dismissed');
       }
-      router.push('/marketplace');
+      // Si el usuario llego con ?redirect= apuntando dentro del marketplace
+      // (ej. desde el QR de un negocio), respetar ese destino. Sin redirect
+      // explicito, ir al home del marketplace.
+      const target = redirectAfterLogin?.startsWith('/marketplace')
+        ? redirectAfterLogin
+        : '/marketplace';
+      router.push(target);
     } catch (err: any) {
       setSocialError(err?.message || 'No se pudo registrar la cuenta de cliente.');
     } finally {
@@ -316,7 +322,12 @@ function LoginPageInner() {
           router.push(wantsMarketplace ? redirectAfterLogin! : '/marketplace');
         }
       } else {
-        router.push(`/register?type=${registerType}`);
+        // Propagar el ?redirect= original para que el usuario vuelva al
+        // destino que pretendia (ej. /marketplace/<slug> desde el QR de
+        // un negocio) despues de crear la cuenta.
+        const params = new URLSearchParams({ type: registerType });
+        if (redirectAfterLogin) params.set('redirect', redirectAfterLogin);
+        router.push(`/register?${params.toString()}`);
       }
     };
     const hasAdmin = availableProfiles.includes('admin');
@@ -713,7 +724,16 @@ function LoginPageInner() {
 
         <p className="text-center mt-6 text-base text-gray-500">
           ¿No tienes cuenta?{' '}
-          <Link href="/register" className="text-primary-600 hover:text-primary-700 font-medium">Crear cuenta</Link>
+          <Link
+            href={
+              redirectAfterLogin
+                ? `/register?redirect=${encodeURIComponent(redirectAfterLogin)}`
+                : '/register'
+            }
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Crear cuenta
+          </Link>
         </p>
 
         <p className="text-center mt-4 text-xs text-gray-400">
