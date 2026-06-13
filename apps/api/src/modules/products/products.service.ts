@@ -364,6 +364,7 @@ export class ProductsService {
         include: {
           product: { select: { id: true, name: true, imageUrl: true } },
           appointment: { select: { id: true, startTime: true, status: true } },
+          user: { select: { id: true, avatarUrl: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,

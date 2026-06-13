@@ -65,17 +65,32 @@ const NEXT_ACTIONS: Record<string, { advance?: { label: string; status: string }
   },
 };
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
 function ReservationDetailModal({
   reservation,
   onClose,
   formatCurrency,
+  onStatusChange,
+  busy,
 }: {
   reservation: any;
   onClose: () => void;
   formatCurrency: (n: number) => string;
+  onStatusChange: (id: string, status: string) => void;
+  busy: boolean;
 }) {
   const r = reservation;
   const total = Number(r.unitPrice) * r.quantity + (Number(r.shippingCost) || 0);
+  const actions = NEXT_ACTIONS[r.status];
+  const avatarUrl = r.user?.avatarUrl ? `${API_URL}${r.user.avatarUrl}` : null;
+  // Para wa.me solo digitos del telefono (sin +, espacios, parentesis).
+  const waPhone = (r.customerPhone || '').replace(/[^\d]/g, '');
 
   return (
     <div
@@ -128,19 +143,57 @@ function ReservationDetailModal({
 
           {/* Cliente */}
           <div>
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Cliente</p>
-            <p className="text-sm font-medium text-gray-900">{r.customerName}</p>
-            {r.customerPhone && (
-              <a href={`tel:${r.customerPhone}`} className="inline-flex items-center gap-1.5 text-sm text-[#008080] hover:underline mt-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                </svg>
-                {r.customerPhone}
-              </a>
-            )}
-            {r.customerEmail && (
-              <p className="text-sm text-gray-500 mt-0.5">{r.customerEmail}</p>
-            )}
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Cliente</p>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-teal-50 text-[#008080] flex items-center justify-center text-sm font-bold flex-shrink-0 overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(r.customerName || '?')
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{r.customerName}</p>
+                {/* Iconos de contacto */}
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  {r.customerPhone && (
+                    <a
+                      href={`tel:${r.customerPhone}`}
+                      title={`Llamar a ${r.customerPhone}`}
+                      className="w-9 h-9 rounded-full bg-teal-50 border border-teal-200 text-[#008080] flex items-center justify-center hover:bg-teal-100 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                      </svg>
+                    </a>
+                  )}
+                  {waPhone && (
+                    <a
+                      href={`https://wa.me/${waPhone}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`WhatsApp a ${r.customerPhone}`}
+                      className="w-9 h-9 rounded-full bg-green-50 border border-green-200 text-green-700 flex items-center justify-center hover:bg-green-100 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                    </a>
+                  )}
+                  {r.customerEmail && (
+                    <a
+                      href={`mailto:${r.customerEmail}`}
+                      title={`Enviar correo a ${r.customerEmail}`}
+                      className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Entrega + pago */}
@@ -216,6 +269,30 @@ function ReservationDetailModal({
             Creado el {new Date(r.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
+
+        {/* Acciones (Cancelar / Avanzar) — sticky abajo */}
+        {actions && (actions.cancel || actions.advance) && (
+          <div className="sticky bottom-0 px-5 py-3 bg-white border-t border-gray-100 flex gap-2">
+            {actions.cancel && (
+              <button
+                onClick={() => onStatusChange(r.id, actions.cancel!.status)}
+                disabled={busy}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 text-red-600 bg-white border border-red-200 hover:bg-red-50"
+              >
+                {actions.cancel.label}
+              </button>
+            )}
+            {actions.advance && (
+              <button
+                onClick={() => onStatusChange(r.id, actions.advance!.status)}
+                disabled={busy}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 text-white bg-[#008080] hover:bg-[#006666]"
+              >
+                {actions.advance.label}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -323,7 +400,6 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
           <div className="space-y-3">
             {reservations.map((r: any) => {
               const total = Number(r.unitPrice) * r.quantity + (Number(r.shippingCost) || 0);
-              const actions = NEXT_ACTIONS[r.status];
               return (
                 <div key={r.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                   {/* Header clickeable → abre modal de detalle */}
@@ -362,30 +438,6 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
                       </p>
                     </div>
                   </button>
-
-                  {/* Acciones — Cancelar (izq) + Avanzar (der), grandes */}
-                  {actions && (actions.cancel || actions.advance) && (
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex gap-2">
-                      {actions.cancel && (
-                        <button
-                          onClick={() => statusMutation.mutate({ id: r.id, status: actions.cancel!.status })}
-                          disabled={statusMutation.isPending}
-                          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 text-red-600 bg-white border border-red-200 hover:bg-red-50"
-                        >
-                          {actions.cancel.label}
-                        </button>
-                      )}
-                      {actions.advance && (
-                        <button
-                          onClick={() => statusMutation.mutate({ id: r.id, status: actions.advance!.status })}
-                          disabled={statusMutation.isPending}
-                          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 text-white bg-[#008080] hover:bg-[#006666]"
-                        >
-                          {actions.advance.label}
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -419,6 +471,15 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
           reservation={detail}
           onClose={() => setDetail(null)}
           formatCurrency={formatCurrency}
+          onStatusChange={(id, status) => {
+            statusMutation.mutate(
+              { id, status },
+              {
+                onSuccess: () => setDetail(null),
+              },
+            );
+          }}
+          busy={statusMutation.isPending}
         />
       )}
 
