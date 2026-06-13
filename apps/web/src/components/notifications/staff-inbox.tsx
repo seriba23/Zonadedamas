@@ -217,8 +217,11 @@ export function StaffInbox() {
         )}
         {!isLoading &&
           list?.data?.map((n) => {
+            const wrapperClass = `block w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+              n.readAt ? '' : 'bg-teal-50 border-l-[3px] border-l-[#008080] pl-[13px]'
+            }`;
             const content = (
-              <div className={`flex gap-3 ${n.readAt ? '' : 'bg-teal-50/40'}`}>
+              <div className="flex gap-3">
                 <span
                   className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
                   style={{ backgroundColor: n.readAt ? 'transparent' : TEAL }}
@@ -244,7 +247,7 @@ export function StaffInbox() {
                 onClick={() => {
                   if (!n.readAt) markRead.mutate(n.id);
                 }}
-                className="block px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                className={wrapperClass}
               >
                 {content}
               </Link>
@@ -254,7 +257,7 @@ export function StaffInbox() {
                 onClick={() => {
                   if (!n.readAt) markRead.mutate(n.id);
                 }}
-                className="block w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                className={wrapperClass}
               >
                 {content}
               </button>

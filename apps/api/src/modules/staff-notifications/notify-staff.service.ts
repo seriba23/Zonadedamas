@@ -8,7 +8,8 @@ export interface NotifyStaffInput {
   section: string;
   title: string;
   body: string;
-  link?: string;
+  link?: string;       // link por defecto (vista empleado)
+  adminLink?: string;  // si esta presente, los admins usan este link en lugar de `link`
   entityType?: string;
   entityId?: string;
   metadata?: Record<string, any>;
@@ -41,6 +42,13 @@ export class NotifyStaffService {
     );
     if (recipientIds.length === 0) return;
 
+    // Para resolver el link correcto por destinatario: si es admin
+    // (tiene permiso employees.create) y hay adminLink, usa adminLink;
+    // si no, usa link.
+    const adminIdSet = input.adminLink
+      ? new Set(await this.getAdminUserIds(input.tenantId))
+      : new Set<string>();
+
     const now = new Date();
     const records = recipientIds.map((userId) => ({
       tenantId: input.tenantId,
@@ -49,7 +57,7 @@ export class NotifyStaffService {
       section: input.section,
       title: input.title,
       body: input.body,
-      link: input.link ?? null,
+      link: (adminIdSet.has(userId) ? input.adminLink : input.link) ?? null,
       entityType: input.entityType ?? null,
       entityId: input.entityId ?? null,
       metadata: input.metadata ?? undefined,

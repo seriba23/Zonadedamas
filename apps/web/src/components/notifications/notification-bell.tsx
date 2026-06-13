@@ -116,7 +116,7 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
                   key={n.id}
                   type="button"
                   onClick={() => handleClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex gap-3 ${n.readAt ? '' : 'bg-teal-50/40'}`}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex gap-3 ${n.readAt ? '' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
                 >
                   <span
                     className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
