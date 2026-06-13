@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -127,6 +128,38 @@ export default function EmployeeAppointmentsPage() {
     },
     enabled: !!user?.employeeId,
   });
+
+  // Soporte de deep-link desde notificaciones: si llega ?appointmentId=
+  // en la URL y la cita ya esta cargada, abre el detalle automaticamente.
+  // Si la cita esta fuera del rango de la pestana actual (upcoming/today/
+  // past), la traemos individual para abrir el modal igual.
+  const searchParams = useSearchParams();
+  const targetAptId = searchParams.get('appointmentId');
+  const { data: deepLinkApt } = useQuery({
+    queryKey: ['employee-appointment-detail', targetAptId],
+    queryFn: async () => {
+      if (!targetAptId) return null;
+      try {
+        const res = await api.get<{ data: Appointment }>(
+          `/api/appointments/${targetAptId}`,
+        );
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!targetAptId && !!user?.employeeId,
+  });
+
+  useEffect(() => {
+    if (!targetAptId) return;
+    const inList = (appointments || []).find((a) => a.id === targetAptId);
+    if (inList) {
+      setSelectedApt(inList);
+    } else if (deepLinkApt) {
+      setSelectedApt(deepLinkApt);
+    }
+  }, [targetAptId, appointments, deepLinkApt]);
 
   const completeMutation = useMutation({
     mutationFn: (id: string) =>

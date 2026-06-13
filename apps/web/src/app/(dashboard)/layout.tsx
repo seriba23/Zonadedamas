@@ -286,7 +286,7 @@ function DashboardLayoutContent({
             <span className="truncate">{sectionTitle}</span>
           </h1>
           <div className="relative z-10 ml-auto flex items-center gap-1 flex-shrink-0">
-            <NotificationBell basePath="/dashboard" />
+            <NotificationBell basePath="" />
             {topbarAction && <div>{topbarAction}</div>}
           </div>
         </header>
