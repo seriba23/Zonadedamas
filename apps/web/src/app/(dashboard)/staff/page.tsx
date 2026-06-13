@@ -1366,7 +1366,7 @@ function ByEmployeeCommissions() {
                                     <button
                                       type="button"
                                       onClick={() => setCommType(emp.id, svc.id, 'AMOUNT', empServices)}
-                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                      className={`px-2.5 py-1.5 text-sm font-bold rounded-md transition-colors ${
                                         commType === 'AMOUNT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
                                       }`}
                                       title="Monto fijo"
@@ -1376,7 +1376,7 @@ function ByEmployeeCommissions() {
                                     <button
                                       type="button"
                                       onClick={() => setCommType(emp.id, svc.id, 'PERCENT', empServices)}
-                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                      className={`px-2.5 py-1.5 text-sm font-bold rounded-md transition-colors ${
                                         commType === 'PERCENT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
                                       }`}
                                       title="Porcentaje del precio"
@@ -1680,7 +1680,7 @@ function ByServiceCommissions() {
                                     <button
                                       type="button"
                                       onClick={() => setCommType(svc.id, emp.id, 'AMOUNT')}
-                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                      className={`px-2.5 py-1.5 text-sm font-bold rounded-md transition-colors ${
                                         commType === 'AMOUNT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
                                       }`}
                                       title="Monto fijo"
@@ -1690,7 +1690,7 @@ function ByServiceCommissions() {
                                     <button
                                       type="button"
                                       onClick={() => setCommType(svc.id, emp.id, 'PERCENT')}
-                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                      className={`px-2.5 py-1.5 text-sm font-bold rounded-md transition-colors ${
                                         commType === 'PERCENT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
                                       }`}
                                       title="Porcentaje del precio"
