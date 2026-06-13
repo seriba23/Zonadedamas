@@ -1089,8 +1089,46 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
   );
 }
 
-/* ─── Staff Commissions Tab (per-employee view) ─── */
+/* ─── Staff Commissions Tab — toggle por empleado / por servicio ─── */
+type CommView = 'by-employee' | 'by-service';
+
 function StaffCommissionsTab() {
+  const [view, setView] = useState<CommView>('by-employee');
+  return (
+    <div>
+      {/* Toggle segmented */}
+      <div className="inline-flex bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg p-0.5 mb-4">
+        <button
+          type="button"
+          onClick={() => setView('by-employee')}
+          className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            view === 'by-employee'
+              ? 'bg-[#008080] text-white shadow-sm'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
+          }`}
+        >
+          Por empleado
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('by-service')}
+          className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            view === 'by-service'
+              ? 'bg-[#008080] text-white shadow-sm'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
+          }`}
+        >
+          Por servicio
+        </button>
+      </div>
+
+      {view === 'by-employee' ? <ByEmployeeCommissions /> : <ByServiceCommissions />}
+    </div>
+  );
+}
+
+/* ─── Vista por empleado: lista de empleados; expandir muestra sus servicios ─── */
+function ByEmployeeCommissions() {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
@@ -1237,62 +1275,84 @@ function StaffCommissionsTab() {
 
               {isExpanded && (
                 <>
-                  <div className="max-h-[400px] overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-[var(--bg-subtle)] border-b border-[var(--border)]">
-                        <tr className="text-xs text-[var(--text-secondary)] uppercase">
-                          <th className="w-8 px-2 py-2"></th>
-                          <th className="text-left px-2 py-2 font-semibold">Servicio</th>
-                          <th className="text-center px-2 py-2 font-semibold w-24">Precio</th>
-                          <th className="text-center px-2 py-2 font-semibold w-28">Comisión</th>
-                          <th className="text-center px-2 py-2 font-semibold w-24">Ganancia</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {allServices.map((svc: any) => {
-                          const isSelected = map.has(svc.id);
-                          const config = map.get(svc.id);
-                          const price = Number(svc.price);
-                          const comm = config?.commission ?? 0;
-                          const profit = price - Number(comm);
+                  <div className="max-h-[60vh] overflow-y-auto bg-[var(--bg-subtle)]/40 p-3 space-y-2">
+                    {allServices.map((svc: any) => {
+                      const isSelected = map.has(svc.id);
+                      const config = map.get(svc.id);
+                      const price = Number(svc.price);
+                      const comm = config?.commission ?? 0;
+                      const profit = price - Number(comm);
 
-                          return (
-                            <tr key={svc.id} className={`border-t border-[var(--border)] ${isSelected ? 'bg-teal-50/30' : ''}`}>
-                              <td className="px-2 py-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleService(emp.id, svc.id, empServices)}
-                                  className="w-4 h-4 rounded border-[var(--border)] text-[#008080] focus:ring-[#008080]"
-                                />
-                              </td>
-                              <td className="px-2 py-2">
-                                <span className={isSelected ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>{svc.name}</span>
-                                <span className="text-xs text-[var(--text-muted)] ml-1">({svc.durationMinutes}min)</span>
-                              </td>
-                              <td className="px-2 py-2 text-center text-[var(--text-secondary)] tabular-nums">{formatCurrency(price, svc.currency)}</td>
-                              <td className="px-2 py-2 text-center">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  disabled={!isSelected}
-                                  placeholder="0"
-                                  value={config?.commission ?? ''}
-                                  onChange={(e) => updateCommission(emp.id, svc.id, e.target.value, empServices)}
-                                  className="w-24 text-right text-sm border border-[var(--border)] rounded px-2 py-1 tabular-nums disabled:bg-[var(--bg-subtle)] disabled:text-[var(--text-muted)] disabled:cursor-not-allowed focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                                />
-                              </td>
-                              <td className="px-2 py-2 text-center tabular-nums">
-                                {isSelected && config?.commission != null ? (
-                                  <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(profit, svc.currency)}</span>
-                                ) : <span className="text-[var(--text-muted)]">--</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                      return (
+                        <div
+                          key={svc.id}
+                          className={`rounded-xl border p-3 transition-colors ${
+                            isSelected
+                              ? 'bg-teal-50 border-teal-200'
+                              : 'bg-[var(--bg-surface)] border-[var(--border)]'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleService(emp.id, svc.id, empServices)}
+                              aria-label={isSelected ? 'Desmarcar' : 'Marcar'}
+                              className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'bg-[#008080] border-[#008080]'
+                                  : 'bg-white border-gray-300'
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleService(emp.id, svc.id, empServices)}
+                              className="flex-1 min-w-0 text-left"
+                            >
+                              <p className={`text-sm font-semibold truncate ${isSelected ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                                {svc.name}
+                              </p>
+                              <p className="text-xs text-[var(--text-muted)]">{svc.durationMinutes} min · Precio {formatCurrency(price, svc.currency)}</p>
+                            </button>
+                          </div>
+
+                          {isSelected && (
+                            <div className="mt-3 pl-8 grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Comisión</label>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0"
+                                    value={config?.commission ?? ''}
+                                    onChange={(e) => updateCommission(emp.id, svc.id, e.target.value, empServices)}
+                                    className="w-full text-right text-sm border border-[var(--border)] rounded-lg px-2 py-1.5 tabular-nums focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Ganancia neta</label>
+                                <p className={`text-sm font-semibold tabular-nums py-1.5 ${
+                                  config?.commission != null
+                                    ? profit >= 0 ? 'text-green-600' : 'text-red-600'
+                                    : 'text-[var(--text-muted)]'
+                                }`}>
+                                  {config?.commission != null ? formatCurrency(profit, svc.currency) : '—'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   {changed && (
                     <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-end">
@@ -1303,6 +1363,279 @@ function StaffCommissionsTab() {
                         style={{ backgroundColor: '#008080' }}
                       >
                         {savingEmpId === emp.id ? 'Guardando...' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Vista por servicio: lista de servicios; expandir muestra empleados asignables ─── */
+function ByServiceCommissions() {
+  const { format: formatCurrency } = useCurrency();
+  const queryClient = useQueryClient();
+  const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
+  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
+  const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
+  const [savedSvcId, setSavedSvcId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['staff-commissions-services-bs'],
+    queryFn: () => api.get<{ data: any[] }>('/api/services?perPage=100'),
+  });
+  const { data: employeesData } = useQuery({
+    queryKey: ['staff-commissions-employees-bs'],
+    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100'),
+  });
+
+  const services = servicesData?.data || [];
+  const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
+  const allEmpIds = new Set(employees.map((e: any) => e.id));
+
+  // Para un servicio, devuelve el Map de empleados asignados a partir de
+  // los datos crudos del fetch (sin meter el state local de edicion).
+  function getInitialMap(svcId: string) {
+    const m = new Map<string, { commission: number | null }>();
+    for (const emp of employees) {
+      const es = (emp.employeeServices || []).find(
+        (x: any) => (x.service?.id || x.serviceId) === svcId,
+      );
+      if (es && allEmpIds.has(emp.id)) {
+        m.set(emp.id, { commission: es.commission != null ? Number(es.commission) : null });
+      }
+    }
+    return m;
+  }
+
+  function getMap(svcId: string) {
+    return configMaps.get(svcId) || getInitialMap(svcId);
+  }
+
+  function toggleEmp(svcId: string, empId: string) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const current = next.get(svcId) || getInitialMap(svcId);
+      const map = new Map(current);
+      if (map.has(empId)) map.delete(empId);
+      else map.set(empId, { commission: null });
+      next.set(svcId, map);
+      return next;
+    });
+  }
+
+  function updateComm(svcId: string, empId: string, value: string) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const current = next.get(svcId) || getInitialMap(svcId);
+      const map = new Map(current);
+      if (map.has(empId)) {
+        map.set(empId, { commission: value === '' ? null : parseFloat(value) });
+      }
+      next.set(svcId, map);
+      return next;
+    });
+  }
+
+  function hasChanges(svcId: string) {
+    const map = configMaps.get(svcId);
+    if (!map) return false;
+    const original = getInitialMap(svcId);
+    if (map.size !== original.size) return true;
+    for (const [empId, config] of map) {
+      const orig = original.get(empId);
+      if (!orig) return true;
+      if ((config.commission ?? null) !== (orig.commission ?? null)) return true;
+    }
+    return false;
+  }
+
+  async function saveChanges(svcId: string) {
+    const map = getMap(svcId);
+    setSavingSvcId(svcId);
+    try {
+      await api.put(`/api/services/${svcId}/employees`, {
+        employees: Array.from(map.entries()).map(([employeeId, config]) => ({
+          employeeId,
+          commission: config.commission,
+        })),
+      });
+      queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees-bs'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees'] });
+      setConfigMaps((prev) => { const n = new Map(prev); n.delete(svcId); return n; });
+      setSavedSvcId(svcId);
+      setTimeout(() => setSavedSvcId(null), 2000);
+    } catch (err) {
+      console.error(err);
+    }
+    setSavingSvcId(null);
+  }
+
+  if (services.length === 0) {
+    return <div className="text-center py-16 text-[var(--text-muted)]">No hay servicios.</div>;
+  }
+
+  const q = search.trim().toLowerCase();
+  const filteredSvcs = q
+    ? services.filter((s: any) =>
+        `${s.name} ${s.category || ''} ${s.subcategory || ''}`.toLowerCase().includes(q),
+      )
+    : services;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <input
+          type="text"
+          placeholder="Buscar servicio..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 max-w-sm px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+        />
+        <p className="text-xs text-[var(--text-muted)] hidden md:block">
+          Gestiona qué empleados realizan cada servicio y su comisión.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {filteredSvcs.length === 0 ? (
+          <p className="text-center py-8 text-sm text-[var(--text-muted)]">Sin coincidencias.</p>
+        ) : filteredSvcs.map((svc: any) => {
+          const map = getMap(svc.id);
+          const changed = hasChanges(svc.id);
+          const isExpanded = expandedSvcs.has(svc.id);
+          const price = Number(svc.price);
+
+          return (
+            <div key={svc.id} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+              <button
+                onClick={() => setExpandedSvcs((prev) => { const n = new Set(prev); n.has(svc.id) ? n.delete(svc.id) : n.add(svc.id); return n; })}
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-[var(--bg-muted)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-teal-50 text-[#008080]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">{svc.name}</p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {map.size} de {employees.length} empleado{employees.length === 1 ? '' : 's'} · {formatCurrency(price, svc.currency)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {savedSvcId === svc.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
+                  {changed && <span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />}
+                  <svg className={`w-5 h-5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <>
+                  <div className="max-h-[60vh] overflow-y-auto bg-[var(--bg-subtle)]/40 p-3 space-y-2">
+                    {employees.length === 0 ? (
+                      <p className="text-center py-4 text-sm text-[var(--text-muted)]">No hay empleados activos.</p>
+                    ) : employees.map((emp: any) => {
+                      const isSelected = map.has(emp.id);
+                      const config = map.get(emp.id);
+                      const comm = config?.commission ?? 0;
+                      const profit = price - Number(comm);
+
+                      return (
+                        <div
+                          key={emp.id}
+                          className={`rounded-xl border p-3 transition-colors ${
+                            isSelected
+                              ? 'bg-teal-50 border-teal-200'
+                              : 'bg-[var(--bg-surface)] border-[var(--border)]'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleEmp(svc.id, emp.id)}
+                              aria-label={isSelected ? 'Desmarcar' : 'Marcar'}
+                              className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'bg-[#008080] border-[#008080]'
+                                  : 'bg-white border-gray-300'
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleEmp(svc.id, emp.id)}
+                              className="flex-1 min-w-0 text-left flex items-center gap-3"
+                            >
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: emp.color || '#008080' }}>
+                                {emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}
+                              </div>
+                              <div className="min-w-0">
+                                <p className={`text-sm font-semibold truncate ${isSelected ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                                  {emp.firstName} {emp.lastName}
+                                </p>
+                                {emp.jobTitle && (
+                                  <p className="text-xs text-[var(--text-muted)] truncate">{emp.jobTitle}</p>
+                                )}
+                              </div>
+                            </button>
+                          </div>
+
+                          {isSelected && (
+                            <div className="mt-3 pl-8 grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Comisión</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0"
+                                  value={config?.commission ?? ''}
+                                  onChange={(e) => updateComm(svc.id, emp.id, e.target.value)}
+                                  className="w-full text-right text-sm border border-[var(--border)] rounded-lg px-2 py-1.5 tabular-nums focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Ganancia neta</label>
+                                <p className={`text-sm font-semibold tabular-nums py-1.5 ${
+                                  config?.commission != null
+                                    ? profit >= 0 ? 'text-green-600' : 'text-red-600'
+                                    : 'text-[var(--text-muted)]'
+                                }`}>
+                                  {config?.commission != null ? formatCurrency(profit, svc.currency) : '—'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {changed && (
+                    <div className="px-5 py-3 bg-teal-50 border-t border-teal-200 flex items-center justify-end">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); saveChanges(svc.id); }}
+                        disabled={savingSvcId === svc.id}
+                        className="text-xs font-medium text-white px-4 py-1.5 rounded-lg disabled:opacity-50"
+                        style={{ backgroundColor: '#008080' }}
+                      >
+                        {savingSvcId === svc.id ? 'Guardando...' : 'Guardar cambios'}
                       </button>
                     </div>
                   )}
