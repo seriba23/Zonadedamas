@@ -171,7 +171,11 @@ export class ServicesService {
   async setEmployees(
     serviceId: string,
     tenantId: string,
-    employees: { employeeId: string; commission?: number | null }[],
+    employees: {
+      employeeId: string;
+      commission?: number | null;
+      commissionType?: 'AMOUNT' | 'PERCENT';
+    }[],
   ) {
     await this.findOne(serviceId, tenantId);
 
@@ -198,6 +202,8 @@ export class ServicesService {
 
         for (const emp of employees) {
           if (!validIds.has(emp.employeeId)) continue;
+          const commissionType =
+            emp.commissionType === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
           await tx.employeeService.upsert({
             where: {
               employeeId_serviceId: {
@@ -205,11 +211,15 @@ export class ServicesService {
                 serviceId,
               },
             },
-            update: { commission: emp.commission ?? null },
+            update: {
+              commission: emp.commission ?? null,
+              commissionType,
+            },
             create: {
               employeeId: emp.employeeId,
               serviceId,
               commission: emp.commission ?? null,
+              commissionType,
             },
           });
         }

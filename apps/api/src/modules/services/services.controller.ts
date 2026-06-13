@@ -84,7 +84,13 @@ export class ServicesController {
   async setEmployees(
     @Param('id') id: string,
     @CurrentTenant() tenantId: string,
-    @Body() body: { employees: { employeeId: string; commission?: number | null }[] },
+    @Body() body: {
+      employees: {
+        employeeId: string;
+        commission?: number | null;
+        commissionType?: 'AMOUNT' | 'PERCENT';
+      }[];
+    },
   ) {
     const result = await this.servicesService.setEmployees(
       id,

@@ -1128,11 +1128,22 @@ function StaffCommissionsTab() {
 }
 
 /* ─── Vista por empleado: lista de empleados; expandir muestra sus servicios ─── */
+type CommType = 'AMOUNT' | 'PERCENT';
+type CommCfg = { commission: number | null; commissionType: CommType };
+
+function calcProfit(price: number, cfg: CommCfg | undefined): number {
+  if (!cfg || cfg.commission == null) return price;
+  if (cfg.commissionType === 'PERCENT') {
+    return price - (price * cfg.commission) / 100;
+  }
+  return price - cfg.commission;
+}
+
 function ByEmployeeCommissions() {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
-  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
+  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, CommCfg>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
   const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -1151,11 +1162,14 @@ function ByEmployeeCommissions() {
   const allServiceIds = new Set(allServices.map((s: any) => s.id));
 
   function buildInitialMap(empServices: any[]) {
-    const m = new Map<string, { commission: number | null }>();
+    const m = new Map<string, CommCfg>();
     for (const es of empServices) {
       const svcId = es.service?.id || es.serviceId;
       if (allServiceIds.has(svcId)) {
-        m.set(svcId, { commission: es.commission != null ? Number(es.commission) : null });
+        m.set(svcId, {
+          commission: es.commission != null ? Number(es.commission) : null,
+          commissionType: es.commissionType === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
+        });
       }
     }
     return m;
@@ -1170,7 +1184,8 @@ function ByEmployeeCommissions() {
       const next = new Map(prev);
       const current = next.get(empId) || buildInitialMap(empServices);
       const map = new Map(current);
-      if (map.has(svcId)) map.delete(svcId); else map.set(svcId, { commission: null });
+      if (map.has(svcId)) map.delete(svcId);
+      else map.set(svcId, { commission: null, commissionType: 'AMOUNT' });
       next.set(empId, map);
       return next;
     });
@@ -1181,7 +1196,20 @@ function ByEmployeeCommissions() {
       const next = new Map(prev);
       const current = next.get(empId) || buildInitialMap(empServices);
       const map = new Map(current);
-      if (map.get(svcId)) map.set(svcId, { commission: value === '' ? null : parseFloat(value) });
+      const cur = map.get(svcId);
+      if (cur) map.set(svcId, { ...cur, commission: value === '' ? null : parseFloat(value) });
+      next.set(empId, map);
+      return next;
+    });
+  }
+
+  function setCommType(empId: string, svcId: string, type: CommType, empServices: any[]) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const current = next.get(empId) || buildInitialMap(empServices);
+      const map = new Map(current);
+      const cur = map.get(svcId);
+      if (cur) map.set(svcId, { ...cur, commissionType: type });
       next.set(empId, map);
       return next;
     });
@@ -1197,7 +1225,9 @@ function ByEmployeeCommissions() {
       const es = empServices.find((e: any) => (e.service?.id || e.serviceId) === svcId);
       if (!es) return true;
       const oldComm = es.commission != null ? Number(es.commission) : null;
+      const oldType = es.commissionType === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
       if ((config.commission ?? null) !== oldComm) return true;
+      if (config.commissionType !== oldType) return true;
     }
     return false;
   }
@@ -1207,9 +1237,14 @@ function ByEmployeeCommissions() {
     setSavingEmpId(empId);
     try {
       await api.put(`/api/employees/${empId}/services`, {
-        services: Array.from(map.entries()).map(([serviceId, config]) => ({ serviceId, commission: config.commission })),
+        services: Array.from(map.entries()).map(([serviceId, config]) => ({
+          serviceId,
+          commission: config.commission,
+          commissionType: config.commissionType,
+        })),
       });
       queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees-bs'] });
       setConfigMaps((prev) => { const n = new Map(prev); n.delete(empId); return n; });
       setSavedEmpId(empId);
       setTimeout(() => setSavedEmpId(null), 2000);
@@ -1280,8 +1315,8 @@ function ByEmployeeCommissions() {
                       const isSelected = map.has(svc.id);
                       const config = map.get(svc.id);
                       const price = Number(svc.price);
-                      const comm = config?.commission ?? 0;
-                      const profit = price - Number(comm);
+                      const profit = calcProfit(price, config);
+                      const commType = config?.commissionType ?? 'AMOUNT';
 
                       return (
                         <div
@@ -1326,11 +1361,34 @@ function ByEmployeeCommissions() {
                             <div className="mt-3 pl-8 grid grid-cols-2 gap-2 text-xs">
                               <div>
                                 <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Comisión</label>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="inline-flex bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg p-0.5 flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCommType(emp.id, svc.id, 'AMOUNT', empServices)}
+                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                        commType === 'AMOUNT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
+                                      }`}
+                                      title="Monto fijo"
+                                    >
+                                      $
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCommType(emp.id, svc.id, 'PERCENT', empServices)}
+                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                        commType === 'PERCENT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
+                                      }`}
+                                      title="Porcentaje del precio"
+                                    >
+                                      %
+                                    </button>
+                                  </div>
                                   <input
                                     type="number"
                                     step="0.01"
                                     min="0"
+                                    max={commType === 'PERCENT' ? 100 : undefined}
                                     placeholder="0"
                                     value={config?.commission ?? ''}
                                     onChange={(e) => updateCommission(emp.id, svc.id, e.target.value, empServices)}
@@ -1381,7 +1439,7 @@ function ByServiceCommissions() {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
-  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
+  const [configMaps, setConfigMaps] = useState<Map<string, Map<string, CommCfg>>>(new Map());
   const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
   const [savedSvcId, setSavedSvcId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -1402,13 +1460,16 @@ function ByServiceCommissions() {
   // Para un servicio, devuelve el Map de empleados asignados a partir de
   // los datos crudos del fetch (sin meter el state local de edicion).
   function getInitialMap(svcId: string) {
-    const m = new Map<string, { commission: number | null }>();
+    const m = new Map<string, CommCfg>();
     for (const emp of employees) {
       const es = (emp.employeeServices || []).find(
         (x: any) => (x.service?.id || x.serviceId) === svcId,
       );
       if (es && allEmpIds.has(emp.id)) {
-        m.set(emp.id, { commission: es.commission != null ? Number(es.commission) : null });
+        m.set(emp.id, {
+          commission: es.commission != null ? Number(es.commission) : null,
+          commissionType: es.commissionType === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
+        });
       }
     }
     return m;
@@ -1424,7 +1485,7 @@ function ByServiceCommissions() {
       const current = next.get(svcId) || getInitialMap(svcId);
       const map = new Map(current);
       if (map.has(empId)) map.delete(empId);
-      else map.set(empId, { commission: null });
+      else map.set(empId, { commission: null, commissionType: 'AMOUNT' });
       next.set(svcId, map);
       return next;
     });
@@ -1435,9 +1496,20 @@ function ByServiceCommissions() {
       const next = new Map(prev);
       const current = next.get(svcId) || getInitialMap(svcId);
       const map = new Map(current);
-      if (map.has(empId)) {
-        map.set(empId, { commission: value === '' ? null : parseFloat(value) });
-      }
+      const cur = map.get(empId);
+      if (cur) map.set(empId, { ...cur, commission: value === '' ? null : parseFloat(value) });
+      next.set(svcId, map);
+      return next;
+    });
+  }
+
+  function setCommType(svcId: string, empId: string, type: CommType) {
+    setConfigMaps((prev) => {
+      const next = new Map(prev);
+      const current = next.get(svcId) || getInitialMap(svcId);
+      const map = new Map(current);
+      const cur = map.get(empId);
+      if (cur) map.set(empId, { ...cur, commissionType: type });
       next.set(svcId, map);
       return next;
     });
@@ -1452,6 +1524,7 @@ function ByServiceCommissions() {
       const orig = original.get(empId);
       if (!orig) return true;
       if ((config.commission ?? null) !== (orig.commission ?? null)) return true;
+      if (config.commissionType !== orig.commissionType) return true;
     }
     return false;
   }
@@ -1464,6 +1537,7 @@ function ByServiceCommissions() {
         employees: Array.from(map.entries()).map(([employeeId, config]) => ({
           employeeId,
           commission: config.commission,
+          commissionType: config.commissionType,
         })),
       });
       queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees-bs'] });
@@ -1548,8 +1622,8 @@ function ByServiceCommissions() {
                     ) : employees.map((emp: any) => {
                       const isSelected = map.has(emp.id);
                       const config = map.get(emp.id);
-                      const comm = config?.commission ?? 0;
-                      const profit = price - Number(comm);
+                      const profit = calcProfit(price, config);
+                      const commType = config?.commissionType ?? 'AMOUNT';
 
                       return (
                         <div
@@ -1601,15 +1675,40 @@ function ByServiceCommissions() {
                             <div className="mt-3 pl-8 grid grid-cols-2 gap-2 text-xs">
                               <div>
                                 <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Comisión</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="0"
-                                  value={config?.commission ?? ''}
-                                  onChange={(e) => updateComm(svc.id, emp.id, e.target.value)}
-                                  className="w-full text-right text-sm border border-[var(--border)] rounded-lg px-2 py-1.5 tabular-nums focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                                />
+                                <div className="flex items-center gap-1.5">
+                                  <div className="inline-flex bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg p-0.5 flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCommType(svc.id, emp.id, 'AMOUNT')}
+                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                        commType === 'AMOUNT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
+                                      }`}
+                                      title="Monto fijo"
+                                    >
+                                      $
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCommType(svc.id, emp.id, 'PERCENT')}
+                                      className={`px-1.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                        commType === 'PERCENT' ? 'bg-[#008080] text-white' : 'text-[var(--text-muted)]'
+                                      }`}
+                                      title="Porcentaje del precio"
+                                    >
+                                      %
+                                    </button>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max={commType === 'PERCENT' ? 100 : undefined}
+                                    placeholder="0"
+                                    value={config?.commission ?? ''}
+                                    onChange={(e) => updateComm(svc.id, emp.id, e.target.value)}
+                                    className="w-full text-right text-sm border border-[var(--border)] rounded-lg px-2 py-1.5 tabular-nums focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                                  />
+                                </div>
                               </div>
                               <div>
                                 <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">Ganancia neta</label>

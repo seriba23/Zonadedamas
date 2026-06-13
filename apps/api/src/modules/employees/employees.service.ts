@@ -554,18 +554,22 @@ export class EmployeesService {
         // Upsert each service with commission/customPrice
         for (const svc of services) {
           if (!validIds.has(svc.serviceId)) continue;
+          const commissionType =
+            svc.commissionType === 'PERCENT' ? 'PERCENT' : 'AMOUNT';
           await tx.employeeService.upsert({
             where: {
               employeeId_serviceId: { employeeId, serviceId: svc.serviceId },
             },
             update: {
               commission: svc.commission ?? null,
+              commissionType,
               customPrice: svc.customPrice ?? null,
             },
             create: {
               employeeId,
               serviceId: svc.serviceId,
               commission: svc.commission ?? null,
+              commissionType,
               customPrice: svc.customPrice ?? null,
             },
           });

@@ -727,6 +727,9 @@ model EmployeeService {
   customPrice    Decimal? @map("custom_price") @db.Decimal(10, 2)
   customDuration Int?     @map("custom_duration")
   commission     Decimal? @map("commission") @db.Decimal(10, 2)
+  // 'AMOUNT' = comision en dinero fijo, 'PERCENT' = porcentaje del precio.
+  // Default AMOUNT para que datos historicos sigan calculando igual.
+  commissionType String  @default("AMOUNT") @map("commission_type") @db.VarChar(10)
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)

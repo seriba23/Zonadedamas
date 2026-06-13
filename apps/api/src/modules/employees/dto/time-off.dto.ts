@@ -31,6 +31,12 @@ export class ServiceConfigDto {
   @Min(0)
   commission?: number;
 
+  // 'AMOUNT' (default) o 'PERCENT'. Si viene PERCENT, el valor de
+  // commission se interpreta como % del precio del servicio.
+  @IsOptional()
+  @IsString()
+  commissionType?: 'AMOUNT' | 'PERCENT';
+
   @IsOptional()
   @IsNumber()
   @Min(0)

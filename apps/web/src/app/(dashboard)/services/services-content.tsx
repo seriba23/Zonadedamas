@@ -649,6 +649,7 @@ export function ServicesContent() {
 
       {assignTarget && (
         <AssignEmployeesModal
+          key={assignTarget.id}
           service={assignTarget}
           onClose={() => setAssignTarget(null)}
           onSaved={() => {
@@ -677,10 +678,9 @@ function AssignEmployeesModal({
   });
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
 
-  // Map de empleado -> { selected, commission }. Cargado desde el estado
-  // actual del servicio: si el empleado tiene un employeeService que
-  // referencia este servicio, viene preseleccionado con su commission.
-  type Cfg = { selected: boolean; commission: string };
+  // Map de empleado -> { selected, commission, commissionType }
+  type CommType = 'AMOUNT' | 'PERCENT';
+  type Cfg = { selected: boolean; commission: string; commissionType: CommType };
   const [cfg, setCfg] = useState<Map<string, Cfg>>(new Map());
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
@@ -694,6 +694,7 @@ function AssignEmployeesModal({
       m.set(emp.id, {
         selected: !!es,
         commission: es?.commission != null ? String(Number(es.commission)) : '',
+        commissionType: (es?.commissionType as CommType) === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
       });
     }
     setCfg(m);
@@ -702,7 +703,7 @@ function AssignEmployeesModal({
   function toggle(empId: string) {
     setCfg((prev) => {
       const n = new Map(prev);
-      const c = n.get(empId) || { selected: false, commission: '' };
+      const c = n.get(empId) || { selected: false, commission: '', commissionType: 'AMOUNT' as CommType };
       n.set(empId, { ...c, selected: !c.selected });
       return n;
     });
@@ -711,8 +712,17 @@ function AssignEmployeesModal({
   function updateComm(empId: string, value: string) {
     setCfg((prev) => {
       const n = new Map(prev);
-      const c = n.get(empId) || { selected: true, commission: '' };
+      const c = n.get(empId) || { selected: true, commission: '', commissionType: 'AMOUNT' as CommType };
       n.set(empId, { ...c, commission: value });
+      return n;
+    });
+  }
+
+  function setCommType(empId: string, type: CommType) {
+    setCfg((prev) => {
+      const n = new Map(prev);
+      const c = n.get(empId) || { selected: true, commission: '', commissionType: 'AMOUNT' as CommType };
+      n.set(empId, { ...c, commissionType: type });
       return n;
     });
   }
@@ -725,6 +735,7 @@ function AssignEmployeesModal({
         .map(([employeeId, c]) => ({
           employeeId,
           commission: c.commission === '' ? null : parseFloat(c.commission),
+          commissionType: c.commissionType,
         }));
       await api.put(`/api/services/${service.id}/employees`, { employees: payload });
       onSaved();
@@ -811,17 +822,42 @@ function AssignEmployeesModal({
 
                   {c.selected && (
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCommType(emp.id, 'AMOUNT')}
+                          className={`px-1.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${
+                            c.commissionType === 'AMOUNT'
+                              ? 'bg-[#008080] text-white'
+                              : 'text-gray-500'
+                          }`}
+                          title="Monto fijo"
+                        >
+                          $
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCommType(emp.id, 'PERCENT')}
+                          className={`px-1.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${
+                            c.commissionType === 'PERCENT'
+                              ? 'bg-[#008080] text-white'
+                              : 'text-gray-500'
+                          }`}
+                          title="Porcentaje"
+                        >
+                          %
+                        </button>
+                      </div>
                       <input
                         type="number"
                         min="0"
-                        max="100"
-                        step="0.1"
+                        max={c.commissionType === 'PERCENT' ? 100 : undefined}
+                        step="0.01"
                         value={c.commission}
                         onChange={(e) => updateComm(emp.id, e.target.value)}
                         placeholder="0"
                         className="w-16 text-sm text-right border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
                       />
-                      <span className="text-xs text-gray-500">%</span>
                     </div>
                   )}
                 </div>
