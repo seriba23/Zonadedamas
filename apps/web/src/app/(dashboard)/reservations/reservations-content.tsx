@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { Modal } from '@/components/ui/modal';
 import Link from 'next/link';
 import { formatBookingDateTime } from '@/lib/booking-time';
 
@@ -223,8 +225,49 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
   const [tab, setTab] = useState('ALL');
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<any | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [draftTab, setDraftTab] = useState('ALL');
   const queryClient = useQueryClient();
   const { format: formatCurrency } = useCurrency();
+
+  const hasActiveFilters = tab !== 'ALL';
+
+  function openFilters() {
+    setDraftTab(tab);
+    setShowFilters(true);
+  }
+
+  function applyFilters() {
+    setTab(draftTab);
+    setPage(1);
+    setShowFilters(false);
+  }
+
+  function clearDraftFilters() {
+    setDraftTab('ALL');
+  }
+
+  // Registrar el icono de filtros en el topbar (a la izquierda del bell).
+  // El boton solo aparece si NO esta embedded (cuando es la pagina propia).
+  useRegisterTopbarAction(
+    embedded ? null : (
+      <button
+        onClick={openFilters}
+        aria-label="Filtros"
+        title="Filtros"
+        className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
+          hasActiveFilters
+            ? 'bg-[#008080] border-[#008080] text-white'
+            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+      </button>
+    ),
+    [embedded, hasActiveFilters, tab],
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ['reservations', tab, page],
@@ -247,25 +290,15 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
 
       <div className={embedded ? 'p-6' : 'flex-1 overflow-y-auto p-3 md:p-6'}>
-        <p className="text-sm text-gray-500 mb-4">
-          Gestiona los productos que tus clientes han apartado.
-        </p>
-
-        {/* Status Tabs — pill style */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setPage(1); }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === t
-                  ? 'bg-[#008080] text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {TAB_LABELS[t]}
-            </button>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-500">
+            Gestiona los productos que tus clientes han apartado.
+          </p>
+          {hasActiveFilters && (
+            <span className="text-xs font-medium text-[#008080] bg-teal-50 border border-teal-200 rounded-full px-2.5 py-1">
+              {TAB_LABELS[tab]}
+            </span>
+          )}
         </div>
 
         {isLoading ? (
@@ -387,6 +420,63 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
           onClose={() => setDetail(null)}
           formatCurrency={formatCurrency}
         />
+      )}
+
+      {/* Filtros */}
+      {showFilters && (
+        <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Estado
+              </label>
+              <div className="space-y-1.5">
+                {TABS.map((t) => {
+                  const active = draftTab === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setDraftTab(t)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-between ${
+                        active
+                          ? 'bg-teal-50 border-teal-200 text-[#008080]'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{TAB_LABELS[t]}</span>
+                      {active && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+              <button
+                onClick={clearDraftFilters}
+                disabled={draftTab === 'ALL'}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                  draftTab !== 'ALL'
+                    ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                    : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
