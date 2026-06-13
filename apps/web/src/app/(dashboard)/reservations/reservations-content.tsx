@@ -46,24 +46,183 @@ const TAB_LABELS: Record<string, string> = {
   CANCELLED: 'Cancelados',
 };
 
-const NEXT_ACTIONS: Record<string, { label: string; status: string; style: 'primary' | 'danger' }[]> = {
-  PENDING: [
-    { label: 'Confirmar', status: 'CONFIRMED', style: 'primary' },
-    { label: 'Cancelar', status: 'CANCELLED', style: 'danger' },
-  ],
-  CONFIRMED: [
-    { label: 'Listo para entrega', status: 'READY', style: 'primary' },
-    { label: 'Cancelar', status: 'CANCELLED', style: 'danger' },
-  ],
-  READY: [
-    { label: 'Marcar entregado', status: 'DELIVERED', style: 'primary' },
-    { label: 'Cancelar', status: 'CANCELLED', style: 'danger' },
-  ],
+// Próximo paso por estado. Orden visual: [Cancelar | Avanzar].
+// (Cancelar a la izquierda, acción primaria a la derecha.)
+const NEXT_ACTIONS: Record<string, { advance?: { label: string; status: string }; cancel?: { label: string; status: string } }> = {
+  PENDING: {
+    advance: { label: 'Confirmar', status: 'CONFIRMED' },
+    cancel: { label: 'Cancelar', status: 'CANCELLED' },
+  },
+  CONFIRMED: {
+    advance: { label: 'Listo para entrega', status: 'READY' },
+    cancel: { label: 'Cancelar', status: 'CANCELLED' },
+  },
+  READY: {
+    advance: { label: 'Marcar entregado', status: 'DELIVERED' },
+    cancel: { label: 'Cancelar', status: 'CANCELLED' },
+  },
 };
+
+function ReservationDetailModal({
+  reservation,
+  onClose,
+  formatCurrency,
+}: {
+  reservation: any;
+  onClose: () => void;
+  formatCurrency: (n: number) => string;
+}) {
+  const r = reservation;
+  const total = Number(r.unitPrice) * r.quantity + (Number(r.shippingCost) || 0);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header sticky */}
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3.5 flex items-center justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900 truncate">Detalle del apartado</p>
+            {r.code && (
+              <p className="font-mono text-[11px] font-semibold text-gray-500 mt-0.5">#{r.code}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:bg-gray-100"
+            aria-label="Cerrar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* Producto */}
+          <div className="flex gap-4">
+            <div className="w-20 h-20 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+              {r.product?.imageUrl ? (
+                <img src={`${API_URL}${r.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-gray-900">{r.product?.name || 'Producto'}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{r.quantity} × {formatCurrency(Number(r.unitPrice))}</p>
+              <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLORS[r.status] || 'text-gray-600 bg-gray-100'}`}>
+                {STATUS_LABELS[r.status] || r.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Cliente */}
+          <div>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Cliente</p>
+            <p className="text-sm font-medium text-gray-900">{r.customerName}</p>
+            {r.customerPhone && (
+              <a href={`tel:${r.customerPhone}`} className="inline-flex items-center gap-1.5 text-sm text-[#008080] hover:underline mt-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                </svg>
+                {r.customerPhone}
+              </a>
+            )}
+            {r.customerEmail && (
+              <p className="text-sm text-gray-500 mt-0.5">{r.customerEmail}</p>
+            )}
+          </div>
+
+          {/* Entrega + pago */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Entrega</p>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{FULFILLMENT_LABELS[r.fulfillmentType] || r.fulfillmentType}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pago</p>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{PAYMENT_LABELS[r.preferredPaymentMethod] || r.preferredPaymentMethod}</p>
+            </div>
+          </div>
+
+          {/* Dirección si envío */}
+          {r.shippingAddress && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Dirección</p>
+              <p className="text-sm text-gray-700">{r.shippingAddress}</p>
+            </div>
+          )}
+
+          {/* Cita vinculada */}
+          {r.appointment && (
+            <Link
+              href={`/calendar?appointmentId=${r.appointment.id}`}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-teal-200 bg-teal-50 text-sm font-medium text-[#008080] hover:bg-teal-100 transition-colors"
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              <span>Cita del {formatBookingDateTime(r.appointment.startTime)}</span>
+            </Link>
+          )}
+
+          {/* Notas */}
+          {r.notes && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Notas</p>
+              <p className="text-sm text-gray-700 italic">"{r.notes}"</p>
+            </div>
+          )}
+
+          {/* Comprobante de pago */}
+          {r.paymentProofUrl && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Comprobante de pago</p>
+              <a
+                href={`${API_URL}${r.paymentProofUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-lg border border-gray-200 overflow-hidden hover:border-[#008080] transition-colors"
+              >
+                <img src={`${API_URL}${r.paymentProofUrl}`} alt="Comprobante" className="max-h-48 object-contain" />
+              </a>
+              <p className="text-[11px] text-gray-400 mt-1">Toca la imagen para abrirla en grande.</p>
+            </div>
+          )}
+          {!r.paymentProofUrl && r.preferredPaymentMethod === 'SPEI' && r.status === 'PENDING' && (
+            <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-xs text-teal-800">
+              El cliente aún no ha subido el comprobante de transferencia.
+            </div>
+          )}
+
+          {/* Total */}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <span className="text-sm font-medium text-gray-500">Total</span>
+            <span className="text-xl font-bold text-gray-900">{formatCurrency(total)}</span>
+          </div>
+
+          {/* Fecha */}
+          <p className="text-xs text-gray-400 text-center">
+            Creado el {new Date(r.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
   const [tab, setTab] = useState('ALL');
   const [page, setPage] = useState(1);
+  const [detail, setDetail] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { format: formatCurrency } = useCurrency();
 
@@ -129,155 +288,74 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
           </div>
         ) : (
           <div className="space-y-3">
-            {reservations.map((r: any) => (
-              <div key={r.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                <div className="p-5">
-                  {/* Header: product + status + price */}
-                  <div className="flex items-start gap-4 mb-4">
-                    {/* Product image — grande, foto principal del pedido */}
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+            {reservations.map((r: any) => {
+              const total = Number(r.unitPrice) * r.quantity + (Number(r.shippingCost) || 0);
+              const actions = NEXT_ACTIONS[r.status];
+              return (
+                <div key={r.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                  {/* Header clickeable → abre modal de detalle */}
+                  <button
+                    type="button"
+                    onClick={() => setDetail(r)}
+                    className="w-full text-left p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    {/* Imagen producto */}
+                    <div className="w-14 h-14 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
                       {r.product?.imageUrl ? (
                         <img src={`${API_URL}${r.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
                         </svg>
                       )}
                     </div>
 
+                    {/* Producto + cliente */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="text-base font-semibold text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
-                        {r.code && (
-                          <span className="font-mono text-[11px] font-semibold text-gray-500 flex-shrink-0">#{r.code}</span>
-                        )}
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${STATUS_COLORS[r.status] || 'text-gray-600 bg-gray-100'}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${STATUS_COLORS[r.status] || 'text-gray-600 bg-gray-100'}`}>
                           {STATUS_LABELS[r.status] || r.status}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-gray-800 truncate">{r.customerName}</p>
-                      {/* Telefono y email en lineas separadas, mas visibles, con
-                          accion directa de llamar/escribir desde el card. */}
-                      {r.customerPhone && (
-                        <a
-                          href={`tel:${r.customerPhone}`}
-                          className="inline-flex items-center gap-1.5 text-xs text-[#008080] hover:underline mt-0.5"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                          </svg>
-                          {r.customerPhone}
-                        </a>
-                      )}
-                      {r.customerEmail && (
-                        <p className="text-xs text-gray-500 truncate mt-0.5">{r.customerEmail}</p>
-                      )}
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{r.customerName}</p>
                     </div>
 
+                    {/* Total */}
                     <div className="text-right flex-shrink-0">
-                      <p className="text-base font-bold text-gray-900">
-                        {formatCurrency(Number(r.unitPrice) * r.quantity + (Number(r.shippingCost) || 0))}
-                      </p>
-                      <p className="text-xs font-medium text-gray-500">
-                        {new Date(r.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      <p className="text-sm font-bold text-gray-900">{formatCurrency(total)}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {new Date(r.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Details row */}
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                    <span className="flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z" />
-                      </svg>
-                      {FULFILLMENT_LABELS[r.fulfillmentType] || r.fulfillmentType}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                      </svg>
-                      {PAYMENT_LABELS[r.preferredPaymentMethod] || r.preferredPaymentMethod}
-                    </span>
-                    <span>{r.quantity} × {formatCurrency(Number(r.unitPrice))}</span>
-                  </div>
-
-                  {/* Linked appointment */}
-                  {r.appointment && (
-                    <Link
-                      href={`/calendar?appointmentId=${r.appointment.id}`}
-                      className="flex items-center gap-2 text-xs text-[#008080] hover:text-[#006666] mb-3 group"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                      </svg>
-                      <span className="group-hover:underline">
-                        Cita del {formatBookingDateTime(r.appointment.startTime)}
-                      </span>
-                    </Link>
-                  )}
-
-                  {r.shippingAddress && (
-                    <p className="text-xs text-gray-500 mb-3 bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="font-medium">Dirección:</span> {r.shippingAddress}
-                    </p>
-                  )}
-
-                  {r.notes && (
-                    <p className="text-xs text-gray-400 mb-3 italic">"{r.notes}"</p>
-                  )}
-
-                  {/* Comprobante de pago — subido por el cliente cuando paga por
-                      SPEI. El admin lo verifica antes de mover la reservation
-                      a CONFIRMED. */}
-                  {r.paymentProofUrl && (
-                    <div className="mb-3">
-                      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                        Comprobante de pago
-                      </p>
-                      <a
-                        href={`${API_URL}${r.paymentProofUrl}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block rounded-lg border border-gray-200 overflow-hidden hover:border-[#008080] transition-colors"
-                      >
-                        <img
-                          src={`${API_URL}${r.paymentProofUrl}`}
-                          alt="Comprobante de pago"
-                          className="max-h-40 object-contain"
-                        />
-                      </a>
-                      <p className="text-[10px] text-gray-400 mt-1">Toca la imagen para abrirla en grande.</p>
+                  {/* Acciones — Cancelar (izq) + Avanzar (der), grandes */}
+                  {actions && (actions.cancel || actions.advance) && (
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex gap-2">
+                      {actions.cancel && (
+                        <button
+                          onClick={() => statusMutation.mutate({ id: r.id, status: actions.cancel!.status })}
+                          disabled={statusMutation.isPending}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 text-red-600 bg-white border border-red-200 hover:bg-red-50"
+                        >
+                          {actions.cancel.label}
+                        </button>
+                      )}
+                      {actions.advance && (
+                        <button
+                          onClick={() => statusMutation.mutate({ id: r.id, status: actions.advance!.status })}
+                          disabled={statusMutation.isPending}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 text-white bg-[#008080] hover:bg-[#006666]"
+                        >
+                          {actions.advance.label}
+                        </button>
+                      )}
                     </div>
-                  )}
-                  {!r.paymentProofUrl && r.preferredPaymentMethod === 'SPEI' && r.status === 'PENDING' && (
-                    <p className="text-[11px] text-amber-600 mb-3">
-                      ⚠ El cliente aún no ha subido el comprobante de transferencia.
-                    </p>
                   )}
                 </div>
-
-                {/* Actions bar */}
-                {NEXT_ACTIONS[r.status] && (
-                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex gap-2">
-                    {NEXT_ACTIONS[r.status].map((action) => (
-                      <button
-                        key={action.status}
-                        onClick={() => statusMutation.mutate({ id: r.id, status: action.status })}
-                        disabled={statusMutation.isPending}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                          action.style === 'primary'
-                            ? 'text-white bg-[#008080] hover:bg-[#006666]'
-                            : 'text-red-600 bg-white border border-red-200 hover:bg-red-50'
-                        }`}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -302,6 +380,14 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
           </div>
         )}
       </div>
+
+      {detail && (
+        <ReservationDetailModal
+          reservation={detail}
+          onClose={() => setDetail(null)}
+          formatCurrency={formatCurrency}
+        />
+      )}
     </div>
   );
 }
