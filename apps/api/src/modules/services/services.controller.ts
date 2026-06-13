@@ -78,4 +78,19 @@ export class ServicesController {
     const result = await this.servicesService.remove(id, tenantId);
     return { data: result };
   }
+
+  @Put(':id/employees')
+  @RequirePermissions('services.update')
+  async setEmployees(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @Body() body: { employees: { employeeId: string; commission?: number | null }[] },
+  ) {
+    const result = await this.servicesService.setEmployees(
+      id,
+      tenantId,
+      body?.employees ?? [],
+    );
+    return { data: result };
+  }
 }

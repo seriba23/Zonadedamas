@@ -72,6 +72,10 @@ export function ServicesContent() {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState('');
   const [expandAfterSwitch, setExpandAfterSwitch] = useState<string | null>(null);
+  // Modal de "asignar empleados al servicio". Guardamos el servicio sobre
+  // el que se trabaja; los empleados/comisiones se manejan dentro del
+  // componente del modal.
+  const [assignTarget, setAssignTarget] = useState<Service | null>(null);
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories].sort((a, b) => a.localeCompare(b, 'es'));
 
   const [autoPopulated, setAutoPopulated] = useState(false);
@@ -326,16 +330,16 @@ export function ServicesContent() {
                           )}
                           </div>
                           {employeeCount === 0 && (
-                            <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
-                              <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                              </svg>
-                              <span className="text-xs text-red-700">Sin empleados asignados — este servicio no aparecerá disponible para reservar. </span>
+                            <div className="mx-4 mb-3">
                               <button
-                                onClick={(e) => { e.stopPropagation(); router.push('/staff?tab=comisiones'); }}
-                                className="text-xs font-medium text-red-700 underline hover:text-red-900 flex-shrink-0"
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setAssignTarget(service); }}
+                                className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-colors"
+                                style={{ backgroundColor: '#f97316' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f97316')}
                               >
-                                Asignar empleados
+                                Ahora asigna empleados
                               </button>
                             </div>
                           )}
@@ -642,7 +646,214 @@ export function ServicesContent() {
           </form>
         </Modal>
       )}
+
+      {assignTarget && (
+        <AssignEmployeesModal
+          service={assignTarget}
+          onClose={() => setAssignTarget(null)}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['services'] });
+            setAssignTarget(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ─── Assign Employees Modal — checkbox + comision por empleado ─── */
+function AssignEmployeesModal({
+  service,
+  onClose,
+  onSaved,
+}: {
+  service: Service;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { data: employeesData } = useQuery({
+    queryKey: ['assign-employees', 'employees'],
+    queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100'),
+  });
+  const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
+
+  // Map de empleado -> { selected, commission }. Cargado desde el estado
+  // actual del servicio: si el empleado tiene un employeeService que
+  // referencia este servicio, viene preseleccionado con su commission.
+  type Cfg = { selected: boolean; commission: string };
+  const [cfg, setCfg] = useState<Map<string, Cfg>>(new Map());
+  const [search, setSearch] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const m = new Map<string, Cfg>();
+    for (const emp of employees) {
+      const es = (emp.employeeServices || []).find(
+        (x: any) => (x.service?.id || x.serviceId) === service.id,
+      );
+      m.set(emp.id, {
+        selected: !!es,
+        commission: es?.commission != null ? String(Number(es.commission)) : '',
+      });
+    }
+    setCfg(m);
+  }, [employeesData, service.id]);
+
+  function toggle(empId: string) {
+    setCfg((prev) => {
+      const n = new Map(prev);
+      const c = n.get(empId) || { selected: false, commission: '' };
+      n.set(empId, { ...c, selected: !c.selected });
+      return n;
+    });
+  }
+
+  function updateComm(empId: string, value: string) {
+    setCfg((prev) => {
+      const n = new Map(prev);
+      const c = n.get(empId) || { selected: true, commission: '' };
+      n.set(empId, { ...c, commission: value });
+      return n;
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const payload = Array.from(cfg.entries())
+        .filter(([, c]) => c.selected)
+        .map(([employeeId, c]) => ({
+          employeeId,
+          commission: c.commission === '' ? null : parseFloat(c.commission),
+        }));
+      await api.put(`/api/services/${service.id}/employees`, { employees: payload });
+      onSaved();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const q = search.trim().toLowerCase();
+  const visibleEmps = q
+    ? employees.filter((e: any) =>
+        `${e.firstName} ${e.lastName} ${e.jobTitle || ''}`.toLowerCase().includes(q),
+      )
+    : employees;
+  const selectedCount = Array.from(cfg.values()).filter((c) => c.selected).length;
+
+  return (
+    <Modal
+      title={`Asignar empleados — ${service.name}`}
+      onClose={onClose}
+      size="md"
+    >
+      <div className="space-y-4">
+        <p className="text-xs text-gray-500">
+          Marca los empleados que ofrecerán este servicio y define el % de comisión que recibirán por cada cita.
+        </p>
+
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar empleado o puesto..."
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+        />
+
+        <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
+          {visibleEmps.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-6">
+              Sin coincidencias
+            </p>
+          ) : (
+            visibleEmps.map((emp: any) => {
+              const c = cfg.get(emp.id) || { selected: false, commission: '' };
+              return (
+                <div
+                  key={emp.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
+                    c.selected
+                      ? 'bg-teal-50 border-teal-200'
+                      : 'bg-white border-gray-200'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggle(emp.id)}
+                    aria-label={c.selected ? 'Desmarcar' : 'Marcar'}
+                    className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                      c.selected
+                        ? 'bg-[#008080] border-[#008080]'
+                        : 'bg-white border-gray-300'
+                    }`}
+                  >
+                    {c.selected && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggle(emp.id)}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {emp.firstName} {emp.lastName}
+                    </p>
+                    {emp.jobTitle && (
+                      <p className="text-xs text-gray-500 truncate">{emp.jobTitle}</p>
+                    )}
+                  </button>
+
+                  {c.selected && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={c.commission}
+                        onChange={(e) => updateComm(emp.id, e.target.value)}
+                        placeholder="0"
+                        className="w-16 text-sm text-right border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                      />
+                      <span className="text-xs text-gray-500">%</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <span className="text-xs text-gray-500">
+            {selectedCount} empleado{selectedCount === 1 ? '' : 's'} asignado{selectedCount === 1 ? '' : 's'}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] disabled:opacity-50"
+            >
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

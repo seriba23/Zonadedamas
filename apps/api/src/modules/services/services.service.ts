@@ -161,4 +161,64 @@ export class ServicesService {
     });
     return { message: 'Servicio desactivado' };
   }
+
+  /**
+   * Reemplaza el set de empleados asignados a un servicio. Espejo de
+   * EmployeesService.setServices. Cada item del array trae employeeId y
+   * commission opcional. Empleados que no estan en la lista se eliminan;
+   * los que estan se upsertean con el commission actualizado.
+   */
+  async setEmployees(
+    serviceId: string,
+    tenantId: string,
+    employees: { employeeId: string; commission?: number | null }[],
+  ) {
+    await this.findOne(serviceId, tenantId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const employeeIds = employees.map((e) => e.employeeId);
+
+      await tx.employeeService.deleteMany({
+        where: {
+          serviceId,
+          ...(employeeIds.length > 0
+            ? { employeeId: { notIn: employeeIds } }
+            : {}),
+        },
+      });
+
+      if (employees.length > 0) {
+        // Validamos que los empleados pertenezcan al tenant antes de
+        // upsertear; un employeeId de otro tenant se ignora silenciosamente.
+        const validEmployees = await tx.employee.findMany({
+          where: { id: { in: employeeIds }, tenantId },
+          select: { id: true },
+        });
+        const validIds = new Set(validEmployees.map((e) => e.id));
+
+        for (const emp of employees) {
+          if (!validIds.has(emp.employeeId)) continue;
+          await tx.employeeService.upsert({
+            where: {
+              employeeId_serviceId: {
+                employeeId: emp.employeeId,
+                serviceId,
+              },
+            },
+            update: { commission: emp.commission ?? null },
+            create: {
+              employeeId: emp.employeeId,
+              serviceId,
+              commission: emp.commission ?? null,
+            },
+          });
+        }
+      }
+
+      return tx.employeeService.findMany({
+        where: { serviceId },
+        include: { employee: { select: { id: true, firstName: true, lastName: true } } },
+      });
+    });
+  }
 }
