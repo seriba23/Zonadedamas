@@ -120,6 +120,26 @@ function formatValue(reward: Redemption['reward'], currency = 'MXN'): string {
     : `${formatCurrency(amt, currency)} de descuento`;
 }
 
+// Mismo formato que el stub del catalogo: muestra el "valor" del cupon
+// (-20%, GRATIS, 2x1, $50) en grande en blanco sobre fondo de color.
+function stubValueFromReward(reward: Redemption['reward']): string {
+  if (reward.type === 'TWO_FOR_ONE') return '2×1';
+  if (reward.type === 'DESCUENTO') {
+    const amt = Number(reward.discountAmount ?? 0);
+    if (reward.discountMode === 'PERCENTAGE') {
+      return amt >= 100 ? 'GRATIS' : `-${amt}%`;
+    }
+    return `$${amt}`;
+  }
+  return 'GRATIS';
+}
+
+function stubSubLabelFromReward(reward: Redemption['reward']): string {
+  if (reward.type === 'TWO_FOR_ONE') return 'regalo';
+  if (reward.type === 'DESCUENTO') return 'descuento';
+  return 'servicio';
+}
+
 function StatusBadge({ status, expiresAt }: { status: string; expiresAt: string }) {
   const isExpiredByDate = status === 'ACTIVE' && new Date(expiresAt) < new Date();
   const effective = isExpiredByDate ? 'EXPIRED' : status;
@@ -288,104 +308,154 @@ export function RedemptionsHistory() {
         </div>
       )}
 
-      {/* Lista de cupones — tarjetas (responsive) */}
-      <div className="space-y-3">
+      {/* Lista de cupones tipo ticket — mismo estilo que el catalogo */}
+      <div
+        className="grid gap-4"
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}
+      >
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
+            <div key={i} className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 animate-pulse">
               <div className="flex gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-100" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-gray-100 rounded w-1/3" />
+                <div className="w-20 h-32 rounded-xl bg-gray-100" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-3 bg-gray-100 rounded w-2/3" />
                   <div className="h-3 bg-gray-100 rounded w-1/2" />
+                  <div className="h-3 bg-gray-100 rounded w-1/3" />
                 </div>
               </div>
             </div>
           ))
         ) : items.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-10 text-center text-sm text-gray-400">
+          <div className="col-span-full bg-white border border-gray-200 rounded-xl p-10 text-center text-sm text-gray-400">
             {hasActiveFilters
               ? 'No hay cupones que coincidan con los filtros.'
               : 'Aún no se han emitido cupones.'}
           </div>
         ) : (
-          items.map((r) => (
-            <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-              {/* Cliente */}
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-teal-50 text-[#008080] overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0">
-                  {r.client.avatarUrl ? (
-                    <img src={r.client.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    (r.client.firstName?.[0] || '?').toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {r.client.firstName} {r.client.lastName}
-                  </p>
-                  {r.client.email && (
-                    <p className="text-[11px] text-gray-400 truncate">{r.client.email}</p>
-                  )}
-                </div>
-                <div className="flex-shrink-0">
-                  <StatusBadge status={r.status} expiresAt={r.expiresAt} />
-                </div>
-              </div>
-
-              {/* Cupon + codigo */}
-              <div className="flex items-start justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{r.reward.name}</p>
-                  <p className="text-[11px] text-gray-500">{formatValue(r.reward)}</p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Codigo</p>
-                  <p className="font-mono text-xs font-semibold text-gray-700">{r.code}</p>
-                </div>
-              </div>
-
-              {/* Origen + fechas */}
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <SourceBadge pointsSpent={r.pointsSpent} />
-                <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                  <span title="Fecha de creacion">
-                    Creado{' '}
-                    <span className="font-medium text-gray-700">
-                      {new Date(r.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </span>
-                  <span title="Fecha de vencimiento">
-                    Vence{' '}
-                    <span className="font-medium text-gray-700">
-                      {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </span>
-                  {r.usedAt && (
-                    <span title="Fecha de uso">
-                      Usado{' '}
-                      <span className="font-medium text-gray-700">
-                        {new Date(r.usedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                      </span>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Accion (solo si puede retirar y aun no esta usado) */}
-              {canRemove && r.status !== 'USED' && (
-                <div className="pt-2 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={() => { setRemoveError(null); setConfirmRemove(r); }}
-                    className="w-full sm:w-auto px-3 py-2 rounded-lg text-xs font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 transition-colors"
+          items.map((r) => {
+            // Color del stub: gris para estados terminados, morado para
+            // 2x1, teal para el resto (mismo criterio que el catalogo).
+            const isTerminal = r.status === 'USED' || r.status === 'EXPIRED' || r.status === 'CANCELLED';
+            const isExpiredByDate = r.status === 'ACTIVE' && new Date(r.expiresAt) < new Date();
+            const stubColor = isTerminal || isExpiredByDate
+              ? '#9ca3af'
+              : r.reward.type === 'TWO_FOR_ONE'
+                ? '#7c3aed'
+                : '#008080';
+            const valueLabel = stubValueFromReward(r.reward);
+            const subLabel = stubSubLabelFromReward(r.reward);
+            const stubFontSize =
+              valueLabel.length <= 4 ? '1.125rem' : valueLabel.length <= 6 ? '0.875rem' : '0.75rem';
+            return (
+              <div
+                key={r.id}
+                className="relative"
+                style={{ opacity: isTerminal ? 0.75 : 1 }}
+              >
+                <div
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex"
+                  style={{ minHeight: 160 }}
+                >
+                  {/* ── Stub izquierdo ── */}
+                  <div
+                    className="w-20 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 relative"
+                    style={{ backgroundColor: stubColor }}
                   >
-                    Retirar cupon
-                  </button>
+                    <span
+                      className="text-white font-black leading-tight text-center break-all w-full px-2"
+                      style={{ fontSize: stubFontSize, wordBreak: 'break-all' }}
+                    >
+                      {valueLabel}
+                    </span>
+                    <span className="text-white/70 text-[9px] uppercase tracking-wider">
+                      {subLabel}
+                    </span>
+                    {/* Perforaciones */}
+                    <div className="absolute -right-3 -top-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                    <div className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full" style={{ backgroundColor: '#f3f4f6' }} />
+                  </div>
+
+                  {/* ── Separador perforado ── */}
+                  <div className="flex flex-col items-center justify-center w-4 flex-shrink-0 gap-[3px] py-3">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <div key={i} className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: '#d1d5db' }} />
+                    ))}
+                  </div>
+
+                  {/* ── Contenido principal ── */}
+                  <div className="flex-1 py-3 pr-3 flex flex-col justify-between min-w-0">
+                    {/* Top: nombre cupon + status */}
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+                          {r.reward.name}
+                        </p>
+                        <div className="flex-shrink-0">
+                          <StatusBadge status={r.status} expiresAt={r.expiresAt} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5 truncate">{formatValue(r.reward)}</p>
+
+                      {/* Cliente que lo tiene/uso */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="w-6 h-6 rounded-full bg-teal-50 text-[#008080] overflow-hidden flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                          {r.client.avatarUrl ? (
+                            <img src={r.client.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            (r.client.firstName?.[0] || '?').toUpperCase()
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-700 truncate min-w-0">
+                          {r.client.firstName} {r.client.lastName}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Footer: codigo + origen + fechas + accion */}
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <SourceBadge pointsSpent={r.pointsSpent} />
+                        <span className="font-mono text-[11px] font-semibold text-gray-700 bg-gray-50 px-2 py-0.5 rounded">
+                          {r.code}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-[10px] text-gray-500 flex-wrap">
+                        <span>
+                          Creado <span className="font-medium text-gray-700">
+                            {new Date(r.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </span>
+                        <span>
+                          Vence <span className="font-medium text-gray-700">
+                            {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </span>
+                        {r.usedAt && (
+                          <span>
+                            Usado <span className="font-medium text-gray-700">
+                              {new Date(r.usedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      {canRemove && r.status !== 'USED' && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => { setRemoveError(null); setConfirmRemove(r); }}
+                            className="text-[11px] font-semibold text-red-600 hover:text-red-700 hover:underline"
+                          >
+                            Retirar cupón
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))
+              </div>
+            );
+          })
         )}
 
         {/* Modal de confirmación: retirar/eliminar cupón */}
