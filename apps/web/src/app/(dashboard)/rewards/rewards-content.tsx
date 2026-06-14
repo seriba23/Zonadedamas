@@ -786,7 +786,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                     disabled={deleteMutation.isPending}
                     className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                   >
-                    {deleteMutation.isPending ? 'Desactivando...' : 'Desactivar cupón'}
+                    {deleteMutation.isPending ? 'Desactivando...' : 'Desactivar'}
                   </button>
                 )}
               </div>
