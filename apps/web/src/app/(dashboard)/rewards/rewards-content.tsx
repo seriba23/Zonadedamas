@@ -6,7 +6,57 @@ import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 import { RedemptionsHistory } from './redemptions-history';
+
+interface RedemptionSummary {
+  totalAll: number;
+  totalActive: number;
+  totalUsed: number;
+  totalExpired: number;
+  totalGifts: number;
+  totalRedeemed: number;
+}
+
+function CouponStatsBar() {
+  const { data } = useQuery({
+    queryKey: ['rewards-redemptions-summary'],
+    queryFn: () =>
+      api.get<{ meta: { summary: RedemptionSummary } }>(
+        '/api/rewards/redemptions/all?page=1&perPage=1',
+      ),
+    refetchInterval: 60_000,
+  });
+  const s = data?.meta?.summary;
+  if (!s) return null;
+  const cards: Array<{ label: string; value: number | string; color: 'gray' | 'green' | 'teal' | 'red' | 'purple' }> = [
+    { label: 'Total emitidos', value: s.totalAll, color: 'gray' },
+    { label: 'Activos', value: s.totalActive, color: 'green' },
+    { label: 'Usados', value: s.totalUsed, color: 'teal' },
+    { label: 'Vencidos', value: s.totalExpired, color: 'red' },
+    { label: 'Regalados / Canjeados', value: `${s.totalGifts} / ${s.totalRedeemed}`, color: 'purple' },
+  ];
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    gray: { bg: 'bg-gray-50', text: 'text-gray-700' },
+    green: { bg: 'bg-green-50', text: 'text-green-700' },
+    teal: { bg: 'bg-teal-50', text: 'text-[#006666]' },
+    red: { bg: 'bg-red-50', text: 'text-red-700' },
+    purple: { bg: 'bg-purple-50', text: 'text-purple-700' },
+  };
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      {cards.map((c) => {
+        const colors = colorMap[c.color];
+        return (
+          <div key={c.label} className={`${colors.bg} rounded-xl p-3 border border-transparent`}>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{c.label}</p>
+            <p className={`text-2xl font-bold ${colors.text}`}>{c.value}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface Reward {
   id: string;
@@ -217,6 +267,21 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   // Tab activo: "catalogo" muestra los rewards del tenant; "historial" muestra
   // todos los RewardRedemptions emitidos con filtros para auditoria.
   const [activeTab, setActiveTab] = useState<'catalog' | 'history'>('catalog');
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+
+  // Boton "Nuevo" en topbar mientras la pestana activa sea "catalogo".
+  // Abre un popup con 3 acciones: crear cupon, regalar cupon, usar cupon.
+  useRegisterTopbarAction(
+    activeTab === 'catalog' && (hasPermission('rewards.create') || hasPermission('rewards.update')) ? (
+      <button
+        onClick={() => setNewMenuOpen(true)}
+        className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        Nuevo
+      </button>
+    ) : null,
+    [activeTab, hasPermission('rewards.create'), hasPermission('rewards.update')],
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ['rewards'],
@@ -422,38 +487,12 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
           <RedemptionsHistory />
         ) : (
         <>
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">
-            Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
-          </p>
-          <div className="flex gap-2">
-            {hasPermission('rewards.update') && (
-              <button
-                onClick={() => {
-                  setCouponModal({ open: true, code: '' });
-                  setCouponError(null);
-                  setCouponSuccess(null);
-                }}
-                className="btn-secondary text-sm"
-              >
-                Usar cupón
-              </button>
-            )}
-            {hasPermission('rewards.create') && (
-              <button
-                onClick={() => { setGiftModal(true); setGiftSuccess(null); }}
-                className="btn-secondary text-sm"
-              >
-                Regalar cupón
-              </button>
-            )}
-            {hasPermission('rewards.create') && (
-              <button onClick={openCreate} className="btn-primary">
-                + Nuevo Cupón
-              </button>
-            )}
-          </div>
-        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
+        </p>
+
+        {/* Resumen de cupones emitidos (movido desde Historial). */}
+        <CouponStatsBar />
 
         {isLoading ? (
           <div
@@ -761,6 +800,73 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
               </div>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Menu "Nuevo": elige entre crear cupon, regalar cupon o usar cupon */}
+      {newMenuOpen && (
+        <Modal title="Nuevo" onClose={() => setNewMenuOpen(false)}>
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 mb-3">
+              ¿Que accion quieres hacer?
+            </p>
+            {hasPermission('rewards.create') && (
+              <button
+                type="button"
+                onClick={() => { setNewMenuOpen(false); openCreate(); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-full bg-teal-50 text-[#008080] flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Crear nuevo cupon</p>
+                  <p className="text-xs text-gray-500">Configura un cupon que tus clientes podran canjear con puntos.</p>
+                </div>
+              </button>
+            )}
+            {hasPermission('rewards.create') && (
+              <button
+                type="button"
+                onClick={() => { setNewMenuOpen(false); setGiftModal(true); setGiftSuccess(null); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-full bg-teal-50 text-[#008080] flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Regalar cupon</p>
+                  <p className="text-xs text-gray-500">Otorga un cupon directamente a uno o varios clientes sin que paguen puntos.</p>
+                </div>
+              </button>
+            )}
+            {hasPermission('rewards.update') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewMenuOpen(false);
+                  setCouponModal({ open: true, code: '' });
+                  setCouponError(null);
+                  setCouponSuccess(null);
+                }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-full bg-teal-50 text-[#008080] flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Usar cupon</p>
+                  <p className="text-xs text-gray-500">Marca como usado un cupon presentado por un cliente.</p>
+                </div>
+              </button>
+            )}
+          </div>
         </Modal>
       )}
 

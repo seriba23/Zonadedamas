@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { usePermissions } from '@/lib/hooks/use-permissions';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { Modal } from '@/components/ui/modal';
 
 interface Redemption {
   id: string;
@@ -112,6 +114,8 @@ export function RedemptionsHistory() {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
+  const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [confirmRemove, setConfirmRemove] = useState<Redemption | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -156,125 +160,63 @@ export function RedemptionsHistory() {
 
   const items: Redemption[] = data?.data || [];
   const meta = data?.meta;
-  const summary = meta?.summary;
 
-  const updateFilter = (k: keyof Filters, v: string) => {
-    setFilters((f) => ({ ...f, [k]: v }));
-    setPage(1);
+  const updateDraft = (k: keyof Filters, v: string) => {
+    setDraftFilters((f) => ({ ...f, [k]: v }));
   };
 
-  const clearFilters = () => {
-    setFilters(defaultFilters);
+  const openFilters = () => {
+    setDraftFilters(filters);
+    setShowFilters(true);
+  };
+
+  const applyFilters = () => {
+    setFilters(draftFilters);
     setPage(1);
+    setShowFilters(false);
+  };
+
+  const clearDraftFilters = () => {
+    setDraftFilters(defaultFilters);
   };
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '');
+  const hasDraftFilters = Object.values(draftFilters).some((v) => v !== '');
+
+  // Boton de filtros en el topbar (a la izq del bell, igual que /reservations).
+  // Solo vive mientras el componente esta montado (tab "Historial").
+  useRegisterTopbarAction(
+    <button
+      onClick={openFilters}
+      aria-label="Filtros"
+      title="Filtros"
+      className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
+        hasActiveFilters
+          ? 'bg-[#008080] border-[#008080] text-white'
+          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+      }`}
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+      </svg>
+    </button>,
+    [hasActiveFilters, filters],
+  );
 
   return (
     <div>
-      {/* Resumen */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <SummaryCard label="Total emitidos" value={summary.totalAll} color="gray" />
-          <SummaryCard label="Activos" value={summary.totalActive} color="green" />
-          <SummaryCard label="Usados" value={summary.totalUsed} color="teal" />
-          <SummaryCard label="Vencidos" value={summary.totalExpired} color="red" />
-          <SummaryCard label="Regalados / Canjeados" value={`${summary.totalGifts} / ${summary.totalRedeemed}`} color="purple" />
+      {hasActiveFilters && (
+        <div className="mb-3 text-xs text-gray-500">
+          Mostrando cupones filtrados.{' '}
+          <button
+            type="button"
+            onClick={() => { setFilters(defaultFilters); setPage(1); }}
+            className="font-semibold text-[#008080] hover:underline"
+          >
+            Limpiar filtros
+          </button>
         </div>
       )}
-
-      {/* Filtros */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-gray-700">Filtros</p>
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-xs text-[#008080] hover:text-[#006666] font-medium"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Búsqueda</label>
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => updateFilter('search', e.target.value)}
-              placeholder="Cliente, código, cupón…"
-              className="input-field text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Estado</label>
-            <select
-              value={filters.status}
-              onChange={(e) => updateFilter('status', e.target.value)}
-              className="input-field text-sm"
-            >
-              <option value="">Todos</option>
-              <option value="ACTIVE">Activo</option>
-              <option value="USED">Usado</option>
-              <option value="EXPIRED">Vencido</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Origen</label>
-            <select
-              value={filters.source}
-              onChange={(e) => updateFilter('source', e.target.value)}
-              className="input-field text-sm"
-            >
-              <option value="">Todos</option>
-              <option value="GIFT">Regalado</option>
-              <option value="REDEEM">Canjeado con puntos</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Vence desde</label>
-              <input
-                type="date"
-                value={filters.expiresFrom}
-                onChange={(e) => updateFilter('expiresFrom', e.target.value)}
-                className="input-field text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Vence hasta</label>
-              <input
-                type="date"
-                value={filters.expiresTo}
-                onChange={(e) => updateFilter('expiresTo', e.target.value)}
-                className="input-field text-sm"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Creado desde</label>
-              <input
-                type="date"
-                value={filters.createdFrom}
-                onChange={(e) => updateFilter('createdFrom', e.target.value)}
-                className="input-field text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Creado hasta</label>
-              <input
-                type="date"
-                value={filters.createdTo}
-                onChange={(e) => updateFilter('createdTo', e.target.value)}
-                className="input-field text-sm"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Tabla */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -484,6 +426,113 @@ export function RedemptionsHistory() {
           </div>
         )}
       </div>
+
+      {/* Filtros (mismo patron que /reservations) */}
+      {showFilters && (
+        <Modal title="Filtros de cupones" onClose={() => setShowFilters(false)} size="md">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Búsqueda</label>
+              <input
+                type="text"
+                value={draftFilters.search}
+                onChange={(e) => updateDraft('search', e.target.value)}
+                placeholder="Cliente, código, cupón…"
+                className="input-field text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Estado</label>
+                <select
+                  value={draftFilters.status}
+                  onChange={(e) => updateDraft('status', e.target.value)}
+                  className="input-field text-sm"
+                >
+                  <option value="">Todos</option>
+                  <option value="ACTIVE">Activo</option>
+                  <option value="USED">Usado</option>
+                  <option value="EXPIRED">Vencido</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Origen</label>
+                <select
+                  value={draftFilters.source}
+                  onChange={(e) => updateDraft('source', e.target.value)}
+                  className="input-field text-sm"
+                >
+                  <option value="">Todos</option>
+                  <option value="GIFT">Regalado</option>
+                  <option value="REDEEM">Canjeado con puntos</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Vence desde</label>
+                <input
+                  type="date"
+                  value={draftFilters.expiresFrom}
+                  onChange={(e) => updateDraft('expiresFrom', e.target.value)}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Vence hasta</label>
+                <input
+                  type="date"
+                  value={draftFilters.expiresTo}
+                  onChange={(e) => updateDraft('expiresTo', e.target.value)}
+                  className="input-field text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Creado desde</label>
+                <input
+                  type="date"
+                  value={draftFilters.createdFrom}
+                  onChange={(e) => updateDraft('createdFrom', e.target.value)}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wider">Creado hasta</label>
+                <input
+                  type="date"
+                  value={draftFilters.createdTo}
+                  onChange={(e) => updateDraft('createdTo', e.target.value)}
+                  className="input-field text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={clearDraftFilters}
+                disabled={!hasDraftFilters}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                  hasDraftFilters
+                    ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                    : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
