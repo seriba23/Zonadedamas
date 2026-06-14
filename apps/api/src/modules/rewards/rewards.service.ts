@@ -558,12 +558,18 @@ export class RewardsService {
 
     // Resumen del tenant (totales sin filtros, sirven como contadores
     // permanentes en el header del historial).
-    const [totalAll, totalActive, totalUsed, totalExpired, totalGifts] = await Promise.all([
+    const [totalAll, totalActive, totalUsed, totalExpired, totalGifts, pointsAgg] = await Promise.all([
       this.prisma.rewardRedemption.count({ where: { tenantId } }),
       this.prisma.rewardRedemption.count({ where: { tenantId, status: 'ACTIVE' } }),
       this.prisma.rewardRedemption.count({ where: { tenantId, status: 'USED' } }),
       this.prisma.rewardRedemption.count({ where: { tenantId, status: 'EXPIRED' } }),
       this.prisma.rewardRedemption.count({ where: { tenantId, pointsSpent: 0 } }),
+      // Total de puntos que los clientes han gastado canjeando cupones.
+      // Es la suma de pointsSpent de TODAS las redemptions (regalos suman 0).
+      this.prisma.rewardRedemption.aggregate({
+        where: { tenantId },
+        _sum: { pointsSpent: true },
+      }),
     ]);
 
     return {
@@ -580,6 +586,7 @@ export class RewardsService {
           totalExpired,
           totalGifts,
           totalRedeemed: totalAll - totalGifts,
+          totalPointsSpent: pointsAgg._sum.pointsSpent ?? 0,
         },
       },
     };

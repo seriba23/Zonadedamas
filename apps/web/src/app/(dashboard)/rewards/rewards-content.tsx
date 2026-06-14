@@ -7,67 +7,8 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
-import { KpiCard } from '@/components/dashboard/kpi-card';
 import { RedemptionsHistory } from './redemptions-history';
 
-interface RedemptionSummary {
-  totalAll: number;
-  totalActive: number;
-  totalUsed: number;
-  totalExpired: number;
-  totalGifts: number;
-  totalRedeemed: number;
-}
-
-// Mismos KpiCard que el home admin: tarjeta con icono teal a la izq,
-// label uppercase chico y valor grande. Mantiene la linea visual del
-// dashboard.
-function CouponStatsBar() {
-  const { data } = useQuery({
-    queryKey: ['rewards-redemptions-summary'],
-    queryFn: () =>
-      api.get<{ meta: { summary: RedemptionSummary } }>(
-        '/api/rewards/redemptions/all?page=1&perPage=1',
-      ),
-    refetchInterval: 60_000,
-  });
-  const s = data?.meta?.summary;
-  if (!s) return null;
-  const ticketIcon = (
-    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-    </svg>
-  );
-  const checkIcon = (
-    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-  const usedIcon = (
-    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-    </svg>
-  );
-  const expiredIcon = (
-    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-    </svg>
-  );
-  const giftIcon = (
-    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-    </svg>
-  );
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-      <KpiCard icon={ticketIcon} label="Total emitidos" value={s.totalAll} />
-      <KpiCard icon={checkIcon} label="Activos" value={s.totalActive} />
-      <KpiCard icon={usedIcon} label="Usados" value={s.totalUsed} />
-      <KpiCard icon={expiredIcon} label="Vencidos" value={s.totalExpired} />
-      <KpiCard icon={giftIcon} label="Regalados / Canjeados" value={`${s.totalGifts} / ${s.totalRedeemed}`} />
-    </div>
-  );
-}
 
 interface Reward {
   id: string;
@@ -279,7 +220,6 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   // todos los RewardRedemptions emitidos con filtros para auditoria.
   const [activeTab, setActiveTab] = useState<'catalog' | 'history'>('catalog');
   const [newMenuOpen, setNewMenuOpen] = useState(false);
-  const [showStats, setShowStats] = useState(false);
 
   // Topbar: solo el boton "Nuevo" en el catalogo (izquierda del bell).
   // El toggle de estadisticas va dentro del body, junto al subtitulo,
@@ -501,31 +441,9 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
           <RedemptionsHistory />
         ) : (
         <>
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <p className="text-sm text-gray-500 flex-1">
-            Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowStats((v) => !v)}
-            aria-label="Estadisticas de cupones"
-            title={showStats ? 'Ocultar estadisticas' : 'Ver estadisticas'}
-            className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
-              showStats
-                ? 'bg-[#008080] border-[#008080] text-white'
-                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Resumen de cupones emitidos. Oculto por defecto para no
-            sobrecargar la pagina; se despliega con el icono de grafico
-            que esta a la derecha del subtitulo. */}
-        {showStats && <CouponStatsBar />}
+        <p className="text-sm text-gray-500 mb-4">
+          Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
+        </p>
 
         {isLoading ? (
           <div
