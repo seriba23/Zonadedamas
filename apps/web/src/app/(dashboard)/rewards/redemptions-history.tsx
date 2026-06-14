@@ -35,15 +35,6 @@ interface Redemption {
   appointment: { id: string; startTime: string } | null;
 }
 
-interface Summary {
-  totalAll: number;
-  totalActive: number;
-  totalUsed: number;
-  totalExpired: number;
-  totalGifts: number;
-  totalRedeemed: number;
-}
-
 interface Filters {
   status: string;
   source: string;
@@ -153,7 +144,7 @@ export function RedemptionsHistory() {
   const { data, isLoading } = useQuery({
     queryKey: ['rewards-redemptions', queryString],
     queryFn: () =>
-      api.get<{ data: Redemption[]; meta: { totalPages: number; total: number; summary: Summary } }>(
+      api.get<{ data: Redemption[]; meta: { totalPages: number; total: number } }>(
         `/api/rewards/redemptions/all?${queryString}`,
       ),
   });
@@ -218,110 +209,105 @@ export function RedemptionsHistory() {
         </div>
       )}
 
-      {/* Tabla */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <Th>Cliente</Th>
-                <Th>Cupón</Th>
-                <Th>Origen</Th>
-                <Th>Código</Th>
-                <Th>Estado</Th>
-                <Th>Creado</Th>
-                <Th>Vence</Th>
-                <Th>Usado</Th>
-                {canRemove && <Th>Acciones</Th>}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i} className="border-b border-gray-100">
-                    {Array.from({ length: canRemove ? 9 : 8 }).map((_, j) => (
-                      <td key={j} className="px-3 py-3">
-                        <div className="h-3 bg-gray-100 rounded animate-pulse" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={canRemove ? 9 : 8} className="px-3 py-12 text-center text-gray-400 text-sm">
-                    {hasActiveFilters ? 'No hay cupones que coincidan con los filtros.' : 'Aún no se han emitido cupones.'}
-                  </td>
-                </tr>
-              ) : (
-                items.map((r) => (
-                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0">
-                          {r.client.avatarUrl ? (
-                            <img src={r.client.avatarUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            (r.client.firstName?.[0] || '?').toUpperCase()
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900 truncate">
-                            {r.client.firstName} {r.client.lastName}
-                          </p>
-                          {r.client.email && (
-                            <p className="text-[11px] text-gray-400 truncate">{r.client.email}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-medium text-gray-900">{r.reward.name}</p>
-                      <p className="text-[11px] text-gray-500">{formatValue(r.reward)}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <SourceBadge pointsSpent={r.pointsSpent} />
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="font-mono text-xs text-gray-700">{r.code}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusBadge status={r.status} expiresAt={r.expiresAt} />
-                    </td>
-                    <td className="px-3 py-3 text-xs text-gray-500">
-                      {new Date(r.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-gray-500">
-                      {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-gray-500">
-                      {r.usedAt
-                        ? new Date(r.usedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : '—'}
-                    </td>
-                    {canRemove && (
-                      <td className="px-3 py-3">
-                        {r.status === 'USED' ? (
-                          <span className="text-[10px] text-gray-400 italic">Ya usado</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRemoveError(null);
-                              setConfirmRemove(r);
-                            }}
-                            className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline whitespace-nowrap"
-                          >
-                            Retirar
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))
+      {/* Lista de cupones — tarjetas (responsive) */}
+      <div className="space-y-3">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
+              <div className="flex gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-100" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 bg-gray-100 rounded w-1/3" />
+                  <div className="h-3 bg-gray-100 rounded w-1/2" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : items.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-xl p-10 text-center text-sm text-gray-400">
+            {hasActiveFilters
+              ? 'No hay cupones que coincidan con los filtros.'
+              : 'Aún no se han emitido cupones.'}
+          </div>
+        ) : (
+          items.map((r) => (
+            <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+              {/* Cliente */}
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-teal-50 text-[#008080] overflow-hidden flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  {r.client.avatarUrl ? (
+                    <img src={r.client.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (r.client.firstName?.[0] || '?').toUpperCase()
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {r.client.firstName} {r.client.lastName}
+                  </p>
+                  {r.client.email && (
+                    <p className="text-[11px] text-gray-400 truncate">{r.client.email}</p>
+                  )}
+                </div>
+                <div className="flex-shrink-0">
+                  <StatusBadge status={r.status} expiresAt={r.expiresAt} />
+                </div>
+              </div>
+
+              {/* Cupon + codigo */}
+              <div className="flex items-start justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{r.reward.name}</p>
+                  <p className="text-[11px] text-gray-500">{formatValue(r.reward)}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Codigo</p>
+                  <p className="font-mono text-xs font-semibold text-gray-700">{r.code}</p>
+                </div>
+              </div>
+
+              {/* Origen + fechas */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <SourceBadge pointsSpent={r.pointsSpent} />
+                <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                  <span title="Fecha de creacion">
+                    Creado{' '}
+                    <span className="font-medium text-gray-700">
+                      {new Date(r.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </span>
+                  <span title="Fecha de vencimiento">
+                    Vence{' '}
+                    <span className="font-medium text-gray-700">
+                      {new Date(r.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </span>
+                  {r.usedAt && (
+                    <span title="Fecha de uso">
+                      Usado{' '}
+                      <span className="font-medium text-gray-700">
+                        {new Date(r.usedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Accion (solo si puede retirar y aun no esta usado) */}
+              {canRemove && r.status !== 'USED' && (
+                <div className="pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => { setRemoveError(null); setConfirmRemove(r); }}
+                    className="w-full sm:w-auto px-3 py-2 rounded-lg text-xs font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 transition-colors"
+                  >
+                    Retirar cupon
+                  </button>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          ))
+        )}
 
         {/* Modal de confirmación: retirar/eliminar cupón */}
         {confirmRemove && (
@@ -399,33 +385,34 @@ export function RedemptionsHistory() {
           </div>
         )}
 
-        {/* Paginación */}
-        {meta && meta.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-            <p className="text-xs text-gray-500">
-              Página {page} de {meta.totalPages} · {meta.total} cupones
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                disabled={page >= meta.totalPages}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Paginación */}
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-1">
+          <p className="text-xs text-gray-500">
+            Página {page} de {meta.totalPages} · {meta.total} cupones
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+              disabled={page >= meta.totalPages}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filtros (mismo patron que /reservations) */}
       {showFilters && (
@@ -537,37 +524,3 @@ export function RedemptionsHistory() {
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-      {children}
-    </th>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number | string;
-  color: 'gray' | 'green' | 'teal' | 'red' | 'purple';
-}) {
-  const colors: Record<string, { bg: string; text: string }> = {
-    gray: { bg: 'bg-gray-50', text: 'text-gray-700' },
-    green: { bg: 'bg-green-50', text: 'text-green-700' },
-    teal: { bg: 'bg-teal-50', text: 'text-[#006666]' },
-    red: { bg: 'bg-red-50', text: 'text-red-700' },
-    purple: { bg: 'bg-purple-50', text: 'text-purple-700' },
-  };
-  const c = colors[color];
-  return (
-    <div className={`${c.bg} rounded-xl p-3 border border-transparent`}>
-      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-        {label}
-      </p>
-      <p className={`text-2xl font-bold ${c.text}`}>{value}</p>
-    </div>
-  );
-}
