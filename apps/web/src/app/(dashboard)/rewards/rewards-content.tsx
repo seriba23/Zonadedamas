@@ -804,33 +804,29 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
               </div>
             </label>
 
-            <div className="flex justify-between items-center gap-3 pt-2">
-              <div>
-                {editingReward && editingReward.isActive && hasPermission('rewards.delete') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm('¿Desactivar este cupón?')) {
-                        deleteMutation.mutate(editingReward.id, {
-                          onSuccess: () => closeModal(),
-                        });
-                      }
-                    }}
-                    disabled={deleteMutation.isPending}
-                    className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
-                  >
-                    {deleteMutation.isPending ? 'Desactivando...' : 'Desactivar'}
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={closeModal} className="btn-secondary">
-                  Cancelar
+            <div className="flex justify-end items-center gap-3 pt-2 flex-wrap">
+              {editingReward && editingReward.isActive && hasPermission('rewards.delete') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('¿Desactivar este cupón?')) {
+                      deleteMutation.mutate(editingReward.id, {
+                        onSuccess: () => closeModal(),
+                      });
+                    }
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  {deleteMutation.isPending ? 'Desactivando...' : 'Desactivar'}
                 </button>
-                <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
-                  {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
+              )}
+              <button type="button" onClick={closeModal} className="btn-secondary">
+                Cancelar
+              </button>
+              <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
+                {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
+              </button>
             </div>
           </form>
         </Modal>
