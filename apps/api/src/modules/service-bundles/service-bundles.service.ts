@@ -146,6 +146,13 @@ export class ServiceBundlesService {
       (sum, s) => sum + Number(s.price),
       0,
     );
+    // El precio del paquete debe ofrecer un descuento (o quedar igual);
+    // un valor superior convertiria el paquete en un sobreprecio.
+    if (dto.bundlePrice > totalOriginalPrice) {
+      throw new BadRequestException(
+        `El precio del paquete (${dto.bundlePrice}) no puede ser mayor a la suma de los servicios (${totalOriginalPrice}).`,
+      );
+    }
     const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
     const savingsPercent =
       totalOriginalPrice > 0
@@ -222,6 +229,12 @@ export class ServiceBundlesService {
         (sum, s) => sum + Number(s.price),
         0,
       );
+      // Misma regla que en create: el bundle no puede costar mas que la suma.
+      if (bundlePrice > totalOriginalPrice) {
+        throw new BadRequestException(
+          `El precio del paquete (${bundlePrice}) no puede ser mayor a la suma de los servicios (${totalOriginalPrice}).`,
+        );
+      }
       totalDuration = fetchedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
       savingsPercent =
         totalOriginalPrice > 0

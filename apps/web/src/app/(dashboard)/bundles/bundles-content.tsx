@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 
 interface ServiceInBundle {
   id: string;
@@ -118,6 +119,20 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
     setIsModalOpen(true);
   }
 
+  // Boton "Nuevo" en el topbar global (izquierda del bell). Solo cuando
+  // la pagina no esta embedded (sino contaminaria otras paginas).
+  useRegisterTopbarAction(
+    !embedded && hasPermission('services.create') ? (
+      <button
+        onClick={openCreate}
+        className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        Nuevo
+      </button>
+    ) : null,
+    [embedded, hasPermission('services.create')],
+  );
+
   function openEdit(bundle: Bundle) {
     setEditingBundle(bundle);
     setForm({
@@ -209,6 +224,18 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
       setFormError('Selecciona al menos 2 servicios para el paquete');
       return;
     }
+    // El paquete tiene que ofrecer un descuento (o quedar al menos igual);
+    // permitir un precio superior a la suma de los servicios convertiria al
+    // "paquete" en un sobreprecio para el cliente, lo cual no es la idea.
+    const sumServicesPrice = services
+      .filter((s) => form.serviceIds.includes(s.id))
+      .reduce((sum, s) => sum + Number(s.price), 0);
+    if (Number(form.bundlePrice) > sumServicesPrice) {
+      setFormError(
+        `El precio del paquete (${formatCurrency(Number(form.bundlePrice))}) no puede ser mayor a la suma de los servicios (${formatCurrency(sumServicesPrice)}).`,
+      );
+      return;
+    }
 
     const payload: Record<string, any> = {
       name: form.name,
@@ -252,16 +279,9 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">
-            Agrupa servicios en paquetes con precio especial para tus clientes.
-          </p>
-          {hasPermission('services.create') && (
-            <button onClick={openCreate} className="btn-primary">
-              + Crear Paquete
-            </button>
-          )}
-        </div>
+        <p className="text-sm text-gray-500 mb-6">
+          Agrupa servicios en paquetes con precio especial para tus clientes.
+        </p>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

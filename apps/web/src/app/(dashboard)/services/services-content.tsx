@@ -8,6 +8,7 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 
 interface Service {
   id: string;
@@ -156,6 +157,19 @@ export function ServicesContent() {
     setIsModalOpen(true);
   }
 
+  // Registrar el boton "Nuevo" en el topbar global (a la izquierda del bell).
+  useRegisterTopbarAction(
+    hasPermission('services.create') ? (
+      <button
+        onClick={openCreate}
+        className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        Nuevo
+      </button>
+    ) : null,
+    [hasPermission('services.create')],
+  );
+
   function openEdit(service: Service) {
     setEditingService(service);
     const hasPoints = (service.pointsReward ?? 0) > 0;
@@ -209,17 +223,10 @@ export function ServicesContent() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
-        <div className="flex items-center justify-between mb-3 md:mb-6 flex-wrap gap-2">
-          <p className="text-sm text-gray-500">
-            {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
-            configurado{services.length !== 1 ? 's' : ''}
-          </p>
-          {hasPermission('services.create') && (
-            <button onClick={openCreate} className="btn-primary">
-              + Nuevo Servicio
-            </button>
-          )}
-        </div>
+        <p className="text-sm text-gray-500 mb-3 md:mb-6">
+          {services.length} servicio{services.length !== 1 ? 's' : ''}{' '}
+          configurado{services.length !== 1 ? 's' : ''}
+        </p>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
