@@ -261,10 +261,15 @@ export function ServicesContent() {
         ) : (
           <div className="space-y-6">
             {(() => {
-              // Group services by category/profession
+              // Servicios sin empleados → bloque dedicado arriba (fuera
+              // de categorias) para que el admin los detecte rapido y
+              // les asigne personal. El resto se agrupa como siempre.
+              const needsAssignment = services.filter((s) => (s._count?.employeeServices ?? 0) === 0);
+              const assigned = services.filter((s) => (s._count?.employeeServices ?? 0) > 0);
+
               const grouped: Record<string, Service[]> = {};
               const uncategorized: Service[] = [];
-              services.forEach((s) => {
+              assigned.forEach((s) => {
                 const cat = s.subcategory || s.category;
                 if (cat) {
                   if (!grouped[cat]) grouped[cat] = [];
@@ -276,9 +281,84 @@ export function ServicesContent() {
               const sortedCats = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'es'));
               if (uncategorized.length > 0) sortedCats.push('Otros');
 
-              return sortedCats.map((cat) => {
+              const sections: React.ReactNode[] = [];
+
+              if (needsAssignment.length > 0) {
+                sections.push(
+                  <div key="__needs-assignment">
+                    <div className="mb-3">
+                      <h3 className="text-sm font-bold text-gray-900">
+                        Sin empleados asignados
+                      </h3>
+                      <p className="text-[11px] text-gray-400">
+                        {needsAssignment.length} servicio{needsAssignment.length !== 1 ? 's' : ''} requieren accion
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-50">
+                      {needsAssignment.map((service) => (
+                        <div key={service.id} className="flex flex-col">
+                          <div
+                            className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => openEdit(service)}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{service.name}</p>
+                              {service.description && (
+                                <p className="text-xs text-gray-400 truncate">{service.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-400 flex-shrink-0">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs">{service.durationMinutes}min</span>
+                            </div>
+                            <span className={`text-sm font-semibold flex-shrink-0 ${Number(service.price) === 0 ? 'text-teal-600' : 'text-gray-900'}`}>
+                              {Number(service.price) === 0 ? 'Sin precio' : formatCurrency(service.price, service.currency)}
+                            </span>
+                            {hasPermission('services.delete') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); if (confirm(`¿Eliminar "${service.name}"?`)) deleteMutation.mutate(service.id); }}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 flex-shrink-0"
+                                title="Eliminar"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                          {/* Bloque naranja: aviso + CTA. Texto y boton
+                              comparten el mismo fondo para que sea claro
+                              que pertenecen a la misma alerta. */}
+                          <div
+                            className="mx-4 mb-3 rounded-xl p-3 space-y-2"
+                            style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa' }}
+                          >
+                            <p className="text-xs leading-relaxed" style={{ color: '#9a3412' }}>
+                              Este servicio aun no cuenta con empleados asignados. Es necesario asignar un empleado para poder mostrar este servicio en tu perfil.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setAssignTarget(service); }}
+                              className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm transition-colors"
+                              style={{ backgroundColor: '#f97316' }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f97316')}
+                            >
+                              Asignar empleados
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>,
+                );
+              }
+
+              sortedCats.forEach((cat) => {
                 const catServices = cat === 'Otros' ? uncategorized : grouped[cat];
-                return (
+                sections.push(
                   <div key={cat}>
                     {/* Category header */}
                     <div className="mb-3">
@@ -290,11 +370,8 @@ export function ServicesContent() {
 
                     {/* Services list */}
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-50">
-                      {catServices.map((service) => {
-                        const employeeCount = service._count?.employeeServices ?? 0;
-                        return (
-                        <div key={service.id} className="flex flex-col">
-                          <div className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openEdit(service)}>
+                      {catServices.map((service) => (
+                        <div key={service.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openEdit(service)}>
                           {/* Name + description */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900">{service.name}</p>
@@ -328,28 +405,14 @@ export function ServicesContent() {
                               </svg>
                             </button>
                           )}
-                          </div>
-                          {employeeCount === 0 && (
-                            <div className="mx-4 mb-3">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setAssignTarget(service); }}
-                                className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-colors"
-                                style={{ backgroundColor: '#f97316' }}
-                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
-                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f97316')}
-                              >
-                                Ahora asigna empleados
-                              </button>
-                            </div>
-                          )}
                         </div>
-                        );
-                      })}
+                      ))}
                     </div>
-                  </div>
+                  </div>,
                 );
               });
+
+              return sections;
             })()}
           </div>
         )}
@@ -404,8 +467,7 @@ export function ServicesContent() {
                   <button
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, name: '__custom__' }))}
-                    className="inline-flex items-center gap-1 text-xs font-semibold transition-colors hover:opacity-80"
-                    style={{ color: '#008080' }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-teal-200 bg-teal-50 text-[#008080] hover:bg-teal-100 transition-colors"
                     title="Crear servicio personalizado"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>

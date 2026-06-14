@@ -64,7 +64,7 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative p-2 rounded-lg text-gray-600 hover:text-[#008080] hover:bg-[#e0f2f1] transition-colors"
+        className="relative p-2 rounded-lg text-[var(--text-secondary)] hover:text-[#008080] hover:bg-[var(--bg-muted)] transition-colors"
         aria-label="Notificaciones"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -81,32 +81,53 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
       </button>
 
       {open && (
-        <div
-          className="absolute right-0 mt-2 w-[340px] max-w-[95vw] bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden"
-          role="menu"
-        >
+        <>
+          {/* Backdrop solo en mobile para cerrar tocando fuera */}
+          <div
+            className="fixed inset-0 z-40 sm:hidden"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed left-0 right-0 top-0 w-full max-w-full rounded-none border-0 border-t border-[var(--border)] sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[340px] sm:max-w-[95vw] sm:rounded-xl sm:border bg-[var(--bg-surface)] shadow-lg border-[var(--border)] z-50 overflow-hidden"
+            role="menu"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0)' }}
+          >
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-900">Notificaciones</span>
-            {total > 0 && (
+          <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
+            <span className="text-sm font-bold text-[var(--text-primary)]">Notificaciones</span>
+            <div className="flex items-center gap-2">
+              {total > 0 && (
+                <button
+                  type="button"
+                  onClick={() => markAllRead.mutate(undefined)}
+                  className="text-xs font-semibold transition-colors hover:underline"
+                  style={{ color: TEAL }}
+                >
+                  Marcar todas
+                </button>
+              )}
+              {/* Cerrar visible solo en mobile (en desktop click fuera basta) */}
               <button
                 type="button"
-                onClick={() => markAllRead.mutate(undefined)}
-                className="text-xs font-semibold transition-colors hover:underline"
-                style={{ color: TEAL }}
+                onClick={() => setOpen(false)}
+                className="sm:hidden p-1 -mr-1 rounded-lg text-[var(--text-muted)] hover:bg-[var(--bg-muted)]"
+                aria-label="Cerrar"
               >
-                Marcar todas
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
-            )}
+            </div>
           </div>
 
           {/* List */}
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[70vh] sm:max-h-[60vh] overflow-y-auto">
             {isLoading && (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">Cargando...</div>
+              <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">Cargando...</div>
             )}
             {!isLoading && items.length === 0 && (
-              <div className="px-4 py-10 text-center text-sm text-gray-400">
+              <div className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">
                 No tienes notificaciones aun.
               </div>
             )}
@@ -116,16 +137,16 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
                   key={n.id}
                   type="button"
                   onClick={() => handleClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex gap-3 ${n.readAt ? '' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
+                  className={`w-full text-left px-4 py-3 border-b border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors flex gap-3 ${n.readAt ? '' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
                 >
                   <span
                     className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
                     style={{ backgroundColor: n.readAt ? 'transparent' : TEAL }}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{n.title}</p>
-                    <p className="text-xs text-gray-600 line-clamp-2">{n.body}</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(n.createdAt)}</p>
+                    <p className={`text-sm font-semibold truncate ${n.readAt ? 'text-[var(--text-primary)]' : 'text-gray-900'}`}>{n.title}</p>
+                    <p className={`text-xs line-clamp-2 ${n.readAt ? 'text-[var(--text-secondary)]' : 'text-gray-700'}`}>{n.body}</p>
+                    <p className={`text-[11px] mt-0.5 ${n.readAt ? 'text-[var(--text-muted)]' : 'text-gray-500'}`}>{timeAgo(n.createdAt)}</p>
                   </div>
                 </button>
               ))}
@@ -135,12 +156,13 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
           <Link
             href={`${basePath}/inbox`}
             onClick={() => setOpen(false)}
-            className="block text-center text-sm font-semibold py-3 border-t border-gray-100 hover:bg-gray-50 transition-colors"
+            className="block text-center text-sm font-semibold py-3 border-t border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors"
             style={{ color: TEAL }}
           >
             Ver todas
           </Link>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
