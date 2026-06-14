@@ -7,6 +7,7 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { KpiCard } from '@/components/dashboard/kpi-card';
 import { RedemptionsHistory } from './redemptions-history';
 
 interface RedemptionSummary {
@@ -18,6 +19,9 @@ interface RedemptionSummary {
   totalRedeemed: number;
 }
 
+// Mismos KpiCard que el home admin: tarjeta con icono teal a la izq,
+// label uppercase chico y valor grande. Mantiene la linea visual del
+// dashboard.
 function CouponStatsBar() {
   const { data } = useQuery({
     queryKey: ['rewards-redemptions-summary'],
@@ -29,31 +33,38 @@ function CouponStatsBar() {
   });
   const s = data?.meta?.summary;
   if (!s) return null;
-  const cards: Array<{ label: string; value: number | string; color: 'gray' | 'green' | 'teal' | 'red' | 'purple' }> = [
-    { label: 'Total emitidos', value: s.totalAll, color: 'gray' },
-    { label: 'Activos', value: s.totalActive, color: 'green' },
-    { label: 'Usados', value: s.totalUsed, color: 'teal' },
-    { label: 'Vencidos', value: s.totalExpired, color: 'red' },
-    { label: 'Regalados / Canjeados', value: `${s.totalGifts} / ${s.totalRedeemed}`, color: 'purple' },
-  ];
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    gray: { bg: 'bg-gray-50', text: 'text-gray-700' },
-    green: { bg: 'bg-green-50', text: 'text-green-700' },
-    teal: { bg: 'bg-teal-50', text: 'text-[#006666]' },
-    red: { bg: 'bg-red-50', text: 'text-red-700' },
-    purple: { bg: 'bg-purple-50', text: 'text-purple-700' },
-  };
+  const ticketIcon = (
+    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+    </svg>
+  );
+  const checkIcon = (
+    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+  const usedIcon = (
+    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+    </svg>
+  );
+  const expiredIcon = (
+    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+    </svg>
+  );
+  const giftIcon = (
+    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+    </svg>
+  );
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-      {cards.map((c) => {
-        const colors = colorMap[c.color];
-        return (
-          <div key={c.label} className={`${colors.bg} rounded-xl p-3 border border-transparent`}>
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{c.label}</p>
-            <p className={`text-2xl font-bold ${colors.text}`}>{c.value}</p>
-          </div>
-        );
-      })}
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <KpiCard icon={ticketIcon} label="Total emitidos" value={s.totalAll} />
+      <KpiCard icon={checkIcon} label="Activos" value={s.totalActive} />
+      <KpiCard icon={usedIcon} label="Usados" value={s.totalUsed} />
+      <KpiCard icon={expiredIcon} label="Vencidos" value={s.totalExpired} />
+      <KpiCard icon={giftIcon} label="Regalados / Canjeados" value={`${s.totalGifts} / ${s.totalRedeemed}`} />
     </div>
   );
 }
@@ -270,41 +281,20 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [showStats, setShowStats] = useState(false);
 
-  // Topbar: en el catalogo van dos botones (estadisticas + Nuevo) a la
-  // izquierda del bell. Las stats arrancan ocultas para que la pagina no
-  // tenga ruido inicial; el admin las despliega con un click al icono
-  // de grafico.
+  // Topbar: solo el boton "Nuevo" en el catalogo (izquierda del bell).
+  // El toggle de estadisticas va dentro del body, junto al subtitulo,
+  // porque las stats son contextuales a esta pagina y conviene tener el
+  // disparador cerca del contenido.
   useRegisterTopbarAction(
-    activeTab === 'catalog'
-      ? (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowStats((v) => !v)}
-            aria-label="Estadisticas de cupones"
-            title="Estadisticas de cupones"
-            className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
-              showStats
-                ? 'bg-[#008080] border-[#008080] text-white'
-                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-          </button>
-          {(hasPermission('rewards.create') || hasPermission('rewards.update')) && (
-            <button
-              onClick={() => setNewMenuOpen(true)}
-              className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
-            >
-              Nuevo
-            </button>
-          )}
-        </div>
-      )
-      : null,
-    [activeTab, showStats, hasPermission('rewards.create'), hasPermission('rewards.update')],
+    activeTab === 'catalog' && (hasPermission('rewards.create') || hasPermission('rewards.update')) ? (
+      <button
+        onClick={() => setNewMenuOpen(true)}
+        className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+      >
+        Nuevo
+      </button>
+    ) : null,
+    [activeTab, hasPermission('rewards.create'), hasPermission('rewards.update')],
   );
 
   const { data, isLoading } = useQuery({
@@ -511,13 +501,30 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
           <RedemptionsHistory />
         ) : (
         <>
-        <p className="text-sm text-gray-500 mb-4">
-          Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
-        </p>
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <p className="text-sm text-gray-500 flex-1">
+            Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowStats((v) => !v)}
+            aria-label="Estadisticas de cupones"
+            title={showStats ? 'Ocultar estadisticas' : 'Ver estadisticas'}
+            className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
+              showStats
+                ? 'bg-[#008080] border-[#008080] text-white'
+                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+            </svg>
+          </button>
+        </div>
 
         {/* Resumen de cupones emitidos. Oculto por defecto para no
             sobrecargar la pagina; se despliega con el icono de grafico
-            del topbar. */}
+            que esta a la derecha del subtitulo. */}
         {showStats && <CouponStatsBar />}
 
         {isLoading ? (
@@ -662,9 +669,9 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
             )}
 
             {form.type === 'DESCUENTO' && (
-              <div className="grid grid-cols-3 gap-4">
+              <div className={`grid gap-3 items-end ${form.discountMode === 'FLAT' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 leading-tight">
                     Valor del descuento *
                   </label>
                   <input
@@ -681,7 +688,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Modo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 leading-tight">Modo</label>
                   <select
                     value={form.discountMode}
                     onChange={(e) =>
@@ -690,7 +697,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                         discountMode: e.target.value as 'FLAT' | 'PERCENTAGE',
                       }))
                     }
-                    className="input-field"
+                    className="input-field w-full pr-8 text-sm"
                   >
                     <option value="PERCENTAGE">Porcentaje (%)</option>
                     <option value="FLAT">Monto fijo</option>
@@ -698,7 +705,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
                 </div>
                 {form.discountMode === 'FLAT' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 leading-tight">Moneda</label>
                     <div className="input-field bg-gray-50 text-gray-600 font-medium">MXN</div>
                   </div>
                 )}
@@ -1160,7 +1167,11 @@ function CouponAdminCard({
   const expiry = formatExpiry(reward.validUntil);
 
   return (
-    <div className="relative" style={{ opacity: active ? 1 : 0.75 }}>
+    <div
+      className="relative"
+      style={{ opacity: active ? 1 : 0.75, cursor: canEdit ? 'pointer' : 'default' }}
+      onClick={() => { if (canEdit) onEdit(); }}
+    >
       {/* Card */}
       <div
         className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex"
@@ -1211,10 +1222,9 @@ function CouponAdminCard({
                 {reward.name}
               </p>
               {canEdit && (
-                <button
-                  onClick={onEdit}
-                  className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex-shrink-0"
-                  title="Editar"
+                <span
+                  className="p-1 rounded text-gray-300 flex-shrink-0"
+                  title="Click en la tarjeta para editar"
                 >
                   <svg
                     className="w-4 h-4"
@@ -1229,7 +1239,7 @@ function CouponAdminCard({
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                     />
                   </svg>
-                </button>
+                </span>
               )}
             </div>
 
