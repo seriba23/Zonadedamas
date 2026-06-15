@@ -40,8 +40,11 @@ function LoginPageInner() {
     if (skipAutoRedirect.current) return;
     if (!isAuthenticated || !user) return;
     if (!redirectAfterLogin) return; // sin redirect explicito -> mostrar form
-    const wantsMarketplace = redirectAfterLogin.startsWith('/marketplace');
-    if (wantsMarketplace) return; // marketplace guard se encarga
+    // Si el redirect es a /marketplace/<slug> y ya tenia sesion activa,
+    // mandarlo al destino directamente. Antes hacíamos return aqui
+    // confiando en un "marketplace guard" que en realidad no redirige
+    // automaticamente, por lo que el usuario quedaba viendo el form de
+    // login con sesion activa.
     router.replace(redirectAfterLogin);
   }, [authLoading, isAuthenticated, user, redirectAfterLogin, router]);
 

@@ -26,7 +26,13 @@ interface EmployeeReviewItem {
   businessComment: string | null;
   createdAt: string;
   employee: { id: string; firstName: string; lastName: string; avatarUrl: string | null; color: string | null };
-  client: { id: string; firstName: string; lastName: string };
+  client: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+    user: { avatarUrl: string | null } | null;
+  };
   appointment: { id: string; startTime: string; items: { serviceNameSnapshot: string }[] } | null;
 }
 
@@ -221,7 +227,9 @@ function BusinessReviewsList({
         comment: r.businessComment,
         createdAt: r.createdAt,
         authorName: `${r.client.firstName} ${r.client.lastName}`,
-        authorAvatarUrl: null,
+        // Prioriza el avatar del User vinculado (marketplace) y cae al
+        // del Client si no hay user linkeado.
+        authorAvatarUrl: r.client.user?.avatarUrl || r.client.avatarUrl || null,
         source: 'employee' as const,
       })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

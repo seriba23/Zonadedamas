@@ -608,7 +608,15 @@ export class TenantsService {
             select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true },
           },
           client: {
-            select: { id: true, firstName: true, lastName: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              // Algunos clientes vinieron del marketplace y guardaron su
+              // avatar real en el User; lo traemos como fallback.
+              user: { select: { avatarUrl: true } },
+            },
           },
           appointment: {
             select: {

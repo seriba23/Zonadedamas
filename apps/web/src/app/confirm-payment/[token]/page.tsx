@@ -12,18 +12,18 @@ interface AppointmentData {
   status: string;
   startTime: string;
   confirmedAt: string | null;
-  client: { firstName: string; lastName: string; avatarUrl: string | null };
-  employee: { id: string; firstName: string; lastName: string; avatarUrl: string | null; color: string | null };
-  items: Array<{
+  client?: { firstName: string; lastName: string; avatarUrl: string | null } | null;
+  employee?: { id: string; firstName: string; lastName: string; avatarUrl: string | null; color: string | null } | null;
+  items?: Array<{
     serviceNameSnapshot: string;
     priceSnapshot: string | number;
     durationSnapshot: number;
     serviceId: string;
   }>;
-  payments: Array<{ paymentMethod: string; totalAmount: string | number; status: string; createdAt: string }>;
-  photos: Array<{ id: string; imageUrl: string; serviceId: string }>;
-  tenant: { name: string; slug: string; logoUrl: string | null; tenantType: 'FREELANCER' | 'BUSINESS' };
-  review: { id: string; rating: number; businessRating: number | null } | null;
+  payments?: Array<{ paymentMethod: string; totalAmount: string | number; status: string; createdAt: string }>;
+  photos?: Array<{ id: string; imageUrl: string; serviceId: string }>;
+  tenant?: { name: string; slug: string; logoUrl: string | null; tenantType: 'FREELANCER' | 'BUSINESS' } | null;
+  review?: { id: string; rating: number; businessRating: number | null } | null;
 }
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -142,56 +142,68 @@ export default function ConfirmPaymentPage({ params }: { params: Promise<{ token
     );
   }
 
-  const total = data.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
-  const payment = data.payments[0];
+  const items = data.items ?? [];
+  const photos = data.photos ?? [];
+  const payments = data.payments ?? [];
+  const total = items.reduce((s, i) => s + Number(i.priceSnapshot ?? 0), 0);
+  const payment = payments[0];
   const isConfirmed = !!data.confirmedAt;
   const hasReview = !!data.review || reviewSubmitted;
+  const tenant = data.tenant;
+  const employee = data.employee;
+  const tenantName = tenant?.name || 'Negocio';
+  const tenantSlug = tenant?.slug || '';
+  const employeeFirst = employee?.firstName || '';
+  const employeeLast = employee?.lastName || '';
+  const employeeInitials = (employeeFirst[0] || '') + (employeeLast[0] || '');
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
       <div className="text-white px-4 pt-8 pb-6 text-center" style={{ backgroundColor: TEAL }}>
-        {data.tenant.logoUrl ? (
+        {tenant?.logoUrl ? (
           <img
-            src={data.tenant.logoUrl.startsWith('http') ? data.tenant.logoUrl : `${API_URL}${data.tenant.logoUrl}`}
-            alt={data.tenant.name}
+            src={tenant.logoUrl.startsWith('http') ? tenant.logoUrl : `${API_URL}${tenant.logoUrl}`}
+            alt={tenantName}
             className="w-16 h-16 mx-auto rounded-2xl object-cover mb-3 bg-white"
           />
         ) : (
           <div className="w-16 h-16 mx-auto rounded-2xl bg-white/15 flex items-center justify-center text-xl font-bold mb-3">
-            {data.tenant.name.charAt(0).toUpperCase()}
+            {tenantName.charAt(0).toUpperCase()}
           </div>
         )}
         <p className="text-xs uppercase tracking-wider opacity-80">Tu cita en</p>
-        <h1 className="text-lg font-bold mt-0.5">{data.tenant.name}</h1>
+        <h1 className="text-lg font-bold mt-0.5">{tenantName}</h1>
       </div>
 
       <div className="max-w-md mx-auto px-4 -mt-3 space-y-3">
         {/* Card cita */}
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-3 mb-3">
-            {data.employee.avatarUrl ? (
+            {employee?.avatarUrl ? (
               <img
-                src={data.employee.avatarUrl.startsWith('http') ? data.employee.avatarUrl : `${API_URL}${data.employee.avatarUrl}`}
+                src={employee.avatarUrl.startsWith('http') ? employee.avatarUrl : `${API_URL}${employee.avatarUrl}`}
                 alt=""
                 className="w-12 h-12 rounded-full object-cover"
               />
             ) : (
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold"
-                style={{ backgroundColor: `${data.employee.color || TEAL}20`, color: data.employee.color || TEAL }}
+                style={{ backgroundColor: `${employee?.color || TEAL}20`, color: employee?.color || TEAL }}
               >
-                {data.employee.firstName[0]}{data.employee.lastName[0]}
+                {employeeInitials || '?'}
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="text-xs text-gray-400">Atendido por</p>
-              <p className="text-sm font-semibold text-gray-900 truncate">{data.employee.firstName} {data.employee.lastName}</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {employeeFirst} {employeeLast}
+              </p>
             </div>
           </div>
 
           <div className="border-t border-gray-100 pt-3 space-y-2">
-            {data.items.map((item, i) => (
+            {items.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <span className="text-gray-700 flex-1 min-w-0 truncate pr-2">{item.serviceNameSnapshot}</span>
                 <span className="font-medium text-gray-900 tabular-nums flex-shrink-0">{formatCurrency(Number(item.priceSnapshot))}</span>
@@ -213,11 +225,11 @@ export default function ConfirmPaymentPage({ params }: { params: Promise<{ token
         </div>
 
         {/* Fotos del resultado */}
-        {data.photos.length > 0 && (
+        {photos.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Fotos del resultado</p>
             <div className="grid grid-cols-3 gap-2">
-              {data.photos.map((p) => (
+              {photos.map((p) => (
                 <div key={p.id} className="aspect-square rounded-xl overflow-hidden bg-gray-100">
                   <img
                     src={p.imageUrl.startsWith('http') ? p.imageUrl : `${API_URL}${p.imageUrl}`}
@@ -263,13 +275,15 @@ export default function ConfirmPaymentPage({ params }: { params: Promise<{ token
             <p className="text-sm text-gray-500 mb-4">
               {reviewSubmitted ? 'Tu calificación fue enviada' : 'Esta cita ya está confirmada y calificada'}
             </p>
-            <Link
-              href={`/marketplace/${data.tenant.slug}`}
-              className="inline-block text-sm font-semibold"
-              style={{ color: TEAL }}
-            >
-              Ver perfil del negocio →
-            </Link>
+            {tenantSlug && (
+              <Link
+                href={`/marketplace/${tenantSlug}`}
+                className="inline-block text-sm font-semibold"
+                style={{ color: TEAL }}
+              >
+                Ver perfil del negocio →
+              </Link>
+            )}
           </div>
         )}
 
@@ -280,9 +294,9 @@ export default function ConfirmPaymentPage({ params }: { params: Promise<{ token
 
       <DualReviewModal
         show={showReview && !hasReview}
-        employeeName={`${data.employee.firstName} ${data.employee.lastName}`}
-        businessName={data.tenant.name}
-        mode={data.tenant.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
+        employeeName={`${employeeFirst} ${employeeLast}`.trim()}
+        businessName={tenantName}
+        mode={tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
         onSubmit={handleSubmitReview}
         onSkip={() => setShowReview(false)}
         isLoading={submittingReview}

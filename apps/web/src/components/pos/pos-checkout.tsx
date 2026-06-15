@@ -1233,10 +1233,11 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setReviewSkipped(true)}
-                  className="w-full py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
                 >
-                  Saltar reseña (el cliente la deja después)
+                  Saltar reseña — el cliente la deja después
                 </button>
               </div>
             )}
