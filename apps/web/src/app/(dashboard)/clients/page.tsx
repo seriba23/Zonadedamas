@@ -8,8 +8,7 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 import { ClientDrawer } from '@/components/clients/client-drawer';
 import { Pagination } from '@/components/ui/pagination';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { Avatar } from '@/components/ui/avatar';
 
 interface Client {
   id: string;
@@ -156,21 +155,13 @@ export default function ClientsPage() {
                   onClick={() => router.push(`/clients/${client.id}`)}
                   className="bg-white rounded-xl border border-gray-200 hover:border-[#008080] hover:shadow-sm transition-all p-3 cursor-pointer flex items-center gap-3"
                 >
-                  {/* Avatar */}
-                  <div className="w-11 h-11 rounded-full bg-[#e0f2f1] text-[#008080] flex items-center justify-center text-sm font-semibold flex-shrink-0 overflow-hidden">
-                    {client.avatarUrl ? (
-                      <img
-                        src={`${API_URL}${client.avatarUrl}`}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <>
-                        {client.firstName.charAt(0)}
-                        {client.lastName.charAt(0)}
-                      </>
-                    )}
-                  </div>
+                  <Avatar
+                    avatarUrl={client.avatarUrl}
+                    firstName={client.firstName}
+                    lastName={client.lastName}
+                    className="w-11 h-11"
+                    textClassName="text-sm"
+                  />
 
                   {/* Nombre */}
                   <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
@@ -189,7 +180,7 @@ export default function ClientsPage() {
                       title={hasPhone ? `Llamar a ${phoneRaw}` : 'Sin teléfono'}
                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                         hasPhone
-                          ? 'bg-[#e0f2f1] text-[#008080] hover:bg-[#008080] hover:text-white'
+                          ? 'bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] hover:bg-[#008080] hover:text-white'
                           : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                       }`}
                     >
@@ -220,7 +211,7 @@ export default function ClientsPage() {
                       title={hasPhone ? `WhatsApp a ${phoneRaw}` : 'Sin teléfono'}
                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                         hasPhone
-                          ? 'bg-[#e0f2f1] text-[#008080] hover:bg-[#008080] hover:text-white'
+                          ? 'bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] hover:bg-[#008080] hover:text-white'
                           : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                       }`}
                     >
@@ -239,7 +230,7 @@ export default function ClientsPage() {
                       title={hasEmail ? `Enviar correo a ${client.email}` : 'Sin correo'}
                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                         hasEmail
-                          ? 'bg-[#e0f2f1] text-[#008080] hover:bg-[#008080] hover:text-white'
+                          ? 'bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] hover:bg-[#008080] hover:text-white'
                           : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                       }`}
                     >

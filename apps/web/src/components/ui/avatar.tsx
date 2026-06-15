@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { resolveImageUrl } from '@/lib/utils';
 
 const TEAL = '#008080';
-const TEAL_LIGHT = '#e0f2f1';
 
 interface AvatarProps {
   avatarUrl?: string | null;
@@ -14,7 +13,7 @@ interface AvatarProps {
   className?: string;
   /** Tailwind class for the initials text size, ej "text-sm". Default text-xs. */
   textClassName?: string;
-  /** Color de fondo/iniciales. Default teal del proyecto. */
+  /** Color de fondo/iniciales. Default teal del proyecto (respeta dark mode). */
   color?: string;
   /** Alt text para la imagen. Default vacio. */
   alt?: string;
@@ -47,12 +46,17 @@ export function Avatar({
 
   const initials = `${(firstName || '')[0] || ''}${(lastName || '')[0] || ''}`.toUpperCase() || '?';
   const showImage = !!resolved && !imgFailed;
-  const bgColor = `${color}26`; // 26 hex = ~15% opacity, suficiente para contraste con teal text
+  const isDefaultTeal = color === TEAL;
+  // Si es el teal por defecto, usamos las CSS vars del proyecto para que
+  // el avatar respete dark mode automaticamente. Si el caller pasa un color
+  // custom (ej. color del empleado), respetamos ese color en ambos modos.
+  const bgColor = isDefaultTeal ? 'var(--primary-tint)' : `${color}26`;
+  const fgColor = isDefaultTeal ? 'var(--primary-tint-fg)' : color;
 
   return (
     <div
       className={`rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${className}`}
-      style={{ backgroundColor: showImage ? TEAL_LIGHT : bgColor }}
+      style={{ backgroundColor: bgColor }}
     >
       {showImage ? (
         <img
@@ -63,7 +67,7 @@ export function Avatar({
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <span className={`font-bold ${textClassName}`} style={{ color }}>
+        <span className={`font-bold ${textClassName}`} style={{ color: fgColor }}>
           {initials}
         </span>
       )}
