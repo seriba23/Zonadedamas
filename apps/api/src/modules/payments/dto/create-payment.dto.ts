@@ -40,6 +40,12 @@ export class CreatePaymentDto {
   @IsUUID()
   appointmentId?: string;
 
+  // Cobro de un apartado standalone (sin cita o con cita cancelada).
+  // Mutuamente excluyente con appointmentId.
+  @IsOptional()
+  @IsUUID()
+  productReservationId?: string;
+
   @IsUUID()
   clientId: string;
 

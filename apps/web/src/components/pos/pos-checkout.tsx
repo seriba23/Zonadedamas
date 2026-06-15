@@ -33,9 +33,12 @@ interface PosCheckoutProps {
    * detalle de cita), el POS arranca con ella ya cargada en el step de
    * detalles, listo para cobrar. */
   initialAppointmentId?: string;
+  /** Apartado standalone preseleccionado desde el detalle del apartado
+   * en /reservations con el boton "Cobrar ahora". */
+  initialReservationId?: string;
 }
 
-export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutProps) {
+export function PosCheckout({ onComplete, initialAppointmentId, initialReservationId }: PosCheckoutProps) {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>('start');
@@ -55,6 +58,11 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialAppointmentId || null);
+  // Apartado standalone (sin cita o con cita cancelada). Mutuamente
+  // excluyente con selectedAppointmentId.
+  const [selectedReservationId, setSelectedReservationId] = useState<string | null>(initialReservationId || null);
+  // Pestaña activa del step start: Citas o Apartados.
+  const [startTab, setStartTab] = useState<'citas' | 'apartados'>(initialReservationId ? 'apartados' : 'citas');
   // Cupón/descuento heredado de la cita pre-cargada. Se muestra como badge
   // encima del campo discount para que el cajero sepa de dónde viene el
   // descuento precargado y pueda removerlo o sumar más manualmente.
@@ -96,6 +104,13 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
     queryKey: ['pos-pending-pos'],
     queryFn: () => api.get<{ data: any[] }>(`/api/appointments?pendingPosPayment=true&perPage=50`),
   });
+  // Apartados cobrables (sin cita o con cita cancelada). El backend ya
+  // filtra los que pertenecen a citas activas para evitar doble cobro.
+  const { data: payableReservationsData } = useQuery({
+    queryKey: ['pos-payable-reservations'],
+    queryFn: () => api.get<{ data: any[] }>(`/api/products/reservations/payable`),
+  });
+  const payableReservations = payableReservationsData?.data || [];
   const { data: servicesData } = useQuery({ queryKey: ['pos-services'], queryFn: () => api.get<{ data: any[] }>('/api/services?perPage=100') });
   const { data: productsData } = useQuery({ queryKey: ['pos-products'], queryFn: () => api.get<{ data: any[] }>('/api/products?perPage=100') });
   const { data: employeesData } = useQuery({ queryKey: ['pos-employees'], queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100') });
@@ -203,6 +218,36 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
     }
     setStep('details');
   }, [selectedAppointmentId, appointments]);
+
+  // Pre-load desde un apartado standalone. Mismo patron que el de
+  // appointments pero la fuente es el reservation y NO hay items de
+  // servicio — solo el producto del apartado. El cliente puede no estar
+  // en la BD (apartado anonimo); usamos los datos snapshot.
+  const loadedReservationRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedReservationId) {
+      loadedReservationRef.current = null;
+      return;
+    }
+    if (loadedReservationRef.current === selectedReservationId) return;
+    const r = payableReservations.find((x: any) => x.id === selectedReservationId);
+    if (!r) return;
+    loadedReservationRef.current = selectedReservationId;
+    setItems([
+      {
+        id: `prod-${r.productId}`,
+        name: r.product?.name || 'Producto',
+        price: Number(r.unitPrice),
+        quantity: Number(r.quantity) || 1,
+        type: 'product' as const,
+        imageUrl: r.product?.imageUrl,
+      },
+    ]);
+    setPhone(String(r.customerPhone || '').replace(/\D/g, '').slice(-10));
+    setAppointmentCoupon(null);
+    setDiscount('0');
+    setStep('details');
+  }, [selectedReservationId, payableReservations]);
 
   const filteredServices = search ? services.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase())) : services;
   const filteredProducts = search ? products.filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase())) : products;
@@ -340,6 +385,7 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
 
     processPayment.mutate({
       appointmentId: selectedAppointmentId || undefined,
+      productReservationId: selectedReservationId || undefined,
       clientId: selectedClientId,
       locationId: selectedLocationId,
       items: items.map((i) => ({
@@ -699,7 +745,7 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
       <div className="flex flex-col h-full p-6">
         <div className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-md space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 text-center mb-6">¿Cómo deseas iniciar?</h2>
+            <h2 className="text-lg font-semibold text-gray-900 text-center mb-2">¿Cómo deseas iniciar?</h2>
 
             <button onClick={() => setStep('services')}
               className="w-full p-5 bg-white rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-all text-left">
@@ -707,9 +753,38 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
               <p className="text-xs text-gray-500 mt-0.5">Sin cita previa — selecciona servicios y productos</p>
             </button>
 
-            {appointments.length > 0 && (
+            {/* Tabs: Citas / Apartados. Solo aparecen cuando hay items en
+                alguna de las dos categorias para no contaminar la pantalla. */}
+            {(appointments.length > 0 || payableReservations.length > 0) && (
+              <div className="inline-flex bg-gray-100 border border-gray-200 rounded-lg p-0.5 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setStartTab('citas')}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    startTab === 'citas'
+                      ? 'bg-[#008080] text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Citas {appointments.length > 0 && <span className="ml-1 opacity-80">({appointments.length})</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStartTab('apartados')}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    startTab === 'apartados'
+                      ? 'bg-[#008080] text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Apartados {payableReservations.length > 0 && <span className="ml-1 opacity-80">({payableReservations.length})</span>}
+                </button>
+              </div>
+            )}
+
+            {startTab === 'citas' && appointments.length > 0 && (
               <>
-                <p className="text-xs text-gray-400 text-center uppercase tracking-wider">o selecciona una próxima cita</p>
+                <p className="text-xs text-gray-400 text-center uppercase tracking-wider">selecciona una próxima cita</p>
                 <div className="space-y-2 max-h-[28rem] overflow-y-auto">
                   {appointments.map((apt: any) => {
                     const services = apt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
@@ -802,6 +877,63 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
                     );
                   })}
                 </div>
+              </>
+            )}
+
+            {startTab === 'apartados' && (
+              <>
+                {payableReservations.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center text-sm text-gray-400">
+                    No hay apartados pendientes de cobro.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 text-center uppercase tracking-wider">selecciona un apartado para cobrar</p>
+                    <div className="space-y-2 max-h-[28rem] overflow-y-auto">
+                      {payableReservations.map((r: any) => {
+                        const total = Number(r.unitPrice) * Number(r.quantity);
+                        const badge = r.appointmentId
+                          ? { text: 'Cita cancelada', bg: 'bg-red-50', textColor: 'text-red-700', dot: '#dc2626' }
+                          : { text: 'Sin cita', bg: 'bg-gray-100', textColor: 'text-gray-600', dot: '#94a3b8' };
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => setSelectedReservationId(r.id)}
+                            className="w-full bg-white rounded-2xl p-3 text-left hover:bg-gray-50 transition-colors border border-gray-200"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                {r.product?.imageUrl ? (
+                                  <img src={`${API_URL}${r.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                                  </svg>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-bold text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${badge.bg} ${badge.textColor}`}>
+                                    <span className="w-1 h-1 rounded-full" style={{ backgroundColor: badge.dot }} />
+                                    {badge.text}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500 truncate mt-0.5">
+                                  {r.customerName} · {r.quantity} × {formatCurrency(Number(r.unitPrice))}
+                                  {r.code && <span className="font-mono ml-1.5 text-gray-400">#{r.code}</span>}
+                                </p>
+                              </div>
+                              <p className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap flex-shrink-0">
+                                {formatCurrency(total)}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

@@ -13,6 +13,10 @@ export default function PosPage() {
   // de cobro. Se usa cuando el cajero pulsa "Proceder al pago" tras
   // finalizar una cita en /calendar.
   const initialAppointmentId = searchParams.get('appointmentId') || undefined;
+  // ?reservationId=XYZ → el POS arranca en la tab Apartados con ese
+  // apartado pre-seleccionado. Se usa desde el detalle de /reservations
+  // con el boton "Cobrar ahora".
+  const initialReservationId = searchParams.get('reservationId') || undefined;
   const [tab, setTab] = useState<Tab>('sale');
 
   return (
@@ -49,6 +53,7 @@ export default function PosPage() {
           <PosCheckout
             onComplete={() => { /* no-op */ }}
             initialAppointmentId={initialAppointmentId}
+            initialReservationId={initialReservationId}
           />
         ) : (
           <PosHistory />

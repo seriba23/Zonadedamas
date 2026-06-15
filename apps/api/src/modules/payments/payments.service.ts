@@ -28,6 +28,34 @@ export class PaymentsService {
   ) {}
 
   async create(dto: CreatePaymentDto, tenantId: string, userId?: string) {
+    // Si el cobro es de un apartado standalone, validar antes de crear
+    // el Payment: el apartado debe existir, no estar terminado, y no
+    // pertenecer a una cita activa (cuyo cobro tiene su propio flujo).
+    if (dto.productReservationId) {
+      const reservation = await this.prisma.productReservation.findFirst({
+        where: { id: dto.productReservationId, tenantId },
+        include: {
+          appointment: { select: { id: true, status: true } },
+        },
+      });
+      if (!reservation) {
+        throw new NotFoundException('Apartado no encontrado');
+      }
+      if (!['PENDING', 'CONFIRMED', 'READY'].includes(reservation.status)) {
+        throw new NotFoundException(
+          `Este apartado ya esta en estado ${reservation.status} y no se puede cobrar.`,
+        );
+      }
+      if (
+        reservation.appointment &&
+        reservation.appointment.status !== 'CANCELLED'
+      ) {
+        throw new NotFoundException(
+          'Este apartado esta vinculado a una cita activa. Cobra la cita para procesar el apartado.',
+        );
+      }
+    }
+
     // Calculate amounts
     const subtotal = dto.items.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
@@ -42,6 +70,7 @@ export class PaymentsService {
       data: {
         tenantId,
         appointmentId: dto.appointmentId,
+        productReservationId: dto.productReservationId,
         clientId: dto.clientId,
         locationId: dto.locationId,
         amount: subtotal,
@@ -114,6 +143,15 @@ export class PaymentsService {
           tenantId,
           status: { in: ['PENDING', 'CONFIRMED', 'READY'] },
         },
+        data: { status: 'DELIVERED' },
+      });
+    }
+
+    // Cobro standalone de apartado: marcar el reservation como
+    // DELIVERED. Stock ya fue descontado al crearlo, no se toca.
+    if (dto.productReservationId) {
+      await this.prisma.productReservation.update({
+        where: { id: dto.productReservationId },
         data: { status: 'DELIVERED' },
       });
     }

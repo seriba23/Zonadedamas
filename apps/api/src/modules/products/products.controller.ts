@@ -59,6 +59,17 @@ export class ProductsController {
     return this.productsService.getSalesStats(req.user.tenantId);
   }
 
+  /**
+   * Apartados cobrables desde el POS: status no terminal + (sin cita o
+   * cita CANCELLED). Los apartados de citas activas se cobran al cobrar
+   * la cita, asi que no se listan aqui para evitar doble cobro.
+   */
+  @Get('reservations/payable')
+  @RequirePermissions('payments.create')
+  findPayableReservations(@Request() req: any) {
+    return this.productsService.findPayableReservations(req.user.tenantId);
+  }
+
   @Put('reservations/:id/status')
   @RequirePermissions('inventory.update')
   updateReservationStatus(

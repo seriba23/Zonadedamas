@@ -384,6 +384,32 @@ export class ProductsService {
     };
   }
 
+  /**
+   * Apartados cobrables: status no terminal + (sin cita o cita CANCELLED).
+   * Devuelve los datos minimos que necesita el POS para precargar el cart
+   * y el cliente: producto, cantidad, precio, cliente (snapshot) y un
+   * flag para saber si vino de cita cancelada vs apartado puro.
+   */
+  async findPayableReservations(tenantId: string) {
+    const reservations = await this.prisma.productReservation.findMany({
+      where: {
+        tenantId,
+        status: { in: ['PENDING', 'CONFIRMED', 'READY'] },
+        OR: [
+          { appointmentId: null },
+          { appointment: { status: 'CANCELLED' } },
+        ],
+      },
+      include: {
+        product: { select: { id: true, name: true, imageUrl: true } },
+        appointment: { select: { id: true, status: true, startTime: true } },
+        user: { select: { id: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { data: reservations };
+  }
+
   async getSalesStats(tenantId: string) {
     const now = new Date();
     const todayStart = new Date(now.toISOString().split('T')[0] + 'T00:00:00Z');

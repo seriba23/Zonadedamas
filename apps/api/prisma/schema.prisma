@@ -948,6 +948,10 @@ model Payment {
   id             String        @id @default(uuid())
   tenantId       String        @map("tenant_id")
   appointmentId  String?       @map("appointment_id")
+  // Apartado cobrado en standalone (sin cita o con cita cancelada).
+  // Mutuamente excluyente con appointmentId en el flujo normal: el cobro
+  // de una cita ya marca sus apartados como DELIVERED en cascada.
+  productReservationId String? @map("product_reservation_id")
   clientId       String        @map("client_id")
   locationId     String        @map("location_id")
   amount         Decimal       @db.Decimal(10, 2)
@@ -966,13 +970,15 @@ model Payment {
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  appointment Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  items       PaymentItem[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointment        Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  productReservation ProductReservation? @relation(fields: [productReservationId], references: [id], onDelete: SetNull)
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items              PaymentItem[]
 
   @@index([tenantId])
   @@index([appointmentId])
+  @@index([productReservationId])
   @@index([clientId])
   @@index([tenantId, createdAt])
   @@map("payments")
@@ -1563,6 +1569,7 @@ model ProductReservation {
   product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  payments    Payment[]
 
   @@index([tenantId])
   @@index([tenantId, status])
