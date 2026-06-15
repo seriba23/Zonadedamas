@@ -155,15 +155,16 @@ export default function ReviewsPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-4">
+          {/* Tabs — segmento estandar del proyecto:
+              rounded-lg + border, activo teal solido */}
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4 w-fit">
             <button
               type="button"
               onClick={() => setTab('business')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
                 tab === 'business'
                   ? 'bg-[#008080] text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
               Del negocio ({tenantReviews.length + employeeReviews.filter((r) => r.businessRating != null).length})
@@ -171,10 +172,10 @@ export default function ReviewsPage() {
             <button
               type="button"
               onClick={() => setTab('employees')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
                 tab === 'employees'
                   ? 'bg-[#008080] text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
               Del equipo ({employeeReviews.length})
