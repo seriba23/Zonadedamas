@@ -882,8 +882,12 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Product Sales */}
-        <SalesCard />
+        {/* Product Sales — usa el rango activo del selector de fechas */}
+        <SalesCard
+          startDate={bounds.start}
+          endDate={bounds.end}
+          periodLabel={rangeOptions.find((r) => r.key === dateRange)?.label}
+        />
 
         {/* Client metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1003,56 +1007,26 @@ export default function ReportsPage() {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-function SalesCard() {
+function SalesCard({
+  startDate,
+  endDate,
+  periodLabel,
+}: {
+  startDate: string;
+  endDate: string;
+  periodLabel?: string;
+}) {
   const { format: formatCurrency } = useCurrency();
 
   const { data: salesData } = useQuery({
-    queryKey: ['sales-stats'],
-    queryFn: () => api.get<{ data: any }>('/api/products/sales-stats'),
+    queryKey: ['sales-stats', startDate, endDate],
+    queryFn: () =>
+      api.get<{ data: any }>(
+        `/api/products/sales-stats?startDate=${startDate}&endDate=${endDate}`,
+      ),
   });
 
-  const sales = salesData?.data || { today: { count: 0, revenue: 0 }, week: { count: 0, revenue: 0 }, month: { count: 0, revenue: 0 }, total: { count: 0, revenue: 0 }, recent: [] };
-
-  // Mismo aspecto que el grid "Venta Total" del header: tamano de card,
-  // tipografia y formato del icono. La primera card (Hoy) usa el highlight
-  // teal como el "Venta Total".
-  const cards: Array<{
-    label: string;
-    revenue: number;
-    count: number;
-    iconPath: string;
-    highlight?: boolean;
-  }> = [
-    {
-      label: 'Hoy',
-      revenue: sales.today.revenue,
-      count: sales.today.count,
-      // Reloj / sun — Heroicons
-      iconPath: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
-      highlight: true,
-    },
-    {
-      label: 'Esta semana',
-      revenue: sales.week.revenue,
-      count: sales.week.count,
-      // Calendario semana
-      iconPath: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
-    },
-    {
-      label: 'Este mes',
-      revenue: sales.month.revenue,
-      count: sales.month.count,
-      // Calendario mes
-      iconPath: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75M6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18zm3-6h.008v.008H9.75V12zm0 3h.008v.008H9.75V15zm0 3h.008v.008H9.75V18zm3-6h.008v.008h-.008V12zm0 3h.008v.008h-.008V15zm0 3h.008v.008h-.008V18zm3-6h.008v.008h-.008V12zm0 3h.008v.008h-.008V15z',
-    },
-    {
-      label: 'Total',
-      revenue: sales.total.revenue,
-      count: sales.total.count,
-      // Stack
-      iconPath: 'M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3',
-    },
-  ];
+  const sales = salesData?.data || { period: { count: 0, revenue: 0 }, recent: [] };
 
   return (
     <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 mb-6">
@@ -1061,55 +1035,26 @@ function SalesCard() {
         <Link href="/reservations" className="text-xs text-[#008080] hover:underline">Ver apartados</Link>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5">
-        {cards.map((c) => (
-          <div
-            key={c.label}
-            className="rounded-xl p-3 md:p-5 overflow-hidden"
-            style={
-              c.highlight
-                ? { backgroundColor: '#008080', color: 'white' }
-                : { backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }
-            }
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <div
-                className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={
-                  c.highlight
-                    ? { backgroundColor: 'rgba(255,255,255,0.15)' }
-                    : { backgroundColor: 'var(--primary-tint)', color: 'var(--primary-tint-fg)' }
-                }
-              >
-                <svg className="w-4 h-4 md:w-4.5 md:h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={c.highlight ? 2 : 1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={c.iconPath} />
-                </svg>
-              </div>
-              <p
-                className="text-[10px] md:text-[11px] uppercase tracking-wide font-semibold truncate"
-                style={c.highlight ? { color: 'white', opacity: 0.9 } : { color: 'var(--text-muted)' }}
-              >
-                {c.label}
-              </p>
-            </div>
-            <p
-              className="text-base md:text-xl font-extrabold leading-tight tabular-nums break-words"
-              style={
-                c.highlight
-                  ? { color: 'white', letterSpacing: '-0.015em' }
-                  : { color: 'var(--text-primary)', letterSpacing: '-0.015em' }
-              }
-            >
-              {formatCurrency(c.revenue)}
-            </p>
-            <p
-              className="text-[10px] md:text-[11px] mt-1 truncate"
-              style={c.highlight ? { color: 'white', opacity: 0.8 } : { color: 'var(--text-muted)' }}
-            >
-              {c.count} venta{c.count !== 1 ? 's' : ''}
-            </p>
+      {/* Card unica con el revenue del periodo activo del selector de
+          fechas global. Mismo estilo que el card "Venta Total" del header. */}
+      <div className="rounded-xl p-3 md:p-5 overflow-hidden mb-5" style={{ backgroundColor: '#008080', color: 'white' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+            <svg className="w-4 h-4 md:w-4.5 md:h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
           </div>
-        ))}
+          <p className="text-[10px] md:text-[11px] uppercase tracking-wide font-semibold opacity-90 truncate">
+            Productos vendidos
+          </p>
+        </div>
+        <p className="text-lg md:text-2xl font-extrabold leading-tight tabular-nums break-words" style={{ letterSpacing: '-0.015em' }}>
+          {formatCurrency(sales.period.revenue)}
+        </p>
+        <p className="text-[10px] md:text-[11px] mt-1 opacity-80 truncate">
+          {sales.period.count} venta{sales.period.count !== 1 ? 's' : ''}
+          {periodLabel ? ` · ${periodLabel}` : ''}
+        </p>
       </div>
 
       {sales.recent.length > 0 ? (

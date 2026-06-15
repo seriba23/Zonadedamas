@@ -55,8 +55,12 @@ export class ProductsController {
 
   @Get('sales-stats')
   @RequirePermissions('inventory.read')
-  async salesStats(@Request() req: any) {
-    return this.productsService.getSalesStats(req.user.tenantId);
+  async salesStats(
+    @Request() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.productsService.getSalesStats(req.user.tenantId, { startDate, endDate });
   }
 
   /**
