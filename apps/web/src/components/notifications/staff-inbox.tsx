@@ -22,7 +22,7 @@ const SECTION_LABELS: Record<string, string> = {
   appointments: 'Citas',
   shop: 'Tienda',
   payments: 'Pagos',
-  reviews: 'Resenas',
+  reviews: 'Reseñas',
   inventory: 'Inventario',
   reservations: 'Apartados',
 };
