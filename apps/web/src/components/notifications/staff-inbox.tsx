@@ -15,6 +15,7 @@ import {
   requestPushPermission,
   subscribePushOnServer,
 } from '@/lib/push';
+import { Modal } from '@/components/ui/modal';
 
 const TEAL = '#008080';
 
@@ -116,7 +117,22 @@ function PermissionBanner() {
 export function StaffInbox() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [section, setSection] = useState<string | undefined>(undefined);
+  const [draftSection, setDraftSection] = useState<string | undefined>(undefined);
+  const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
+
+  function openFilters() {
+    setDraftSection(section);
+    setShowFilters(true);
+  }
+  function applyFilters() {
+    setSection(draftSection);
+    setPage(1);
+    setShowFilters(false);
+  }
+  function clearDraftFilters() {
+    setDraftSection(undefined);
+  }
 
   const { data: counts } = useUnreadCounts();
   const { data: list, isLoading } = useNotificationsList({
@@ -155,53 +171,41 @@ export function StaffInbox() {
 
       <PermissionBanner />
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Filtros: icono que abre modal con las secciones + chip "No leídas"
+          que se queda fuera porque es el toggle mas usado. */}
+      <div className="flex items-center gap-2 mb-4">
         <button
-          onClick={() => {
-            setSection(undefined);
-            setPage(1);
-          }}
-          className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
-            section === undefined
-              ? 'bg-[#008080] text-white'
-              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+          type="button"
+          onClick={openFilters}
+          aria-label="Filtros"
+          title="Filtros"
+          className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
+            section
+              ? 'bg-[#008080] border-[#008080] text-white'
+              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
           }`}
         >
-          Todas
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
         </button>
-        {allSections.map((s) => {
-          const c = counts?.counts[s] ?? 0;
-          return (
-            <button
-              key={s}
-              onClick={() => {
-                setSection(s);
-                setPage(1);
-              }}
-              className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
-                section === s
-                  ? 'bg-[#008080] text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {sectionLabel(s)}
-              {c > 0 && <span className="ml-1.5 font-bold">({c})</span>}
-            </button>
-          );
-        })}
+        {section && (
+          <span className="text-xs font-medium text-[#008080] bg-teal-50 border border-teal-200 rounded-full px-2.5 py-1">
+            {sectionLabel(section)}
+          </span>
+        )}
         <button
           onClick={() => {
             setUnreadOnly((v) => !v);
             setPage(1);
           }}
-          className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ml-auto ${
+          className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ml-auto ${
             unreadOnly
               ? 'bg-[#008080] text-white'
               : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
           }`}
         >
-          Solo no leidas
+          No leídas
         </button>
       </div>
 
@@ -286,6 +290,83 @@ export function StaffInbox() {
             Siguiente
           </button>
         </div>
+      )}
+
+      {/* Modal de filtros — secciones (Todas/Citas/Tienda/Pagos/...) */}
+      {showFilters && (
+        <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Sección
+              </label>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDraftSection(undefined)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-between ${
+                    draftSection === undefined
+                      ? 'bg-teal-50 border-teal-200 text-[#008080]'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>Todas</span>
+                  {draftSection === undefined && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+                {allSections.map((s) => {
+                  const c = counts?.counts[s] ?? 0;
+                  const active = draftSection === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setDraftSection(s)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-between ${
+                        active
+                          ? 'bg-teal-50 border-teal-200 text-[#008080]'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>
+                        {sectionLabel(s)}
+                        {c > 0 && <span className="ml-1.5 font-bold">({c})</span>}
+                      </span>
+                      {active && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+              <button
+                onClick={clearDraftFilters}
+                disabled={draftSection === undefined}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                  draftSection !== undefined
+                    ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                    : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
