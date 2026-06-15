@@ -13,6 +13,7 @@ interface AppointmentData {
   status: string;
   startTime: string;
   confirmedAt: string | null;
+  discountAmount?: string | number | null;
   client?: { firstName: string; lastName: string; avatarUrl: string | null } | null;
   employee?: { id: string; firstName: string; lastName: string; avatarUrl: string | null; color: string | null } | null;
   items?: Array<{
@@ -21,14 +22,30 @@ interface AppointmentData {
     durationSnapshot: number;
     serviceId: string;
   }>;
+  productReservations?: Array<{
+    id: string;
+    quantity: number;
+    unitPrice: string | number;
+    product: { id: string; name: string; imageUrl: string | null };
+  }>;
+  redemption?: {
+    id: string;
+    code: string;
+    reward: {
+      name: string;
+      type: 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE';
+      discountAmount: string | number | null;
+      discountMode: 'FLAT' | 'PERCENTAGE' | null;
+    };
+  } | null;
   payments?: Array<{ paymentMethod: string; totalAmount: string | number; status: string; createdAt: string }>;
   photos?: Array<{ id: string; imageUrl: string; serviceId: string }>;
   tenant?: {
     name: string;
     slug: string;
     logoUrl: string | null;
+    coverImageUrl: string | null;
     tenantType: 'FREELANCER' | 'BUSINESS';
-    cardColor: string | null;
     confettiEnabled: boolean | null;
     confettiStyle: string | null;
     confettiStyles: string[] | null;
@@ -154,22 +171,27 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
   }
 
   const items = data.items ?? [];
+  const products = data.productReservations ?? [];
   const photos = data.photos ?? [];
   const payments = data.payments ?? [];
-  const total = items.reduce((s, i) => s + Number(i.priceSnapshot ?? 0), 0);
+  const subtotal = items.reduce((s, i) => s + Number(i.priceSnapshot ?? 0), 0)
+    + products.reduce((s, p) => s + Number(p.unitPrice ?? 0) * Number(p.quantity ?? 1), 0);
+  const discount = Number(data.discountAmount ?? 0);
+  const total = Math.max(0, subtotal - discount);
   const payment = payments[0];
   const isConfirmed = !!data.confirmedAt;
   const hasReview = !!data.review || reviewSubmitted;
   const tenant = data.tenant;
   const employee = data.employee;
+  const redemption = data.redemption;
   const tenantName = tenant?.name || 'Negocio';
   const tenantSlug = tenant?.slug || '';
   const employeeFirst = employee?.firstName || '';
   const employeeLast = employee?.lastName || '';
   const employeeInitials = (employeeFirst[0] || '') + (employeeLast[0] || '');
-  // Color usado en el header del negocio. Si no hay logo se pinta este
-  // color de fondo (cardColor del tenant > teal por defecto).
-  const tenantColor = tenant?.cardColor || TEAL;
+  const coverUrl = tenant?.coverImageUrl
+    ? (tenant.coverImageUrl.startsWith('http') ? tenant.coverImageUrl : `${API_URL}${tenant.coverImageUrl}`)
+    : null;
 
   // Pantalla full de "¡Gracias!" con confetti cuando ya esta confirmada
   // y calificada (igual al AppointmentSuccessSheet de la reserva).
@@ -178,7 +200,6 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
       <ThanksScreen
         tenantName={tenantName}
         tenantSlug={tenantSlug}
-        tenantColor={tenantColor}
         confettiEnabled={tenant?.confettiEnabled !== false}
         confettiShapes={tenant?.confettiStyles ?? null}
         confettiShape={tenant?.confettiStyle ?? null}
@@ -189,21 +210,34 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
-      {/* Header */}
-      <div className="text-white px-4 pt-8 pb-6 text-center" style={{ backgroundColor: tenantColor }}>
-        {tenant?.logoUrl ? (
-          <img
-            src={tenant.logoUrl.startsWith('http') ? tenant.logoUrl : `${API_URL}${tenant.logoUrl}`}
-            alt={tenantName}
-            className="w-16 h-16 mx-auto rounded-full object-cover mb-3 bg-white"
-          />
-        ) : (
-          <div className="w-16 h-16 mx-auto rounded-full bg-white/15 flex items-center justify-center text-xl font-bold mb-3">
-            {tenantName.charAt(0).toUpperCase()}
-          </div>
+      {/* Header con portada (si existe) o color teal fijo */}
+      <div className="relative text-white px-4 pt-8 pb-6 text-center overflow-hidden" style={{ backgroundColor: TEAL }}>
+        {coverUrl && (
+          <>
+            <img
+              src={coverUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Overlay para que el texto blanco siga siendo legible */}
+            <div className="absolute inset-0 bg-black/40" />
+          </>
         )}
-        <p className="text-xs uppercase tracking-wider opacity-80">Tu cita en</p>
-        <h1 className="text-lg font-bold mt-0.5">{tenantName}</h1>
+        <div className="relative">
+          {tenant?.logoUrl ? (
+            <img
+              src={tenant.logoUrl.startsWith('http') ? tenant.logoUrl : `${API_URL}${tenant.logoUrl}`}
+              alt={tenantName}
+              className="w-16 h-16 mx-auto rounded-full object-cover mb-3 bg-white ring-2 ring-white/60"
+            />
+          ) : (
+            <div className="w-16 h-16 mx-auto rounded-full bg-white/15 flex items-center justify-center text-xl font-bold mb-3 ring-2 ring-white/60">
+              {tenantName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <p className="text-xs uppercase tracking-wider opacity-80">Tu cita en</p>
+          <h1 className="text-lg font-bold mt-0.5">{tenantName}</h1>
+        </div>
       </div>
 
       <div className="max-w-md mx-auto px-4 -mt-3 space-y-3">
@@ -239,11 +273,66 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
                 <span className="font-medium text-gray-900 tabular-nums flex-shrink-0">{formatCurrency(Number(item.priceSnapshot))}</span>
               </div>
             ))}
+            {products.map((p) => (
+              <div key={p.id} className="flex items-center justify-between text-sm">
+                <span className="text-gray-700 flex-1 min-w-0 truncate pr-2">
+                  {p.product.name} <span className="text-gray-400">× {p.quantity}</span>
+                </span>
+                <span className="font-medium text-gray-900 tabular-nums flex-shrink-0">
+                  {formatCurrency(Number(p.unitPrice) * Number(p.quantity))}
+                </span>
+              </div>
+            ))}
           </div>
 
-          <div className="border-t border-gray-100 mt-3 pt-3 flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-900">Total</span>
-            <span className="text-xl font-black tabular-nums" style={{ color: TEAL }}>{formatCurrency(total)}</span>
+          {/* Cupón aplicado — mini-ticket teal con stub a la izquierda */}
+          {redemption && discount > 0 && (
+            <div className="border-t border-gray-100 mt-3 pt-3">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Cupón aplicado</p>
+              <div className="relative bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm flex" style={{ minHeight: 56 }}>
+                <div
+                  className="w-16 flex-shrink-0 flex flex-col items-center justify-center relative"
+                  style={{ backgroundColor: TEAL }}
+                >
+                  <span className="text-white font-black text-sm leading-tight">
+                    -{formatCurrency(discount)}
+                  </span>
+                  <span className="text-white/70 text-[9px] uppercase tracking-wider">cupón</span>
+                  <div className="absolute -right-2 -top-2 w-4 h-4 rounded-full bg-white" />
+                  <div className="absolute -right-2 -bottom-2 w-4 h-4 rounded-full bg-white" />
+                </div>
+                <div className="flex flex-col items-center justify-center w-3 flex-shrink-0 gap-[2px] py-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[2px] h-[2px] rounded-full bg-gray-300" />
+                  ))}
+                </div>
+                <div className="flex-1 py-2 pr-3 flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-900 truncate">{redemption.reward.name}</p>
+                    <p className="font-mono text-[10px] font-semibold text-gray-500 mt-0.5">{redemption.code}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-gray-100 mt-3 pt-3 space-y-1">
+            {discount > 0 && (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-gray-700 tabular-nums">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Descuento</span>
+                  <span className="text-gray-700 tabular-nums">-{formatCurrency(discount)}</span>
+                </div>
+              </>
+            )}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-sm font-bold text-gray-900">Total</span>
+              <span className="text-xl font-black tabular-nums" style={{ color: TEAL }}>{formatCurrency(total)}</span>
+            </div>
           </div>
 
           {payment && (
@@ -320,7 +409,6 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
 function ThanksScreen({
   tenantName,
   tenantSlug,
-  tenantColor,
   confettiEnabled,
   confettiShapes,
   confettiShape,
@@ -328,13 +416,15 @@ function ThanksScreen({
 }: {
   tenantName: string;
   tenantSlug: string;
-  tenantColor: string;
   confettiEnabled: boolean;
   confettiShapes: string[] | null;
   confettiShape: string | null;
   confettiColors: string[] | null;
 }) {
   const [confettiDone, setConfettiDone] = useState(false);
+  // Color fijo teal — la confirmacion NO es personalizable por tenant.
+  // Solo el confeti respeta los colores configurados (parte de la marca
+  // del cliente, no de la confirmacion).
   return (
     <>
       {confettiEnabled && (
@@ -351,14 +441,14 @@ function ThanksScreen({
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-10">
         <div
           className="w-full max-w-sm bg-white rounded-2xl border-2 overflow-hidden text-center"
-          style={{ borderColor: tenantColor }}
+          style={{ borderColor: TEAL }}
         >
           <div className="px-6 pt-8 pb-2">
             <div
               className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
               style={{ backgroundColor: '#e0f2f1' }}
             >
-              <svg className="w-10 h-10" style={{ color: tenantColor }} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <svg className="w-10 h-10" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
@@ -373,7 +463,7 @@ function ThanksScreen({
               <Link
                 href={`/marketplace/${tenantSlug}`}
                 className="block w-full py-3 rounded-xl text-sm font-semibold text-white"
-                style={{ backgroundColor: tenantColor }}
+                style={{ backgroundColor: TEAL }}
               >
                 Ver perfil del negocio
               </Link>

@@ -197,12 +197,18 @@ export class StaffEventsListener {
           totalAmount: true,
           currency: true,
           paymentMethod: true,
+          appointmentId: true,
           client: { select: { firstName: true, lastName: true } },
         },
       });
       if (!payment) return;
 
       const clientName = `${payment.client.firstName} ${payment.client.lastName}`;
+      // El pago se ve en el contexto de la cita que lo origino. Si no
+      // hay cita (raro: walk-in puro sin cita) caemos a /reports.
+      const link = payment.appointmentId
+        ? `/calendar?appointmentId=${payment.appointmentId}`
+        : '/reports';
 
       await this.notify.notify({
         tenantId: event.tenantId,
@@ -210,7 +216,7 @@ export class StaffEventsListener {
         section: 'payments',
         title: 'Pago recibido',
         body: `${clientName} pagó ${Number(payment.totalAmount).toFixed(2)} ${payment.currency} (${payment.paymentMethod}).`,
-        link: `/reports?focus=${payment.id}`,
+        link,
         entityType: 'payment',
         entityId: payment.id,
         audience: { kind: 'admins' },

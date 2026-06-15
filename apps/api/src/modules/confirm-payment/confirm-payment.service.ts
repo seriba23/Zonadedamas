@@ -35,12 +35,35 @@ export class ConfirmPaymentService {
             name: true,
             slug: true,
             logoUrl: true,
+            coverImageUrl: true,
             tenantType: true,
-            cardColor: true,
             confettiEnabled: true,
             confettiStyle: true,
             confettiStyles: true,
             confettiColors: true,
+          },
+        },
+        productReservations: {
+          where: { status: { not: 'CANCELLED' } },
+          select: {
+            id: true,
+            quantity: true,
+            unitPrice: true,
+            product: { select: { id: true, name: true, imageUrl: true } },
+          },
+        },
+        redemption: {
+          select: {
+            id: true,
+            code: true,
+            reward: {
+              select: {
+                name: true,
+                type: true,
+                discountAmount: true,
+                discountMode: true,
+              },
+            },
           },
         },
         review: { select: { id: true, rating: true, businessRating: true } },

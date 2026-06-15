@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -319,6 +320,8 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
   const [detail, setDetail] = useState<any | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [draftTab, setDraftTab] = useState('ALL');
+  const searchParams = useSearchParams();
+  const focusId = searchParams?.get('focus') || null;
   const queryClient = useQueryClient();
   const { format: formatCurrency } = useCurrency();
 
@@ -376,6 +379,14 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
   });
 
   const reservations = data?.data || [];
+
+  // Deep-link desde notificaciones (?focus=<id>): si la reservation
+  // viene en la lista, abrir el detalle.
+  useEffect(() => {
+    if (!focusId || !reservations.length) return;
+    const r = reservations.find((x: any) => x.id === focusId);
+    if (r) setDetail(r);
+  }, [focusId, reservations]);
   const meta = data?.meta;
 
   return (

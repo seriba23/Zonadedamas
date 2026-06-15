@@ -41,6 +41,8 @@ interface Appointment {
   notes: string | null;
   photoConsent: boolean | null;
   discountAmount: string | number | null;
+  /** Cita "deferred" enviada a la recepcion para cobrar via POS. */
+  pendingPosPayment?: boolean;
   client: {
     id: string;
     firstName: string;
@@ -170,10 +172,18 @@ export default function EmployeeAppointmentsPage() {
     },
   });
 
-  const handleWizardDone = () => {
+  const handleWizardDone = (opts?: { awaitingReception?: boolean }) => {
     queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
+    queryClient.invalidateQueries({ queryKey: ['employee-appointment-detail'] });
     setWizardApt(null);
+    // Tanto en el caso normal como en "enviado a recepcion" cerramos el
+    // detalle: si quedo pendingPosPayment, el detalle no debe permitir
+    // reabrir el wizard. El proximo refetch del listado mostrara el
+    // nuevo estado de la cita.
     setSelectedApt(null);
+    // opts.awaitingReception es informacion: si se necesita mostrar un
+    // toast o similar a futuro, viene por aca.
+    void opts;
   };
 
   const noShowMutation = useMutation({
@@ -588,13 +598,22 @@ export default function EmployeeAppointmentsPage() {
               {/* Actions */}
               {['CONFIRMED', 'IN_PROGRESS'].includes(selectedApt.status) && (
                 <div className="border-t border-gray-100 pt-4 flex gap-2">
-                  <button
-                    onClick={() => setWizardApt(selectedApt)}
-                    className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors"
-                    style={{ backgroundColor: '#008080' }}
-                  >
-                    Cerrar cita
-                  </button>
+                  {selectedApt.pendingPosPayment ? (
+                    <div
+                      className="flex-1 py-2.5 text-sm font-semibold rounded-xl text-center border border-teal-200 bg-teal-50 text-[#008080]"
+                      title="La cita ya fue enviada a recepcion. El cajero registrara el pago."
+                    >
+                      Esperando a recepción
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setWizardApt(selectedApt)}
+                      className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors"
+                      style={{ backgroundColor: '#008080' }}
+                    >
+                      Cerrar cita
+                    </button>
+                  )}
                   <button
                     onClick={() => noShowMutation.mutate(selectedApt.id)}
                     disabled={noShowMutation.isPending}

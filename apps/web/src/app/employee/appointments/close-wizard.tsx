@@ -78,7 +78,10 @@ export function CloseAppointmentWizard({
   onClose,
 }: {
   appointment: Appointment;
-  onDone: () => void;
+  /** Llamado cuando el wizard termina. Si la cita quedo enviada a
+   * recepcion (deferred), `awaitingReception=true` para que el padre
+   * cierre el detalle Y deshabilite el boton "Cerrar cita". */
+  onDone: (opts?: { awaitingReception?: boolean }) => void;
   onClose: () => void;
 }) {
   const currencyHook = useCurrency();
@@ -343,6 +346,9 @@ export function CloseAppointmentWizard({
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                /* capture="environment" abre directamente la camara trasera en mobile.
+                   En desktop el browser lo ignora y muestra el dialogo normal. */
+                capture="environment"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -470,17 +476,24 @@ export function CloseAppointmentWizard({
           {step === 'deferred' && (
             <div className="text-center py-2">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 mx-auto" style={{ backgroundColor: '#e0f2f1' }}>
-                <span className="text-3xl">🛎️</span>
+                <svg className="w-8 h-8" style={{ color: TEAL }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                </svg>
               </div>
               <h2 className="text-lg font-bold text-gray-900 mb-1">Enviado a recepción</h2>
               <p className="text-sm text-gray-500 mb-2">
                 <span className="font-semibold">{appointment.client.firstName}</span> debe pasar a recepción a pagar.
               </p>
               <p className="text-xs text-gray-400 mb-6">
-                La cita aparecerá en el punto de venta con la etiqueta <span className="font-semibold text-orange-600">Por cobrar</span>. El cajero registrará el pago, mostrará la reseña y podrá agendar la siguiente cita.
+                La cita aparecerá en el punto de venta con la etiqueta <span className="font-semibold text-[#008080]">Por cobrar</span>. El cajero registrará el pago, mostrará la reseña y podrá agendar la siguiente cita.
               </p>
               <button
-                onClick={onDone}
+                onClick={() => {
+                  // Notificar al padre que la cita quedo enviada a recepcion
+                  // para que cierre el detalle Y deshabilite el boton "Cerrar
+                  // cita". onDone se reusa pero con el flag awaitingReception.
+                  onDone({ awaitingReception: true });
+                }}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white"
                 style={{ backgroundColor: TEAL }}
               >

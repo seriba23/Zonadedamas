@@ -159,6 +159,15 @@ export function InventoryContent() {
   });
 
   const products = data?.data || [];
+
+  // Deep-link desde notificaciones (?focus=<id>): abrir el detalle del
+  // producto si ya esta en la lista cargada.
+  const focusId = searchParams?.get('focus') || null;
+  useEffect(() => {
+    if (!focusId || !products.length) return;
+    const p = products.find((x: any) => x.id === focusId);
+    if (p) setViewingProduct(p);
+  }, [focusId, products]);
   const meta = data?.meta;
 
   // Derive categories from existing products + custom ones added in this session

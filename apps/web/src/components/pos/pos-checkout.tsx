@@ -1032,29 +1032,40 @@ export function PosCheckout({ onComplete, initialAppointmentId }: PosCheckoutPro
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <label className="block text-xs font-medium text-gray-600 mb-1">Descuento</label>
 
-            {/* Cupón heredado de la cita: el cajero ve qué cupón viene y
-                puede quitarlo si no aplica. Al quitar, el campo discount se
-                limpia para que pueda meter otro descuento manual. */}
+            {/* Cupón heredado de la cita: mini-ticket con el mismo estilo
+                que el catalogo/historial (stub coloreado + contenido).
+                El cajero puede quitarlo si no aplica; al quitar el campo
+                discount se resetea. */}
             {appointmentCoupon && (
-              <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-50 border border-teal-200">
-                <svg className="w-4 h-4 flex-shrink-0" style={{ color: '#008080' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-                </svg>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-teal-800 truncate">
-                    {appointmentCoupon.label}
-                  </p>
-                  <p className="text-[10px] text-teal-700">
-                    -{formatCurrency(appointmentCoupon.amount)}
-                    {appointmentCoupon.code && <span className="font-mono ml-1.5">· {appointmentCoupon.code}</span>}
-                  </p>
-                </div>
-                <button
-                  onClick={() => { setAppointmentCoupon(null); setDiscount('0'); }}
-                  className="text-[10px] text-teal-700 hover:text-teal-900 font-medium px-2 py-1 rounded hover:bg-teal-100"
+              <div className="mb-2 relative bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm flex" style={{ minHeight: 56 }}>
+                <div
+                  className="w-16 flex-shrink-0 flex flex-col items-center justify-center relative"
+                  style={{ backgroundColor: '#008080' }}
                 >
-                  Quitar
-                </button>
+                  <span className="text-white font-black text-sm leading-tight">-{formatCurrency(appointmentCoupon.amount)}</span>
+                  <span className="text-white/70 text-[9px] uppercase tracking-wider">cupón</span>
+                  <div className="absolute -right-2 -top-2 w-4 h-4 rounded-full bg-white" />
+                  <div className="absolute -right-2 -bottom-2 w-4 h-4 rounded-full bg-white" />
+                </div>
+                <div className="flex flex-col items-center justify-center w-3 flex-shrink-0 gap-[2px] py-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[2px] h-[2px] rounded-full bg-gray-300" />
+                  ))}
+                </div>
+                <div className="flex-1 py-2 pr-2 flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-900 truncate">{appointmentCoupon.label}</p>
+                    {appointmentCoupon.code && (
+                      <p className="font-mono text-[10px] font-semibold text-gray-500 mt-0.5">{appointmentCoupon.code}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setAppointmentCoupon(null); setDiscount('0'); }}
+                    className="flex-shrink-0 text-[10px] font-semibold text-red-600 hover:text-red-700 hover:underline px-2"
+                  >
+                    Quitar
+                  </button>
+                </div>
               </div>
             )}
 
