@@ -478,7 +478,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       <EmployeeSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col lg:ml-64 min-w-0">
         {/* Topbar mobile con hamburger + bell */}
-        <header className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center px-3 py-2.5">
+        <header className="lg:hidden sticky top-0 z-40 bg-white border-b border-gray-200 flex items-center px-3 py-2.5">
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 -ml-2 rounded-lg text-gray-700 hover:bg-gray-100"
@@ -494,7 +494,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
           </div>
         </header>
         {/* Topbar desktop solo para el bell */}
-        <header className="hidden lg:flex sticky top-0 z-20 bg-white border-b border-gray-200 items-center justify-end px-4 py-2">
+        <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center justify-end px-4 py-2">
           <NotificationBell basePath="/employee" />
         </header>
         {profileIncomplete && (

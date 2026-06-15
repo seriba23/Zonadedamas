@@ -101,18 +101,22 @@ export function DualReviewModal({
         </div>
 
         <div className="px-6 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
-          {/* Rating principal: SIEMPRE del servicio (cuenta para el portafolio
-              del profesional / la reputación del negocio según el modo). */}
+          {/* Rating principal: AL PROFESIONAL que dio el servicio (modo
+              business y freelancer). Se guarda en EmployeeReview.rating y
+              afecta el promedio del empleado. */}
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-1">
-              Califica <span style={{ color: TEAL }}>el servicio</span>
+              Califica al{' '}
+              <span style={{ color: TEAL }}>
+                profesional{employeeName ? ` (${employeeName})` : ''}
+              </span>
             </p>
             <StarRating value={employeeRating} onChange={setEmployeeRating} />
             {employeeRating > 0 && (
               <textarea
                 value={employeeComment}
                 onChange={(e) => setEmployeeComment(e.target.value)}
-                placeholder="¿Cómo te pareció el servicio? (opcional)"
+                placeholder="¿Cómo te atendió el profesional? (opcional)"
                 rows={2}
                 className="mt-2 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
                 style={{ ['--tw-ring-color' as any]: TEAL }}
@@ -121,31 +125,27 @@ export function DualReviewModal({
           </div>
 
           {/* Rating secundario opcional:
-              - 'business' → al negocio
-              - 'freelancer' → al profesional (no hay negocio que calificar) */}
-          <div>
-            <p className="text-sm font-semibold text-gray-900 mb-1">
-              {mode === 'freelancer' ? (
-                <>Califica a <span style={{ color: TEAL }}>{employeeName}</span></>
-              ) : (
-                <>Califica <span style={{ color: TEAL }}>{businessName}</span></>
-              )}{' '}
-              <span className="text-xs text-gray-400 font-normal">(opcional)</span>
-            </p>
-            <StarRating value={businessRating} onChange={setBusinessRating} />
-            {businessRating > 0 && (
-              <textarea
-                value={businessComment}
-                onChange={(e) => setBusinessComment(e.target.value)}
-                placeholder={mode === 'freelancer'
-                  ? '¿Cómo te trató el profesional? (opcional)'
-                  : '¿Cómo te pareció el lugar? (opcional)'}
-                rows={2}
-                className="mt-2 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
-                style={{ ['--tw-ring-color' as any]: TEAL }}
-              />
-            )}
-          </div>
+              - 'business' → al negocio (afecta TenantReview / promedio del tenant)
+              - 'freelancer' → no aplica (no hay negocio que calificar) */}
+          {mode === 'business' && (
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-1">
+                Califica <span style={{ color: TEAL }}>{businessName}</span>{' '}
+                <span className="text-xs text-gray-400 font-normal">(opcional)</span>
+              </p>
+              <StarRating value={businessRating} onChange={setBusinessRating} />
+              {businessRating > 0 && (
+                <textarea
+                  value={businessComment}
+                  onChange={(e) => setBusinessComment(e.target.value)}
+                  placeholder="¿Cómo te pareció el lugar? (opcional)"
+                  rows={2}
+                  className="mt-2 w-full text-sm border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: TEAL }}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

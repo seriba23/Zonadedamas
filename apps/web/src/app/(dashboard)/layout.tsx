@@ -266,7 +266,7 @@ function DashboardLayoutContent({
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
         {/* Topbar (mobile + desktop) — titulo centrado a TODO el viewport en mobile. */}
         <header
-          className="relative sticky top-0 z-20 flex items-center px-3 md:px-6 py-2.5 md:py-3"
+          className="relative sticky top-0 z-40 flex items-center px-3 md:px-6 py-2.5 md:py-3"
           style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}
         >
           <button
