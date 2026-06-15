@@ -166,10 +166,16 @@ export class ReportsService {
       revenueByDay[day].revenue += apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
       revenueByDay[day].count += 1;
     }
-    // Also include days with non-completed appointments (so the chart shows all active days)
-    for (const a of appointments) {
-      const day = a.startTime.toISOString().split('T')[0];
-      if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, count: 0 };
+    // Llenar TODOS los dias del rango con 0 si no hay datos. Sin esto el
+    // grafico salta dias (8, 10, 13, 15 en lugar de 8, 9, 10, ...) y a
+    // veces no muestra barras porque el array queda con un solo punto.
+    {
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const day = cursor.toISOString().split('T')[0];
+        if (!revenueByDay[day]) revenueByDay[day] = { revenue: 0, count: 0 };
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
     }
     const revenueByDayArray = Object.entries(revenueByDay)
       .map(([date, data]) => ({ date, ...data }))

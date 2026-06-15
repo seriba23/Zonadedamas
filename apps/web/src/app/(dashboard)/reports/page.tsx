@@ -671,44 +671,58 @@ export default function ReportsPage() {
               <div className="h-48 bg-[var(--bg-muted)] rounded-lg animate-pulse" />
             ) : stats.revenueByDay.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>No hay datos para este periodo</div>
-            ) : (
-              <div className="flex items-end gap-1 h-48 mt-2">
-                {stats.revenueByDay.map((day) => {
-                  const pct = (day.revenue / maxRevenue) * 100;
-                  const isBest = stats.revenueByDay.every((d) => d.revenue <= day.revenue) && day.revenue > 0;
-                  return (
-                    <div
-                      key={day.date}
-                      className="flex-1 min-w-0 flex flex-col items-center gap-1 group cursor-pointer relative"
-                      onClick={() => {
-                        setDateRange('custom');
-                        setCustomStart(day.date);
-                        setCustomEnd(day.date);
-                        setDetail('appointments');
-                      }}
-                    >
-                      <span
-                        className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none px-1.5 py-0.5 rounded shadow-sm z-10 border"
-                        style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-                      >
-                        {formatCurrency(day.revenue)}
-                      </span>
-                      <div className="w-full flex items-end" style={{ height: 'calc(100% - 18px)' }}>
+            ) : (() => {
+              // Ancho minimo por barra para que se lean los numeros del eje
+              // X. Cuando hay muchos dias (30+) el contenedor crece y queda
+              // un scroll horizontal. Si hay pocos (7), el ancho minimo no
+              // alcanza y las barras llenan el contenedor con flex.
+              const minBarWidth = 28;
+              const minChartWidth = stats.revenueByDay.length * minBarWidth;
+              return (
+                <div className="overflow-x-auto -mx-1 px-1 mt-2">
+                  <div
+                    className="flex items-end gap-1 h-48"
+                    style={{ minWidth: `${minChartWidth}px` }}
+                  >
+                    {stats.revenueByDay.map((day) => {
+                      const pct = (day.revenue / maxRevenue) * 100;
+                      const isBest = stats.revenueByDay.every((d) => d.revenue <= day.revenue) && day.revenue > 0;
+                      return (
                         <div
-                          className="w-full rounded-t-md transition-all duration-300 group-hover:opacity-100"
-                          style={{
-                            height: `${Math.max(pct, 2)}%`,
-                            backgroundColor: day.revenue > 0 ? '#008080' : 'var(--border)',
-                            opacity: isBest ? 1 : day.revenue > 0 ? 0.65 : 1,
+                          key={day.date}
+                          className="flex-1 flex flex-col items-center gap-1 group cursor-pointer relative"
+                          style={{ minWidth: `${minBarWidth}px` }}
+                          onClick={() => {
+                            setDateRange('custom');
+                            setCustomStart(day.date);
+                            setCustomEnd(day.date);
+                            setDetail('appointments');
                           }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{dayjs(day.date).format('D')}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        >
+                          <span
+                            className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none px-1.5 py-0.5 rounded shadow-sm z-10 border"
+                            style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                          >
+                            {formatCurrency(day.revenue)}
+                          </span>
+                          <div className="w-full flex items-end" style={{ height: 'calc(100% - 18px)' }}>
+                            <div
+                              className="w-full rounded-t-md transition-all duration-300 group-hover:opacity-100"
+                              style={{
+                                height: `${Math.max(pct, day.revenue > 0 ? 4 : 1)}%`,
+                                backgroundColor: day.revenue > 0 ? '#008080' : 'var(--border)',
+                                opacity: isBest ? 1 : day.revenue > 0 ? 0.65 : 1,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-medium tabular-nums" style={{ color: 'var(--text-muted)' }}>{dayjs(day.date).format('D')}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Citas por estado (donut) */}
