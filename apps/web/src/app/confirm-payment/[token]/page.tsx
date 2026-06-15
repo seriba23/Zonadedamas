@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
 
@@ -38,8 +38,8 @@ function formatCurrency(n: number, currency = 'MXN') {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(n);
 }
 
-export default function ConfirmPaymentPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = use(params);
+export default function ConfirmPaymentPage({ params }: { params: { token: string } }) {
+  const { token } = params;
   const [data, setData] = useState<AppointmentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
