@@ -30,7 +30,19 @@ export class ConfirmPaymentService {
           take: 1,
         },
         photos: { select: { id: true, imageUrl: true, serviceId: true } },
-        tenant: { select: { name: true, slug: true, logoUrl: true, tenantType: true } },
+        tenant: {
+          select: {
+            name: true,
+            slug: true,
+            logoUrl: true,
+            tenantType: true,
+            cardColor: true,
+            confettiEnabled: true,
+            confettiStyle: true,
+            confettiStyles: true,
+            confettiColors: true,
+          },
+        },
         review: { select: { id: true, rating: true, businessRating: true } },
       },
     });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
+import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
 const TEAL = '#008080';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -22,7 +23,17 @@ interface AppointmentData {
   }>;
   payments?: Array<{ paymentMethod: string; totalAmount: string | number; status: string; createdAt: string }>;
   photos?: Array<{ id: string; imageUrl: string; serviceId: string }>;
-  tenant?: { name: string; slug: string; logoUrl: string | null; tenantType: 'FREELANCER' | 'BUSINESS' } | null;
+  tenant?: {
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    tenantType: 'FREELANCER' | 'BUSINESS';
+    cardColor: string | null;
+    confettiEnabled: boolean | null;
+    confettiStyle: string | null;
+    confettiStyles: string[] | null;
+    confettiColors: string[] | null;
+  } | null;
   review?: { id: string; rating: number; businessRating: number | null } | null;
 }
 
@@ -156,19 +167,38 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
   const employeeFirst = employee?.firstName || '';
   const employeeLast = employee?.lastName || '';
   const employeeInitials = (employeeFirst[0] || '') + (employeeLast[0] || '');
+  // Color usado en el header del negocio. Si no hay logo se pinta este
+  // color de fondo (cardColor del tenant > teal por defecto).
+  const tenantColor = tenant?.cardColor || TEAL;
+
+  // Pantalla full de "¡Gracias!" con confetti cuando ya esta confirmada
+  // y calificada (igual al AppointmentSuccessSheet de la reserva).
+  if (isConfirmed && hasReview) {
+    return (
+      <ThanksScreen
+        tenantName={tenantName}
+        tenantSlug={tenantSlug}
+        tenantColor={tenantColor}
+        confettiEnabled={tenant?.confettiEnabled !== false}
+        confettiShapes={tenant?.confettiStyles ?? null}
+        confettiShape={tenant?.confettiStyle ?? null}
+        confettiColors={tenant?.confettiColors ?? null}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
-      <div className="text-white px-4 pt-8 pb-6 text-center" style={{ backgroundColor: TEAL }}>
+      <div className="text-white px-4 pt-8 pb-6 text-center" style={{ backgroundColor: tenantColor }}>
         {tenant?.logoUrl ? (
           <img
             src={tenant.logoUrl.startsWith('http') ? tenant.logoUrl : `${API_URL}${tenant.logoUrl}`}
             alt={tenantName}
-            className="w-16 h-16 mx-auto rounded-2xl object-cover mb-3 bg-white"
+            className="w-16 h-16 mx-auto rounded-full object-cover mb-3 bg-white"
           />
         ) : (
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-white/15 flex items-center justify-center text-xl font-bold mb-3">
+          <div className="w-16 h-16 mx-auto rounded-full bg-white/15 flex items-center justify-center text-xl font-bold mb-3">
             {tenantName.charAt(0).toUpperCase()}
           </div>
         )}
@@ -264,29 +294,6 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
           </button>
         )}
 
-        {isConfirmed && hasReview && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
-            <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: '#e0f2f1' }}>
-              <svg className="w-7 h-7" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-            </div>
-            <p className="text-base font-bold text-gray-900 mb-1">¡Gracias!</p>
-            <p className="text-sm text-gray-500 mb-4">
-              {reviewSubmitted ? 'Tu calificación fue enviada' : 'Esta cita ya está confirmada y calificada'}
-            </p>
-            {tenantSlug && (
-              <Link
-                href={`/marketplace/${tenantSlug}`}
-                className="inline-block text-sm font-semibold"
-                style={{ color: TEAL }}
-              >
-                Ver perfil del negocio →
-              </Link>
-            )}
-          </div>
-        )}
-
         <p className="text-[11px] text-center text-gray-400 px-4">
           Esta página es solo para confirmar el cobro de esta cita.
         </p>
@@ -302,5 +309,78 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
         isLoading={submittingReview}
       />
     </div>
+  );
+}
+
+/**
+ * Pantalla completa de "Gracias" con confeti. Se muestra cuando la cita
+ * ya está confirmada y calificada. Mismo estilo que el sheet de
+ * "Reserva confirmada" del flujo de booking.
+ */
+function ThanksScreen({
+  tenantName,
+  tenantSlug,
+  tenantColor,
+  confettiEnabled,
+  confettiShapes,
+  confettiShape,
+  confettiColors,
+}: {
+  tenantName: string;
+  tenantSlug: string;
+  tenantColor: string;
+  confettiEnabled: boolean;
+  confettiShapes: string[] | null;
+  confettiShape: string | null;
+  confettiColors: string[] | null;
+}) {
+  const [confettiDone, setConfettiDone] = useState(false);
+  return (
+    <>
+      {confettiEnabled && (
+        <ConfettiCelebration
+          show={!confettiDone}
+          duration={5000}
+          particlesPerBurst={20}
+          shapes={confettiShapes}
+          shape={confettiShape}
+          colors={confettiColors}
+          onComplete={() => setConfettiDone(true)}
+        />
+      )}
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-10">
+        <div
+          className="w-full max-w-sm bg-white rounded-2xl border-2 overflow-hidden text-center"
+          style={{ borderColor: tenantColor }}
+        >
+          <div className="px-6 pt-8 pb-2">
+            <div
+              className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
+              style={{ backgroundColor: '#e0f2f1' }}
+            >
+              <svg className="w-10 h-10" style={{ color: tenantColor }} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">¡Gracias!</h1>
+            <p className="text-sm text-gray-500">
+              Tu calificación fue enviada. Esperamos verte pronto en{' '}
+              <span className="font-semibold text-gray-700">{tenantName}</span>.
+            </p>
+          </div>
+          {tenantSlug && (
+            <div className="border-t border-gray-100 p-4">
+              <Link
+                href={`/marketplace/${tenantSlug}`}
+                className="block w-full py-3 rounded-xl text-sm font-semibold text-white"
+                style={{ backgroundColor: tenantColor }}
+              >
+                Ver perfil del negocio
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
