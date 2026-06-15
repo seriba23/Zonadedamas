@@ -74,6 +74,19 @@ export class ClientsController {
     return { data: client };
   }
 
+  /**
+   * Resumen completo del cliente para la vista de detalle: info basica,
+   * proximas citas, trabajos realizados, pagos, cupones activos, puntos.
+   */
+  @Get(':id/summary')
+  @RequirePermissions('clients.read')
+  async getSummary(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    return this.clientsService.getSummary(id, tenantId);
+  }
+
   @Put(':id')
   @RequirePermissions('clients.update')
   async update(

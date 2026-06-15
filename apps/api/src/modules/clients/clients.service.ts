@@ -179,4 +179,104 @@ export class ClientsService {
       },
     });
   }
+
+  /**
+   * Resumen del cliente para la vista de detalle del admin: info basica
+   * + listas resumidas (proximas / pasadas / pagos / cupones activos) +
+   * agregados (totalSpent, totalCompletedAppointments, etc).
+   */
+  async getSummary(id: string, tenantId: string) {
+    const client = await this.prisma.client.findFirst({
+      where: { id, tenantId },
+      include: {
+        user: { select: { id: true, avatarUrl: true } },
+        tags: { include: { tag: true } },
+      },
+    });
+    if (!client) throw new NotFoundException('Cliente no encontrado');
+
+    const now = new Date();
+    const [
+      upcomingAppointments,
+      completedAppointments,
+      payments,
+      activeCoupons,
+      totalCompletedCount,
+      paymentsAgg,
+    ] = await Promise.all([
+      this.prisma.appointment.findMany({
+        where: {
+          clientId: id,
+          tenantId,
+          startTime: { gte: now },
+          status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        },
+        include: {
+          employee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true } },
+          items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
+        },
+        orderBy: { startTime: 'asc' },
+        take: 10,
+      }),
+      this.prisma.appointment.findMany({
+        where: { clientId: id, tenantId, status: 'COMPLETED' },
+        include: {
+          employee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, color: true } },
+          items: { select: { serviceNameSnapshot: true, priceSnapshot: true } },
+        },
+        orderBy: { startTime: 'desc' },
+        take: 10,
+      }),
+      this.prisma.payment.findMany({
+        where: { clientId: id, tenantId, status: 'COMPLETED' },
+        select: {
+          id: true,
+          totalAmount: true,
+          currency: true,
+          paymentMethod: true,
+          createdAt: true,
+          appointmentId: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      this.prisma.rewardRedemption.findMany({
+        where: { clientId: id, tenantId, status: 'ACTIVE' },
+        include: {
+          reward: {
+            select: {
+              name: true,
+              type: true,
+              discountAmount: true,
+              discountMode: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.appointment.count({
+        where: { clientId: id, tenantId, status: 'COMPLETED' },
+      }),
+      this.prisma.payment.aggregate({
+        where: { clientId: id, tenantId, status: 'COMPLETED' },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+
+    return {
+      data: {
+        client,
+        upcomingAppointments,
+        completedAppointments,
+        payments,
+        activeCoupons,
+        stats: {
+          totalCompletedAppointments: totalCompletedCount,
+          totalSpent: Number(paymentsAgg._sum.totalAmount || 0),
+          activeCouponsCount: activeCoupons.length,
+          loyaltyPoints: client.loyaltyPoints,
+        },
+      },
+    };
+  }
 }
