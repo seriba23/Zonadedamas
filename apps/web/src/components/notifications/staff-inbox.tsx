@@ -152,62 +152,66 @@ export function StaffInbox() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      {/* Header: titulo a la izq + 3 botones alineados a la derecha
+          (Marcar todas, No leidas, icono Filtros). Mismo "box" para los
+          tres (altura, padding, radius coherente). */}
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-gray-900">Notificaciones</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {counts?.total ?? 0} sin leer
           </p>
         </div>
-        {(counts?.total ?? 0) > 0 && (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {(counts?.total ?? 0) > 0 && (
+            <button
+              onClick={() => markAllRead.mutate(section)}
+              className="text-xs font-semibold px-3 py-2 rounded-lg border bg-white border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Marcar todas
+            </button>
+          )}
           <button
-            onClick={() => markAllRead.mutate(section)}
-            className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+            onClick={() => {
+              setUnreadOnly((v) => !v);
+              setPage(1);
+            }}
+            className={`text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
+              unreadOnly
+                ? 'bg-[#008080] border-[#008080] text-white'
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            Marcar todas
+            No leídas
           </button>
-        )}
+          <button
+            type="button"
+            onClick={openFilters}
+            aria-label="Filtros"
+            title="Filtros"
+            className={`p-2 rounded-lg border transition-colors ${
+              section
+                ? 'bg-[#008080] border-[#008080] text-white'
+                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <PermissionBanner />
 
-      {/* Filtros: icono que abre modal con las secciones + chip "No leídas"
-          que se queda fuera porque es el toggle mas usado. */}
-      <div className="flex items-center gap-2 mb-4">
-        <button
-          type="button"
-          onClick={openFilters}
-          aria-label="Filtros"
-          title="Filtros"
-          className={`flex-shrink-0 p-2 rounded-lg border transition-colors ${
-            section
-              ? 'bg-[#008080] border-[#008080] text-white'
-              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
-        </button>
-        {section && (
-          <span className="text-xs font-medium text-[#008080] bg-teal-50 border border-teal-200 rounded-full px-2.5 py-1">
+      {/* Chip de seccion activa (si hay filtro aplicado). */}
+      {section && (
+        <div className="mb-4">
+          <span className="inline-flex text-xs font-medium text-[#008080] bg-teal-50 border border-teal-200 rounded-full px-2.5 py-1">
             {sectionLabel(section)}
           </span>
-        )}
-        <button
-          onClick={() => {
-            setUnreadOnly((v) => !v);
-            setPage(1);
-          }}
-          className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ml-auto ${
-            unreadOnly
-              ? 'bg-[#008080] text-white'
-              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          No leídas
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* Lista */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
