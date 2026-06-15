@@ -413,9 +413,14 @@ export class ProductsService {
   async getSalesStats(tenantId: string) {
     const now = new Date();
     const todayStart = new Date(now.toISOString().split('T')[0] + 'T00:00:00Z');
+    // Inicio de semana = lunes 00:00. JS getDay() devuelve 0=domingo,
+    // 1=lunes,...,6=sabado, asi que retrocedemos (day === 0 ? 6 : day - 1).
+    const weekStart = new Date(todayStart);
+    const dow = todayStart.getUTCDay();
+    weekStart.setUTCDate(todayStart.getUTCDate() - (dow === 0 ? 6 : dow - 1));
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [totalSales, todaySales, monthSales, recentSales] = await Promise.all([
+    const [totalSales, todaySales, weekSales, monthSales, recentSales] = await Promise.all([
       this.prisma.productReservation.aggregate({
         where: { tenantId, status: 'DELIVERED' },
         _sum: { unitPrice: true },
@@ -423,6 +428,11 @@ export class ProductsService {
       }),
       this.prisma.productReservation.aggregate({
         where: { tenantId, status: 'DELIVERED', updatedAt: { gte: todayStart } },
+        _sum: { unitPrice: true },
+        _count: true,
+      }),
+      this.prisma.productReservation.aggregate({
+        where: { tenantId, status: 'DELIVERED', updatedAt: { gte: weekStart } },
         _sum: { unitPrice: true },
         _count: true,
       }),
@@ -443,6 +453,7 @@ export class ProductsService {
       data: {
         total: { count: totalSales._count, revenue: Number(totalSales._sum.unitPrice || 0) },
         today: { count: todaySales._count, revenue: Number(todaySales._sum.unitPrice || 0) },
+        week: { count: weekSales._count, revenue: Number(weekSales._sum.unitPrice || 0) },
         month: { count: monthSales._count, revenue: Number(monthSales._sum.unitPrice || 0) },
         recent: recentSales,
       },

@@ -7,7 +7,44 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
-import { RedemptionsHistory } from './redemptions-history';
+import { KpiCard } from '@/components/dashboard/kpi-card';
+
+interface RedemptionSummary {
+  totalAll: number;
+  totalActive: number;
+  totalUsed: number;
+  totalExpired: number;
+  totalGifts: number;
+  totalRedeemed: number;
+  totalPointsSpent: number;
+}
+
+function CouponStatsBar() {
+  const { data } = useQuery({
+    queryKey: ['coupon-summary'],
+    queryFn: () =>
+      api.get<{ meta: { summary: RedemptionSummary } }>(
+        '/api/rewards/redemptions/all?page=1&perPage=1',
+      ),
+  });
+  const s = data?.meta?.summary;
+  if (!s) return null;
+  const icon = (path: string) => (
+    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+    </svg>
+  );
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+      <KpiCard icon={icon('M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z')} label="Total emitidos" value={s.totalAll} />
+      <KpiCard icon={icon('M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z')} label="Activos" value={s.totalActive} />
+      <KpiCard icon={icon('M4.5 12.75l6 6 9-13.5')} label="Usados" value={s.totalUsed} />
+      <KpiCard icon={icon('M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z')} label="Vencidos" value={s.totalExpired} />
+      <KpiCard icon={icon('M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z')} label="Regalados / Canjeados" value={`${s.totalGifts} / ${s.totalRedeemed}`} />
+      <KpiCard icon={icon('M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z')} label="Puntos cobrados" value={s.totalPointsSpent.toLocaleString()} />
+    </div>
+  );
+}
 
 
 interface Reward {
@@ -218,15 +255,37 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
   const [giftError, setGiftError] = useState<string | null>(null);
   // Tab activo: "catalogo" muestra los rewards del tenant; "historial" muestra
   // todos los RewardRedemptions emitidos con filtros para auditoria.
-  const [activeTab, setActiveTab] = useState<'catalog' | 'history'>('catalog');
   const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  // Filtros del catalogo (tipo + estado activo/inactivo). draft = lo
+  // que se edita en el modal; al pulsar "Aplicar" pasa al state real.
+  const [filterType, setFilterType] = useState<'' | 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE'>('');
+  const [filterActive, setFilterActive] = useState<'' | 'active' | 'inactive'>('');
+  const [draftType, setDraftType] = useState<'' | 'SERVICIO' | 'DESCUENTO' | 'TWO_FOR_ONE'>('');
+  const [draftActive, setDraftActive] = useState<'' | 'active' | 'inactive'>('');
+  const [showFilters, setShowFilters] = useState(false);
+  const hasActiveFilters = filterType !== '' || filterActive !== '';
+  function openFilters() {
+    setDraftType(filterType);
+    setDraftActive(filterActive);
+    setShowFilters(true);
+  }
+  function applyFilters() {
+    setFilterType(draftType);
+    setFilterActive(draftActive);
+    setShowFilters(false);
+  }
+  function clearDraftFilters() {
+    setDraftType('');
+    setDraftActive('');
+  }
 
   // Topbar: solo el boton "Nuevo" en el catalogo (izquierda del bell).
   // El toggle de estadisticas va dentro del body, junto al subtitulo,
   // porque las stats son contextuales a esta pagina y conviene tener el
   // disparador cerca del contenido.
   useRegisterTopbarAction(
-    activeTab === 'catalog' && (hasPermission('rewards.create') || hasPermission('rewards.update')) ? (
+    hasPermission('rewards.create') || hasPermission('rewards.update') ? (
       <button
         onClick={() => setNewMenuOpen(true)}
         className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
@@ -234,7 +293,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
         Nuevo
       </button>
     ) : null,
-    [activeTab, hasPermission('rewards.create'), hasPermission('rewards.update')],
+    [hasPermission('rewards.create'), hasPermission('rewards.update')],
   );
 
   const { data, isLoading } = useQuery({
@@ -242,7 +301,13 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
     queryFn: () => api.get<{ data: Reward[]; meta: any }>('/api/rewards?perPage=100'),
   });
 
-  const rewards = data?.data || [];
+  const allRewards = data?.data || [];
+  const rewards = allRewards.filter((r) => {
+    if (filterType && r.type !== filterType) return false;
+    if (filterActive === 'active' && !r.isActive) return false;
+    if (filterActive === 'inactive' && r.isActive) return false;
+    return true;
+  });
 
   const { data: servicesData } = useQuery({
     queryKey: ['services-for-rewards'],
@@ -411,39 +476,48 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
     <div className={embedded ? '' : 'flex flex-col h-full'}>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
-        {/* Tabs: catálogo vs historial */}
-        <div className="flex items-center gap-2 mb-5 border-b border-gray-200">
-          <button
-            type="button"
-            onClick={() => setActiveTab('catalog')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'catalog'
-                ? 'border-[#008080] text-[#006666]'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Catálogo
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'history'
-                ? 'border-[#008080] text-[#006666]'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Historial de cupones
-          </button>
+        {/* Subtitulo + iconos de stats y filtros a la derecha. Los dos
+            iconos estan agrupados: stats abre/cierra la barra de KPIs,
+            filtros abre modal con tipo + estado. */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <p className="text-sm text-gray-500 flex-1">
+            Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
+          </p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowStats((v) => !v)}
+              aria-label="Estadisticas de cupones"
+              title={showStats ? 'Ocultar estadisticas' : 'Ver estadisticas'}
+              className={`p-2 rounded-lg border transition-colors ${
+                showStats
+                  ? 'bg-[#008080] border-[#008080] text-white'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={openFilters}
+              aria-label="Filtros"
+              title="Filtros"
+              className={`p-2 rounded-lg border transition-colors ${
+                hasActiveFilters
+                  ? 'bg-[#008080] border-[#008080] text-white'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {activeTab === 'history' ? (
-          <RedemptionsHistory />
-        ) : (
-        <>
-        <p className="text-sm text-gray-500 mb-4">
-          Configura cupones que tus clientes pueden canjear con sus puntos de fidelidad.
-        </p>
+        {showStats && <CouponStatsBar />}
 
         {isLoading ? (
           <div
@@ -482,8 +556,6 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
               />
             ))}
           </div>
-        )}
-        </>
         )}
       </div>
 
@@ -751,6 +823,101 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
       )}
 
       {/* Menu "Nuevo": elige entre crear cupon, regalar cupon o usar cupon */}
+      {showFilters && (
+        <Modal title="Filtros" onClose={() => setShowFilters(false)} size="md">
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Tipo de cupón
+              </label>
+              <div className="space-y-1.5">
+                {[
+                  { value: '', label: 'Todos' },
+                  { value: 'SERVICIO', label: 'Servicio gratis' },
+                  { value: 'DESCUENTO', label: 'Descuento' },
+                  { value: 'TWO_FOR_ONE', label: '2×1' },
+                ].map((opt) => {
+                  const active = draftType === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setDraftType(opt.value as any)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-between ${
+                        active
+                          ? 'bg-teal-50 border-teal-200 text-[#008080]'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {active && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Estado
+              </label>
+              <div className="space-y-1.5">
+                {[
+                  { value: '', label: 'Todos' },
+                  { value: 'active', label: 'Activos' },
+                  { value: 'inactive', label: 'Inactivos' },
+                ].map((opt) => {
+                  const active = draftActive === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setDraftActive(opt.value as any)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-between ${
+                        active
+                          ? 'bg-teal-50 border-teal-200 text-[#008080]'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {active && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+              <button
+                onClick={clearDraftFilters}
+                disabled={draftType === '' && draftActive === ''}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                  draftType !== '' || draftActive !== ''
+                    ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                    : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {newMenuOpen && (
         <Modal title="Nuevo" onClose={() => setNewMenuOpen(false)}>
           <div className="space-y-2">
