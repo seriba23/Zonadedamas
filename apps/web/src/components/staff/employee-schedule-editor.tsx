@@ -33,6 +33,18 @@ const DAY_LABELS: Record<string, string> = {
   SUNDAY: 'Domingo',
 };
 
+// Versión corta para mobile (poco espacio horizontal). En desktop
+// (md:) se muestra el nombre completo.
+const DAY_LABELS_SHORT: Record<string, string> = {
+  MONDAY: 'Lun',
+  TUESDAY: 'Mar',
+  WEDNESDAY: 'Mié',
+  THURSDAY: 'Jue',
+  FRIDAY: 'Vie',
+  SATURDAY: 'Sáb',
+  SUNDAY: 'Dom',
+};
+
 const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 const DEFAULT_SCHEDULES: Schedule[] = DAY_ORDER.map((day) => ({
@@ -211,7 +223,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
           return (
             <div
               key={day.dayOfWeek}
-              className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+              className={`flex items-center gap-2 p-2.5 md:p-3 rounded-xl border transition-colors ${
                 businessClosed
                   ? 'bg-red-50/50 border-red-100'
                   : day.isWorking
@@ -219,9 +231,10 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                     : 'bg-[var(--bg-subtle)] border-gray-100'
               }`}
             >
-              <div className="w-24 flex-shrink-0">
+              <div className="w-12 md:w-24 flex-shrink-0">
                 <span className={`text-sm font-medium ${businessClosed ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
-                  {DAY_LABELS[day.dayOfWeek]}
+                  <span className="md:hidden">{DAY_LABELS_SHORT[day.dayOfWeek]}</span>
+                  <span className="hidden md:inline">{DAY_LABELS[day.dayOfWeek]}</span>
                 </span>
               </div>
 
@@ -254,11 +267,11 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                   </button>
 
                   {day.isWorking && (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
                       <select
                         value={day.startTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="py-1 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 max-w-[110px] focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="py-1.5 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>
@@ -268,7 +281,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                       <select
                         value={day.endTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="py-1 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 max-w-[110px] focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="py-1.5 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>

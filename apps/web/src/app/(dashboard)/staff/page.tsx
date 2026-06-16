@@ -850,14 +850,18 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
   const router = useRouter();
   type StatusFilter = 'all' | 'in_shift' | 'completed' | 'pending';
   type ViewMode = 'personnel' | 'date';
+  type SortKey = 'date_desc' | 'duration_asc' | 'duration_desc' | 'checkout_early' | 'checkout_late';
 
   const [viewMode, setViewMode] = useState<ViewMode>('personnel');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  // Solo aplica en vista 'date'. Default = mas reciente arriba.
+  const [sortBy, setSortBy] = useState<SortKey>('date_desc');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [draftDate, setDraftDate] = useState(selectedDate);
   const [draftStatus, setDraftStatus] = useState<StatusFilter>('all');
+  const [draftSort, setDraftSort] = useState<SortKey>('date_desc');
 
   // En vista "por personal" listamos solo el dia seleccionado.
   // En vista "por fecha" listamos los ultimos 7 dias para mostrar la
@@ -926,7 +930,34 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
       byDate.set(dateKey, list);
     }
   }
-  const dateGroups = [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a));
+  // Ordena los registros dentro de cada dia segun el criterio elegido.
+  // 'date_desc' deja el orden natural del backend (asc por checkInTime).
+  function sortRecordsInDay(records: any[]): any[] {
+    const arr = [...records];
+    switch (sortBy) {
+      case 'duration_asc':
+        return arr.sort((a, b) => (workedMinutes(a) ?? Infinity) - (workedMinutes(b) ?? Infinity));
+      case 'duration_desc':
+        return arr.sort((a, b) => (workedMinutes(b) ?? -Infinity) - (workedMinutes(a) ?? -Infinity));
+      case 'checkout_early':
+        return arr.sort((a, b) => {
+          const ta = a.checkOutTime ? new Date(a.checkOutTime).getTime() : Infinity;
+          const tb = b.checkOutTime ? new Date(b.checkOutTime).getTime() : Infinity;
+          return ta - tb;
+        });
+      case 'checkout_late':
+        return arr.sort((a, b) => {
+          const ta = a.checkOutTime ? new Date(a.checkOutTime).getTime() : -Infinity;
+          const tb = b.checkOutTime ? new Date(b.checkOutTime).getTime() : -Infinity;
+          return tb - ta;
+        });
+      default:
+        return arr;
+    }
+  }
+  const dateGroups = [...byDate.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([k, recs]) => [k, sortRecordsInDay(recs)] as [string, any[]]);
 
   const statusChips: { key: StatusFilter; label: string }[] = [
     { key: 'all', label: 'Todos' },
@@ -939,9 +970,22 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     if (record.status === 'ABSENT') return null;
     if (record.status === 'PENDING_REVIEW') return { label: 'Pendiente', color: 'text-teal-700', bg: 'bg-teal-50' };
     if (record.status === 'REJECTED') return { label: 'Rechazado', color: 'text-red-600', bg: 'bg-red-50' };
-    if (record.checkOutTime) return { label: 'Completado', color: 'text-green-700', bg: 'bg-green-50' };
-    if (record.checkInTime) return { label: 'En turno', color: 'text-[#008080]', bg: 'bg-teal-50' };
+    // "En turno" SI es informativo (esta dentro del horario, sin salida).
+    // "Completado" no tiene sentido como badge porque la cita ya tiene
+    // ambos registros — se ve directamente en la fila.
+    if (record.checkInTime && !record.checkOutTime) {
+      return { label: 'En turno', color: 'text-[#008080]', bg: 'bg-teal-50' };
+    }
     return null;
+  }
+
+  // Minutos trabajados (null si falta alguno de los dos). Usado para
+  // ordenar y para mostrar el total en la card.
+  function workedMinutes(record: any): number | null {
+    if (!record.checkInTime || !record.checkOutTime) return null;
+    return Math.round(
+      (new Date(record.checkOutTime).getTime() - new Date(record.checkInTime).getTime()) / 60000,
+    );
   }
 
   function formatTime(iso?: string | null): string {
@@ -998,20 +1042,33 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
               )}
             </div>
             {!isAbsent && (
-              <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
-                <span>
-                  <svg className="inline w-3 h-3 mr-0.5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <div className="flex items-center gap-3 text-[11px] mt-0.5 flex-wrap">
+                {/* Entrada */}
+                <span className="inline-flex items-center gap-0.5 text-gray-500">
+                  <svg className="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                   </svg>
-                  {formatTime(record.checkInTime)}
+                  <span className="font-mono">{formatTime(record.checkInTime)}</span>
                 </span>
-                <span>
-                  <svg className="inline w-3 h-3 mr-0.5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                  </svg>
-                  {formatTime(record.checkOutTime)}
-                </span>
-                {hours && <span className="font-mono text-gray-700">{hours}</span>}
+                {/* Salida — si falta, mostrar linea explicita */}
+                {record.checkOutTime ? (
+                  <span className="inline-flex items-center gap-0.5 text-gray-500">
+                    <svg className="w-3 h-3 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                    </svg>
+                    <span className="font-mono">{formatTime(record.checkOutTime)}</span>
+                  </span>
+                ) : record.checkInTime ? (
+                  <span className="inline-flex items-center gap-0.5 text-amber-600 italic">
+                    Sin salida registrada
+                  </span>
+                ) : null}
+                {/* Total trabajado */}
+                {hours && (
+                  <span className="inline-flex items-center gap-0.5 text-gray-700 font-mono font-semibold">
+                    {hours}
+                  </span>
+                )}
               </div>
             )}
             {record.checkInDistance != null && record.checkInDistance > 50 && (
@@ -1069,14 +1126,14 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
         </div>
         <button
           type="button"
-          onClick={() => { setDraftDate(selectedDate); setDraftStatus(statusFilter); setShowFilterSheet(true); }}
+          onClick={() => { setDraftDate(selectedDate); setDraftStatus(statusFilter); setDraftSort(sortBy); setShowFilterSheet(true); }}
           aria-label="Filtros"
           className="w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center flex-shrink-0 relative"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          {(!isToday || statusFilter !== 'all') && (
+          {(!isToday || statusFilter !== 'all' || sortBy !== 'date_desc') && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#008080] rounded-full border-2 border-white" />
           )}
         </button>
@@ -1231,12 +1288,42 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
               </div>
             </div>
 
+            {/* Ordenar por (solo aplica en vista "Por fecha") */}
+            {viewMode === 'date' && (
+              <div className="mb-4">
+                <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Ordenar por</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { key: 'date_desc', label: 'Más reciente' },
+                    { key: 'duration_desc', label: 'Mayor tiempo' },
+                    { key: 'duration_asc', label: 'Menor tiempo' },
+                    { key: 'checkout_late', label: 'Salida más tarde' },
+                    { key: 'checkout_early', label: 'Salida más temprano' },
+                  ] as { key: SortKey; label: string }[]).map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setDraftSort(s.key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        draftSort === s.key
+                          ? 'bg-[#008080] text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setDraftDate(new Date().toISOString().split('T')[0]);
                   setDraftStatus('all');
+                  setDraftSort('date_desc');
                 }}
                 className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
@@ -1247,6 +1334,7 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
                 onClick={() => {
                   setSelectedDate(draftDate);
                   setStatusFilter(draftStatus);
+                  setSortBy(draftSort);
                   setShowFilterSheet(false);
                 }}
                 className="flex-1 px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
