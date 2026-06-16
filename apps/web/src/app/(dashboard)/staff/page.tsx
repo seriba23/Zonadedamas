@@ -849,17 +849,34 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   type StatusFilter = 'all' | 'in_shift' | 'completed' | 'pending';
+  type ViewMode = 'personnel' | 'date';
 
+  const [viewMode, setViewMode] = useState<ViewMode>('personnel');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [draftDate, setDraftDate] = useState(selectedDate);
+  const [draftStatus, setDraftStatus] = useState<StatusFilter>('all');
 
-  // Por defecto, lista del día de hoy (startDate=endDate=selectedDate).
+  // En vista "por personal" listamos solo el dia seleccionado.
+  // En vista "por fecha" listamos los ultimos 7 dias para mostrar la
+  // tendencia agrupada por dia. El filtro de fecha sigue funcionando
+  // (limita el dia inicial).
+  function rangeForView(): { startDate: string; endDate: string } {
+    if (viewMode === 'date') {
+      const end = selectedDate;
+      const startD = new Date(end + 'T00:00:00');
+      startD.setDate(startD.getDate() - 6);
+      return { startDate: startD.toISOString().split('T')[0], endDate: end };
+    }
+    return { startDate: selectedDate, endDate: selectedDate };
+  }
+  const { startDate, endDate } = rangeForView();
+
   const { data, isLoading } = useQuery({
-    queryKey: ['attendance', selectedDate],
-    queryFn: () => api.get<{ data: any[] }>(`/api/attendance?startDate=${selectedDate}&endDate=${selectedDate}`),
+    queryKey: ['attendance', startDate, endDate],
+    queryFn: () => api.get<{ data: any[] }>(`/api/attendance?startDate=${startDate}&endDate=${endDate}`),
   });
 
   const allRecords = data?.data || [];
@@ -870,14 +887,15 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
   });
 
-  // Empleados sin registro hoy: los anadimos como "ausentes" si el filtro
-  // no esta restringido a un estado activo. Esto da una vista completa de
-  // quien fichado y quien no.
+  // En vista "por personal" del dia, los empleados sin registro tambien
+  // aparecen como ausentes para tener listado completo. En vista "por
+  // fecha" agrupamos por dia y solo mostramos quienes ficharon.
   const recordedEmpIds = new Set(allRecords.map((r: any) => r.employee?.id));
-  const ausentes = statusFilter === 'all'
+  const ausentes = viewMode === 'personnel' && statusFilter === 'all'
     ? employees.filter((e) => !recordedEmpIds.has(e.id)).map((e) => ({
         id: `absent-${e.id}`,
         employee: { id: e.id, firstName: e.firstName, lastName: e.lastName, color: e.color, avatarUrl: e.avatarUrl },
+        date: selectedDate,
         checkInTime: null,
         checkOutTime: null,
         status: 'ABSENT',
@@ -898,6 +916,18 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     return true;
   });
 
+  // Agrupacion por fecha (solo para vista 'date').
+  const byDate = new Map<string, any[]>();
+  if (viewMode === 'date') {
+    for (const r of filtered) {
+      const dateKey = new Date(r.date).toISOString().split('T')[0];
+      const list = byDate.get(dateKey) || [];
+      list.push(r);
+      byDate.set(dateKey, list);
+    }
+  }
+  const dateGroups = [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a));
+
   const statusChips: { key: StatusFilter; label: string }[] = [
     { key: 'all', label: 'Todos' },
     { key: 'in_shift', label: 'En turno' },
@@ -905,13 +935,13 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     { key: 'pending', label: 'Pendientes' },
   ];
 
-  function statusOf(record: any): { label: string; color: string; bg: string } {
-    if (record.status === 'ABSENT') return { label: 'Sin registro', color: 'text-gray-500', bg: 'bg-gray-100' };
+  function statusOf(record: any): { label: string; color: string; bg: string } | null {
+    if (record.status === 'ABSENT') return null;
     if (record.status === 'PENDING_REVIEW') return { label: 'Pendiente', color: 'text-teal-700', bg: 'bg-teal-50' };
     if (record.status === 'REJECTED') return { label: 'Rechazado', color: 'text-red-600', bg: 'bg-red-50' };
     if (record.checkOutTime) return { label: 'Completado', color: 'text-green-700', bg: 'bg-green-50' };
     if (record.checkInTime) return { label: 'En turno', color: 'text-[#008080]', bg: 'bg-teal-50' };
-    return { label: '—', color: 'text-gray-500', bg: 'bg-gray-100' };
+    return null;
   }
 
   function formatTime(iso?: string | null): string {
@@ -930,6 +960,95 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
   const dateLabel = isToday
     ? 'Hoy'
     : new Date(selectedDate + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  function renderRecordCard(record: any) {
+    const emp = record.employee;
+    const st = statusOf(record);
+    const hours = hoursLabel(record);
+    const isAbsent = record.status === 'ABSENT';
+    return (
+      <button
+        key={record.id}
+        type="button"
+        disabled={isAbsent && !emp?.id}
+        onClick={() => emp?.id && router.push(`/staff/${emp.id}/attendance`)}
+        className="w-full bg-white rounded-xl border border-gray-200 hover:border-[#008080] hover:shadow-sm transition-all p-3 text-left disabled:cursor-default disabled:hover:border-gray-200 disabled:hover:shadow-none"
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
+            style={{ backgroundColor: emp?.color || '#008080' }}
+          >
+            {emp?.avatarUrl ? (
+              <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <>{emp?.firstName?.[0]}{emp?.lastName?.[0]}</>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {emp?.firstName} {emp?.lastName}
+              </p>
+              {st && (
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color} ${st.bg}`}>
+                  {st.label}
+                </span>
+              )}
+            </div>
+            {!isAbsent && (
+              <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
+                <span>
+                  <svg className="inline w-3 h-3 mr-0.5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                  </svg>
+                  {formatTime(record.checkInTime)}
+                </span>
+                <span>
+                  <svg className="inline w-3 h-3 mr-0.5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                  {formatTime(record.checkOutTime)}
+                </span>
+                {hours && <span className="font-mono text-gray-700">{hours}</span>}
+              </div>
+            )}
+            {record.checkInDistance != null && record.checkInDistance > 50 && (
+              <p className="text-[10px] text-red-500 mt-0.5">
+                {record.checkInDistance}m de distancia
+              </p>
+            )}
+          </div>
+
+          {record.status === 'PENDING_REVIEW' && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: record.id, status: 'APPROVED' }); }}
+                className="w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center"
+                aria-label="Aprobar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: record.id, status: 'REJECTED' }); }}
+                className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center"
+                aria-label="Rechazar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  }
 
   return (
     <div>
@@ -950,40 +1069,67 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
         </div>
         <button
           type="button"
-          onClick={() => { setDraftDate(selectedDate); setShowFilterSheet(true); }}
+          onClick={() => { setDraftDate(selectedDate); setDraftStatus(statusFilter); setShowFilterSheet(true); }}
           aria-label="Filtros"
           className="w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center flex-shrink-0 relative"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          {!isToday && (
+          {(!isToday || statusFilter !== 'all') && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#008080] rounded-full border-2 border-white" />
           )}
         </button>
       </div>
 
-      {/* Pills de estado (scroll horizontal en mobile) */}
-      <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1">
-        {statusChips.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setStatusFilter(c.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              statusFilter === c.key
-                ? 'bg-[#008080] text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      {/* Toggle de vista: Por personal | Por fecha */}
+      <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-3">
+        <button
+          type="button"
+          onClick={() => setViewMode('personnel')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            viewMode === 'personnel'
+              ? 'bg-[#008080] text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Por personal
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('date')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            viewMode === 'date'
+              ? 'bg-[#008080] text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Por fecha
+        </button>
       </div>
 
-      {/* Etiqueta de fecha activa */}
-      <div className="flex items-center justify-between mb-2 text-xs">
-        <span className="text-gray-500 capitalize">{dateLabel}</span>
+      {/* Etiqueta de fecha + estado activos */}
+      <div className="flex items-center justify-between mb-2 text-xs gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-gray-500 capitalize">
+            {viewMode === 'date' ? `${startDate.split('-').reverse().join('/')} — ${endDate.split('-').reverse().join('/')}` : dateLabel}
+          </span>
+          {statusFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] text-[11px] font-medium">
+              {statusChips.find((c) => c.key === statusFilter)?.label}
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className="ml-0.5 hover:opacity-70"
+                aria-label="Quitar filtro"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          )}
+        </div>
         <span className="text-gray-400">
           {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
         </span>
@@ -1002,146 +1148,107 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
               : 'No hay registros que coincidan con el filtro.'}
           </p>
         </div>
+      ) : viewMode === 'personnel' ? (
+        <div className="space-y-2">{filtered.map(renderRecordCard)}</div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((record: any) => {
-            const emp = record.employee;
-            const st = statusOf(record);
-            const hours = hoursLabel(record);
-            const isAbsent = record.status === 'ABSENT';
-            return (
-              <button
-                key={record.id}
-                type="button"
-                disabled={isAbsent && !emp?.id}
-                onClick={() => emp?.id && router.push(`/staff/${emp.id}/attendance`)}
-                className="w-full bg-white rounded-xl border border-gray-200 hover:border-[#008080] hover:shadow-sm transition-all p-3 text-left disabled:cursor-default disabled:hover:border-gray-200 disabled:hover:shadow-none"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Avatar */}
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
-                    style={{ backgroundColor: emp?.color || '#008080' }}
-                  >
-                    {emp?.avatarUrl ? (
-                      <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <>{emp?.firstName?.[0]}{emp?.lastName?.[0]}</>
-                    )}
-                  </div>
-
-                  {/* Datos principales */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {emp?.firstName} {emp?.lastName}
-                      </p>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color} ${st.bg}`}>
-                        {st.label}
-                      </span>
-                    </div>
-                    {!isAbsent && (
-                      <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
-                        <span>
-                          <svg className="inline w-3 h-3 mr-0.5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                          </svg>
-                          {formatTime(record.checkInTime)}
-                        </span>
-                        <span>
-                          <svg className="inline w-3 h-3 mr-0.5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                          </svg>
-                          {formatTime(record.checkOutTime)}
-                        </span>
-                        {hours && <span className="font-mono text-gray-700">{hours}</span>}
-                      </div>
-                    )}
-                    {record.checkInDistance != null && record.checkInDistance > 50 && (
-                      <p className="text-[10px] text-red-500 mt-0.5">
-                        {record.checkInDistance}m de distancia
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Acciones rápidas pendiente */}
-                  {record.status === 'PENDING_REVIEW' && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: record.id, status: 'APPROVED' }); }}
-                        className="w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center"
-                        aria-label="Aprobar"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: record.id, status: 'REJECTED' }); }}
-                        className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center"
-                        aria-label="Rechazar"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+        // Vista por fecha: agrupado por dia (mas reciente arriba)
+        <div className="space-y-4">
+          {dateGroups.map(([dateKey, dayRecords]) => (
+            <div key={dateKey}>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
+                {new Date(dateKey + 'T12:00:00').toLocaleDateString('es', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                })}
+                <span className="ml-2 text-gray-400 normal-case font-normal">
+                  ({dayRecords.length} registro{dayRecords.length !== 1 ? 's' : ''})
+                </span>
+              </p>
+              <div className="space-y-2">{dayRecords.map(renderRecordCard)}</div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Sheet de filtros (fecha) */}
+      {/* Sheet de filtros (fecha + estado) */}
       {showFilterSheet && (
         <div
           className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
           onClick={() => setShowFilterSheet(false)}
         >
           <div
-            className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-4 pb-6 shadow-2xl"
+            className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 md:hidden" />
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Filtrar por fecha</h3>
-            <DatePicker value={draftDate} onChange={(v) => setDraftDate(v)} />
-            <div className="grid grid-cols-2 gap-2 mt-3">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Filtros</h3>
+
+            {/* Filtro por estado */}
+            <div className="mb-4">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Estado</p>
+              <div className="flex flex-wrap gap-2">
+                {statusChips.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setDraftStatus(c.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      draftStatus === c.key
+                        ? 'bg-[#008080] text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por fecha */}
+            <div className="mb-4">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Fecha</p>
+              <DatePicker value={draftDate} onChange={(v) => setDraftDate(v)} />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setDraftDate(new Date().toISOString().split('T')[0])}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 1);
+                    setDraftDate(d.toISOString().split('T')[0]);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  Ayer
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setDraftDate(new Date().toISOString().split('T')[0]);
+                  setDraftStatus('all');
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Hoy
+                Limpiar
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 1);
-                  setDraftDate(d.toISOString().split('T')[0]);
+                  setSelectedDate(draftDate);
+                  setStatusFilter(draftStatus);
+                  setShowFilterSheet(false);
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
-              >
-                Ayer
-              </button>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => setShowFilterSheet(false)}
-                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSelectedDate(draftDate); setShowFilterSheet(false); }}
                 className="flex-1 px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
               >
                 Aplicar

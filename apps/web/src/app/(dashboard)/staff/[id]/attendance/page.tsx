@@ -62,6 +62,12 @@ export default function EmployeeAttendancePage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showFilterSheet, setShowFilterSheet] = useState(false);
+  // Drafts del sheet: el usuario edita aqui y al pulsar Aplicar se
+  // confirman a los filtros reales. Permite cancelar sin perder estado.
+  const [draftRangeMode, setDraftRangeMode] = useState<RangeMode>(rangeMode);
+  const [draftCustomStart, setDraftCustomStart] = useState(customStart);
+  const [draftCustomEnd, setDraftCustomEnd] = useState(customEnd);
+  const [draftStatus, setDraftStatus] = useState<StatusFilter>(statusFilter);
 
   const { startDate, endDate } = useMemo(() => {
     if (rangeMode === 'week') return { startDate: daysAgoIso(6), endDate: todayIso() };
@@ -240,36 +246,43 @@ export default function EmployeeAttendancePage() {
           </div>
           <button
             type="button"
-            onClick={() => setShowFilterSheet(true)}
+            onClick={() => {
+              setDraftRangeMode(rangeMode);
+              setDraftCustomStart(customStart);
+              setDraftCustomEnd(customEnd);
+              setDraftStatus(statusFilter);
+              setShowFilterSheet(true);
+            }}
             aria-label="Filtros"
             className="w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center flex-shrink-0 relative"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            {rangeMode !== 'week' && (
+            {(rangeMode !== 'week' || statusFilter !== 'all') && (
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#008080] rounded-full border-2 border-white" />
             )}
           </button>
         </div>
 
-        {/* Chips de estado */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
-          {statusChips.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => setStatusFilter(c.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                statusFilter === c.key
-                  ? 'bg-[#008080] text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        {/* Indicador del estado filtrado (si no es 'Todos') */}
+        {statusFilter !== 'all' && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] text-[11px] font-medium">
+              {statusChips.find((c) => c.key === statusFilter)?.label}
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className="ml-0.5 hover:opacity-70"
+                aria-label="Quitar filtro"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          </div>
+        )}
 
         {/* Lista */}
         {isLoading ? (
@@ -377,47 +390,90 @@ export default function EmployeeAttendancePage() {
           onClick={() => setShowFilterSheet(false)}
         >
           <div
-            className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-4 pb-6 shadow-2xl"
+            className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-4 pb-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 md:hidden" />
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Filtrar por rango</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Filtros</h3>
 
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-3">
-              {rangeModes.map((m) => (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => setRangeMode(m.key)}
-                  className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                    rangeMode === m.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
+            {/* Filtro por estado */}
+            <div className="mb-4">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Estado</p>
+              <div className="flex flex-wrap gap-2">
+                {statusChips.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setDraftStatus(c.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      draftStatus === c.key
+                        ? 'bg-[#008080] text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {rangeMode === 'custom' && (
-              <div className="space-y-2 mb-3">
-                <div>
-                  <label className="text-[11px] text-gray-500">Desde</label>
-                  <DatePicker value={customStart} onChange={setCustomStart} />
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500">Hasta</label>
-                  <DatePicker value={customEnd} onChange={setCustomEnd} />
-                </div>
+            {/* Filtro por rango */}
+            <div className="mb-4">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Rango</p>
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-3">
+                {rangeModes.map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setDraftRangeMode(m.key)}
+                    className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                      draftRangeMode === m.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
-            )}
+
+              {draftRangeMode === 'custom' && (
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[11px] text-gray-500">Desde</label>
+                    <DatePicker value={draftCustomStart} onChange={setDraftCustomStart} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500">Hasta</label>
+                    <DatePicker value={draftCustomEnd} onChange={setDraftCustomEnd} />
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowFilterSheet(false)}
+                onClick={() => {
+                  setDraftRangeMode('week');
+                  setDraftStatus('all');
+                  setDraftCustomStart(daysAgoIso(6));
+                  setDraftCustomEnd(todayIso());
+                }}
                 className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Cerrar
+                Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRangeMode(draftRangeMode);
+                  setCustomStart(draftCustomStart);
+                  setCustomEnd(draftCustomEnd);
+                  setStatusFilter(draftStatus);
+                  setShowFilterSheet(false);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
+              >
+                Aplicar
               </button>
             </div>
           </div>
