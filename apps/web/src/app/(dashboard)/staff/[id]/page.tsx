@@ -1,23 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
-import { ImageUpload } from '@/components/ui/image-upload';
 import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 import { StarRating } from '@/components/staff/star-rating';
 import { ReviewCard } from '@/components/staff/review-card';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
-import { EmployeePersonalInfo } from '@/components/staff/employee-personal-info';
 import { EmployeeTraining } from '@/components/staff/employee-training';
-import { EmployeePermissions } from '@/components/staff/employee-permissions';
-import { EmployeeServicesEditor } from '@/components/staff/employee-services-editor';
+import { EmployeeEditDrawer } from '@/components/staff/employee-edit-drawer';
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useAuth } from '@/lib/hooks/use-auth';
 import dayjs from 'dayjs';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface Employee {
   id: string;
@@ -42,7 +41,14 @@ interface Employee {
   location?: { id: string; name: string };
   employeeServices?: Array<{
     serviceId: string;
-    service: { id: string; name: string };
+    service: {
+      id: string;
+      name: string;
+      durationMinutes?: number;
+      price?: number;
+      currency?: string;
+      description?: string | null;
+    };
   }>;
   schedules?: Array<{
     dayOfWeek: string;
@@ -106,14 +112,6 @@ interface SmartReassignment {
   newEmployeeName: string;
 }
 
-interface SmartResult {
-  action: 'smart_reschedule';
-  reassignedCount: number;
-  deactivated: boolean;
-  reassignments: SmartReassignment[];
-  conflicts: ConflictInfo[];
-}
-
 interface ConflictInfo {
   id: string;
   startTime: string;
@@ -124,11 +122,11 @@ interface ConflictInfo {
   conflictsWith?: { appointmentId: string; startTime: string; endTime: string };
 }
 
-interface ReassignResult {
-  action: 'reassign';
+interface SmartResult {
+  action: 'smart_reschedule';
   reassignedCount: number;
-  targetEmployeeId: string;
   deactivated: boolean;
+  reassignments: SmartReassignment[];
   conflicts: ConflictInfo[];
 }
 
@@ -136,13 +134,6 @@ interface SlotInfo {
   startTime: string;
   endTime: string;
   available: boolean;
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
-    : null;
 }
 
 const DAY_LABELS: Record<string, string> = {
@@ -155,8 +146,6 @@ const DAY_LABELS: Record<string, string> = {
   SUNDAY: 'Dom',
 };
 
-type ProfileTab = 'estadisticas' | 'servicios' | 'portfolio' | 'formacion' | 'resenas' | 'info_personal' | 'permisos';
-
 export default function EmployeeProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -164,13 +153,20 @@ export default function EmployeeProfilePage() {
   const { hasPermission } = usePermissions();
   const { user: authUser } = useAuth();
   const employeeId = params.id as string;
-  const [activeTab, setActiveTab] = useState<ProfileTab>('estadisticas');
-  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
-  const [coverSuccess, setCoverSuccess] = useState<string | null>(null);
-  const [coverPendingFile, setCoverPendingFile] = useState<File | null>(null);
 
   const canEdit = hasPermission('employees.update');
   const canDelete = hasPermission('employees.delete');
+  const canManagePermissions = hasPermission('roles.update');
+
+  // ─── UI state ──────────────────────────────────────────
+  const [showEditDrawer, setShowEditDrawer] = useState(false);
+  const [coverPendingFile, setCoverPendingFile] = useState<File | null>(null);
+
+  // Sticky header al hacer scroll (clon del marketplace)
+  const [showStickyHeader, setShowStickyHeader] = useState(false);
+  const nameRef = useRef<HTMLHeadingElement>(null);
+
+  // ─── Deactivation state (mantenido del flujo anterior) ──
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateAction, setDeactivateAction] = useState<'smart_reschedule' | 'reassign' | 'cancel' | 'keep'>('smart_reschedule');
   const [targetEmployeeId, setTargetEmployeeId] = useState('');
@@ -179,11 +175,9 @@ export default function EmployeeProfilePage() {
   const [loadingPendingCount, setLoadingPendingCount] = useState(false);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
 
-  // Smart reschedule result
   const [showSmartResult, setShowSmartResult] = useState(false);
   const [smartResult, setSmartResult] = useState<SmartResult | null>(null);
 
-  // Conflict wizard
   const [showConflictWizard, setShowConflictWizard] = useState(false);
   const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
   const [currentConflictIdx, setCurrentConflictIdx] = useState(0);
@@ -199,6 +193,7 @@ export default function EmployeeProfilePage() {
   const [processingConflict, setProcessingConflict] = useState(false);
   const [resolvedConflicts, setResolvedConflicts] = useState<Array<{ id: string; action: string }>>([]);
 
+  // ─── Queries ──────────────────────────────────────────
   const { data: employeeData, isLoading: loadingEmployee } = useQuery({
     queryKey: ['employee', employeeId],
     queryFn: () => api.get<{ data: Employee }>(`/api/employees/${employeeId}`),
@@ -214,9 +209,10 @@ export default function EmployeeProfilePage() {
   const { data: reviewsData } = useQuery({
     queryKey: ['employee-reviews', employeeId],
     queryFn: () => api.get<{ data: ReviewsData }>(`/api/employees/${employeeId}/reviews`),
-    enabled: !!employeeId && activeTab === 'resenas',
+    enabled: !!employeeId,
   });
 
+  // ─── Mutations ─────────────────────────────────────────
   const toggleActiveMutation = useMutation({
     mutationFn: (isActive: boolean) =>
       api.put(`/api/employees/${employeeId}`, { isActive }),
@@ -227,7 +223,6 @@ export default function EmployeeProfilePage() {
     },
   });
 
-  // Fetch active employees for reassign dropdown
   const { data: allEmployeesData } = useQuery({
     queryKey: ['employees', 'active-for-reassign'],
     queryFn: () => api.get<{ data: Array<{ id: string; firstName: string; lastName: string }> }>('/api/employees?perPage=100'),
@@ -250,7 +245,6 @@ export default function EmployeeProfilePage() {
 
       if (result.action === 'smart_reschedule') {
         if (result.conflicts?.length > 0) {
-          // Has conflicts — show result summary first, then wizard
           setSmartResult(result);
           setConflicts(result.conflicts);
           setReassignedBeforeConflicts(result.reassignedCount || 0);
@@ -261,7 +255,6 @@ export default function EmployeeProfilePage() {
           setShowDeactivateConfirm(false);
           setShowSmartResult(true);
         } else {
-          // All reassigned successfully
           setSmartResult(result);
           setShowDeactivateConfirm(false);
           setShowSmartResult(true);
@@ -327,12 +320,10 @@ export default function EmployeeProfilePage() {
           reason: conflictCancelReason || undefined,
         });
       }
-      // skip → do nothing
 
       setResolvedConflicts((prev) => [...prev, { id: conflict.id, action }]);
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
 
-      // Move to next conflict or finish
       if (currentConflictIdx < conflicts.length - 1) {
         setCurrentConflictIdx((prev) => prev + 1);
         setConflictDate('');
@@ -341,7 +332,6 @@ export default function EmployeeProfilePage() {
         setConflictCancelReason('');
         setConflictEmployeeId('');
       }
-      // If last one, stay on same idx — UI will show summary
     } catch (err: any) {
       setDeactivateError(err?.message || 'Error al resolver conflicto');
     }
@@ -349,18 +339,13 @@ export default function EmployeeProfilePage() {
   };
 
   const avatarMutation = useMutation({
-    mutationFn: (file: File) =>
-      api.upload(`/api/employees/${employeeId}/avatar`, file),
+    mutationFn: (file: File) => api.upload(`/api/employees/${employeeId}/avatar`, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      setAvatarSuccess('Fotografía cargada con éxito');
-      setTimeout(() => setAvatarSuccess(null), 3000);
     },
   });
 
-  // Si el usuario está en su propio perfil usa /me/cover (sin permiso admin).
-  // Si es admin gestionando a otro, usa /:id/cover.
   const coverMutation = useMutation({
     mutationFn: (file: File) => {
       const endpoint =
@@ -372,12 +357,9 @@ export default function EmployeeProfilePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      setCoverSuccess('Portada cargada con éxito');
-      setTimeout(() => setCoverSuccess(null), 3000);
     },
   });
 
-  // Solo admin puede borrar (no hay endpoint /me/cover DELETE).
   const coverDeleteMutation = useMutation({
     mutationFn: () => api.delete(`/api/employees/${employeeId}/cover`),
     onSuccess: () => {
@@ -385,6 +367,20 @@ export default function EmployeeProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
     },
   });
+
+  // ─── Scroll listener para sticky header ────────────────
+  const handleScroll = useCallback(() => {
+    if (!nameRef.current) return;
+    const rect = nameRef.current.getBoundingClientRect();
+    setShowStickyHeader(rect.bottom < 60);
+  }, []);
+
+  useEffect(() => {
+    const scrollContainer = document.querySelector('[data-staff-scroll]');
+    const target = scrollContainer || window;
+    target.addEventListener('scroll', handleScroll, { passive: true });
+    return () => target.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   const employee = employeeData?.data;
   const isOwnProfile = employee?.userId === authUser?.id;
@@ -395,7 +391,7 @@ export default function EmployeeProfilePage() {
     return (
       <div className="flex flex-col h-full">
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008080]" />
         </div>
       </div>
     );
@@ -406,7 +402,10 @@ export default function EmployeeProfilePage() {
       <div className="flex flex-col h-full">
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <p className="text-gray-500">No se encontró el empleado solicitado.</p>
-          <button onClick={() => router.push('/staff')} className="btn-primary">
+          <button
+            onClick={() => router.push('/staff')}
+            className="px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
+          >
             Volver a Personal
           </button>
         </div>
@@ -415,86 +414,134 @@ export default function EmployeeProfilePage() {
   }
 
   const empColor = employee.color || '#008080';
-  const rgb = hexToRgb(empColor);
-  const avatarBg = rgb
-    ? { backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`, color: empColor }
-    : { backgroundColor: 'rgba(0, 128, 128, 0.15)', color: '#008080' };
-
-  const services = employee.employeeServices?.map((es) => es.service) || [];
-
+  const fullName = `${employee.firstName} ${employee.lastName}`;
+  const hasAvatar = !!employee.avatarUrl;
+  const hasCover = !!employee.coverImageUrl;
+  const services = (employee.employeeServices || []).map((es) => es.service);
   const workingDays = (employee.schedules || [])
     .filter((s) => s.isWorking)
     .map((s) => DAY_LABELS[s.dayOfWeek] || s.dayOfWeek);
+  const specialty = stats?.topServices?.[0]?.serviceName || null;
+  const completedCount = stats?.completedAllTime ?? 0;
 
-  const tabs: { key: ProfileTab; label: string }[] = [
-    { key: 'estadisticas', label: 'Estadísticas' },
-    { key: 'servicios', label: 'Servicios' },
-    { key: 'portfolio', label: 'Portafolio' },
-    { key: 'formacion', label: 'Formación' },
-    { key: 'resenas', label: 'Reseñas' },
-    { key: 'info_personal', label: 'Info Personal' },
-    ...(hasPermission('roles.read')
-      ? [{ key: 'permisos' as ProfileTab, label: 'Permisos' }]
-      : []),
-  ];
+  function resolveUrl(path?: string | null): string | null {
+    if (!path) return null;
+    return path.startsWith('http') ? path : `${API_URL}${path}`;
+  }
 
   return (
-    <div className="flex flex-col h-full">
-
-      <div className="flex-1 overflow-y-auto p-3 md:p-6">
-        {/* Back + Edit */}
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => router.push('/staff')}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver a Personal
-          </button>
+    <div className="flex flex-col h-full" data-staff-scroll>
+      <div className="flex-1 overflow-y-auto bg-gray-50 relative">
+        {/* ─── Sticky header (aparece al scrollear) ─── */}
+        <div
+          className={`sticky top-0 left-0 right-0 z-40 transition-all duration-300 ${
+            showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="bg-[#008080] shadow-sm">
+            <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={() => router.push('/staff')}
+                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 hover:bg-white/30 transition-colors"
+                  aria-label="Volver"
+                >
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <p className="text-base font-bold text-white truncate">{fullName}</p>
+              </div>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditDrawer(true)}
+                  className="px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition-colors"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Foto de portada — banda arriba con upload (admin o propio empleado) */}
-        {(canEdit || isOwnProfile) && (
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
-              Foto de portada
-            </label>
+        {/* ─── Hero ─── */}
+        <div className="relative" style={{ height: '60vh', minHeight: '420px' }}>
+          {hasCover ? (
             <div
-              className="relative rounded-xl border border-dashed border-[var(--border)] h-32 overflow-hidden bg-cover bg-center group"
-              style={
-                employee.coverImageUrl
-                  ? { backgroundImage: `url(${employee.coverImageUrl.startsWith('http') ? employee.coverImageUrl : `${API_URL}${employee.coverImageUrl}`})` }
-                  : { background: `linear-gradient(135deg, ${empColor}, ${empColor}99)` }
-              }
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${resolveUrl(employee.coverImageUrl)})` }}
             >
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) setCoverPendingFile(file);
-                  e.target.value = '';
-                }}
-                disabled={coverMutation.isPending}
-                className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
-                aria-label="Subir foto de portada"
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <span className="text-white text-sm font-semibold">
-                  {coverMutation.isPending ? 'Subiendo...' : employee.coverImageUrl ? 'Cambiar portada' : 'Subir portada'}
-                </span>
-              </div>
-              {employee.coverImageUrl && canEdit && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+            </div>
+          ) : hasAvatar ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${resolveUrl(employee.avatarUrl)})` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+            </div>
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(135deg, ${empColor}dd 0%, ${empColor}44 50%, #1a1a2e 100%)` }}
+            />
+          )}
+
+          {/* Back button (sobre el hero) */}
+          {!showStickyHeader && (
+            <button
+              onClick={() => router.push('/staff')}
+              className="absolute left-4 top-4 z-30 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/30 transition-colors"
+              aria-label="Volver"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+          )}
+
+          {/* Botones admin (top-right) */}
+          {!showStickyHeader && (
+            <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+              {canEdit && (
+                <button
+                  onClick={() => setShowEditDrawer(true)}
+                  className="px-3 py-2 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                  </svg>
+                  Editar
+                </button>
+              )}
+              {(canEdit || isOwnProfile) && (
+                <label className="px-3 py-2 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
+                  </svg>
+                  Portada
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setCoverPendingFile(file);
+                      e.target.value = '';
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              )}
+              {hasCover && canEdit && (
                 <button
                   type="button"
                   onClick={() => {
                     if (confirm('¿Quitar la foto de portada?')) coverDeleteMutation.mutate();
                   }}
                   disabled={coverDeleteMutation.isPending}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white hover:bg-black/80 flex items-center justify-center"
-                  title="Quitar portada"
+                  className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 text-white flex items-center justify-center transition-colors"
+                  aria-label="Quitar portada"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -502,600 +549,510 @@ export default function EmployeeProfilePage() {
                 </button>
               )}
             </div>
-            {coverSuccess && (
-              <p className="text-xs text-success-700 mt-1.5">{coverSuccess}</p>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Header Card */}
-        <div
-          className="bg-white rounded-xl border border-gray-200 p-6 mb-6 border-l-4"
-          style={{ borderLeftColor: empColor }}
-        >
-          <div className="flex items-start gap-5">
-            {/* Avatar with upload */}
-            {canEdit ? (
-              <ImageUpload
-                currentImage={employee.avatarUrl}
-                uploading={avatarMutation.isPending}
-                className="w-20 h-20 flex-shrink-0"
-                successMessage={avatarSuccess}
-                placeholder={
-                  <div
-                    className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
-                    style={avatarBg}
-                  >
-                    {getInitials(employee.firstName, employee.lastName)}
+          {/* Rating badge */}
+          {reviews?.averageRating && !showStickyHeader && (
+            <div className="absolute left-4 z-30" style={{ top: '4.5rem' }}>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md">
+                <svg className="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                <span className="text-base font-bold text-white">{reviews.averageRating}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Hero content */}
+          <div className="relative z-10 flex flex-col justify-end min-h-full px-6 pb-8 max-w-3xl mx-auto">
+            {/* Avatar uploader (sutil, solo si admin/propio) */}
+            {(canEdit || isOwnProfile) && hasAvatar && (
+              <label className="self-start mb-2 cursor-pointer">
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/15 backdrop-blur-md text-white/90 text-[11px] font-medium hover:bg-white/25">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                  </svg>
+                  Cambiar foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) avatarMutation.mutate(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </span>
+              </label>
+            )}
+
+            {!hasAvatar && (canEdit || isOwnProfile) && (
+              <label className="self-start mb-3 cursor-pointer">
+                <span className="w-20 h-20 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center text-white text-2xl font-bold border-2 border-white/30 hover:bg-white/25">
+                  {getInitials(employee.firstName, employee.lastName)}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) avatarMutation.mutate(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </span>
+              </label>
+            )}
+
+            {/* Estado inactivo */}
+            {!employee.isActive && (
+              <div className="mb-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/80 backdrop-blur-md text-white text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                  Empleado inactivo
+                </span>
+              </div>
+            )}
+
+            {/* JobTitle */}
+            {employee.jobTitle && (
+              <div className="mb-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-white/90 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#008080]" />
+                  {employee.jobTitle}
+                </span>
+              </div>
+            )}
+
+            {/* Nombre */}
+            <h1 ref={nameRef} className="text-2xl font-bold text-white mb-1 leading-tight">
+              {fullName}
+            </h1>
+
+            {/* Contacto */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80 mb-3">
+              {employee.email && <span>{employee.email}</span>}
+              {employee.phone && <span>· {employee.phone}</span>}
+            </div>
+
+            {/* Bio */}
+            {employee.bio && (
+              <p
+                className="text-xs text-white/80 leading-relaxed max-w-xl mb-3 max-h-28 overflow-y-auto pr-1 whitespace-pre-line"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.3) transparent' }}
+              >
+                {employee.bio}
+              </p>
+            )}
+
+            {/* Stats row */}
+            <div className="flex flex-wrap gap-2 mb-1">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+                <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <div>
+                  <p className="text-base font-bold text-white leading-none">{completedCount}</p>
+                  <p className="text-[9px] text-white/60 uppercase tracking-wider">Trabajos realizados</p>
+                </div>
+              </div>
+
+              {specialty && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+                  <svg className="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-white leading-none">{specialty}</p>
+                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Especialidad</p>
                   </div>
-                }
-                onSelect={(file) => avatarMutation.mutate(file)}
-              />
-            ) : (
-              <EmployeeAvatar
-                avatarUrl={employee.avatarUrl}
-                firstName={employee.firstName}
-                lastName={employee.lastName}
-                avatarBg={avatarBg}
-                size="w-20 h-20"
-                textSize="text-2xl"
-              />
-            )}
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold text-gray-900">
-                  {employee.firstName} {employee.lastName}
-                </h1>
-                {!employee.isActive && (
-                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                    Inactivo
-                  </span>
-                )}
-              </div>
-
-              {employee.jobTitle && (
-                <p className="text-sm text-[#008080] font-medium mt-0.5">{employee.jobTitle}</p>
-              )}
-              <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                {employee.email && <span>{employee.email}</span>}
-                {employee.phone && <span>{employee.phone}</span>}
-              </div>
-
-              {/* Rating summary */}
-              {stats && stats.averageRating !== null && (
-                <div className="flex items-center gap-2 mt-2">
-                  <StarRating rating={stats.averageRating} size="sm" />
-                  <span className="text-sm font-medium text-gray-700">
-                    {stats.averageRating}
-                  </span>
-                  <span className="text-sm text-gray-400">
-                    ({stats.totalReviews} reseña{stats.totalReviews !== 1 ? 's' : ''})
-                  </span>
                 </div>
               )}
 
-              <div className="flex items-center gap-4 mt-1 text-sm text-gray-400">
-                {employee.location && <span>{employee.location.name}</span>}
-              </div>
-
-              {employee.bio && (
-                <p className="text-sm text-gray-600 mt-3 italic">
-                  &quot;{employee.bio}&quot;
-                </p>
-              )}
-
-              {/* Deactivate / Reactivate button — owner cannot deactivate themselves */}
-              {canDelete && !isOwnProfile && (
-                <div className="mt-3">
-                  {employee.isActive ? (
-                    <button
-                      type="button"
-                      disabled={loadingPendingCount}
-                      onClick={async () => {
-                        setLoadingPendingCount(true);
-                        setDeactivateError(null);
-                        setDeactivateAction('smart_reschedule');
-                        setTargetEmployeeId('');
-                        setCancelReason('');
-                        try {
-                          const res = await api.get<{ data: { count: number } }>(`/api/employees/${employeeId}/pending-appointments-count`);
-                          setPendingCount(res.data.count);
-                        } catch {
-                          setPendingCount(0);
-                        }
-                        setLoadingPendingCount(false);
-                        setShowDeactivateConfirm(true);
-                      }}
-                      className="px-4 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
-                    >
-                      {loadingPendingCount ? 'Verificando...' : 'Desactivar empleado'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => toggleActiveMutation.mutate(true)}
-                      disabled={toggleActiveMutation.isPending}
-                      className="px-4 py-2 rounded-xl text-sm font-medium border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-50 transition-colors"
-                    >
-                      {toggleActiveMutation.isPending ? 'Reactivando...' : 'Reactivar empleado'}
-                    </button>
-                  )}
+              {employee.location && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+                  <svg className="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-semibold text-white leading-none truncate max-w-[140px]">{employee.location.name}</p>
+                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Sucursal</p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Deactivate confirmation dialog */}
-        {showDeactivateConfirm && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200">
-            <p className="text-sm font-medium text-red-800 mb-1">
-              Desactivar a {employee.firstName} {employee.lastName}?
-            </p>
+        {/* ─── Contenido bajo el hero ─── */}
+        <div className="relative z-10 bg-gray-50 min-h-screen pb-12">
+          <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
-            {pendingCount === 0 ? (
-              <>
-                <p className="text-xs text-red-600 mb-3">
-                  El empleado no tiene citas pendientes. Dejará de aparecer en el calendario, filtros y al crear citas. Puedes reactivarlo en cualquier momento.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => deactivateMutation.mutate({ action: 'keep' })}
-                    disabled={deactivateMutation.isPending}
-                    className="btn-danger text-sm py-1.5 px-4"
-                  >
-                    {deactivateMutation.isPending ? 'Desactivando...' : 'Confirmar desactivación'}
-                  </button>
-                  <button
-                    onClick={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
-                    className="btn-secondary text-sm py-1.5 px-4"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-amber-50 border border-amber-200">
-                  <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <span className="text-sm font-medium text-amber-800">
-                    Este empleado tiene {pendingCount} cita{pendingCount !== 1 ? 's' : ''} pendiente{pendingCount !== 1 ? 's' : ''}
-                  </span>
-                </div>
-
-                <p className="text-xs text-gray-600 mb-3">Elige qué hacer con las citas antes de desactivar:</p>
-
-                <div className="space-y-2 mb-4">
-                  {/* Option: Smart Reschedule */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      deactivateAction === 'smart_reschedule'
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="deactivateAction"
-                      value="smart_reschedule"
-                      checked={deactivateAction === 'smart_reschedule'}
-                      onChange={() => setDeactivateAction('smart_reschedule')}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Reagendar inteligente</p>
-                      <p className="text-xs text-gray-500">
-                        Las citas se mantienen en el mismo horario y se asignan automáticamente a
-                        otro empleado capacitado con disponibilidad. Si alguna no puede reasignarse, podrás resolverla manualmente.
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Option: Reassign */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      deactivateAction === 'reassign'
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="deactivateAction"
-                      value="reassign"
-                      checked={deactivateAction === 'reassign'}
-                      onChange={() => setDeactivateAction('reassign')}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Reasignar a otro empleado</p>
-                      <p className="text-xs text-gray-500">Las citas se transferirán al empleado seleccionado</p>
-                      {deactivateAction === 'reassign' && (
-                        <select
-                          value={targetEmployeeId}
-                          onChange={(e) => { setTargetEmployeeId(e.target.value); setDeactivateError(null); }}
-                          className="mt-2 w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                        >
-                          <option value="">Seleccionar empleado...</option>
-                          {activeEmployees.map((emp: any) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.firstName} {emp.lastName}
-                            </option>
-                          ))}
-                        </select>
+            {/* Servicios */}
+            {services.length > 0 && (
+              <Section title={`Servicios de ${employee.firstName}`} count={services.length}>
+                <div className="grid gap-3 p-3">
+                  {services.map((s) => (
+                    <div
+                      key={s.id}
+                      className="w-full text-left p-3 rounded-xl border border-gray-200 bg-white flex items-center gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-900 truncate">{s.name}</p>
+                        {s.description && (
+                          <p className="text-xs text-gray-500 line-clamp-2">{s.description}</p>
+                        )}
+                      </div>
+                      {(s.price != null || s.durationMinutes != null) && (
+                        <div className="text-right flex-shrink-0">
+                          {s.price != null && (
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(Number(s.price), s.currency || 'MXN')}
+                            </p>
+                          )}
+                          {s.durationMinutes != null && (
+                            <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </label>
+                  ))}
+                </div>
+              </Section>
+            )}
 
-                  {/* Option: Cancel */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      deactivateAction === 'cancel'
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="deactivateAction"
-                      value="cancel"
-                      checked={deactivateAction === 'cancel'}
-                      onChange={() => setDeactivateAction('cancel')}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Cancelar todas las citas</p>
-                      <p className="text-xs text-gray-500">Todas las citas pendientes serán canceladas</p>
-                      {deactivateAction === 'cancel' && (
-                        <textarea
-                          value={cancelReason}
-                          onChange={(e) => setCancelReason(e.target.value)}
-                          placeholder="Motivo de cancelación (opcional)"
-                          rows={2}
-                          className="mt-2 w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 resize-none"
-                        />
-                      )}
-                    </div>
-                  </label>
-
-                  {/* Option: Keep */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      deactivateAction === 'keep'
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="deactivateAction"
-                      value="keep"
-                      checked={deactivateAction === 'keep'}
-                      onChange={() => setDeactivateAction('keep')}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Mantener citas como están</p>
-                      <p className="text-xs text-gray-500">El empleado se desactiva pero sus citas quedan sin cambios</p>
-                      {deactivateAction === 'keep' && (
-                        <p className="mt-1 text-xs text-amber-600">
-                          Las citas seguirán asignadas a un empleado inactivo
-                        </p>
-                      )}
-                    </div>
-                  </label>
+            {/* Estadísticas */}
+            <Section title="Estadísticas">
+              <div className="p-3 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard
+                    label="Citas completadas"
+                    value={stats?.completedAllTime ?? '-'}
+                    sub={stats ? `${stats.completedThisMonth} este mes` : undefined}
+                    loading={loadingStats}
+                  />
+                  <StatCard
+                    label="Ingresos totales"
+                    value={stats ? formatCurrency(stats.totalRevenue) : '-'}
+                    loading={loadingStats}
+                  />
+                  <StatCard
+                    label="Cancelaciones"
+                    value={stats?.cancelledCount ?? '-'}
+                    sub={stats ? `${stats.cancellationRate}% tasa` : undefined}
+                    loading={loadingStats}
+                  />
+                  <StatCard
+                    label="No asistió"
+                    value={stats?.noShowCount ?? '-'}
+                    loading={loadingStats}
+                  />
                 </div>
 
-                {/* Error message */}
-                {deactivateError && (
-                  <div className="mb-3 p-2 rounded-lg bg-red-100 border border-red-300">
-                    <p className="text-xs text-red-700">{deactivateError}</p>
+                {stats && stats.topServices.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Top servicios</h3>
+                    <div className="space-y-2">
+                      {stats.topServices.map((svc, i) => {
+                        const maxCount = stats.topServices[0].count;
+                        const pct = maxCount > 0 ? (svc.count / maxCount) * 100 : 0;
+                        return (
+                          <div key={i} className="flex items-center gap-3">
+                            <span className="text-xs text-gray-700 w-32 truncate flex-shrink-0">
+                              {svc.serviceName}
+                            </span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${pct}%`, backgroundColor: empColor }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 w-8 text-right flex-shrink-0">
+                              {svc.count}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const body: any = { action: deactivateAction };
-                      if (deactivateAction === 'reassign') body.targetEmployeeId = targetEmployeeId;
-                      if (deactivateAction === 'cancel' && cancelReason) body.cancelReason = cancelReason;
-                      deactivateMutation.mutate(body);
-                    }}
-                    disabled={
-                      deactivateMutation.isPending ||
-                      (deactivateAction === 'reassign' && !targetEmployeeId)
-                    }
-                    className="btn-danger text-sm py-1.5 px-4"
-                  >
-                    {deactivateMutation.isPending
-                      ? (deactivateAction === 'smart_reschedule' ? 'Reagendando...' : 'Procesando...')
-                      : 'Confirmar desactivación'}
-                  </button>
-                  <button
-                    onClick={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
-                    className="btn-secondary text-sm py-1.5 px-4"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-gray-200">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab: Estadísticas */}
-        {activeTab === 'estadisticas' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {/* Stats cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard
-                  label="Citas completadas"
-                  value={stats?.completedAllTime ?? '-'}
-                  sub={stats ? `${stats.completedThisMonth} este mes` : undefined}
-                  loading={loadingStats}
-                />
-                <StatCard
-                  label="Ingresos totales"
-                  value={stats ? formatCurrency(stats.totalRevenue) : '-'}
-                  loading={loadingStats}
-                />
-                <StatCard
-                  label="Cancelaciones"
-                  value={stats?.cancelledCount ?? '-'}
-                  sub={stats ? `${stats.cancellationRate}% tasa` : undefined}
-                  loading={loadingStats}
-                />
-                <StatCard
-                  label="Ausente"
-                  value={stats?.noShowCount ?? '-'}
-                  loading={loadingStats}
-                />
-              </div>
-
-              {/* Top services */}
-              {stats && stats.topServices.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3">Top servicios</h3>
-                  <div className="space-y-2">
-                    {stats.topServices.map((svc, i) => {
-                      const maxCount = stats.topServices[0].count;
-                      const pct = maxCount > 0 ? (svc.count / maxCount) * 100 : 0;
-                      return (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className="text-sm text-gray-700 w-40 truncate flex-shrink-0">
-                            {svc.serviceName}
-                          </span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${pct}%`, backgroundColor: empColor }}
-                            />
+                {stats && stats.upcomingAppointments.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Próximas citas</h3>
+                    <div className="space-y-2">
+                      {stats.upcomingAppointments.map((apt) => (
+                        <div
+                          key={apt.id}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-gray-50"
+                        >
+                          <div className="text-center flex-shrink-0 w-10">
+                            <p className="text-[10px] text-gray-400 uppercase">
+                              {dayjs.utc(apt.startTime).format('MMM')}
+                            </p>
+                            <p className="text-base font-bold text-gray-900">
+                              {dayjs.utc(apt.startTime).format('DD')}
+                            </p>
                           </div>
-                          <span className="text-xs text-gray-500 w-8 text-right flex-shrink-0">
-                            {svc.count}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Upcoming appointments */}
-              {stats && stats.upcomingAppointments.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3">Próximas citas</h3>
-                  <div className="space-y-3">
-                    {stats.upcomingAppointments.map((apt) => (
-                      <div
-                        key={apt.id}
-                        className="flex items-center gap-4 p-3 rounded-lg bg-gray-50"
-                      >
-                        <div className="text-center flex-shrink-0 w-12">
-                          <p className="text-xs text-gray-400">
-                            {dayjs.utc(apt.startTime).format('MMM')}
-                          </p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {dayjs.utc(apt.startTime).format('DD')}
-                          </p>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {apt.client.firstName} {apt.client.lastName}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {apt.items.map((it) => it.serviceNameSnapshot).join(', ')}
-                          </p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-sm text-gray-700">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {apt.client.firstName} {apt.client.lastName}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {apt.items.map((it) => it.serviceNameSnapshot).join(', ')}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-700 whitespace-nowrap">
                             {dayjs.utc(apt.startTime).format('h:mm A')}
                           </p>
-                          <span
-                            className={`text-xs px-1.5 py-0.5 rounded-full ${
-                              apt.status === 'CONFIRMED'
-                                ? 'bg-green-50 text-green-700'
-                                : apt.status === 'RESCHEDULED'
-                                ? 'bg-orange-50 text-orange-700'
-                                : 'bg-yellow-50 text-yellow-700'
-                            }`}
-                          >
-                            {apt.status === 'CONFIRMED' ? 'Confirmada' : apt.status === 'RESCHEDULED' ? 'Reagendada' : 'Pendiente'}
-                          </span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {stats &&
-                stats.upcomingAppointments.length === 0 &&
-                stats.topServices.length === 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                    <p className="text-gray-500">
-                      Este empleado aún no tiene citas registradas.
-                    </p>
+                      ))}
+                    </div>
                   </div>
                 )}
-            </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Info card */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-3">Información</h3>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="text-gray-400 text-xs">Miembro desde</p>
-                    <p className="text-gray-700">
-                      {formatDate(employee.createdAt, 'D MMM YYYY')}
-                    </p>
+                {workingDays.length > 0 && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Días laborales</p>
+                    <p className="text-sm text-gray-700">{workingDays.join(', ')}</p>
                   </div>
-                  {workingDays.length > 0 && (
-                    <div>
-                      <p className="text-gray-400 text-xs">Días laborales</p>
-                      <p className="text-gray-700">{workingDays.join(', ')}</p>
-                    </div>
-                  )}
+                )}
+
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Miembro desde</p>
+                  <p className="text-sm text-gray-700">{formatDate(employee.createdAt, 'D MMM YYYY')}</p>
                 </div>
               </div>
+            </Section>
 
-              {/* Services card */}
-              {services.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    Servicios ({services.length})
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {services.map((svc) => (
-                      <span
-                        key={svc.id}
-                        className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full"
-                      >
-                        {svc.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+            {/* Trabajos (Portfolio) */}
+            <Section title="Trabajos" count={employee._count?.portfolioImages}>
+              <div className="p-3">
+                <PortfolioGallery employeeId={employeeId} canEdit={canEdit} />
+              </div>
+            </Section>
 
-        {/* Tab: Servicios */}
-        {activeTab === 'servicios' && (
-          <EmployeeServicesEditor employeeId={employeeId} />
-        )}
-
-        {/* Tab: Portfolio */}
-        {activeTab === 'portfolio' && (
-          <PortfolioGallery employeeId={employeeId} canEdit={canEdit} />
-        )}
-
-        {/* Tab: Formación */}
-        {activeTab === 'formacion' && (
-          <EmployeeTraining employeeId={employeeId} canEdit={canEdit} />
-        )}
-
-        {/* Tab: Reseñas */}
-        {activeTab === 'resenas' && (
-          <div className="space-y-6">
-            {/* Summary + Add button */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            {/* Comentarios */}
+            <Section title="Comentarios" count={reviews?.totalReviews}>
+              <div className="p-3 space-y-3">
                 {reviews && reviews.averageRating !== null && (
-                  <>
-                    <span className="text-3xl font-bold text-gray-900">
-                      {reviews.averageRating}
-                    </span>
+                  <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                    <span className="text-3xl font-bold text-gray-900">{reviews.averageRating}</span>
                     <div>
                       <StarRating rating={reviews.averageRating} size="md" />
-                      <p className="text-sm text-gray-400 mt-0.5">
-                        {reviews.totalReviews} reseña
-                        {reviews.totalReviews !== 1 ? 's' : ''}
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {reviews.totalReviews} reseña{reviews.totalReviews !== 1 ? 's' : ''}
                       </p>
                     </div>
-                  </>
+                  </div>
                 )}
-                {reviews && reviews.averageRating === null && (
-                  <p className="text-sm text-gray-400">Sin reseñas aún</p>
+                {reviews && reviews.reviews.length > 0 ? (
+                  <div className="space-y-3">
+                    {reviews.reviews.map((review) => (
+                      <ReviewCard key={review.id} review={review} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 py-4 text-center">Sin reseñas aún</p>
                 )}
               </div>
-            </div>
+            </Section>
 
-            {/* Reviews list */}
-            {reviews && reviews.reviews.length > 0 && (
-              <div className="space-y-3">
-                {reviews.reviews.map((review) => (
-                  <ReviewCard key={review.id} review={review} />
-                ))}
+            {/* Formación */}
+            <Section title="Formación" count={employee._count?.trainings}>
+              <div className="p-3">
+                <EmployeeTraining employeeId={employeeId} canEdit={canEdit} />
+              </div>
+            </Section>
+
+            {/* Botón Desactivar/Reactivar */}
+            {canDelete && !isOwnProfile && (
+              <div className="pt-2">
+                {employee.isActive ? (
+                  <button
+                    type="button"
+                    disabled={loadingPendingCount}
+                    onClick={async () => {
+                      setLoadingPendingCount(true);
+                      setDeactivateError(null);
+                      setDeactivateAction('smart_reschedule');
+                      setTargetEmployeeId('');
+                      setCancelReason('');
+                      try {
+                        const res = await api.get<{ data: { count: number } }>(
+                          `/api/employees/${employeeId}/pending-appointments-count`,
+                        );
+                        setPendingCount(res.data.count);
+                      } catch {
+                        setPendingCount(0);
+                      }
+                      setLoadingPendingCount(false);
+                      setShowDeactivateConfirm(true);
+                    }}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                  >
+                    {loadingPendingCount ? 'Verificando...' : 'Desactivar empleado'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleActiveMutation.mutate(true)}
+                    disabled={toggleActiveMutation.isPending}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-semibold border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-50 transition-colors"
+                  >
+                    {toggleActiveMutation.isPending ? 'Reactivando...' : 'Reactivar empleado'}
+                  </button>
+                )}
               </div>
             )}
           </div>
-        )}
-
-        {/* Tab: Info Personal */}
-        {activeTab === 'info_personal' && (
-          <EmployeePersonalInfo
-            employeeId={employeeId}
-            initialData={{
-              firstName: employee.firstName,
-              lastName: employee.lastName,
-              email: employee.email,
-              phone: employee.phone,
-              color: employee.color,
-              bio: employee.bio,
-              bloodType: employee.bloodType,
-              emergencyContactName: employee.emergencyContactName,
-              emergencyContactLastName: employee.emergencyContactLastName,
-              emergencyContactPhone: employee.emergencyContactPhone,
-              emergencyContactRelation: employee.emergencyContactRelation,
-              allergies: employee.allergies,
-            }}
-            canEdit={canEdit}
-          />
-        )}
-
-        {/* Tab: Permisos */}
-        {activeTab === 'permisos' && (
-          <EmployeePermissions
-            employeeId={employeeId}
-            canManage={hasPermission('roles.update')}
-          />
-        )}
+        </div>
       </div>
 
-      {/* Smart Reschedule Result Modal */}
+      {/* ─── Modal: confirmar desactivación ─── */}
+      {showDeactivateConfirm && (
+        <Modal
+          title={`Desactivar a ${employee.firstName} ${employee.lastName}?`}
+          onClose={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
+        >
+          {pendingCount === 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                El empleado no tiene citas pendientes. Dejará de aparecer en el calendario, filtros y al crear citas. Puedes reactivarlo en cualquier momento.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
+                  className="px-4 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => deactivateMutation.mutate({ action: 'keep' })}
+                  disabled={deactivateMutation.isPending}
+                  className="px-4 py-1.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deactivateMutation.isPending ? 'Desactivando...' : 'Confirmar desactivación'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span className="text-sm font-medium text-amber-800">
+                  Este empleado tiene {pendingCount} cita{pendingCount !== 1 ? 's' : ''} pendiente{pendingCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <p className="text-xs text-gray-600">Elige qué hacer con las citas antes de desactivar:</p>
+
+              <div className="space-y-2">
+                <DeactivateOption
+                  selected={deactivateAction === 'smart_reschedule'}
+                  onSelect={() => setDeactivateAction('smart_reschedule')}
+                  title="Reagendar inteligente"
+                  desc="Las citas se mantienen en el mismo horario y se asignan automáticamente a otro empleado capacitado con disponibilidad."
+                />
+                <DeactivateOption
+                  selected={deactivateAction === 'reassign'}
+                  onSelect={() => setDeactivateAction('reassign')}
+                  title="Reasignar a otro empleado"
+                  desc="Las citas se transferirán al empleado seleccionado"
+                >
+                  {deactivateAction === 'reassign' && (
+                    <select
+                      value={targetEmployeeId}
+                      onChange={(e) => { setTargetEmployeeId(e.target.value); setDeactivateError(null); }}
+                      className="mt-2 w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5"
+                    >
+                      <option value="">Seleccionar empleado...</option>
+                      {activeEmployees.map((emp: any) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </DeactivateOption>
+                <DeactivateOption
+                  selected={deactivateAction === 'cancel'}
+                  onSelect={() => setDeactivateAction('cancel')}
+                  title="Cancelar todas las citas"
+                  desc="Todas las citas pendientes serán canceladas"
+                >
+                  {deactivateAction === 'cancel' && (
+                    <textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="Motivo de cancelación (opcional)"
+                      rows={2}
+                      className="mt-2 w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 resize-none"
+                    />
+                  )}
+                </DeactivateOption>
+                <DeactivateOption
+                  selected={deactivateAction === 'keep'}
+                  onSelect={() => setDeactivateAction('keep')}
+                  title="Mantener citas como están"
+                  desc="El empleado se desactiva pero sus citas quedan sin cambios"
+                >
+                  {deactivateAction === 'keep' && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Las citas seguirán asignadas a un empleado inactivo
+                    </p>
+                  )}
+                </DeactivateOption>
+              </div>
+
+              {deactivateError && (
+                <div className="p-2 rounded-lg bg-red-100 border border-red-300">
+                  <p className="text-xs text-red-700">{deactivateError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => { setShowDeactivateConfirm(false); setDeactivateError(null); }}
+                  className="px-4 py-1.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    const body: any = { action: deactivateAction };
+                    if (deactivateAction === 'reassign') body.targetEmployeeId = targetEmployeeId;
+                    if (deactivateAction === 'cancel' && cancelReason) body.cancelReason = cancelReason;
+                    deactivateMutation.mutate(body);
+                  }}
+                  disabled={
+                    deactivateMutation.isPending ||
+                    (deactivateAction === 'reassign' && !targetEmployeeId)
+                  }
+                  className="px-4 py-1.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deactivateMutation.isPending
+                    ? (deactivateAction === 'smart_reschedule' ? 'Reagendando...' : 'Procesando...')
+                    : 'Confirmar desactivación'}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* ─── Modal: Smart Reschedule Result ─── */}
       {showSmartResult && smartResult && (
         <Modal
           title="Resultado de reagendar inteligente"
           onClose={() => { setShowSmartResult(false); setSmartResult(null); }}
         >
           <div className="space-y-4">
-            {/* Summary bar */}
             <div className="flex gap-3">
               <div className="flex-1 p-3 rounded-lg bg-green-50 border border-green-200 text-center">
                 <p className="text-2xl font-bold text-green-700">{smartResult.reassignedCount}</p>
@@ -1109,7 +1066,6 @@ export default function EmployeeProfilePage() {
               )}
             </div>
 
-            {/* Reassignments list */}
             {smartResult.reassignments.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Citas reasignadas (mismo horario)</h4>
@@ -1132,7 +1088,6 @@ export default function EmployeeProfilePage() {
               </div>
             )}
 
-            {/* Conflicts preview */}
             {smartResult.conflicts.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-amber-700 mb-2">
@@ -1143,7 +1098,9 @@ export default function EmployeeProfilePage() {
                     <div key={c.id} className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs">
                       <p className="font-medium text-gray-800">{c.clientName}</p>
                       <p className="text-gray-500">{c.services.map((s) => s.serviceName).join(', ')}</p>
-                      <p className="text-amber-600 mt-1">{dayjs.utc(c.startTime).format('D/M/YYYY HH:mm')} - {dayjs.utc(c.endTime).format('HH:mm')}</p>
+                      <p className="text-amber-600 mt-1">
+                        {dayjs.utc(c.startTime).format('D/M/YYYY HH:mm')} - {dayjs.utc(c.endTime).format('HH:mm')}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -1152,18 +1109,15 @@ export default function EmployeeProfilePage() {
 
             {smartResult.conflicts.length > 0 ? (
               <button
-                onClick={() => {
-                  setShowSmartResult(false);
-                  setShowConflictWizard(true);
-                }}
-                className="btn-primary w-full"
+                onClick={() => { setShowSmartResult(false); setShowConflictWizard(true); }}
+                className="w-full px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
               >
                 Resolver conflictos manualmente
               </button>
             ) : (
               <button
                 onClick={() => { setShowSmartResult(false); setSmartResult(null); }}
-                className="btn-primary w-full"
+                className="w-full px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
               >
                 Entendido
               </button>
@@ -1172,7 +1126,7 @@ export default function EmployeeProfilePage() {
         </Modal>
       )}
 
-      {/* Conflict Resolution Wizard */}
+      {/* ─── Modal: Conflict Wizard ─── */}
       {showConflictWizard && conflicts.length > 0 && (
         <Modal
           title={
@@ -1183,7 +1137,6 @@ export default function EmployeeProfilePage() {
           onClose={() => { setShowConflictWizard(false); setConflicts([]); }}
         >
           {resolvedConflicts.length >= conflicts.length ? (
-            /* All conflicts resolved — show summary and finalize */
             <div className="space-y-4">
               <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                 <p className="text-sm font-medium text-green-800">
@@ -1203,25 +1156,20 @@ export default function EmployeeProfilePage() {
               )}
 
               <button
-                onClick={() => {
-                  setDeactivateError(null);
-                  finalizeMutation.mutate();
-                }}
+                onClick={() => { setDeactivateError(null); finalizeMutation.mutate(); }}
                 disabled={finalizeMutation.isPending}
-                className="btn-danger w-full"
+                className="w-full px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
               >
                 {finalizeMutation.isPending ? 'Finalizando...' : 'Finalizar desactivación'}
               </button>
             </div>
           ) : (
-            /* Show current conflict */
             (() => {
               const conflict = conflicts[currentConflictIdx];
               const serviceIds = conflict.services.map((s) => s.serviceId);
               const currentTargetEmpId = wizardMode === 'smart' ? conflictEmployeeId : reassignTargetId;
               return (
                 <div className="space-y-4">
-                  {/* Conflict info */}
                   <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
                     <p className="text-sm font-medium text-gray-800">{conflict.clientName}</p>
                     <p className="text-xs text-gray-500">
@@ -1240,31 +1188,25 @@ export default function EmployeeProfilePage() {
                       </div>
                     ) : (
                       <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
-                        <p className="text-xs text-amber-700">
-                          Ningún empleado disponible en este horario
-                        </p>
+                        <p className="text-xs text-amber-700">Ningún empleado disponible en este horario</p>
                       </div>
                     )}
                   </div>
 
-                  {/* Employee selector (smart mode) */}
                   {wizardMode === 'smart' && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Seleccionar empleado
-                      </label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Seleccionar empleado</label>
                       <select
                         value={conflictEmployeeId}
                         onChange={(e) => {
                           setConflictEmployeeId(e.target.value);
                           setConflictSlots([]);
                           setConflictSelectedSlot(null);
-                          // Auto-fetch slots if date is already selected
                           if (conflictDate && e.target.value) {
                             fetchConflictSlots(conflictDate, e.target.value, serviceIds);
                           }
                         }}
-                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5"
                       >
                         <option value="">-- Selecciona un empleado --</option>
                         {activeEmployees.map((emp: any) => (
@@ -1276,7 +1218,6 @@ export default function EmployeeProfilePage() {
                     </div>
                   )}
 
-                  {/* Date picker + slot grid for reschedule */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       {wizardMode === 'smart' ? 'Seleccionar fecha y hora' : 'Reagendar a otra fecha/hora'}
@@ -1294,12 +1235,12 @@ export default function EmployeeProfilePage() {
                         }
                       }}
                       disabled={wizardMode === 'smart' && !conflictEmployeeId}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
 
                     {loadingConflictSlots && (
                       <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-600" />
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-[#008080]" />
                         Buscando horarios...
                       </div>
                     )}
@@ -1315,8 +1256,8 @@ export default function EmployeeProfilePage() {
                               onClick={() => setConflictSelectedSlot(slot.startTime)}
                               className={`text-xs py-1.5 px-2 rounded border transition-colors ${
                                 conflictSelectedSlot === slot.startTime
-                                  ? 'bg-primary-600 text-white border-primary-600'
-                                  : 'bg-white text-gray-700 border-gray-200 hover:border-primary-400'
+                                  ? 'bg-[#008080] text-white border-[#008080]'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-[#008080]/50'
                               }`}
                             >
                               {slot.startTime}
@@ -1330,50 +1271,59 @@ export default function EmployeeProfilePage() {
                     )}
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Motivo (si cancelas)</label>
+                    <input
+                      type="text"
+                      value={conflictCancelReason}
+                      onChange={(e) => setConflictCancelReason(e.target.value)}
+                      placeholder="Opcional"
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5"
+                    />
+                  </div>
+
                   {deactivateError && (
                     <div className="p-2 rounded-lg bg-red-100 border border-red-300">
                       <p className="text-xs text-red-700">{deactivateError}</p>
                     </div>
                   )}
 
-                  {/* Actions */}
                   <div className="space-y-2">
                     <button
                       onClick={() => { setDeactivateError(null); handleResolveConflict('reschedule'); }}
                       disabled={!conflictSelectedSlot || !conflictDate || !currentTargetEmpId || processingConflict}
-                      className="btn-primary w-full text-sm py-1.5"
+                      className="w-full px-4 py-1.5 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666] disabled:opacity-50"
                     >
                       {processingConflict ? 'Reagendando...' : 'Reagendar a este horario'}
                     </button>
-
                     <div className="flex gap-2">
                       <button
                         onClick={() => { setDeactivateError(null); handleResolveConflict('cancel'); }}
                         disabled={processingConflict}
-                        className="flex-1 btn-danger text-sm py-1.5"
+                        className="flex-1 px-4 py-1.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
                       >
                         Cancelar cita
                       </button>
                       <button
                         onClick={() => { setDeactivateError(null); handleResolveConflict('skip'); }}
                         disabled={processingConflict}
-                        className="flex-1 btn-secondary text-sm py-1.5"
+                        className="flex-1 px-4 py-1.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       >
                         Omitir
                       </button>
                     </div>
                   </div>
 
-                  {/* Progress */}
                   <div className="flex gap-1">
                     {conflicts.map((_, i) => (
                       <div
                         key={i}
                         className={`h-1 flex-1 rounded-full ${
-                          i < currentConflictIdx || (i === currentConflictIdx && resolvedConflicts.length > currentConflictIdx)
+                          i < currentConflictIdx ||
+                          (i === currentConflictIdx && resolvedConflicts.length > currentConflictIdx)
                             ? 'bg-green-400'
                             : i === currentConflictIdx
-                            ? 'bg-primary-400'
+                            ? 'bg-[#008080]'
                             : 'bg-gray-200'
                         }`}
                       />
@@ -1386,9 +1336,7 @@ export default function EmployeeProfilePage() {
         </Modal>
       )}
 
-      {/* Cover crop modal — formato vertical (portrait) porque asi se ve
-          en el perfil publico del marketplace. La banda chica de la card
-          en admin es solo un preview. */}
+      {/* ─── Cover crop modal ─── */}
       {coverPendingFile && (
         <CoverCropModal
           imageFile={coverPendingFile}
@@ -1402,44 +1350,53 @@ export default function EmployeeProfilePage() {
         />
       )}
 
+      {/* ─── Edit drawer ─── */}
+      {showEditDrawer && (
+        <EmployeeEditDrawer
+          employeeId={employeeId}
+          canEdit={canEdit}
+          canManagePermissions={canManagePermissions}
+          initialData={{
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            email: employee.email,
+            phone: employee.phone,
+            color: employee.color,
+            bio: employee.bio,
+            bloodType: employee.bloodType,
+            emergencyContactName: employee.emergencyContactName,
+            emergencyContactLastName: employee.emergencyContactLastName,
+            emergencyContactPhone: employee.emergencyContactPhone,
+            emergencyContactRelation: employee.emergencyContactRelation,
+            allergies: employee.allergies,
+          }}
+          onClose={() => {
+            setShowEditDrawer(false);
+            queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+          }}
+        />
+      )}
     </div>
   );
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-function EmployeeAvatar({
-  avatarUrl,
-  firstName,
-  lastName,
-  avatarBg,
-  size = 'w-14 h-14',
-  textSize = 'text-lg',
+function Section({
+  title,
+  count,
+  children,
 }: {
-  avatarUrl?: string | null;
-  firstName: string;
-  lastName: string;
-  avatarBg: React.CSSProperties;
-  size?: string;
-  textSize?: string;
+  title: string;
+  count?: number;
+  children: React.ReactNode;
 }) {
-  if (avatarUrl) {
-    const src = avatarUrl.startsWith('http') ? avatarUrl : `${API_URL}${avatarUrl}`;
-    return (
-      <img
-        src={src}
-        alt={`${firstName} ${lastName}`}
-        className={`${size} rounded-full object-cover flex-shrink-0`}
-      />
-    );
-  }
   return (
-    <div
-      className={`${size} rounded-full flex items-center justify-center ${textSize} font-bold flex-shrink-0`}
-      style={avatarBg}
-    >
-      {getInitials(firstName, lastName)}
-    </div>
+    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        {count != null && <span className="text-xs text-gray-500">{count}</span>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -1456,18 +1413,51 @@ function StatCard({
 }) {
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-3 bg-gray-100 rounded w-20 mb-2" />
-        <div className="h-6 bg-gray-100 rounded w-16" />
+      <div className="bg-gray-50 rounded-lg p-3 animate-pulse">
+        <div className="h-3 bg-gray-200 rounded w-20 mb-2" />
+        <div className="h-5 bg-gray-200 rounded w-16" />
       </div>
     );
   }
-
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
-      <p className="text-xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
+    <div className="bg-gray-50 rounded-lg p-3">
+      <p className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-lg font-bold text-gray-900 mt-0.5">{value}</p>
+      {sub && <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>}
     </div>
+  );
+}
+
+function DeactivateOption({
+  selected,
+  onSelect,
+  title,
+  desc,
+  children,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  title: string;
+  desc: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <label
+      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+        selected ? 'border-[#008080] bg-[var(--primary-tint)]' : 'border-gray-200 bg-white hover:border-gray-300'
+      }`}
+    >
+      <input
+        type="radio"
+        checked={selected}
+        onChange={onSelect}
+        className="mt-0.5"
+      />
+      <div className="flex-1">
+        <p className="text-sm font-medium text-gray-900">{title}</p>
+        <p className="text-xs text-gray-500">{desc}</p>
+        {children}
+      </div>
+    </label>
   );
 }
