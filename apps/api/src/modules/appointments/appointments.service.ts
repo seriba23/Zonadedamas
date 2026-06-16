@@ -823,9 +823,21 @@ export class AppointmentsService {
       }
     }
 
+    // Si la cita se completa sin haber registrado ningun pago previamente
+    // (caso tipico: el admin marca COMPLETED desde el AppointmentModal sin
+    // pasar por el wizard del empleado), la cita debe quedar pendiente de
+    // cobro en el POS. Sin esto, la cita desaparece del POS y queda sin
+    // posibilidad de cobrar. Si ya hay un pago COMPLETED, no hace falta.
+    const existingPayment = await this.prisma.payment.findFirst({
+      where: { appointmentId: id, tenantId, status: 'COMPLETED' },
+      select: { id: true },
+    });
     const updated = await this.prisma.appointment.update({
       where: { id },
-      data: { status: 'COMPLETED' },
+      data: {
+        status: 'COMPLETED',
+        pendingPosPayment: existingPayment ? false : true,
+      },
     });
 
     // Productos reservados al hacer el booking: marcarlos como DELIVERED

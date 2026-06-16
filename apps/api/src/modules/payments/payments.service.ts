@@ -129,6 +129,14 @@ export class PaymentsService {
             employeeId: appointment.employeeId,
           },
         );
+      } else if (appointment && appointment.pendingPosPayment) {
+        // La cita ya estaba COMPLETED (admin la cerro sin cobrar) y se quedo
+        // en el POS con pendingPosPayment=true. Al cobrar aqui, simplemente
+        // desactivamos el flag para que desaparezca del listado.
+        await this.prisma.appointment.update({
+          where: { id: dto.appointmentId },
+          data: { pendingPosPayment: false },
+        });
       }
 
       // Productos reservados al hacer el booking: marcarlos como DELIVERED.

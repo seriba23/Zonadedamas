@@ -97,7 +97,11 @@ export function CloseAppointmentWizard({
   // el onChange del input se dispara, el closure leeria el valor viejo
   // (null). Con ref el valor esta disponible sincrono.
   const pendingServiceIdRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  // Servicio para el cual se esta eligiendo origen de la foto. Si no es
+  // null se muestra el bottom sheet con opciones "Camara" / "Galeria".
+  const [photoSourceFor, setPhotoSourceFor] = useState<string | null>(null);
 
   const total = appointment.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
 
@@ -146,8 +150,23 @@ export function CloseAppointmentWizard({
   };
 
   function openFilePicker(serviceId: string) {
-    pendingServiceIdRef.current = serviceId;
-    fileInputRef.current?.click();
+    setPhotoSourceFor(serviceId);
+  }
+
+  function pickFromCamera() {
+    const sid = photoSourceFor;
+    setPhotoSourceFor(null);
+    if (!sid) return;
+    pendingServiceIdRef.current = sid;
+    cameraInputRef.current?.click();
+  }
+
+  function pickFromGallery() {
+    const sid = photoSourceFor;
+    setPhotoSourceFor(null);
+    if (!sid) return;
+    pendingServiceIdRef.current = sid;
+    galleryInputRef.current?.click();
   }
 
   const [confirmationToken, setConfirmationToken] = useState<string | null>(null);
@@ -342,13 +361,28 @@ export function CloseAppointmentWizard({
                 })}
               </div>
 
+              {/* Dos inputs ocultos: uno fuerza la camara (capture), otro
+                  permite elegir de la galeria. Mostramos un sheet antes para
+                  que el usuario escoja la fuente. En desktop ambos abren el
+                  dialogo del file system normal. */}
               <input
-                ref={fileInputRef}
+                ref={cameraInputRef}
                 type="file"
                 accept="image/*"
-                /* capture="environment" abre directamente la camara trasera en mobile.
-                   En desktop el browser lo ignora y muestra el dialogo normal. */
                 capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  const sid = pendingServiceIdRef.current;
+                  if (file && sid) handleUploadPhoto(file, sid);
+                  pendingServiceIdRef.current = null;
+                  e.target.value = '';
+                }}
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -526,6 +560,56 @@ export function CloseAppointmentWizard({
           )}
         </div>
       </div>
+
+      {/* Bottom sheet: elegir origen de la foto (camara o galeria).
+          Se muestra por encima del wizard pero por debajo del RebookModal. */}
+      {photoSourceFor && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          onClick={(e) => { e.stopPropagation(); setPhotoSourceFor(null); }}
+        >
+          <div
+            className="bg-white w-full max-w-sm rounded-t-2xl p-4 pb-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+            <h3 className="text-sm font-semibold text-gray-900 text-center mb-3">
+              Agregar foto
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={pickFromCamera}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+              >
+                <span className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: '#e0f2f1', color: TEAL }}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+                  </svg>
+                </span>
+                <span className="text-sm font-medium text-gray-900">Tomar foto</span>
+              </button>
+              <button
+                onClick={pickFromGallery}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+              >
+                <span className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: '#e0f2f1', color: TEAL }}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                </span>
+                <span className="text-sm font-medium text-gray-900">Elegir de la galería</span>
+              </button>
+              <button
+                onClick={() => setPhotoSourceFor(null)}
+                className="w-full py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RebookPromptModal
         show={showRebook}

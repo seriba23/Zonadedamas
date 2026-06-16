@@ -754,13 +754,15 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
             </button>
 
             {/* Tabs: Citas / Apartados. Solo aparecen cuando hay items en
-                alguna de las dos categorias para no contaminar la pantalla. */}
+                alguna de las dos categorias para no contaminar la pantalla.
+                Mismo ancho total que el boton "Venta directa" (w-full) y
+                cada pestana ocupa la mitad (flex-1). */}
             {(appointments.length > 0 || payableReservations.length > 0) && (
-              <div className="inline-flex bg-gray-100 border border-gray-200 rounded-lg p-0.5 mt-2">
+              <div className="flex w-full bg-gray-100 border border-gray-200 rounded-lg p-0.5 mt-2">
                 <button
                   type="button"
                   onClick={() => setStartTab('citas')}
-                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                  className={`flex-1 px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                     startTab === 'citas'
                       ? 'bg-[#008080] text-white shadow-sm'
                       : 'text-gray-600 hover:bg-gray-200'
@@ -771,7 +773,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
                 <button
                   type="button"
                   onClick={() => setStartTab('apartados')}
-                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                  className={`flex-1 px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                     startTab === 'apartados'
                       ? 'bg-[#008080] text-white shadow-sm'
                       : 'text-gray-600 hover:bg-gray-200'
