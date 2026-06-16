@@ -79,6 +79,32 @@ export function buildAppointmentMessage(opts: {
   return `Hola ${opts.tenantName}, soy cliente desde Siliba. Quería preguntar sobre mi cita${service}${when}.\nReferencia: ${ref}${link}`;
 }
 
+/**
+ * Mensaje del NEGOCIO HACIA EL CLIENTE como recordatorio de cita. Incluye
+ * link a /c/:token donde el cliente puede confirmar, reagendar o cancelar.
+ * Se compone desde la perspectiva del negocio que escribe al cliente.
+ */
+export function buildReminderMessage(opts: {
+  clientFirstName: string;
+  tenantName: string;
+  serviceName?: string;
+  employeeFirstName?: string;
+  startTime?: string;
+  token: string;
+}): string {
+  const greeting = `Hola ${opts.clientFirstName},`;
+  const service = opts.serviceName ? ` de *${opts.serviceName}*` : '';
+  const employee = opts.employeeFirstName ? ` con ${opts.employeeFirstName}` : '';
+  const when = opts.startTime ? ` el ${formatBookingDateLong(opts.startTime)}` : '';
+  const link = `${WEB_BASE}/c/${opts.token}`;
+
+  return (
+    `${greeting}\n` +
+    `Te recordamos tu cita${service}${when}${employee} en *${opts.tenantName}*.\n\n` +
+    `Confírmala o reagenda aquí:\n${link}`
+  );
+}
+
 /** Mensaje preescrito para un pago (genérico). */
 export function buildPaymentMessage(opts: {
   tenantName: string;

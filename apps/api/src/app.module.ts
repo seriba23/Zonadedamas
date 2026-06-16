@@ -19,6 +19,7 @@ import { EventsModule } from './modules/events/events.module';
 import { HealthModule } from './modules/health/health.module';
 import { PublicBookingModule } from './modules/public-booking/public-booking.module';
 import { ConfirmPaymentModule } from './modules/confirm-payment/confirm-payment.module';
+import { AppointmentReminderModule } from './modules/appointment-reminder/appointment-reminder.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { InviteCodesModule } from './modules/invite-codes/invite-codes.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
@@ -72,6 +73,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     HealthModule,
     PublicBookingModule,
     ConfirmPaymentModule,
+    AppointmentReminderModule,
     UploadsModule,
     InviteCodesModule,
     SubscriptionsModule,

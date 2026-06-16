@@ -1097,6 +1097,86 @@ export class AppointmentsService {
     return { data: { token: updated.confirmationToken, alreadyConfirmed: false } };
   }
 
+  /**
+   * Lista citas pendientes de recordatorio WhatsApp. Por defecto:
+   * - PENDING o CONFIRMED (no canceladas/completadas)
+   * - startTime entre ahora y ahora+36h
+   * - reminderSentAt null
+   *
+   * Si sentToday=true, devuelve solo las que YA se les envio recordatorio
+   * hoy (para la pestaña "Enviados hoy").
+   */
+  async listPendingReminders(
+    tenantId: string,
+    opts: { hoursAhead: number; sentToday: boolean },
+  ) {
+    const now = new Date();
+    const limit = new Date(now.getTime() + opts.hoursAhead * 3600 * 1000);
+
+    const where: any = {
+      tenantId,
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      startTime: { gte: now, lte: limit },
+    };
+
+    if (opts.sentToday) {
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      where.reminderSentAt = { gte: todayStart };
+    } else {
+      where.reminderSentAt = null;
+    }
+
+    const appointments = await this.prisma.appointment.findMany({
+      where,
+      include: {
+        client: {
+          select: { id: true, firstName: true, lastName: true, phone: true, avatarUrl: true },
+        },
+        employee: {
+          select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
+        },
+        items: {
+          select: { serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true },
+        },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    return { data: appointments };
+  }
+
+  /**
+   * Marca la cita como "recordatorio enviado" y, si no existe, genera el
+   * confirmationToken para que el frontend lo incluya en el wa.me link.
+   */
+  async markReminderSent(id: string, tenantId: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+      select: { id: true, confirmationToken: true },
+    });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+
+    let token = appointment.confirmationToken;
+    if (!token) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      token = '';
+      for (let i = 0; i < 12; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+    }
+
+    await this.prisma.appointment.update({
+      where: { id },
+      data: {
+        confirmationToken: token,
+        reminderSentAt: new Date(),
+      },
+    });
+
+    return { data: { token, reminderSentAt: new Date().toISOString() } };
+  }
+
   async confirm(id: string, tenantId: string, userId?: string) {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, tenantId },

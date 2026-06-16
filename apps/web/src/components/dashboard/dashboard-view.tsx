@@ -9,6 +9,7 @@ import { SalesBreakdownGrid } from './sales-breakdown-grid';
 import { Last7DaysChart } from './last-7-days-chart';
 import { UpcomingAppointments } from './upcoming-appointments';
 import { AlertsPanel } from './alerts-panel';
+import { RemindersCard } from './reminders-card';
 import { QuickActions } from './quick-actions';
 import { EmployeesToday } from './employees-today';
 
@@ -117,8 +118,9 @@ export function DashboardView() {
         />
       </div>
 
-      {/* Row 2: Alerts */}
+      {/* Row 2: Alerts + Reminders */}
       <AlertsPanel />
+      <RemindersCard />
 
       {/* Row 3: Chart + Upcoming */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

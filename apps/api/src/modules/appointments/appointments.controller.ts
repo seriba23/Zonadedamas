@@ -171,6 +171,39 @@ export class AppointmentsController {
     return this.appointmentsService.generateConfirmationToken(id, tenantId);
   }
 
+  /**
+   * Lista citas pendientes de recordatorio WhatsApp para el admin.
+   * Filtros: status PENDING/CONFIRMED, startTime entre ahora y ahora+36h,
+   * reminderSentAt null (a menos que sentToday=true para ver enviados hoy).
+   */
+  @Get('reminders/pending')
+  @RequirePermissions('appointments.read')
+  async pendingReminders(
+    @CurrentTenant() tenantId: string,
+    @Query('hoursAhead') hoursAhead?: string,
+    @Query('sentToday') sentToday?: string,
+  ) {
+    const hours = hoursAhead ? Number(hoursAhead) : 36;
+    return this.appointmentsService.listPendingReminders(tenantId, {
+      hoursAhead: hours,
+      sentToday: sentToday === 'true',
+    });
+  }
+
+  /**
+   * Marca la cita como "recordatorio enviado" (cuando el admin hace click
+   * en el boton de WhatsApp). Tambien genera el confirmationToken si no
+   * existe, para que el wa.me pueda incluir el link /c/:token.
+   */
+  @Post(':id/mark-reminder-sent')
+  @RequirePermissions('appointments.read')
+  async markReminderSent(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.markReminderSent(id, tenantId);
+  }
+
   // ─── COMPROBANTE DE PAGO (admin / POS) ───────────────
   // Sube/reemplaza la captura del comprobante de pago en una cita. Lo usa
   // el flujo de transferencia del POS cuando el cliente envía la captura

@@ -136,6 +136,7 @@ function PurchaseCreatedNotification({
 function getSectionTitle(pathname: string): string {
   if (pathname.startsWith('/home')) return 'Inicio';
   if (pathname.startsWith('/calendar')) return 'Citas';
+  if (pathname.startsWith('/reminders')) return 'Recordatorios';
   if (pathname.startsWith('/clients')) return 'Clientes';
   if (pathname.startsWith('/staff')) return 'Personal';
   if (pathname.startsWith('/services/')) return 'Detalle del servicio';

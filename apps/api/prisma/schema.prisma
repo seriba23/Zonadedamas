@@ -850,6 +850,11 @@ model Appointment {
   // su reseña. Idempotente: el empleado puede regenerar el mismo si lo pide.
   confirmationToken  String?           @unique @map("confirmation_token")
   confirmedAt        DateTime?         @map("confirmed_at")
+  // Recordatorio enviado al cliente (admin pulsa "Recordatorio WhatsApp"
+  // en la card del dashboard o en el modal del calendario). Se setea al
+  // disparar el wa.me y se usa para filtrar la lista de "pendientes de
+  // recordar". El admin puede "Reenviar" y el campo se actualiza.
+  reminderSentAt     DateTime?         @map("reminder_sent_at")
   bundleId           String?           @map("bundle_id")
   redemptionId       String?           @unique @map("redemption_id")
   discountAmount     Decimal?          @map("discount_amount") @db.Decimal(10, 2)
