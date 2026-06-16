@@ -6,8 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { formatDate } from '@/lib/utils';
-import { ClientDrawer } from '@/components/clients/client-drawer';
 import { Avatar } from '@/components/ui/avatar';
+import { AppointmentModal } from '@/components/appointments/appointment-modal';
 
 interface Employee {
   id: string;
@@ -56,6 +56,23 @@ interface Tag {
   tag: { id: string; name: string; color: string };
 }
 
+interface PurchaseItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+interface Purchase {
+  id: string;
+  totalAmount: number;
+  currency: string;
+  paymentMethod: string;
+  createdAt: string;
+  items: PurchaseItem[];
+}
+
 interface ClientSummary {
   client: {
     id: string;
@@ -71,6 +88,7 @@ interface ClientSummary {
   upcomingAppointments: Appointment[];
   completedAppointments: Appointment[];
   payments: Payment[];
+  purchases: Purchase[];
   activeCoupons: ActiveCoupon[];
   stats: {
     totalCompletedAppointments: number;
@@ -113,7 +131,7 @@ export default function ClientDetailPage() {
   const params = useParams<{ id: string }>();
   const clientId = params.id;
   const { format: formatCurrency } = useCurrency();
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['client-summary', clientId],
@@ -151,7 +169,7 @@ export default function ClientDetailPage() {
     );
   }
 
-  const { client, upcomingAppointments, completedAppointments, payments, activeCoupons, stats } = summary;
+  const { client, upcomingAppointments, completedAppointments, payments, purchases, activeCoupons, stats } = summary;
   const avatarUrl = client.avatarUrl || client.user?.avatarUrl || null;
   const phoneRaw = client.phone || '';
   const phoneClean = sanitizePhone(phoneRaw);
@@ -210,9 +228,8 @@ export default function ClientDetailPage() {
               )}
             </div>
 
-            {/* Iconos de contacto + editar */}
-            <div className="flex flex-col md:flex-row items-end md:items-center gap-2">
-              <div className="flex items-center gap-1.5">
+            {/* Iconos de contacto */}
+            <div className="flex items-center gap-1.5">
                 <a
                   href={hasPhone ? `tel:${phoneClean}` : undefined}
                   onClick={(e) => { if (!hasPhone) e.preventDefault(); }}
@@ -245,14 +262,6 @@ export default function ClientDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                   </svg>
                 </a>
-              </div>
-
-              <button
-                onClick={() => setIsEditOpen(true)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
-              >
-                Editar
-              </button>
             </div>
           </div>
         </div>
@@ -276,7 +285,7 @@ export default function ClientDetailPage() {
                   key={apt.id}
                   apt={apt}
                   formatCurrency={formatCurrency}
-                  onClick={() => router.push(`/calendar?appointmentId=${apt.id}`)}
+                  onClick={() => setSelectedAppointmentId(apt.id)}
                 />
               ))}
             </div>
@@ -330,12 +339,44 @@ export default function ClientDetailPage() {
                   key={apt.id}
                   apt={apt}
                   formatCurrency={formatCurrency}
-                  onClick={() => router.push(`/calendar?appointmentId=${apt.id}`)}
+                  onClick={() => setSelectedAppointmentId(apt.id)}
                 />
               ))}
             </div>
           )}
         </Section>
+
+        {/* Compras */}
+        {purchases.length > 0 && (
+          <Section title="Compras" count={purchases.length}>
+            <div className="divide-y divide-gray-100">
+              {purchases.map((p) => (
+                <div key={p.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-gray-500">
+                      {formatDate(p.createdAt)} · {paymentMethodLabel(p.paymentMethod)}
+                    </p>
+                    <span className="text-sm font-semibold text-[#008080] whitespace-nowrap">
+                      {formatCurrency(p.totalAmount, p.currency)}
+                    </span>
+                  </div>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {p.items.map((it) => (
+                      <li key={it.id} className="text-sm text-gray-700 flex items-center justify-between gap-2">
+                        <span className="truncate">
+                          {it.quantity}× {it.description}
+                        </span>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                          {formatCurrency(Number(it.totalPrice), p.currency)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Pagos */}
         <Section title="Pagos" count={payments.length}>
@@ -363,11 +404,12 @@ export default function ClientDetailPage() {
         </Section>
       </div>
 
-      {isEditOpen && (
-        <ClientDrawer
-          clientId={clientId}
-          onClose={() => {
-            setIsEditOpen(false);
+      {selectedAppointmentId && (
+        <AppointmentModal
+          appointmentId={selectedAppointmentId}
+          onClose={() => setSelectedAppointmentId(null)}
+          onSave={() => {
+            setSelectedAppointmentId(null);
             refetch();
           }}
         />

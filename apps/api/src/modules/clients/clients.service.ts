@@ -200,6 +200,7 @@ export class ClientsService {
       upcomingAppointments,
       completedAppointments,
       payments,
+      purchases,
       activeCoupons,
       totalCompletedCount,
       paymentsAgg,
@@ -240,6 +241,35 @@ export class ClientsService {
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
+      // Compras del cliente: pagos COMPLETED con al menos un item PRODUCT.
+      // Cubre compras directas en POS y apartados pagados.
+      this.prisma.payment.findMany({
+        where: {
+          clientId: id,
+          tenantId,
+          status: 'COMPLETED',
+          items: { some: { itemType: 'PRODUCT' } },
+        },
+        select: {
+          id: true,
+          totalAmount: true,
+          currency: true,
+          paymentMethod: true,
+          createdAt: true,
+          items: {
+            where: { itemType: 'PRODUCT' },
+            select: {
+              id: true,
+              description: true,
+              quantity: true,
+              unitPrice: true,
+              totalPrice: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
       this.prisma.rewardRedemption.findMany({
         where: { clientId: id, tenantId, status: 'ACTIVE' },
         include: {
@@ -269,6 +299,7 @@ export class ClientsService {
         upcomingAppointments,
         completedAppointments,
         payments,
+        purchases,
         activeCoupons,
         stats: {
           totalCompletedAppointments: totalCompletedCount,
