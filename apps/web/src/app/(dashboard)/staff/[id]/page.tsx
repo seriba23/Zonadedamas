@@ -11,6 +11,8 @@ import { ReviewCard } from '@/components/staff/review-card';
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
 import { EmployeeTraining } from '@/components/staff/employee-training';
 import { EmployeeEditDrawer } from '@/components/staff/employee-edit-drawer';
+import { AppointmentModal } from '@/components/appointments/appointment-modal';
+import { KpiCard } from '@/components/dashboard/kpi-card';
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -161,6 +163,7 @@ export default function EmployeeProfilePage() {
   // ─── UI state ──────────────────────────────────────────
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [coverPendingFile, setCoverPendingFile] = useState<File | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   // Sticky header al hacer scroll (clon del marketplace)
   const [showStickyHeader, setShowStickyHeader] = useState(false);
@@ -466,7 +469,7 @@ export default function EmployeeProfilePage() {
         </div>
 
         {/* ─── Hero ─── */}
-        <div className="relative" style={{ height: '60vh', minHeight: '420px' }}>
+        <div className="relative" style={{ height: '40vh', minHeight: '300px' }}>
           {hasCover ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
@@ -520,7 +523,7 @@ export default function EmployeeProfilePage() {
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
                   </svg>
-                  Portada
+                  Foto de portada
                   <input
                     type="file"
                     accept="image/*"
@@ -565,15 +568,33 @@ export default function EmployeeProfilePage() {
 
           {/* Hero content */}
           <div className="relative z-10 flex flex-col justify-end min-h-full px-6 pb-8 max-w-3xl mx-auto">
-            {/* Avatar uploader (sutil, solo si admin/propio) */}
-            {(canEdit || isOwnProfile) && hasAvatar && (
-              <label className="self-start mb-2 cursor-pointer">
-                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/15 backdrop-blur-md text-white/90 text-[11px] font-medium hover:bg-white/25">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
-                  </svg>
-                  Cambiar foto
+            {/* Avatar circular visible (foto de perfil). Si admin/propio,
+                click para subir nueva. La intencion es ver claramente
+                ambas fotos: portada (fondo) + perfil (este circulo). */}
+            <div className="mb-3 flex items-end gap-3">
+              {(canEdit || isOwnProfile) ? (
+                <label className="relative cursor-pointer group">
+                  {hasAvatar ? (
+                    <img
+                      src={resolveUrl(employee.avatarUrl) || ''}
+                      alt=""
+                      className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-lg"
+                    />
+                  ) : (
+                    <span
+                      className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold border-2 border-white shadow-lg"
+                      style={{ backgroundColor: empColor }}
+                    >
+                      {getInitials(employee.firstName, employee.lastName)}
+                    </span>
+                  )}
+                  {/* Overlay con icono al hover */}
+                  <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                    </svg>
+                  </span>
                   <input
                     type="file"
                     accept="image/*"
@@ -584,14 +605,26 @@ export default function EmployeeProfilePage() {
                       e.target.value = '';
                     }}
                   />
-                </span>
-              </label>
-            )}
-
-            {!hasAvatar && (canEdit || isOwnProfile) && (
-              <label className="self-start mb-3 cursor-pointer">
-                <span className="w-20 h-20 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center text-white text-2xl font-bold border-2 border-white/30 hover:bg-white/25">
+                </label>
+              ) : hasAvatar ? (
+                <img
+                  src={resolveUrl(employee.avatarUrl) || ''}
+                  alt=""
+                  className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-lg"
+                />
+              ) : (
+                <span
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold border-2 border-white shadow-lg"
+                  style={{ backgroundColor: empColor }}
+                >
                   {getInitials(employee.firstName, employee.lastName)}
+                </span>
+              )}
+
+              {/* Boton de "Foto de perfil" al lado del circulo (solo admin/propio) */}
+              {(canEdit || isOwnProfile) && (
+                <label className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 text-white text-[11px] font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer mb-1">
+                  Cambiar foto de perfil
                   <input
                     type="file"
                     accept="image/*"
@@ -602,9 +635,9 @@ export default function EmployeeProfilePage() {
                       e.target.value = '';
                     }}
                   />
-                </span>
-              </label>
-            )}
+                </label>
+              )}
+            </div>
 
             {/* Estado inactivo */}
             {!employee.isActive && (
@@ -691,6 +724,49 @@ export default function EmployeeProfilePage() {
         <div className="relative z-10 bg-gray-50 min-h-screen pb-12">
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
+            {/* Próximas citas — lo primero despues del header */}
+            {stats && stats.upcomingAppointments.length > 0 && (
+              <Section title="Próximas citas" count={stats.upcomingAppointments.length}>
+                <div className="divide-y divide-gray-100">
+                  {stats.upcomingAppointments.map((apt) => {
+                    const total = apt.items.reduce((sum, it) => sum + Number(it.priceSnapshot || 0), 0);
+                    const services = apt.items.map((it) => it.serviceNameSnapshot).join(', ');
+                    return (
+                      <button
+                        key={apt.id}
+                        type="button"
+                        onClick={() => setSelectedAppointmentId(apt.id)}
+                        className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="text-center flex-shrink-0 w-12">
+                          <p className="text-[10px] uppercase tracking-wide text-gray-400">
+                            {dayjs.utc(apt.startTime).format('MMM')}
+                          </p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {dayjs.utc(apt.startTime).format('DD')}
+                          </p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {apt.client.firstName} {apt.client.lastName}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {dayjs.utc(apt.startTime).format('h:mm A')}
+                            {services && ` · ${services}`}
+                          </p>
+                        </div>
+                        {total > 0 && (
+                          <span className="text-sm font-semibold text-[#008080] whitespace-nowrap">
+                            {formatCurrency(total)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+            )}
+
             {/* Servicios */}
             {services.length > 0 && (
               <Section title={`Servicios de ${employee.firstName}`} count={services.length}>
@@ -724,53 +800,75 @@ export default function EmployeeProfilePage() {
               </Section>
             )}
 
-            {/* Estadísticas */}
-            <Section title="Estadísticas">
-              <div className="p-3 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <StatCard
-                    label="Citas completadas"
-                    value={stats?.completedAllTime ?? '-'}
-                    sub={stats ? `${stats.completedThisMonth} este mes` : undefined}
-                    loading={loadingStats}
-                  />
-                  <StatCard
-                    label="Ingresos totales"
-                    value={stats ? formatCurrency(stats.totalRevenue) : '-'}
-                    loading={loadingStats}
-                  />
-                  <StatCard
-                    label="Cancelaciones"
-                    value={stats?.cancelledCount ?? '-'}
-                    sub={stats ? `${stats.cancellationRate}% tasa` : undefined}
-                    loading={loadingStats}
-                  />
-                  <StatCard
-                    label="No asistió"
-                    value={stats?.noShowCount ?? '-'}
-                    loading={loadingStats}
-                  />
-                </div>
+            {/* Estadísticas (KPI cards estilo dashboard) */}
+            <section>
+              <h2 className="text-[11px] md:text-xs font-semibold uppercase tracking-wide mb-2 md:mb-3 text-[var(--text-muted)]">
+                Estadísticas
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-3">
+                <KpiCard
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  }
+                  label="Citas completadas"
+                  value={loadingStats ? '—' : (stats?.completedAllTime ?? '-')}
+                  subtitle={stats ? `${stats.completedThisMonth} este mes` : undefined}
+                />
+                <KpiCard
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4" />
+                    </svg>
+                  }
+                  label="Ingresos totales"
+                  value={loadingStats ? '—' : (stats ? formatCurrency(stats.totalRevenue) : '-')}
+                />
+                <KpiCard
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  }
+                  label="Cancelaciones"
+                  value={loadingStats ? '—' : (stats?.cancelledCount ?? '-')}
+                  subtitle={stats ? `${stats.cancellationRate}% tasa` : undefined}
+                />
+                <KpiCard
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                    </svg>
+                  }
+                  label="No asistió"
+                  value={loadingStats ? '—' : (stats?.noShowCount ?? '-')}
+                />
+              </div>
 
+              {/* Detalles complementarios */}
+              <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5 space-y-4">
                 {stats && stats.topServices.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Top servicios</h3>
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
+                      Top servicios
+                    </h3>
                     <div className="space-y-2">
                       {stats.topServices.map((svc, i) => {
                         const maxCount = stats.topServices[0].count;
                         const pct = maxCount > 0 ? (svc.count / maxCount) * 100 : 0;
                         return (
                           <div key={i} className="flex items-center gap-3">
-                            <span className="text-xs text-gray-700 w-32 truncate flex-shrink-0">
+                            <span className="text-xs text-[var(--text-primary)] w-32 truncate flex-shrink-0">
                               {svc.serviceName}
                             </span>
-                            <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div className="flex-1 bg-[var(--bg-muted)] rounded-full h-2 overflow-hidden">
                               <div
                                 className="h-full rounded-full"
                                 style={{ width: `${pct}%`, backgroundColor: empColor }}
                               />
                             </div>
-                            <span className="text-xs text-gray-500 w-8 text-right flex-shrink-0">
+                            <span className="text-xs text-[var(--text-muted)] w-8 text-right flex-shrink-0 tabular-nums">
                               {svc.count}
                             </span>
                           </div>
@@ -780,53 +878,19 @@ export default function EmployeeProfilePage() {
                   </div>
                 )}
 
-                {stats && stats.upcomingAppointments.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Próximas citas</h3>
-                    <div className="space-y-2">
-                      {stats.upcomingAppointments.map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center gap-3 p-2 rounded-lg bg-gray-50"
-                        >
-                          <div className="text-center flex-shrink-0 w-10">
-                            <p className="text-[10px] text-gray-400 uppercase">
-                              {dayjs.utc(apt.startTime).format('MMM')}
-                            </p>
-                            <p className="text-base font-bold text-gray-900">
-                              {dayjs.utc(apt.startTime).format('DD')}
-                            </p>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {apt.client.firstName} {apt.client.lastName}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {apt.items.map((it) => it.serviceNameSnapshot).join(', ')}
-                            </p>
-                          </div>
-                          <p className="text-xs text-gray-700 whitespace-nowrap">
-                            {dayjs.utc(apt.startTime).format('h:mm A')}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {workingDays.length > 0 && (
-                  <div className="pt-2 border-t border-gray-100">
-                    <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Días laborales</p>
-                    <p className="text-sm text-gray-700">{workingDays.join(', ')}</p>
+                  <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between gap-3">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Días laborales</p>
+                    <p className="text-sm text-[var(--text-primary)]">{workingDays.join(', ')}</p>
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Miembro desde</p>
-                  <p className="text-sm text-gray-700">{formatDate(employee.createdAt, 'D MMM YYYY')}</p>
+                <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between gap-3">
+                  <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Miembro desde</p>
+                  <p className="text-sm text-[var(--text-primary)]">{formatDate(employee.createdAt, 'D MMM YYYY')}</p>
                 </div>
               </div>
-            </Section>
+            </section>
 
             {/* Trabajos (Portfolio) */}
             <Section title="Trabajos" count={employee._count?.portfolioImages}>
@@ -1351,6 +1415,18 @@ export default function EmployeeProfilePage() {
       )}
 
       {/* ─── Edit drawer ─── */}
+      {/* Modal de cita (al hacer click en una proxima cita) */}
+      {selectedAppointmentId && (
+        <AppointmentModal
+          appointmentId={selectedAppointmentId}
+          onClose={() => setSelectedAppointmentId(null)}
+          onSave={() => {
+            setSelectedAppointmentId(null);
+            queryClient.invalidateQueries({ queryKey: ['employee-stats', employeeId] });
+          }}
+        />
+      )}
+
       {showEditDrawer && (
         <EmployeeEditDrawer
           employeeId={employeeId}
@@ -1397,34 +1473,6 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  sub,
-  loading,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  loading?: boolean;
-}) {
-  if (loading) {
-    return (
-      <div className="bg-gray-50 rounded-lg p-3 animate-pulse">
-        <div className="h-3 bg-gray-200 rounded w-20 mb-2" />
-        <div className="h-5 bg-gray-200 rounded w-16" />
-      </div>
-    );
-  }
-  return (
-    <div className="bg-gray-50 rounded-lg p-3">
-      <p className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-lg font-bold text-gray-900 mt-0.5">{value}</p>
-      {sub && <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>}
-    </div>
   );
 }
 

@@ -35,6 +35,9 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all');
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  // IDs de imagenes con archivo roto/404 en disco. Las ocultamos del grid
+  // para que no queden recuadros vacios con el alt-text visible.
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
     queryKey: ['employee-portfolio', employeeId],
@@ -56,9 +59,12 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   const deleteMutation = useMutation({
     mutationFn: (imageId: string) =>
       api.delete(`/api/employees/${employeeId}/portfolio/${imageId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employee-portfolio', employeeId] });
+    onSuccess: async (_data, imageId) => {
+      // Optimistic: marcar como fallida tambien para que no quede el
+      // recuadro vacio si el refetch tarda. Despues forzar refetch.
+      setFailedImageIds((prev) => new Set(prev).add(imageId));
       setLightboxImage(null);
+      await queryClient.refetchQueries({ queryKey: ['employee-portfolio', employeeId] });
     },
   });
 
@@ -114,10 +120,13 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   }, [images]);
 
   // Pipeline de filtros: categoria + visibilidad + busqueda + sort.
+  // Tambien quita imagenes cuyo archivo fallo al cargar (404) para no
+  // dejar recuadros vacios con el alt-text "Portafolio" visible.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const categorySet = new Set(activeCategories);
     let result = images.filter((img) => {
+      if (failedImageIds.has(img.id)) return false;
       // Si hay categorias activas, la foto debe estar en al menos una.
       if (categorySet.size > 0 && !(img.services || []).some((s) => categorySet.has(s.id))) return false;
       if (visibilityFilter === 'visible' && img.isHidden) return false;
@@ -137,7 +146,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
       return sortBy === 'recent' ? bt - at : at - bt;
     });
     return result;
-  }, [images, activeCategories, visibilityFilter, search, sortBy]);
+  }, [images, activeCategories, visibilityFilter, search, sortBy, failedImageIds]);
 
   const hasFilters = !!search || activeCategories.length > 0 || visibilityFilter !== 'all' || sortBy !== 'recent';
 
@@ -271,8 +280,9 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
             >
               <img
                 src={`${API_URL}${img.imageUrl}`}
-                alt={img.caption || 'Portafolio'}
-                className={`w-full h-full object-cover ${img.isHidden ? 'opacity-50 grayscale' : ''}`}
+                alt=""
+                className={`w-full h-full object-cover bg-gray-100 ${img.isHidden ? 'opacity-50 grayscale' : ''}`}
+                onError={() => setFailedImageIds((prev) => new Set(prev).add(img.id))}
               />
               {img.isFeatured && (
                 <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-white text-[10px] font-bold shadow-sm">
@@ -383,7 +393,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
           >
             <img
               src={`${API_URL}${lightboxImage.imageUrl}`}
-              alt={lightboxImage.caption || 'Portafolio'}
+              alt=""
               className="w-full h-full object-contain rounded-lg"
             />
             {lightboxImage.caption && (
