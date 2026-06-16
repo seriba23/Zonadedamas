@@ -225,39 +225,31 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
         )}
       </div>
 
-      {/* ─── Tabs categorias (multi-seleccion) ──────────
-          Pueden elegirse varias a la vez. "Todos" desmarca todas. */}
-      {categories.length > 0 && (
-        <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 -mx-1 px-1">
-          <button
-            onClick={() => setActiveCategories([])}
-            className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors flex-shrink-0"
-            style={activeCategories.length === 0
-              ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
-              : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
-            }
-          >
-            Todos
-          </button>
-          {categories.map((cat) => {
-            const active = activeCategories.includes(cat.id);
+      {/* Chip de categorías activas (resumen — el control real está en
+          el sheet de filtros). Muestra cuántas categorías están aplicadas
+          con un X para limpiar todas de un golpe. */}
+      {activeCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {activeCategories.map((catId) => {
+            const cat = categories.find((c) => c.id === catId);
+            if (!cat) return null;
             return (
-              <button
-                key={cat.id}
-                onClick={() => toggleCategory(cat.id)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1"
-                style={active
-                  ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
-                  : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
-                }
+              <span
+                key={catId}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--primary-tint)] text-[var(--primary-tint-fg)]"
               >
                 {cat.name}
-                {active && (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(catId)}
+                  className="hover:opacity-70"
+                  aria-label={`Quitar ${cat.name}`}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                )}
-              </button>
+                </button>
+              </span>
             );
           })}
         </div>
@@ -332,6 +324,46 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                   Limpiar filtros
                 </button>
+              )}
+
+              {/* Categorias (multi-seleccion). Vacio = mostrar todas. */}
+              {categories.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Categorías</p>
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    <button
+                      onClick={() => setActiveCategories([])}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                      style={activeCategories.length === 0
+                        ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                        : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                      }
+                    >
+                      Todas
+                    </button>
+                    {categories.map((cat) => {
+                      const active = activeCategories.includes(cat.id);
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => toggleCategory(cat.id)}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1"
+                          style={active
+                            ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                            : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                          }
+                        >
+                          {cat.name}
+                          {active && (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               )}
 
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Visibilidad</p>

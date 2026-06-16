@@ -138,16 +138,6 @@ interface SlotInfo {
   available: boolean;
 }
 
-const DAY_LABELS: Record<string, string> = {
-  MONDAY: 'Lun',
-  TUESDAY: 'Mar',
-  WEDNESDAY: 'Mié',
-  THURSDAY: 'Jue',
-  FRIDAY: 'Vie',
-  SATURDAY: 'Sáb',
-  SUNDAY: 'Dom',
-};
-
 export default function EmployeeProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -164,6 +154,11 @@ export default function EmployeeProfilePage() {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [coverPendingFile, setCoverPendingFile] = useState<File | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  // Menu/lightbox de foto de perfil: icono camara sobre avatar abre menu
+  // con 'Ver foto' (lightbox) y 'Cambiar foto' (file picker).
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   // Sticky header al hacer scroll (clon del marketplace)
   const [showStickyHeader, setShowStickyHeader] = useState(false);
@@ -421,9 +416,6 @@ export default function EmployeeProfilePage() {
   const hasAvatar = !!employee.avatarUrl;
   const hasCover = !!employee.coverImageUrl;
   const services = (employee.employeeServices || []).map((es) => es.service);
-  const workingDays = (employee.schedules || [])
-    .filter((s) => s.isWorking)
-    .map((s) => DAY_LABELS[s.dayOfWeek] || s.dayOfWeek);
   const specialty = stats?.topServices?.[0]?.serviceName || null;
   const completedCount = stats?.completedAllTime ?? 0;
 
@@ -469,21 +461,24 @@ export default function EmployeeProfilePage() {
           </div>
         )}
 
-        {/* ─── Hero (solo cover + botones flotantes, sin identidad) ─── */}
-        <div className="relative" style={{ height: '28vh', minHeight: '200px' }}>
+        {/* ─── Hero estilo marketplace cliente: foto grande con overlay
+            de gradiente y TODA la identidad (avatar, nombre, bio, stats)
+            dentro del hero. La foto cubre la mitad superior y el contenido
+            queda anclado abajo. */}
+        <div className="relative" style={{ height: '72vh', minHeight: '520px' }}>
           {hasCover ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{ backgroundImage: `url(${resolveUrl(employee.coverImageUrl)})` }}
             >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/10" />
             </div>
           ) : hasAvatar ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{ backgroundImage: `url(${resolveUrl(employee.avatarUrl)})` }}
             >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/10" />
             </div>
           ) : (
             <div
@@ -492,7 +487,7 @@ export default function EmployeeProfilePage() {
             />
           )}
 
-          {/* Back button (sobre el hero) */}
+          {/* Back button (top-left) */}
           {!showStickyHeader && (
             <button
               onClick={() => router.push('/staff')}
@@ -555,85 +550,48 @@ export default function EmployeeProfilePage() {
             </div>
           )}
 
-        </div>
+          {/* Contenido del hero anclado abajo */}
+          <div className="relative z-10 flex flex-col justify-end min-h-full px-6 pb-8 max-w-3xl mx-auto">
+            {/* Avatar con icono camara abajo a la derecha (solo admin/propio) */}
+            <div className="mb-4 flex items-end gap-3">
+              <div className="relative flex-shrink-0">
+                {hasAvatar ? (
+                  <img
+                    src={resolveUrl(employee.avatarUrl) || ''}
+                    alt=""
+                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-xl bg-gray-100"
+                  />
+                ) : (
+                  <span
+                    className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-xl"
+                    style={{ backgroundColor: empColor }}
+                  >
+                    {getInitials(employee.firstName, employee.lastName)}
+                  </span>
+                )}
 
-        {/* ─── Identidad: avatar montado + info basica ─── */}
-        <div className="relative z-10 bg-gray-50">
-          <div className="max-w-3xl mx-auto px-4 md:px-6">
-            {/* Avatar grande con borde blanco, montado entre el hero y el
-                contenido (margin top negativo). Tiene su propio espacio. */}
-            <div className="flex items-end gap-3 -mt-14 mb-3">
-              {(canEdit || isOwnProfile) ? (
-                <label className="relative cursor-pointer group flex-shrink-0">
-                  {hasAvatar ? (
-                    <img
-                      src={resolveUrl(employee.avatarUrl) || ''}
-                      alt=""
-                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg bg-gray-100"
-                    />
-                  ) : (
-                    <span
-                      className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg"
-                      style={{ backgroundColor: empColor }}
-                    >
-                      {getInitials(employee.firstName, employee.lastName)}
-                    </span>
-                  )}
-                  <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                {/* Boton camara como badge abajo-derecha */}
+                {(canEdit || isOwnProfile) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAvatarMenu(true)}
+                    className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-white shadow-lg flex items-center justify-center text-[#008080] hover:bg-gray-50 transition-colors border-2 border-white"
+                    aria-label="Foto de perfil"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
                     </svg>
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) avatarMutation.mutate(file);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              ) : hasAvatar ? (
-                <img
-                  src={resolveUrl(employee.avatarUrl) || ''}
-                  alt=""
-                  className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg bg-gray-100 flex-shrink-0"
-                />
-              ) : (
-                <span
-                  className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg flex-shrink-0"
-                  style={{ backgroundColor: empColor }}
-                >
-                  {getInitials(employee.firstName, employee.lastName)}
-                </span>
-              )}
-
-              {/* Boton "Cambiar foto de perfil" al lado del avatar */}
-              {(canEdit || isOwnProfile) && (
-                <label className="px-3 py-1.5 rounded-full border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer mb-2 whitespace-nowrap">
-                  Cambiar foto de perfil
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) avatarMutation.mutate(file);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              )}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Estado inactivo */}
             {!employee.isActive && (
               <div className="mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/80 backdrop-blur-md text-white text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   Empleado inactivo
                 </span>
               </div>
@@ -642,7 +600,7 @@ export default function EmployeeProfilePage() {
             {/* JobTitle */}
             {employee.jobTitle && (
               <div className="mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-white/90 text-xs font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#008080]" />
                   {employee.jobTitle}
                 </span>
@@ -650,19 +608,22 @@ export default function EmployeeProfilePage() {
             )}
 
             {/* Nombre */}
-            <h1 ref={nameRef} className="text-2xl font-bold text-gray-900 mb-1 leading-tight">
+            <h1 ref={nameRef} className="text-2xl font-bold text-white mb-1 leading-tight">
               {fullName}
             </h1>
 
             {/* Contacto */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80 mb-3">
               {employee.email && <span>{employee.email}</span>}
               {employee.phone && <span>· {employee.phone}</span>}
             </div>
 
             {/* Bio */}
             {employee.bio && (
-              <p className="text-sm text-gray-600 leading-relaxed max-w-xl mb-3 whitespace-pre-line">
+              <p
+                className="text-xs text-white/80 leading-relaxed max-w-xl mb-3 max-h-28 overflow-y-auto pr-1 whitespace-pre-line"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.3) transparent' }}
+              >
                 {employee.bio}
               </p>
             )}
@@ -670,48 +631,48 @@ export default function EmployeeProfilePage() {
             {/* Stats row */}
             <div className="flex flex-wrap gap-2 mb-1">
               {reviews?.averageRating && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
-                  <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+                  <svg className="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                   <div>
-                    <p className="text-base font-bold text-gray-900 leading-none">{reviews.averageRating}</p>
-                    <p className="text-[9px] text-gray-500 uppercase tracking-wider">Calificación</p>
+                    <p className="text-base font-bold text-white leading-none">{reviews.averageRating}</p>
+                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Calificación</p>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
                 <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
                 <div>
-                  <p className="text-base font-bold text-gray-900 leading-none">{completedCount}</p>
-                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">Trabajos realizados</p>
+                  <p className="text-base font-bold text-white leading-none">{completedCount}</p>
+                  <p className="text-[9px] text-white/60 uppercase tracking-wider">Trabajos realizados</p>
                 </div>
               </div>
 
               {specialty && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
-                  <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+                  <svg className="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                   </svg>
                   <div>
-                    <p className="text-xs font-semibold text-gray-900 leading-none">{specialty}</p>
-                    <p className="text-[9px] text-gray-500 uppercase tracking-wider">Especialidad</p>
+                    <p className="text-xs font-semibold text-white leading-none">{specialty}</p>
+                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Especialidad</p>
                   </div>
                 </div>
               )}
 
               {employee.location && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
-                  <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+                  <svg className="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                   </svg>
                   <div>
-                    <p className="text-xs font-semibold text-gray-900 leading-none truncate max-w-[140px]">{employee.location.name}</p>
-                    <p className="text-[9px] text-gray-500 uppercase tracking-wider">Sucursal</p>
+                    <p className="text-xs font-semibold text-white leading-none truncate max-w-[140px]">{employee.location.name}</p>
+                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Sucursal</p>
                   </div>
                 </div>
               )}
@@ -877,10 +838,10 @@ export default function EmployeeProfilePage() {
                   </div>
                 )}
 
-                {workingDays.length > 0 && (
-                  <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between gap-3">
-                    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Días laborales</p>
-                    <p className="text-sm text-[var(--text-primary)]">{workingDays.join(', ')}</p>
+                {(employee.schedules?.length ?? 0) > 0 && (
+                  <div className="pt-3 border-t border-[var(--border)]">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)] mb-2">Horario</p>
+                    <ScheduleTable schedules={employee.schedules || []} />
                   </div>
                 )}
 
@@ -1413,6 +1374,101 @@ export default function EmployeeProfilePage() {
         />
       )}
 
+      {/* ─── Menu de foto de perfil (Ver / Cambiar) ─── */}
+      {showAvatarMenu && (
+        <div
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+          onClick={() => setShowAvatarMenu(false)}
+        >
+          <div
+            className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-4 pb-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 md:hidden" />
+            <h3 className="text-sm font-semibold text-gray-900 text-center mb-3">
+              Foto de perfil
+            </h3>
+            <div className="space-y-2">
+              {hasAvatar && (
+                <button
+                  type="button"
+                  onClick={() => { setShowAvatarMenu(false); setShowAvatarLightbox(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <span className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--primary-tint)] text-[var(--primary-tint-fg)]">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">Ver foto</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setShowAvatarMenu(false); avatarFileInputRef.current?.click(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-left"
+              >
+                <span className="w-9 h-9 rounded-full flex items-center justify-center bg-[var(--primary-tint)] text-[var(--primary-tint-fg)]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                  </svg>
+                </span>
+                <span className="text-sm font-medium text-gray-900">
+                  {hasAvatar ? 'Cambiar foto' : 'Subir foto'}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAvatarMenu(false)}
+                className="w-full py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Input oculto para subir nueva foto */}
+      <input
+        ref={avatarFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) avatarMutation.mutate(file);
+          e.target.value = '';
+        }}
+      />
+
+      {/* ─── Lightbox de foto de perfil ─── */}
+      {showAvatarLightbox && hasAvatar && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowAvatarLightbox(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowAvatarLightbox(false)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30"
+            aria-label="Cerrar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={resolveUrl(employee.avatarUrl) || ''}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* ─── Edit drawer ─── */}
       {/* Modal de cita (al hacer click en una proxima cita) */}
       {selectedAppointmentId && (
@@ -1451,6 +1507,55 @@ export default function EmployeeProfilePage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+// Tabla de horario semanal: una fila por dia (Lun-Dom) con su horario
+// o 'Descansa'. Mismo patron que el horario del negocio en marketplace.
+const SCHEDULE_DAYS: Array<{ key: string; label: string }> = [
+  { key: 'MONDAY', label: 'Lunes' },
+  { key: 'TUESDAY', label: 'Martes' },
+  { key: 'WEDNESDAY', label: 'Miércoles' },
+  { key: 'THURSDAY', label: 'Jueves' },
+  { key: 'FRIDAY', label: 'Viernes' },
+  { key: 'SATURDAY', label: 'Sábado' },
+  { key: 'SUNDAY', label: 'Domingo' },
+];
+
+function ScheduleTable({
+  schedules,
+}: {
+  schedules: Array<{ dayOfWeek: string; isWorking: boolean; startTime: string; endTime: string }>;
+}) {
+  const byDay = new Map(schedules.map((s) => [s.dayOfWeek, s]));
+  const todayIdx = (new Date().getDay() + 6) % 7; // Lunes = 0
+  return (
+    <div className="space-y-1">
+      {SCHEDULE_DAYS.map((d, idx) => {
+        const sch = byDay.get(d.key);
+        const isToday = idx === todayIdx;
+        return (
+          <div
+            key={d.key}
+            className={`flex items-center justify-between text-sm py-1 ${
+              isToday ? 'font-semibold' : ''
+            }`}
+          >
+            <span className={isToday ? 'text-[#008080]' : 'text-[var(--text-secondary)]'}>
+              {d.label}
+              {isToday && <span className="ml-1.5 text-[10px] text-[#008080]/70">(hoy)</span>}
+            </span>
+            {sch?.isWorking ? (
+              <span className={isToday ? 'text-[#008080]' : 'text-[var(--text-primary)]'}>
+                {sch.startTime} - {sch.endTime}
+              </span>
+            ) : (
+              <span className="text-[var(--text-muted)]">Descansa</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
