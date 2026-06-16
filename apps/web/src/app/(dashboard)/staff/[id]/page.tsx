@@ -435,13 +435,14 @@ export default function EmployeeProfilePage() {
   return (
     <div className="flex flex-col h-full" data-staff-scroll>
       <div className="flex-1 overflow-y-auto bg-gray-50 relative">
-        {/* ─── Sticky header (aparece al scrollear) ─── */}
-        <div
-          className={`sticky top-0 left-0 right-0 z-40 transition-all duration-300 ${
-            showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
-          }`}
-        >
-          <div className="bg-[#008080] shadow-sm">
+        {/* ─── Sticky header (aparece al scrollear) ───
+            Render condicional + fixed para no ocupar espacio en el flujo
+            cuando no se ve. El left:auto / md:left-64 respeta el sidebar
+            admin (w-64 en desktop). */}
+        {showStickyHeader && (
+          <div
+            className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#008080] shadow-sm animate-in slide-in-from-top duration-200"
+          >
             <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 <button
@@ -466,10 +467,10 @@ export default function EmployeeProfilePage() {
               )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* ─── Hero ─── */}
-        <div className="relative" style={{ height: '40vh', minHeight: '300px' }}>
+        {/* ─── Hero (solo cover + botones flotantes, sin identidad) ─── */}
+        <div className="relative" style={{ height: '28vh', minHeight: '200px' }}>
           {hasCover ? (
             <div
               className="absolute inset-0 bg-cover bg-center"
@@ -554,43 +555,32 @@ export default function EmployeeProfilePage() {
             </div>
           )}
 
-          {/* Rating badge */}
-          {reviews?.averageRating && !showStickyHeader && (
-            <div className="absolute left-4 z-30" style={{ top: '4.5rem' }}>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md">
-                <svg className="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-base font-bold text-white">{reviews.averageRating}</span>
-              </div>
-            </div>
-          )}
+        </div>
 
-          {/* Hero content */}
-          <div className="relative z-10 flex flex-col justify-end min-h-full px-6 pb-8 max-w-3xl mx-auto">
-            {/* Avatar circular visible (foto de perfil). Si admin/propio,
-                click para subir nueva. La intencion es ver claramente
-                ambas fotos: portada (fondo) + perfil (este circulo). */}
-            <div className="mb-3 flex items-end gap-3">
+        {/* ─── Identidad: avatar montado + info basica ─── */}
+        <div className="relative z-10 bg-gray-50">
+          <div className="max-w-3xl mx-auto px-4 md:px-6">
+            {/* Avatar grande con borde blanco, montado entre el hero y el
+                contenido (margin top negativo). Tiene su propio espacio. */}
+            <div className="flex items-end gap-3 -mt-14 mb-3">
               {(canEdit || isOwnProfile) ? (
-                <label className="relative cursor-pointer group">
+                <label className="relative cursor-pointer group flex-shrink-0">
                   {hasAvatar ? (
                     <img
                       src={resolveUrl(employee.avatarUrl) || ''}
                       alt=""
-                      className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-lg"
+                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg bg-gray-100"
                     />
                   ) : (
                     <span
-                      className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold border-2 border-white shadow-lg"
+                      className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg"
                       style={{ backgroundColor: empColor }}
                     >
                       {getInitials(employee.firstName, employee.lastName)}
                     </span>
                   )}
-                  {/* Overlay con icono al hover */}
                   <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
                     </svg>
@@ -610,20 +600,20 @@ export default function EmployeeProfilePage() {
                 <img
                   src={resolveUrl(employee.avatarUrl) || ''}
                   alt=""
-                  className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-lg"
+                  className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg bg-gray-100 flex-shrink-0"
                 />
               ) : (
                 <span
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold border-2 border-white shadow-lg"
+                  className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg flex-shrink-0"
                   style={{ backgroundColor: empColor }}
                 >
                   {getInitials(employee.firstName, employee.lastName)}
                 </span>
               )}
 
-              {/* Boton de "Foto de perfil" al lado del circulo (solo admin/propio) */}
+              {/* Boton "Cambiar foto de perfil" al lado del avatar */}
               {(canEdit || isOwnProfile) && (
-                <label className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 text-white text-[11px] font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer mb-1">
+                <label className="px-3 py-1.5 rounded-full border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer mb-2 whitespace-nowrap">
                   Cambiar foto de perfil
                   <input
                     type="file"
@@ -642,8 +632,8 @@ export default function EmployeeProfilePage() {
             {/* Estado inactivo */}
             {!employee.isActive && (
               <div className="mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/80 backdrop-blur-md text-white text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                   Empleado inactivo
                 </span>
               </div>
@@ -652,7 +642,7 @@ export default function EmployeeProfilePage() {
             {/* JobTitle */}
             {employee.jobTitle && (
               <div className="mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-white/90 text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] text-xs font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#008080]" />
                   {employee.jobTitle}
                 </span>
@@ -660,59 +650,68 @@ export default function EmployeeProfilePage() {
             )}
 
             {/* Nombre */}
-            <h1 ref={nameRef} className="text-2xl font-bold text-white mb-1 leading-tight">
+            <h1 ref={nameRef} className="text-2xl font-bold text-gray-900 mb-1 leading-tight">
               {fullName}
             </h1>
 
             {/* Contacto */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80 mb-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-3">
               {employee.email && <span>{employee.email}</span>}
               {employee.phone && <span>· {employee.phone}</span>}
             </div>
 
             {/* Bio */}
             {employee.bio && (
-              <p
-                className="text-xs text-white/80 leading-relaxed max-w-xl mb-3 max-h-28 overflow-y-auto pr-1 whitespace-pre-line"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.3) transparent' }}
-              >
+              <p className="text-sm text-gray-600 leading-relaxed max-w-xl mb-3 whitespace-pre-line">
                 {employee.bio}
               </p>
             )}
 
             {/* Stats row */}
             <div className="flex flex-wrap gap-2 mb-1">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
+              {reviews?.averageRating && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
+                  <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <div>
+                    <p className="text-base font-bold text-gray-900 leading-none">{reviews.averageRating}</p>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-wider">Calificación</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
                 <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
                 <div>
-                  <p className="text-base font-bold text-white leading-none">{completedCount}</p>
-                  <p className="text-[9px] text-white/60 uppercase tracking-wider">Trabajos realizados</p>
+                  <p className="text-base font-bold text-gray-900 leading-none">{completedCount}</p>
+                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">Trabajos realizados</p>
                 </div>
               </div>
 
               {specialty && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
-                  <svg className="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
+                  <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                   </svg>
                   <div>
-                    <p className="text-xs font-semibold text-white leading-none">{specialty}</p>
-                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Especialidad</p>
+                    <p className="text-xs font-semibold text-gray-900 leading-none">{specialty}</p>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-wider">Especialidad</p>
                   </div>
                 </div>
               )}
 
               {employee.location && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md">
-                  <svg className="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200">
+                  <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                   </svg>
                   <div>
-                    <p className="text-xs font-semibold text-white leading-none truncate max-w-[140px]">{employee.location.name}</p>
-                    <p className="text-[9px] text-white/60 uppercase tracking-wider">Sucursal</p>
+                    <p className="text-xs font-semibold text-gray-900 leading-none truncate max-w-[140px]">{employee.location.name}</p>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-wider">Sucursal</p>
                   </div>
                 </div>
               )}
@@ -720,7 +719,7 @@ export default function EmployeeProfilePage() {
           </div>
         </div>
 
-        {/* ─── Contenido bajo el hero ─── */}
+        {/* ─── Contenido principal (secciones) ─── */}
         <div className="relative z-10 bg-gray-50 min-h-screen pb-12">
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
