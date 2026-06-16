@@ -5,21 +5,95 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class AttendanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByDateRange(tenantId: string, startDate: string, endDate: string) {
-    const records = await this.prisma.attendance.findMany({
-      where: {
-        tenantId,
-        date: {
-          gte: new Date(startDate + 'T00:00:00Z'),
-          lte: new Date(endDate + 'T00:00:00Z'),
-        },
+  async findByDateRange(
+    tenantId: string,
+    startDate: string,
+    endDate: string,
+    filters?: { employeeId?: string; status?: string },
+  ) {
+    const where: any = {
+      tenantId,
+      date: {
+        gte: new Date(startDate + 'T00:00:00Z'),
+        lte: new Date(endDate + 'T00:00:00Z'),
       },
+    };
+    if (filters?.employeeId) where.employeeId = filters.employeeId;
+    if (filters?.status) where.status = filters.status;
+
+    const records = await this.prisma.attendance.findMany({
+      where,
       include: {
         employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
       },
       orderBy: [{ date: 'desc' }, { checkInTime: 'asc' }],
     });
     return { data: records };
+  }
+
+  async getStats(tenantId: string, startDate: string, endDate: string) {
+    const where = {
+      tenantId,
+      date: {
+        gte: new Date(startDate + 'T00:00:00Z'),
+        lte: new Date(endDate + 'T00:00:00Z'),
+      },
+    };
+    const records = await this.prisma.attendance.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
+      },
+    });
+
+    let inShiftCount = 0;
+    let completedCount = 0;
+    let pendingCount = 0;
+    let rejectedCount = 0;
+    let totalMinutes = 0;
+    const minutesByEmployee = new Map<
+      string,
+      { employee: any; minutes: number; days: number }
+    >();
+
+    for (const r of records) {
+      if (r.status === 'PENDING_REVIEW') pendingCount++;
+      else if (r.status === 'REJECTED') rejectedCount++;
+      else if (r.checkOutTime) completedCount++;
+      else if (r.checkInTime) inShiftCount++;
+
+      if (r.checkInTime && r.checkOutTime) {
+        const mins = Math.round(
+          (new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) / 60000,
+        );
+        totalMinutes += mins;
+        const key = r.employeeId;
+        const prev = minutesByEmployee.get(key);
+        if (prev) {
+          prev.minutes += mins;
+          prev.days += 1;
+        } else {
+          minutesByEmployee.set(key, { employee: r.employee, minutes: mins, days: 1 });
+        }
+      }
+    }
+
+    const topEmployees = Array.from(minutesByEmployee.values())
+      .sort((a, b) => b.minutes - a.minutes)
+      .slice(0, 5);
+
+    return {
+      data: {
+        totalRecords: records.length,
+        inShift: inShiftCount,
+        completed: completedCount,
+        pending: pendingCount,
+        rejected: rejectedCount,
+        totalMinutes,
+        totalHours: Math.round((totalMinutes / 60) * 10) / 10,
+        topEmployees,
+      },
+    };
   }
 
   async checkIn(

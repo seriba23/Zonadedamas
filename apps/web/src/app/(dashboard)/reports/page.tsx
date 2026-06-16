@@ -981,6 +981,9 @@ export default function ReportsPage() {
             )}
           </div>
 
+          {/* Asistencias del periodo (resumen) */}
+          <AttendanceReportCard startDate={bounds.start} endDate={bounds.end} />
+
           {/* Client source breakdown */}
           <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
             <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Origen de clientes</h3>
@@ -1101,6 +1104,132 @@ function SalesCard({
       ) : (
         <p className="text-xs text-[var(--text-muted)] text-center py-4">Aún no hay ventas concretadas</p>
       )}
+    </div>
+  );
+}
+
+// ─── Asistencias del periodo (resumen para reportes) ──────────────
+function AttendanceReportCard({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['attendance-stats', startDate, endDate],
+    queryFn: () =>
+      api.get<{
+        data: {
+          totalRecords: number;
+          inShift: number;
+          completed: number;
+          pending: number;
+          rejected: number;
+          totalMinutes: number;
+          totalHours: number;
+          topEmployees: Array<{
+            employee: { id: string; firstName: string; lastName: string; color: string | null; avatarUrl: string | null };
+            minutes: number;
+            days: number;
+          }>;
+        };
+      }>(`/api/attendance/stats?startDate=${startDate}&endDate=${endDate}`),
+  });
+
+  const stats = data?.data;
+  const top = stats?.topEmployees || [];
+  const maxMinutes = top[0]?.minutes || 1;
+
+  return (
+    <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)]">Asistencias del periodo</h3>
+        <Link
+          href="/staff?tab=asistencias"
+          className="text-xs font-medium text-[#008080] hover:underline whitespace-nowrap"
+        >
+          Ver todo →
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-14 bg-[var(--bg-muted)] rounded-lg animate-pulse" />)}
+          </div>
+        </div>
+      ) : !stats || stats.totalRecords === 0 ? (
+        <p className="text-sm text-[var(--text-muted)]">Sin registros de asistencia en el periodo.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+            <MiniStat label="Total" value={String(stats.totalRecords)} />
+            <MiniStat label="En turno" value={String(stats.inShift)} tone="teal" />
+            <MiniStat label="Completados" value={String(stats.completed)} tone="green" />
+            <MiniStat label="Pendientes" value={String(stats.pending + stats.rejected)} tone={stats.pending > 0 ? 'amber' : undefined} />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] mb-3 pb-3 border-b border-[var(--border)]">
+            <span>Horas totales</span>
+            <span className="font-mono font-semibold text-[var(--text-primary)]">
+              {Math.floor(stats.totalMinutes / 60)}:{String(stats.totalMinutes % 60).padStart(2, '0')} h
+            </span>
+          </div>
+
+          {top.length > 0 ? (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)] mb-2">Top empleados</p>
+              <div className="space-y-2">
+                {top.map((t) => {
+                  const pct = (t.minutes / maxMinutes) * 100;
+                  const hours = Math.floor(t.minutes / 60);
+                  const mins = t.minutes % 60;
+                  return (
+                    <Link
+                      key={t.employee.id}
+                      href={`/staff/${t.employee.id}/attendance`}
+                      className="flex items-center gap-2 hover:bg-[var(--bg-muted)] rounded-lg px-1 py-1 -mx-1"
+                    >
+                      <span className="text-xs text-[var(--text-secondary)] w-28 truncate">
+                        {t.employee.firstName} {t.employee.lastName}
+                      </span>
+                      <div className="flex-1 bg-[var(--bg-muted)] rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${pct}%`, backgroundColor: t.employee.color || '#008080' }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-[var(--text-secondary)] w-14 text-right">
+                        {hours}:{String(mins).padStart(2, '0')}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'teal' | 'green' | 'amber';
+}) {
+  const toneClass =
+    tone === 'teal'
+      ? 'text-[#008080]'
+      : tone === 'green'
+        ? 'text-green-700'
+        : tone === 'amber'
+          ? 'text-amber-600'
+          : 'text-[var(--text-primary)]';
+  return (
+    <div className="bg-[var(--bg-muted)] rounded-lg p-2">
+      <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+      <p className={`text-lg font-bold mt-0.5 ${toneClass}`}>{value}</p>
     </div>
   );
 }

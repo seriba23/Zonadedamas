@@ -847,41 +847,22 @@ function EmployeeSchedulesTab({ employees }: { employees: Employee[] }) {
 /* ─── Attendance Tab (admin view) ─── */
 function AttendanceTab({ employees }: { employees: Employee[] }) {
   const queryClient = useQueryClient();
-  type RangeMode = 'day' | 'week' | 'month' | 'custom';
-  const [rangeMode, setRangeMode] = useState<RangeMode>('day');
+  const router = useRouter();
+  type StatusFilter = 'all' | 'in_shift' | 'completed' | 'pending';
+
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [customStart, setCustomStart] = useState(() => new Date().toISOString().split('T')[0]);
-  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().split('T')[0]);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [draftDate, setDraftDate] = useState(selectedDate);
 
-  // Calculate date range based on mode
-  function getDateRange(): { startDate: string; endDate: string } {
-    const d = new Date(selectedDate + 'T00:00:00');
-    if (rangeMode === 'day') {
-      return { startDate: selectedDate, endDate: selectedDate };
-    } else if (rangeMode === 'week') {
-      const dayOfWeek = d.getDay();
-      const monday = new Date(d);
-      monday.setDate(d.getDate() - ((dayOfWeek + 6) % 7));
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      return { startDate: monday.toISOString().split('T')[0], endDate: sunday.toISOString().split('T')[0] };
-    } else if (rangeMode === 'month') {
-      const start = new Date(d.getFullYear(), d.getMonth(), 1);
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      return { startDate: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0] };
-    } else {
-      return { startDate: customStart, endDate: customEnd };
-    }
-  }
-
-  const { startDate, endDate } = getDateRange();
-
+  // Por defecto, lista del día de hoy (startDate=endDate=selectedDate).
   const { data, isLoading } = useQuery({
-    queryKey: ['attendance', startDate, endDate],
-    queryFn: () => api.get<{ data: any[] }>(`/api/attendance?startDate=${startDate}&endDate=${endDate}`),
+    queryKey: ['attendance', selectedDate],
+    queryFn: () => api.get<{ data: any[] }>(`/api/attendance?startDate=${selectedDate}&endDate=${selectedDate}`),
   });
 
-  const records = data?.data || [];
+  const allRecords = data?.data || [];
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) =>
@@ -889,200 +870,284 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
   });
 
-  // Group records by date for multi-day views
-  const byDate = new Map<string, any[]>();
-  for (const r of records) {
-    const dateKey = new Date(r.date).toISOString().split('T')[0];
-    const list = byDate.get(dateKey) || [];
-    list.push(r);
-    byDate.set(dateKey, list);
-  }
+  // Empleados sin registro hoy: los anadimos como "ausentes" si el filtro
+  // no esta restringido a un estado activo. Esto da una vista completa de
+  // quien fichado y quien no.
+  const recordedEmpIds = new Set(allRecords.map((r: any) => r.employee?.id));
+  const ausentes = statusFilter === 'all'
+    ? employees.filter((e) => !recordedEmpIds.has(e.id)).map((e) => ({
+        id: `absent-${e.id}`,
+        employee: { id: e.id, firstName: e.firstName, lastName: e.lastName, color: e.color, avatarUrl: e.avatarUrl },
+        checkInTime: null,
+        checkOutTime: null,
+        status: 'ABSENT',
+        checkInDistance: null,
+      }))
+    : [];
 
-  const rangeModes: { key: RangeMode; label: string }[] = [
-    { key: 'day', label: 'Día' },
-    { key: 'week', label: 'Semana' },
-    { key: 'month', label: 'Mes' },
-    { key: 'custom', label: 'Personalizado' },
+  // Aplica filtros: por estado y por busqueda.
+  const filtered = [...allRecords, ...ausentes].filter((r: any) => {
+    const emp = r.employee;
+    const fullName = `${emp?.firstName || ''} ${emp?.lastName || ''}`.toLowerCase();
+
+    if (search && !fullName.includes(search.toLowerCase())) return false;
+
+    if (statusFilter === 'in_shift') return !!r.checkInTime && !r.checkOutTime && r.status !== 'REJECTED';
+    if (statusFilter === 'completed') return !!r.checkOutTime && r.status === 'APPROVED';
+    if (statusFilter === 'pending') return r.status === 'PENDING_REVIEW';
+    return true;
+  });
+
+  const statusChips: { key: StatusFilter; label: string }[] = [
+    { key: 'all', label: 'Todos' },
+    { key: 'in_shift', label: 'En turno' },
+    { key: 'completed', label: 'Completados' },
+    { key: 'pending', label: 'Pendientes' },
   ];
 
-  function renderRecordRow(record: any) {
-    const emp = record.employee;
-    const checkIn = record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : null;
-    const checkOut = record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : null;
-    const totalMinutes = record.checkInTime && record.checkOutTime
-      ? Math.round((new Date(record.checkOutTime).getTime() - new Date(record.checkInTime).getTime()) / 60000)
-      : null;
-    const hours = totalMinutes != null
-      ? totalMinutes < 60
-        ? `${totalMinutes}min`
-        : `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, '0')}`
-      : null;
-
-    let statusInfo: { label: string; color: string; bg: string };
-    if (record.status === 'PENDING_REVIEW') {
-      statusInfo = { label: 'Pendiente', color: 'text-teal-700', bg: 'bg-teal-50' };
-    } else if (record.status === 'REJECTED') {
-      statusInfo = { label: 'Rechazado', color: 'text-red-600', bg: 'bg-red-50' };
-    } else if (record.checkOutTime) {
-      statusInfo = { label: 'Completado', color: 'text-green-600', bg: 'bg-green-50' };
-    } else {
-      statusInfo = { label: 'En turno', color: 'text-[#008080]', bg: 'bg-teal-50' };
-    }
-
-    return (
-      <tr key={record.id} className="border-t border-[var(--border)] hover:bg-[var(--bg-muted)]">
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden"
-              style={{ backgroundColor: emp?.color || '#008080' }}
-            >
-              {emp?.avatarUrl ? (
-                <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <>{emp?.firstName?.[0]}{emp?.lastName?.[0]}</>
-              )}
-            </div>
-            <div>
-              <span className="text-[var(--text-primary)] text-sm">{emp?.firstName} {emp?.lastName}</span>
-              {record.checkInDistance != null && record.checkInDistance > 50 && (
-                <p className="text-[10px] text-red-500">{record.checkInDistance}m de distancia</p>
-              )}
-            </div>
-          </div>
-        </td>
-        <td className="px-4 py-3 text-center font-mono text-[var(--text-secondary)] text-sm">{checkIn || '—'}</td>
-        <td className="px-4 py-3 text-center font-mono text-[var(--text-secondary)] text-sm">{checkOut || '—'}</td>
-        <td className="px-4 py-3 text-center text-[var(--text-secondary)] text-sm font-mono">{hours || '—'}</td>
-        <td className="px-4 py-3 text-center">
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusInfo.color} ${statusInfo.bg}`}>
-            {statusInfo.label}
-          </span>
-        </td>
-        <td className="px-4 py-3 text-center">
-          {record.status === 'PENDING_REVIEW' && (
-            <div className="flex items-center justify-center gap-1">
-              <button
-                onClick={() => reviewMutation.mutate({ id: record.id, status: 'APPROVED' })}
-                className="p-1 rounded hover:bg-green-50 text-green-600"
-                title="Aprobar"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                onClick={() => reviewMutation.mutate({ id: record.id, status: 'REJECTED' })}
-                className="p-1 rounded hover:bg-red-50 text-red-500"
-                title="Rechazar"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          )}
-        </td>
-      </tr>
-    );
+  function statusOf(record: any): { label: string; color: string; bg: string } {
+    if (record.status === 'ABSENT') return { label: 'Sin registro', color: 'text-gray-500', bg: 'bg-gray-100' };
+    if (record.status === 'PENDING_REVIEW') return { label: 'Pendiente', color: 'text-teal-700', bg: 'bg-teal-50' };
+    if (record.status === 'REJECTED') return { label: 'Rechazado', color: 'text-red-600', bg: 'bg-red-50' };
+    if (record.checkOutTime) return { label: 'Completado', color: 'text-green-700', bg: 'bg-green-50' };
+    if (record.checkInTime) return { label: 'En turno', color: 'text-[#008080]', bg: 'bg-teal-50' };
+    return { label: '—', color: 'text-gray-500', bg: 'bg-gray-100' };
   }
+
+  function formatTime(iso?: string | null): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function hoursLabel(record: any): string | null {
+    if (!record.checkInTime || !record.checkOutTime) return null;
+    const mins = Math.round((new Date(record.checkOutTime).getTime() - new Date(record.checkInTime).getTime()) / 60000);
+    if (mins < 60) return `${mins}min`;
+    return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')} h`;
+  }
+
+  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const dateLabel = isToday
+    ? 'Hoy'
+    : new Date(selectedDate + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
     <div>
-      {/* Filters bar */}
-      <div className="space-y-3 mb-4">
-        <div className="flex items-center gap-3">
-          {/* Range mode pills */}
-          <div className="flex rounded-lg border border-[var(--border)] overflow-hidden">
-            {rangeModes.map((mode) => (
-              <button
-                key={mode.key}
-                onClick={() => setRangeMode(mode.key)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                  rangeMode === mode.key ? 'bg-[#008080] text-white' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Date picker */}
-          {rangeMode !== 'custom' && (
-            <div className="w-44">
-              <DatePicker value={selectedDate} onChange={(val) => setSelectedDate(val)} />
-            </div>
-          )}
-
-          {rangeMode === 'custom' && (
-            <div className="flex items-center gap-2">
-              <div className="w-40"><DatePicker value={customStart} onChange={setCustomStart} /></div>
-              <span className="text-xs text-[var(--text-muted)]">a</span>
-              <div className="w-40"><DatePicker value={customEnd} onChange={setCustomEnd} /></div>
-            </div>
-          )}
-
-          {/* Range label */}
-          <span className="text-xs text-[var(--text-muted)] ml-auto">
-            {startDate === endDate
-              ? new Date(startDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
-              : `${new Date(startDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short' })} — ${new Date(endDate + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}`
-            }
-          </span>
+      {/* Barra superior: buscador + boton de filtros */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-0">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar empleado..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+            style={{ ['--tw-ring-color' as any]: '#008080' }}
+          />
         </div>
+        <button
+          type="button"
+          onClick={() => { setDraftDate(selectedDate); setShowFilterSheet(true); }}
+          aria-label="Filtros"
+          className="w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center flex-shrink-0 relative"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          {!isToday && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#008080] rounded-full border-2 border-white" />
+          )}
+        </button>
       </div>
 
+      {/* Pills de estado (scroll horizontal en mobile) */}
+      <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1">
+        {statusChips.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setStatusFilter(c.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+              statusFilter === c.key
+                ? 'bg-[#008080] text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Etiqueta de fecha activa */}
+      <div className="flex items-center justify-between mb-2 text-xs">
+        <span className="text-gray-500 capitalize">{dateLabel}</span>
+        <span className="text-gray-400">
+          {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Lista mobile-first */}
       {isLoading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-[var(--bg-muted)] rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-[var(--bg-muted)] rounded-xl animate-pulse" />)}
         </div>
-      ) : records.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-[var(--text-muted)]">
-          <p>No hay registros de asistencia en este periodo.</p>
+          <p className="text-sm">
+            {search
+              ? `No hay registros para "${search}"`
+              : 'No hay registros que coincidan con el filtro.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {rangeMode === 'day' ? (
-            <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)]">
-                  <tr className="text-xs text-[var(--text-secondary)] uppercase">
-                    <th className="text-left px-4 py-3 font-semibold">Empleado</th>
-                    <th className="text-center px-4 py-3 font-semibold">Entrada</th>
-                    <th className="text-center px-4 py-3 font-semibold">Salida</th>
-                    <th className="text-center px-4 py-3 font-semibold">Horas</th>
-                    <th className="text-center px-4 py-3 font-semibold">Estado</th>
-                    <th className="text-center px-4 py-3 font-semibold w-20"></th>
-                  </tr>
-                </thead>
-                <tbody>{records.map(renderRecordRow)}</tbody>
-              </table>
-            </div>
-          ) : (
-            // Multi-day: group by date
-            [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([dateKey, dayRecords]) => (
-              <div key={dateKey} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
-                <div className="px-4 py-2 bg-[var(--bg-subtle)] border-b border-[var(--border)]">
-                  <p className="text-xs font-semibold text-[var(--text-secondary)] capitalize">
-                    {new Date(dateKey + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  </p>
+        <div className="space-y-2">
+          {filtered.map((record: any) => {
+            const emp = record.employee;
+            const st = statusOf(record);
+            const hours = hoursLabel(record);
+            const isAbsent = record.status === 'ABSENT';
+            return (
+              <button
+                key={record.id}
+                type="button"
+                disabled={isAbsent && !emp?.id}
+                onClick={() => emp?.id && router.push(`/staff/${emp.id}/attendance`)}
+                className="w-full bg-white rounded-xl border border-gray-200 hover:border-[#008080] hover:shadow-sm transition-all p-3 text-left disabled:cursor-default disabled:hover:border-gray-200 disabled:hover:shadow-none"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
+                    style={{ backgroundColor: emp?.color || '#008080' }}
+                  >
+                    {emp?.avatarUrl ? (
+                      <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <>{emp?.firstName?.[0]}{emp?.lastName?.[0]}</>
+                    )}
+                  </div>
+
+                  {/* Datos principales */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {emp?.firstName} {emp?.lastName}
+                      </p>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color} ${st.bg}`}>
+                        {st.label}
+                      </span>
+                    </div>
+                    {!isAbsent && (
+                      <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
+                        <span>
+                          <svg className="inline w-3 h-3 mr-0.5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                          </svg>
+                          {formatTime(record.checkInTime)}
+                        </span>
+                        <span>
+                          <svg className="inline w-3 h-3 mr-0.5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                          </svg>
+                          {formatTime(record.checkOutTime)}
+                        </span>
+                        {hours && <span className="font-mono text-gray-700">{hours}</span>}
+                      </div>
+                    )}
+                    {record.checkInDistance != null && record.checkInDistance > 50 && (
+                      <p className="text-[10px] text-red-500 mt-0.5">
+                        {record.checkInDistance}m de distancia
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Acciones rápidas pendiente */}
+                  {record.status === 'PENDING_REVIEW' && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: record.id, status: 'APPROVED' }); }}
+                        className="w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center"
+                        aria-label="Aprobar"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); reviewMutation.mutate({ id: record.id, status: 'REJECTED' }); }}
+                        className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center"
+                        aria-label="Rechazar"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-subtle)]/50 border-b border-[var(--border)]">
-                    <tr className="text-[10px] text-[var(--text-muted)] uppercase">
-                      <th className="text-left px-4 py-2 font-semibold">Empleado</th>
-                      <th className="text-center px-4 py-2 font-semibold">Entrada</th>
-                      <th className="text-center px-4 py-2 font-semibold">Salida</th>
-                      <th className="text-center px-4 py-2 font-semibold">Horas</th>
-                      <th className="text-center px-4 py-2 font-semibold">Estado</th>
-                      <th className="text-center px-4 py-2 font-semibold w-20"></th>
-                    </tr>
-                  </thead>
-                  <tbody>{dayRecords.map(renderRecordRow)}</tbody>
-                </table>
-              </div>
-            ))
-          )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Sheet de filtros (fecha) */}
+      {showFilterSheet && (
+        <div
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+          onClick={() => setShowFilterSheet(false)}
+        >
+          <div
+            className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-4 pb-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 md:hidden" />
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Filtrar por fecha</h3>
+            <DatePicker value={draftDate} onChange={(v) => setDraftDate(v)} />
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftDate(new Date().toISOString().split('T')[0]);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+              >
+                Hoy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - 1);
+                  setDraftDate(d.toISOString().split('T')[0]);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+              >
+                Ayer
+              </button>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowFilterSheet(false)}
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSelectedDate(draftDate); setShowFilterSheet(false); }}
+                className="flex-1 px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

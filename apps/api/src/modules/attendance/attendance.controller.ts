@@ -15,21 +15,38 @@ export class AttendanceController {
     private readonly prisma: PrismaService,
   ) {}
 
-  /** Admin: list attendance for a date range */
+  /** Admin: list attendance for a date range (filtros opcionales) */
   @Get()
   async findByDateRange(
     @CurrentTenant() tenantId: string,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
+    @Query('employeeId') employeeId?: string,
+    @Query('status') status?: string,
   ) {
     const end = endDate || startDate;
-    return this.attendanceService.findByDateRange(tenantId, startDate, end);
+    return this.attendanceService.findByDateRange(tenantId, startDate, end, {
+      employeeId,
+      status,
+    });
   }
 
   /** Admin: count pending reviews */
   @Get('pending-count')
   async pendingCount(@CurrentTenant() tenantId: string) {
     return this.attendanceService.getPendingCount(tenantId);
+  }
+
+  /** Admin: stats agregadas para el dashboard de reportes. Devuelve
+   * totales por estado en el rango (presentes, completados, pendientes,
+   * rechazados) y top empleados por horas trabajadas. */
+  @Get('stats')
+  async stats(
+    @CurrentTenant() tenantId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.attendanceService.getStats(tenantId, startDate, endDate || startDate);
   }
 
   /** Employee: get my attendance history */
