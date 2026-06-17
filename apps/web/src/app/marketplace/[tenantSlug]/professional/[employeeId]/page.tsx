@@ -59,6 +59,9 @@ export default function ProfessionalProfilePage() {
   const tenantSlug = params.tenantSlug as string;
   const employeeId = params.employeeId as string;
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  // IDs de imagenes del portafolio cuyo archivo fallo al cargar (404, etc).
+  // Las filtramos del grid para no dejar recuadros rotos visibles.
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
 
   // Tabs Trabajos/Comentarios + categoria activa dentro de Trabajos.
   const [activeSection, setActiveSection] = useState<0 | 1>(0); // 0 trabajos, 1 comentarios
@@ -426,11 +429,14 @@ export default function ProfessionalProfilePage() {
                       );
                     })()}
 
-                    {/* Grid de fotos filtradas */}
+                    {/* Grid de fotos filtradas — incluye filtro de imagenes
+                        rotas (archivo borrado/404) para no dejar recuadros
+                        vacios con el alt-text visible. */}
                     {(() => {
-                      const filtered = activeCategory === 'all'
+                      const base = activeCategory === 'all'
                         ? pro.portfolio
                         : pro.portfolio.filter((p) => p.services.some((s) => s.name === activeCategory));
+                      const filtered = base.filter((img) => !failedImageIds.has(img.id));
                       if (filtered.length === 0) {
                         return (
                           <div className="text-center py-8 text-sm text-gray-400">
@@ -444,12 +450,13 @@ export default function ProfessionalProfilePage() {
                             <button
                               key={img.id}
                               onClick={() => setLightboxImg(`${API_URL}${img.imageUrl}`)}
-                              className="relative aspect-square rounded-xl overflow-hidden group"
+                              className="relative aspect-square rounded-xl overflow-hidden group bg-gray-100"
                             >
                               <img
                                 src={`${API_URL}${img.imageUrl}`}
-                                alt={img.caption || ''}
+                                alt=""
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={() => setFailedImageIds((prev) => new Set(prev).add(img.id))}
                               />
                               {/* Etiqueta de servicios — solo en "Todos"
                                   (redundante si estamos filtrando por uno) */}

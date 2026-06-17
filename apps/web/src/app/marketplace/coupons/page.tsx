@@ -14,7 +14,7 @@ const TEAL_LIGHT = '#e0f2f1';
 const POINTS_HIDDEN_KEY = 'marketplace_points_hidden_tenants';
 const POINTS_SORT_KEY = 'marketplace_points_sort';
 
-type CouponFilter = 'all' | 'discount' | 'gratis' | 'expiring' | 'history';
+type CouponFilter = 'all' | 'active' | 'discount' | 'gratis' | 'expiring' | 'history';
 type PointsSort = 'points_desc' | 'points_asc' | 'name_asc' | 'name_desc';
 
 function formatExpiry(dateStr: string | null) {
@@ -147,7 +147,8 @@ export default function MarketplaceCouponsPage() {
     normalize(ref.code).includes(q);
 
   const filteredActive = active.filter(matchesSearch).filter((r) => {
-    if (couponFilter === 'all' || couponFilter === 'history') return couponFilter !== 'history';
+    if (couponFilter === 'history') return false;
+    if (couponFilter === 'all' || couponFilter === 'active') return true;
     if (couponFilter === 'discount') return r.reward?.type === 'DESCUENTO';
     if (couponFilter === 'gratis') return r.reward?.type === 'SERVICIO';
     if (couponFilter === 'expiring') {
@@ -161,8 +162,8 @@ export default function MarketplaceCouponsPage() {
   const filteredUsedRef = usedReferrals.filter(matchesReferralSearch);
   const filteredReceived = receivedReferrals.filter(matchesReferralSearch);
 
-  // En "Historial" solo mostramos lo usado/expirado; en los demás filtros
-  // ocultamos historial para que la tab no se vea siempre cargada.
+  // En "Historial" solo mostramos lo usado/expirado; en "Activos" solo
+  // los disponibles; en "Todos" ambos.
   const showActiveSection = couponFilter !== 'history';
   const showHistorySection = couponFilter === 'all' || couponFilter === 'history';
 
@@ -341,9 +342,10 @@ export default function MarketplaceCouponsPage() {
               <div className="flex flex-wrap gap-1.5">
                 {([
                   { value: 'all', label: 'Todos' },
+                  { value: 'active', label: 'Adquiridos' },
                   { value: 'discount', label: 'Descuentos' },
                   { value: 'gratis', label: 'Servicio gratis' },
-                  { value: 'expiring', label: 'Por vencer (7 dias)' },
+                  { value: 'expiring', label: 'Por vencer (7 días)' },
                   { value: 'history', label: 'Historial' },
                 ] as { value: CouponFilter; label: string }[]).map((opt) => (
                   <button

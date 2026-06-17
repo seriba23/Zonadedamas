@@ -358,7 +358,7 @@ model User {
   country           String?   @db.VarChar(2)
   language          String    @default("es") @db.VarChar(5)
   currency          String    @default("LOCAL") @db.VarChar(10)
-  searchRadius      Int       @default(25) @map("search_radius")
+  searchRadius      Int       @default(10) @map("search_radius")
   notifAppointments Boolean   @default(true) @map("notif_appointments")
   notifPromotions   Boolean   @default(true) @map("notif_promotions")
   notifRewards      Boolean   @default(true) @map("notif_rewards")

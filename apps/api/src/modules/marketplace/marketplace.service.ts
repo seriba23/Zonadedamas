@@ -486,12 +486,17 @@ export class MarketplaceService {
 
   async discover(dto: MarketplaceDiscoverDto) {
     const {
-      lat, lng, radiusKm = 25, category, search,
+      lat, lng, radiusKm = 10, category, search,
       sortBy, availableToday, availableNow, shopOnly,
       page = 1, perPage = 20,
     } = dto;
     const offset = (page - 1) * perPage;
     const hasGps = lat != null && lng != null;
+    // Filtro real por distancia: solo aplica si hay GPS Y un radio
+    // explicito mayor que cero. Hasta ahora el parametro se calculaba
+    // pero NUNCA se usaba en el WHERE — los clientes veian negocios
+    // de todo el pais sin importar el radio configurado.
+    const applyRadius = hasGps && typeof radiusKm === 'number' && radiusKm > 0;
 
     // MySQL ELT maps DAYOFWEEK() (1=Sun..7=Sat) to Prisma DayOfWeek enum strings
     const dayOfWeekExpr = "ELT(DAYOFWEEK(CURDATE()), 'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY')";
@@ -551,15 +556,46 @@ export class MarketplaceService {
       )`);
     }
 
-    // Count total
-    const countSql = `
-      SELECT COUNT(DISTINCT t.id) as total
-      FROM tenants t
-      ${hasGps ? 'LEFT JOIN locations l ON l.tenant_id = t.id AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL AND l.is_active = true' : ''}
-      WHERE ${conditions.join(' AND ')}
-    `;
-    const countResult: any[] = await this.prisma.$queryRawUnsafe(countSql, ...params);
-    const total = Number(countResult[0]?.total || 0);
+    // Count total. Si aplicamos filtro de radio, el count debe usar la
+    // misma subquery con distancia (sino el "total" no coincide con la
+    // pagina real). Si no hay GPS o radio, count plano.
+    let total = 0;
+    if (applyRadius) {
+      const countDistSql = `
+        SELECT COUNT(*) as total FROM (
+          SELECT t.id, MIN(
+            6371 * ACOS(
+              LEAST(1.0, GREATEST(-1.0,
+                COS(RADIANS(?)) * COS(RADIANS(l.latitude)) *
+                COS(RADIANS(l.longitude) - RADIANS(?)) +
+                SIN(RADIANS(?)) * SIN(RADIANS(l.latitude))
+              ))
+            )
+          ) as distance
+          FROM tenants t
+          LEFT JOIN locations l ON l.tenant_id = t.id AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL AND l.is_active = true
+          WHERE ${conditions.join(' AND ')}
+          GROUP BY t.id
+        ) sub
+        WHERE distance IS NOT NULL AND distance <= ?
+      `;
+      const countResult: any[] = await this.prisma.$queryRawUnsafe(
+        countDistSql,
+        lat, lng, lat,
+        ...params,
+        radiusKm,
+      );
+      total = Number(countResult[0]?.total || 0);
+    } else {
+      const countSql = `
+        SELECT COUNT(DISTINCT t.id) as total
+        FROM tenants t
+        ${hasGps ? 'LEFT JOIN locations l ON l.tenant_id = t.id AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL AND l.is_active = true' : ''}
+        WHERE ${conditions.join(' AND ')}
+      `;
+      const countResult: any[] = await this.prisma.$queryRawUnsafe(countSql, ...params);
+      total = Number(countResult[0]?.total || 0);
+    }
 
     // Main query with distance
     let selectDistance = 'NULL as distance';
@@ -632,12 +668,18 @@ export class MarketplaceService {
       WHERE ${conditions.join(' AND ')}
       GROUP BY t.id
     `;
+    // Filtro de radio en el outer: distance solo existe como alias del
+    // SELECT cuando hasGps. NULL = negocio sin ubicacion (lo excluimos
+    // cuando aplicamos radio, ya que no hay forma de saber su distancia).
+    const radiusWhere = applyRadius ? 'WHERE distance IS NOT NULL AND distance <= ?' : '';
     const mainSql = `
       SELECT * FROM (${innerSql}) sub
+      ${radiusWhere}
       ORDER BY ${orderClause}
       LIMIT ? OFFSET ?
     `;
 
+    if (applyRadius) mainParams.push(radiusKm);
     mainParams.push(perPage, offset);
 
     const businesses: any[] = await this.prisma.$queryRawUnsafe(mainSql, ...mainParams);
