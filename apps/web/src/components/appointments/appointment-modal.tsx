@@ -1361,7 +1361,30 @@ export function AppointmentModal({
             )}
           </div>
         ) : (
-          <p className="text-[var(--text-secondary)]">No se encontro la cita</p>
+          // Cita no encontrada: pudo haber sido eliminada o pertenecer
+          // a otro tenant. Damos contexto util al admin en vez de un
+          // modal hueco con una linea solitaria.
+          <div className="py-8 text-center">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+              Esta cita ya no existe
+            </p>
+            <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto mb-4">
+              Pudo haber sido eliminada o no está disponible para tu cuenta.
+              Puedes cerrar este aviso y continuar navegando.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666]"
+            >
+              Cerrar
+            </button>
+          </div>
         )
       ) : (
         // Create mode

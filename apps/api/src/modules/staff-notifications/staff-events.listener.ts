@@ -204,11 +204,20 @@ export class StaffEventsListener {
       if (!payment) return;
 
       const clientName = `${payment.client.firstName} ${payment.client.lastName}`;
-      // El pago se ve en el contexto de la cita que lo origino. Si no
-      // hay cita (raro: walk-in puro sin cita) caemos a /reports.
-      const link = payment.appointmentId
-        ? `/calendar?appointmentId=${payment.appointmentId}`
-        : '/reports';
+      // El pago se ve en el contexto de la cita que lo origino. Validamos
+      // que la cita realmente exista en el tenant antes de armar el link:
+      // si la cita fue eliminada o pertenece a otro tenant, evitamos
+      // mandar al admin a un modal vacio "Cita no encontrada".
+      let link: string = '/reports';
+      if (payment.appointmentId) {
+        const aptExists = await this.prisma.appointment.findFirst({
+          where: { id: payment.appointmentId, tenantId: event.tenantId },
+          select: { id: true },
+        });
+        if (aptExists) {
+          link = `/calendar?appointmentId=${payment.appointmentId}`;
+        }
+      }
 
       await this.notify.notify({
         tenantId: event.tenantId,
