@@ -296,6 +296,31 @@ export class ClientPortalService {
         photos: {
           select: { id: true, imageUrl: true, caption: true, createdAt: true },
         },
+        // Pagos reales (propina, descuento, total cobrado) para que el detalle
+        // coincida con lo que se cobró, no solo la suma de precios de items.
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            tipAmount: true,
+            discountAmount: true,
+            taxAmount: true,
+            totalAmount: true,
+            currency: true,
+            paymentMethod: true,
+            status: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        // Cupón/recompensa canjeada en esta cita (para mostrarlo visualmente).
+        redemption: {
+          include: {
+            reward: {
+              select: { id: true, name: true, type: true, discountAmount: true, discountMode: true },
+            },
+          },
+        },
       },
     });
 

@@ -38,7 +38,7 @@ interface AppointmentData {
       discountMode: 'FLAT' | 'PERCENTAGE' | null;
     };
   } | null;
-  payments?: Array<{ paymentMethod: string; totalAmount: string | number; status: string; createdAt: string }>;
+  payments?: Array<{ paymentMethod: string; amount?: string | number; tipAmount?: string | number; discountAmount?: string | number; totalAmount: string | number; status: string; createdAt: string }>;
   photos?: Array<{ id: string; imageUrl: string; serviceId: string }>;
   tenant?: {
     name: string;
@@ -176,9 +176,13 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
   const payments = data.payments ?? [];
   const subtotal = items.reduce((s, i) => s + Number(i.priceSnapshot ?? 0), 0)
     + products.reduce((s, p) => s + Number(p.unitPrice ?? 0) * Number(p.quantity ?? 1), 0);
-  const discount = Number(data.discountAmount ?? 0);
-  const total = Math.max(0, subtotal - discount);
-  const payment = payments[0];
+  const payment = payments[0]; // el backend ya filtra COMPLETED (más reciente)
+  // Monto REAL cobrado: usamos el total del pago (incluye propina y descuento).
+  const tip = Number(payment?.tipAmount ?? 0);
+  const discount = Number(payment?.discountAmount ?? data.discountAmount ?? 0);
+  const total = payment
+    ? Number(payment.totalAmount)
+    : Math.max(0, subtotal - discount) + tip;
   const isConfirmed = !!data.confirmedAt;
   const hasReview = !!data.review || reviewSubmitted;
   const tenant = data.tenant;
@@ -317,17 +321,23 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
           )}
 
           <div className="border-t border-gray-100 mt-3 pt-3 space-y-1">
+            {(discount > 0 || tip > 0) && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Subtotal</span>
+                <span className="text-gray-700 tabular-nums">{formatCurrency(subtotal)}</span>
+              </div>
+            )}
             {discount > 0 && (
-              <>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
-                  <span className="text-gray-700 tabular-nums">{formatCurrency(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Descuento</span>
-                  <span className="text-gray-700 tabular-nums">-{formatCurrency(discount)}</span>
-                </div>
-              </>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Descuento{redemption ? ' (cupón)' : ''}</span>
+                <span className="text-teal-700 tabular-nums">-{formatCurrency(discount)}</span>
+              </div>
+            )}
+            {tip > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Propina</span>
+                <span className="text-gray-700 tabular-nums">+{formatCurrency(tip)}</span>
+              </div>
             )}
             <div className="flex items-center justify-between pt-1">
               <span className="text-sm font-bold text-gray-900">Total</span>

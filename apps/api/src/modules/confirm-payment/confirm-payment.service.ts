@@ -24,7 +24,7 @@ export class ConfirmPaymentService {
           },
         },
         payments: {
-          select: { paymentMethod: true, totalAmount: true, status: true, createdAt: true },
+          select: { paymentMethod: true, amount: true, tipAmount: true, discountAmount: true, totalAmount: true, status: true, createdAt: true },
           where: { status: 'COMPLETED' },
           orderBy: { createdAt: 'desc' },
           take: 1,

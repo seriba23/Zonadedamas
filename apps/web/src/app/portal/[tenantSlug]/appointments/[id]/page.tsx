@@ -100,6 +100,16 @@ export default function AppointmentDetailPage() {
     0,
   );
   const totalPrice = servicesSubtotal + productsSubtotal;
+  // Montos REALES del cobro (propina, descuento, total) desde el pago, para que
+  // el detalle coincida con lo cobrado y no solo con la suma de precios.
+  const payments: any[] = appointment.payments || [];
+  const paidPayment = payments.find((p: any) => p.status === 'COMPLETED') || payments[0] || null;
+  const tipAmount = Number(paidPayment?.tipAmount || 0);
+  const discountAmount = Number(paidPayment?.discountAmount ?? appointment.discountAmount ?? 0);
+  const grandTotal = paidPayment
+    ? Number(paidPayment.totalAmount)
+    : Math.max(0, totalPrice - discountAmount) + tipAmount;
+  const redemption = appointment.redemption || null;
   const canCancel = ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(appointment.status);
   const canReview = appointment.status === 'COMPLETED' && !appointment.review;
 
@@ -190,13 +200,44 @@ export default function AppointmentDetailPage() {
             </div>
           )}
 
-          {/* Total general (servicios + productos) */}
-          <div className="py-3 border-t border-gray-100">
-            <div className="flex items-center justify-between">
+          {/* Cupón aplicado (visual) */}
+          {redemption && (
+            <div className="py-3 border-t border-gray-100">
+              <div className="flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5">
+                <div className="w-9 h-9 rounded-lg bg-white border border-teal-200 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-teal-800 truncate">{redemption.reward?.name || 'Cupón aplicado'}</p>
+                  <p className="text-[11px] text-teal-600 font-mono">Código {redemption.code}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Desglose real del cobro */}
+          <div className="py-3 border-t border-gray-100 space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Subtotal</span>
+              <span className="text-gray-700">{formatCurrency(totalPrice)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Descuento{redemption ? ' (cupón)' : ''}</span>
+                <span className="text-teal-700">−{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+            {tipAmount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Propina</span>
+                <span className="text-gray-700">+{formatCurrency(tipAmount)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
               <span className="text-sm font-semibold text-gray-900">Total</span>
-              <span className="text-sm font-bold text-gray-900">
-                {formatCurrency(totalPrice)}
-              </span>
+              <span className="text-base font-bold text-gray-900">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
 
