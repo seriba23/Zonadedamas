@@ -29,6 +29,10 @@ export class UpdateMarketplaceProfileDto {
 
   @IsOptional()
   @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
 }
 

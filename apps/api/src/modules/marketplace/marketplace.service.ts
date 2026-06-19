@@ -1799,6 +1799,7 @@ export class MarketplaceService {
     if (dto.gender !== undefined) updateData.gender = dto.gender || null;
     if (dto.allergies !== undefined) updateData.allergies = dto.allergies || null;
     if (dto.address !== undefined) updateData.address = dto.address || null;
+    if (dto.country !== undefined) updateData.country = dto.country || null;
     if (dto.phone !== undefined) updateData.phone = dto.phone || null;
 
     const user = await this.prisma.user.update({
