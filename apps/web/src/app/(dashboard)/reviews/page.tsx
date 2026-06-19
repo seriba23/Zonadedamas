@@ -157,11 +157,11 @@ export default function ReviewsPage() {
 
           {/* Tabs — segmento estandar del proyecto:
               rounded-lg + border, activo teal solido */}
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4 w-fit">
+          <div className="flex w-full rounded-lg border border-gray-300 overflow-hidden mb-4">
             <button
               type="button"
               onClick={() => setTab('business')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                 tab === 'business'
                   ? 'bg-[#008080] text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -172,7 +172,7 @@ export default function ReviewsPage() {
             <button
               type="button"
               onClick={() => setTab('employees')}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
                 tab === 'employees'
                   ? 'bg-[#008080] text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'

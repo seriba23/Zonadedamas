@@ -146,6 +146,21 @@ export class PlatformAdminController {
     return { data };
   }
 
+  // ─── NOTIFICATION LOGS ───────────────────────────────
+
+  @Get('notification-logs')
+  async getNotificationLogs(
+    @Query('page') page?: string,
+    @Query('perPage') perPage?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.adminService.getNotificationLogs({
+      page: page ? parseInt(page, 10) : undefined,
+      perPage: perPage ? parseInt(perPage, 10) : undefined,
+      status,
+    });
+  }
+
   // ─── BUSINESS TYPES ──────────────────────────────────
 
   @Get('business-types')

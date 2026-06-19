@@ -531,6 +531,35 @@ export class PlatformAdminService {
     );
   }
 
+  // ─── NOTIFICATION LOGS (registros globales) ──────────
+
+  async getNotificationLogs(filters: { page?: number; perPage?: number; status?: string }) {
+    const page = filters.page || 1;
+    const perPage = Math.min(filters.perPage || 20, 100);
+    const skip = (page - 1) * perPage;
+
+    const where: any = {};
+    if (filters.status === 'SENT' || filters.status === 'FAILED') {
+      where.status = filters.status;
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.notificationLog.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { createdAt: 'desc' },
+        include: { tenant: { select: { id: true, name: true, slug: true } } },
+      }),
+      this.prisma.notificationLog.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
+    };
+  }
+
   // ─── BUSINESS TYPES ──────────────────────────────────
 
   async getBusinessTypes() {

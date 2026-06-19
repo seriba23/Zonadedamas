@@ -1364,12 +1364,12 @@ function StaffCommissionsTab() {
   const [view, setView] = useState<CommView>('by-employee');
   return (
     <div>
-      {/* Toggle segmented */}
-      <div className="inline-flex bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg p-0.5 mb-4">
+      {/* Toggle segmented (full-width) */}
+      <div className="flex w-full bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg p-0.5 mb-4">
         <button
           type="button"
           onClick={() => setView('by-employee')}
-          className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+          className={`flex-1 px-3.5 py-2 text-sm font-semibold rounded-md transition-colors ${
             view === 'by-employee'
               ? 'bg-[#008080] text-white shadow-sm'
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
@@ -1380,7 +1380,7 @@ function StaffCommissionsTab() {
         <button
           type="button"
           onClick={() => setView('by-service')}
-          className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+          className={`flex-1 px-3.5 py-2 text-sm font-semibold rounded-md transition-colors ${
             view === 'by-service'
               ? 'bg-[#008080] text-white shadow-sm'
               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]'
