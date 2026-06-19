@@ -42,10 +42,24 @@ export class StripeController {
 
   @UseGuards(JwtAuthGuard)
   @Post('subscription/create')
-  async createSubscription(@Req() req: any) {
+  async createSubscription(@Req() req: any, @Body() body: { creatorCode?: string }) {
     const tenantId = req.user.tenantId;
     const preview = await this.stripeService.getSubscriptionPreview(tenantId);
-    const result = await this.stripeService.createPlatformSubscription(tenantId, preview.activeEmployeeCount);
+    const result = await this.stripeService.createPlatformSubscription(
+      tenantId,
+      preview.activeEmployeeCount,
+      body?.creatorCode?.trim() || undefined,
+    );
+    return { data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/validate-creator-code')
+  async validateCreatorCode(@Req() req: any, @Body() body: { code: string }) {
+    const result = await this.stripeService.validateCreatorCodeForTenant(
+      req.user.tenantId,
+      body?.code || '',
+    );
     return { data: result };
   }
 

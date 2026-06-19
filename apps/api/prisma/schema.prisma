@@ -156,6 +156,93 @@ model PlatformRefreshToken {
   @@map("platform_refresh_tokens")
 }
 
+// ─── CREATOR / INFLUENCER REFERRAL ─────────────────
+
+enum InfluencerStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+model Influencer {
+  id                       String           @id @default(uuid())
+  email                    String           @unique
+  firstName                String           @map("first_name")
+  lastName                 String           @map("last_name")
+  phone                    String?
+  status                   InfluencerStatus @default(PENDING)
+  approvedAt               DateTime?        @map("approved_at")
+  approvedBy               String?          @map("approved_by")
+  // Stripe Connect (Fase 2)
+  stripeAccountId          String?          @unique @map("stripe_account_id")
+  stripeOnboardingComplete Boolean          @default(false) @map("stripe_onboarding_complete")
+  // Auth panel influencer (Fase 6)
+  passwordHash             String?          @map("password_hash")
+  inviteToken              String?          @unique @map("invite_token")
+  inviteTokenExpiresAt     DateTime?        @map("invite_token_expires_at")
+  lastLoginAt              DateTime?        @map("last_login_at")
+  notes                    String?          @db.Text
+  createdAt                DateTime         @default(now()) @map("created_at")
+  updatedAt                DateTime         @updatedAt @map("updated_at")
+
+  codes   CreatorCode[]
+  payouts CreatorPayout[]
+
+  @@map("influencers")
+}
+
+model CreatorCode {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  influencerId String   @map("influencer_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  influencer Influencer         @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  usages     CreatorCodeUsage[]
+
+  @@index([influencerId])
+  @@map("creator_codes")
+}
+
+model CreatorCodeUsage {
+  id                 String    @id @default(uuid())
+  codeId             String    @map("code_id")
+  tenantId           String    @unique @map("tenant_id") // un tenant solo puede usar un código en su vida
+  appliedAt          DateTime  @default(now()) @map("applied_at")
+  discountMonthsLeft Int       @default(2) @map("discount_months_left")
+  // Tracking de ventana de reactivación
+  cancelledAt        DateTime? @map("cancelled_at")
+  reactivatedAt      DateTime? @map("reactivated_at")
+  lostAt             DateTime? @map("lost_at") // se setea si pasa de 60d sin reactivación
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  code    CreatorCode     @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  payouts CreatorPayout[]
+
+  @@index([codeId])
+  @@map("creator_code_usages")
+}
+
+model CreatorPayout {
+  id               String    @id @default(uuid())
+  influencerId     String    @map("influencer_id")
+  usageId          String    @map("usage_id")
+  amount           Decimal   @db.Decimal(10, 2) // $50 admin / $25 freelancer
+  forMonth         String    @map("for_month") // "2026-09"
+  stripeTransferId String?   @map("stripe_transfer_id")
+  transferredAt    DateTime? @map("transferred_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  influencer Influencer       @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  usage      CreatorCodeUsage @relation(fields: [usageId], references: [id], onDelete: Cascade)
+
+  @@unique([usageId, forMonth]) // idempotencia: un payout por usage por mes
+  @@index([influencerId])
+  @@map("creator_payouts")
+}
+
 // ─── MARKETPLACE USERS (Global Client Identity) ────
 
 // ─── TENANTS ────────────────────────────────────────

@@ -11,6 +11,7 @@ interface TenantUser {
   lastName: string;
   phone: string | null;
   isActive: boolean;
+  avatarUrl: string | null;
   lastLoginAt: string | null;
   roles: string[];
   hasEmployee: boolean;
@@ -24,6 +25,8 @@ interface TenantEmployee {
   phone: string | null;
   isActive: boolean;
   color: string;
+  avatarUrl: string | null;
+  jobTitle: string | null;
   locationName: string | null;
   appointmentsCount: number;
 }
@@ -38,6 +41,8 @@ interface TenantDetail {
   tenantType: 'BUSINESS' | 'FREELANCER';
   address: string | null;
   businessPhone: string | null;
+  logoUrl: string | null;
+  coverImageUrl: string | null;
   createdAt: string;
   subscription: {
     id: string;
@@ -75,6 +80,19 @@ interface TenantDetail {
   };
   users: TenantUser[];
   employees: TenantEmployee[];
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+function imgSrc(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith('http') ? url : `${API_URL}${url}`;
+}
+function initials(first: string, last: string): string {
+  return `${(first || '').charAt(0)}${(last || '').charAt(0)}`.toUpperCase();
+}
+function waLink(phone: string): string {
+  const d = phone.replace(/\D/g, '');
+  return `https://wa.me/${d.length === 10 ? '52' + d : d}`;
 }
 
 const PLAN_LABELS: Record<string, string> = { BASICO: 'Básico', PLUS: 'Plus', PRO: 'Pro' };
@@ -116,6 +134,9 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
   } | null>(null);
 
   const [grantModal, setGrantModal] = useState<{ months: number; saving: boolean; error?: string; success?: string } | null>(null);
+  const [empDetail, setEmpDetail] = useState<TenantEmployee | null>(null);
+  const [userDetail, setUserDetail] = useState<TenantUser | null>(null);
+  const [addrCopied, setAddrCopied] = useState(false);
 
   async function fetchTenant() {
     try {
@@ -230,31 +251,54 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/platform/tenants" className="text-gray-400 hover:text-gray-600">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
-            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-              tenant.tenantType === 'FREELANCER' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${tenant.tenantType === 'FREELANCER' ? 'bg-purple-500' : 'bg-blue-500'}`} />
-              {tenant.tenantType === 'FREELANCER' ? 'Independiente' : 'Negocio'}
-            </span>
+      {/* Volver */}
+      <Link href="/platform/tenants" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-3">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Volver a cuentas
+      </Link>
+
+      {/* Hero: portada + foto de perfil */}
+      {(() => {
+        const isFreelancer = tenant.tenantType === 'FREELANCER';
+        const accent = isFreelancer ? '#7c3aed' : '#2563eb';
+        const cover = imgSrc(tenant.coverImageUrl);
+        const logo = imgSrc(tenant.logoUrl);
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+            <div
+              className="h-28 sm:h-36 bg-cover bg-center"
+              style={cover ? { backgroundImage: `url(${cover})` } : { background: `linear-gradient(135deg, ${accent}, ${accent}99)` }}
+            />
+            <div className="px-5 sm:px-6 pb-5">
+              <div className="flex items-end gap-4 -mt-12">
+                <div
+                  className="w-24 h-24 rounded-2xl border-4 border-white shadow-sm overflow-hidden flex items-center justify-center text-2xl font-bold text-white shrink-0"
+                  style={{ backgroundColor: accent }}
+                >
+                  {logo ? <img src={logo} alt={tenant.name} className="w-full h-full object-cover" /> : initials(tenant.name, tenant.name.split(' ')[1] || '')}
+                </div>
+                {tenant.subscription && (
+                  <span className={`mb-2 text-xs font-medium px-3 py-1 rounded-full ${STATUS_BADGES[tenant.subscription.status] || 'bg-gray-100 text-gray-600'}`}>
+                    {tenant.subscription.status}
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
+                <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                  isFreelancer ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isFreelancer ? 'bg-purple-500' : 'bg-blue-500'}`} />
+                  {isFreelancer ? 'Independiente' : 'Negocio'}
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 mt-0.5">{tenant.email} · /{tenant.slug}</p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500">{tenant.email} | {tenant.slug}</p>
-        </div>
-        {tenant.subscription && (
-          <span className={`ml-auto text-sm font-medium px-3 py-1 rounded-full ${STATUS_BADGES[tenant.subscription.status] || ''}`}>
-            {tenant.subscription.status}
-          </span>
-        )}
-      </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
@@ -262,11 +306,74 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
           {/* Business info */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Información</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500">Tipo:</span> <span className="font-medium">{tenant.businessType ? BUSINESS_LABELS[tenant.businessType] || tenant.businessType : '-'}</span></div>
-              <div><span className="text-gray-500">Teléfono:</span> <span className="font-medium">{tenant.phone || tenant.businessPhone || '-'}</span></div>
-              <div><span className="text-gray-500">Dirección:</span> <span className="font-medium">{tenant.address || '-'}</span></div>
-              <div><span className="text-gray-500">Registro:</span> <span className="font-medium">{new Date(tenant.createdAt).toLocaleDateString('es')}</span></div>
+            <div className="space-y-3 text-sm">
+              {/* Rubro */}
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 014 9V4a1 1 0 011-1z" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-400">Rubro</p>
+                  <p className="font-medium text-gray-900">{tenant.businessType ? tenant.businessType.split(',').map((b) => BUSINESS_LABELS[b] || b).join(', ') : 'Sin rubro'}</p>
+                </div>
+              </div>
+
+              {/* Teléfono en una sola línea */}
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-400">Teléfono</p>
+                  <p className="font-medium text-gray-900 truncate">{tenant.phone || tenant.businessPhone || 'Sin teléfono'}</p>
+                </div>
+                {(tenant.phone || tenant.businessPhone) && (
+                  <a href={waLink((tenant.phone || tenant.businessPhone)!)} target="_blank" rel="noopener noreferrer" title="WhatsApp"
+                    className="w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:text-green-600 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.748-.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+                  </a>
+                )}
+              </div>
+
+              {/* Dirección con ícono + copiar */}
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-400">Dirección</p>
+                  <p className="font-medium text-gray-900 truncate">{tenant.address || 'Sin dirección'}</p>
+                </div>
+                {tenant.address && (
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(tenant.address!).catch(() => {}); setAddrCopied(true); setTimeout(() => setAddrCopied(false), 1800); }}
+                    title="Copiar dirección"
+                    className={`shrink-0 text-xs font-medium px-2 py-1.5 rounded-lg border ${addrCopied ? 'border-teal-200 text-teal-700 bg-teal-50' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                  >
+                    {addrCopied ? '¡Copiado!' : 'Copiar'}
+                  </button>
+                )}
+              </div>
+
+              {/* Registro */}
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-xs text-gray-400">Registro</p>
+                  <p className="font-medium text-gray-900">{new Date(tenant.createdAt).toLocaleDateString('es')}</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -287,7 +394,7 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                 <p className="text-xs text-gray-500">Ubicaciones</p>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-4 mt-4 text-sm text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 text-sm text-center">
               <div><span className="font-semibold">{tenant._count.users}</span><br/><span className="text-gray-500">Usuarios</span></div>
               <div><span className="font-semibold">{tenant._count.clients}</span><br/><span className="text-gray-500">Clientes</span></div>
               <div><span className="font-semibold">{tenant._count.services}</span><br/><span className="text-gray-500">Servicios</span></div>
@@ -303,54 +410,25 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
             {tenant.users.length === 0 ? (
               <p className="text-sm text-gray-400">Sin usuarios</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500 uppercase border-b">
-                      <th className="pb-2">Nombre</th>
-                      <th className="pb-2">Email</th>
-                      <th className="pb-2">Teléfono</th>
-                      <th className="pb-2">Roles</th>
-                      <th className="pb-2">Último acceso</th>
-                      <th className="pb-2">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tenant.users.map((user) => (
-                      <tr key={user.id} className="border-b border-gray-50">
-                        <td className="py-2 font-medium">
-                          {user.firstName} {user.lastName}
-                          {user.hasEmployee && (
-                            <span className="ml-1 text-xs text-blue-500" title="Vinculado a empleado">E</span>
-                          )}
-                        </td>
-                        <td className="py-2 text-gray-600">{user.email}</td>
-                        <td className="py-2 text-gray-500">{user.phone || '-'}</td>
-                        <td className="py-2">
-                          <div className="flex flex-wrap gap-1">
-                            {user.roles.map((role) => (
-                              <span key={role} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
-                                {ROLE_LABELS[role] || role}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="py-2 text-gray-500 text-xs">
-                          {user.lastLoginAt
-                            ? new Date(user.lastLoginAt).toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-                            : 'Nunca'}
-                        </td>
-                        <td className="py-2">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            user.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {user.isActive ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {tenant.users.map((user) => {
+                  const av = imgSrc(user.avatarUrl);
+                  return (
+                    <button
+                      key={user.id}
+                      onClick={() => setUserDetail(user)}
+                      className="text-left flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-teal-200 hover:shadow-sm transition-all"
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-semibold shrink-0">
+                        {av ? <img src={av} alt="" className="w-full h-full object-cover" /> : initials(user.firstName, user.lastName)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{user.firstName} {user.lastName}</p>
+                        <p className="text-[11px] text-gray-400 truncate">{ROLE_LABELS[user.roles[0]] || user.roles[0] || 'Usuario'}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -363,56 +441,25 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
             {tenant.employees.length === 0 ? (
               <p className="text-sm text-gray-400">Sin empleados</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500 uppercase border-b">
-                      <th className="pb-2">Nombre</th>
-                      <th className="pb-2">Email</th>
-                      <th className="pb-2">Teléfono</th>
-                      <th className="pb-2">Ubicación</th>
-                      <th className="pb-2">Citas</th>
-                      <th className="pb-2">Estado</th>
-                      <th className="pb-2 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tenant.employees.map((emp) => (
-                      <tr key={emp.id} className="border-b border-gray-50">
-                        <td className="py-2 font-medium">
-                          <span className="inline-flex items-center gap-2">
-                            <span
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: emp.color }}
-                            />
-                            {emp.firstName} {emp.lastName}
-                          </span>
-                        </td>
-                        <td className="py-2 text-gray-600">{emp.email || '-'}</td>
-                        <td className="py-2 text-gray-500">{emp.phone || '-'}</td>
-                        <td className="py-2 text-gray-500">{emp.locationName || '-'}</td>
-                        <td className="py-2 text-gray-600">{emp.appointmentsCount}</td>
-                        <td className="py-2">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            emp.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {emp.isActive ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td>
-                        <td className="py-2 text-right">
-                          {emp.isActive && (
-                            <button
-                              onClick={() => openDeactivateModal(emp)}
-                              className="text-xs text-red-600 hover:text-red-700 font-medium"
-                            >
-                              Desactivar
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {tenant.employees.map((emp) => {
+                  const av = imgSrc(emp.avatarUrl);
+                  return (
+                    <button
+                      key={emp.id}
+                      onClick={() => setEmpDetail(emp)}
+                      className="text-left flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-teal-200 hover:shadow-sm transition-all"
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-sm font-semibold text-white shrink-0" style={{ backgroundColor: emp.color || '#008080' }}>
+                        {av ? <img src={av} alt="" className="w-full h-full object-cover" /> : initials(emp.firstName, emp.lastName)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{emp.firstName} {emp.lastName}</p>
+                        <p className="text-[11px] text-gray-400 truncate">{emp.jobTitle || (emp.isActive ? 'Activo' : 'Inactivo')}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -478,7 +525,7 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Precio:</span>
-                  <span className="font-semibold">${Number(tenant.subscription.monthlyAmountUsd).toFixed(2)}/mes</span>
+                  <span className="font-semibold">${tenant.tenantType === 'FREELANCER' ? '300' : '500'} MXN/mes</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Próximo cobro:</span>
@@ -766,6 +813,120 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Detalle de empleado (soporte super-admin) */}
+      {empDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setEmpDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white text-lg font-bold shrink-0" style={{ backgroundColor: empDetail.color || '#008080' }}>
+                {imgSrc(empDetail.avatarUrl) ? <img src={imgSrc(empDetail.avatarUrl)!} alt="" className="w-full h-full object-cover" /> : initials(empDetail.firstName, empDetail.lastName)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-bold text-gray-900">{empDetail.firstName} {empDetail.lastName}</p>
+                <p className="text-xs text-gray-500">{empDetail.jobTitle || 'Empleado'}</p>
+                <span className={`inline-block mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${empDetail.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {empDetail.isActive ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              <button onClick={() => setEmpDetail(null)} className="text-gray-400 hover:text-gray-600 p-1 -mr-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                <span className="text-gray-400">Email</span>
+                <span className="font-medium text-gray-900 truncate">{empDetail.email || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                <span className="text-gray-400">Teléfono</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">{empDetail.phone || '—'}</span>
+                  {empDetail.phone && (
+                    <a href={waLink(empDetail.phone)} target="_blank" rel="noopener noreferrer" className="text-green-600" title="WhatsApp">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.748-.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+                    </a>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                <span className="text-gray-400">Ubicación</span>
+                <span className="font-medium text-gray-900 truncate">{empDetail.locationName || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5">
+                <span className="text-gray-400">Citas totales</span>
+                <span className="font-medium text-gray-900">{empDetail.appointmentsCount}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg bg-teal-50 border border-teal-100 text-[11px] text-teal-800">
+              Como super-admin puedes dar soporte sobre este empleado. Más acciones de edición se pueden habilitar aquí.
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              {empDetail.isActive && (
+                <button
+                  onClick={() => { const e = empDetail; setEmpDetail(null); openDeactivateModal(e); }}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+                >
+                  Desactivar empleado
+                </button>
+              )}
+              <button onClick={() => setEmpDetail(null)} className="flex-1 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detalle de usuario */}
+      {userDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setUserDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-200 text-gray-600 flex items-center justify-center text-lg font-bold shrink-0">
+                {imgSrc(userDetail.avatarUrl) ? <img src={imgSrc(userDetail.avatarUrl)!} alt="" className="w-full h-full object-cover" /> : initials(userDetail.firstName, userDetail.lastName)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-bold text-gray-900">{userDetail.firstName} {userDetail.lastName}</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {userDetail.roles.map((r) => (
+                    <span key={r} className="text-[11px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{ROLE_LABELS[r] || r}</span>
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => setUserDetail(null)} className="text-gray-400 hover:text-gray-600 p-1 -mr-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                <span className="text-gray-400">Email</span>
+                <a href={`mailto:${userDetail.email}`} className="font-medium text-gray-900 truncate hover:text-[#008080]">{userDetail.email}</a>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                <span className="text-gray-400">Teléfono</span>
+                <span className="font-medium text-gray-900">{userDetail.phone || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50">
+                <span className="text-gray-400">Último acceso</span>
+                <span className="font-medium text-gray-900">{userDetail.lastLoginAt ? new Date(userDetail.lastLoginAt).toLocaleString('es', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Nunca'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5">
+                <span className="text-gray-400">Estado</span>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${userDetail.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {userDetail.isActive ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+            </div>
+            <button onClick={() => setUserDetail(null)} className="mt-4 w-full px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Cerrar
+            </button>
           </div>
         </div>
       )}

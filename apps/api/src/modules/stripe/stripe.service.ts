@@ -1,6 +1,11 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import Stripe from 'stripe';
+import {
+  CREATOR_DISCOUNT,
+  DISCOUNT_MONTHS,
+  tenantKind,
+} from '../creator-codes/creator-codes.config';
 
 const UNPAID_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // check every 5 minutes
@@ -119,6 +124,97 @@ export class StripeService implements OnModuleInit {
     }
 
     return { connected, stripeAccountId: tenant.stripeAccountId };
+  }
+
+  // ─── CONNECT ONBOARDING (INFLUENCERS) ───────────────
+  // Express accounts: onboarding simplificado + capability de transfers
+  // para poder pagarles comisiones vía Transfer (Fase 4).
+
+  async createInfluencerConnectLink(influencerId: string, returnUrl: string) {
+    const influencer = await this.prisma.influencer.findUnique({
+      where: { id: influencerId },
+    });
+    if (!influencer) throw new NotFoundException('Influencer no encontrado');
+
+    let accountId = influencer.stripeAccountId;
+
+    if (!accountId) {
+      const account = await this.stripe.accounts.create({
+        type: 'express',
+        email: influencer.email,
+        business_type: 'individual',
+        capabilities: {
+          transfers: { requested: true },
+        },
+        metadata: { influencerId: influencer.id },
+      });
+      accountId = account.id;
+
+      await this.prisma.influencer.update({
+        where: { id: influencerId },
+        data: { stripeAccountId: accountId },
+      });
+    }
+
+    const accountLink = await this.stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: returnUrl,
+      return_url: returnUrl,
+      type: 'account_onboarding',
+    });
+
+    return { url: accountLink.url };
+  }
+
+  /**
+   * Transfiere comisión a la cuenta Connect del influencer. El influencer
+   * absorbe la fee de Stripe (recibe el neto del payout a su banco; el Transfer
+   * platform→connected no tiene fee adicional). Moneda = la del price de plataforma.
+   */
+  async createInfluencerTransfer(
+    destinationAccountId: string,
+    amountUnits: number,
+    metadata: Record<string, string>,
+  ): Promise<Stripe.Transfer> {
+    const priceId = process.env.STRIPE_PLATFORM_PRICE_ID;
+    let currency = 'usd';
+    if (priceId) {
+      try {
+        const price = await this.stripe.prices.retrieve(priceId);
+        currency = price.currency || 'usd';
+      } catch (_) { /* usa usd por defecto */ }
+    }
+
+    return this.stripe.transfers.create({
+      amount: Math.round(amountUnits * 100),
+      currency,
+      destination: destinationAccountId,
+      metadata,
+    });
+  }
+
+  async getInfluencerConnectStatus(influencerId: string) {
+    const influencer = await this.prisma.influencer.findUnique({
+      where: { id: influencerId },
+    });
+    if (!influencer) throw new NotFoundException('Influencer no encontrado');
+
+    if (!influencer.stripeAccountId) {
+      return { connected: false, stripeAccountId: null };
+    }
+
+    const account = await this.stripe.accounts.retrieve(influencer.stripeAccountId);
+    // payouts_enabled: la cuenta puede RECIBIR transfers (lo que nos importa)
+    const connected = !!account.payouts_enabled;
+
+    if (connected !== influencer.stripeOnboardingComplete) {
+      await this.prisma.influencer.update({
+        where: { id: influencerId },
+        data: { stripeOnboardingComplete: connected },
+      });
+    }
+
+    return { connected, stripeAccountId: influencer.stripeAccountId };
   }
 
   // ─── CHECKOUT SESSION ───────────────────────────────
@@ -267,15 +363,27 @@ export class StripeService implements OnModuleInit {
   }
 
   async handleAccountUpdated(account: Stripe.Account) {
+    // La cuenta puede pertenecer a un tenant (Standard) o a un influencer (Express)
     const tenant = await this.prisma.tenant.findFirst({
       where: { stripeAccountId: account.id },
     });
-    if (!tenant) return;
+    if (tenant) {
+      await this.prisma.tenant.update({
+        where: { id: tenant.id },
+        data: { stripeOnboardingComplete: !!account.charges_enabled },
+      });
+      return;
+    }
 
-    await this.prisma.tenant.update({
-      where: { id: tenant.id },
-      data: { stripeOnboardingComplete: !!account.charges_enabled },
+    const influencer = await this.prisma.influencer.findFirst({
+      where: { stripeAccountId: account.id },
     });
+    if (influencer) {
+      await this.prisma.influencer.update({
+        where: { id: influencer.id },
+        data: { stripeOnboardingComplete: !!account.payouts_enabled },
+      });
+    }
   }
 
   // ─── PLATFORM SUBSCRIPTIONS ─────────────────────────
@@ -329,6 +437,67 @@ export class StripeService implements OnModuleInit {
     }
   }
 
+  // ─── CÓDIGOS DE CREADOR (descuento meses 1-2) ───────
+
+  /**
+   * Valida un código de creador para un tenant que va a activar su suscripción.
+   * Reglas: código activo, influencer aprobado, y el tenant NO debe haber usado
+   * ningún código antes (un solo uso de por vida).
+   */
+  async validateCreatorCodeForTenant(tenantId: string, rawCode: string) {
+    const code = (rawCode || '').trim().toUpperCase();
+    if (!code) return { valid: false, reason: 'Ingresa un código' };
+
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) return { valid: false, reason: 'Negocio no encontrado' };
+
+    // Un solo uso de por vida
+    const priorUsage = await this.prisma.creatorCodeUsage.findUnique({
+      where: { tenantId },
+    });
+    if (priorUsage) {
+      return { valid: false, reason: 'Ya usaste un código de creador anteriormente' };
+    }
+
+    const creatorCode = await this.prisma.creatorCode.findUnique({
+      where: { code },
+      include: { influencer: true },
+    });
+    if (!creatorCode || !creatorCode.isActive) {
+      return { valid: false, reason: 'Código inválido o inactivo' };
+    }
+    if (creatorCode.influencer.status !== 'APPROVED') {
+      return { valid: false, reason: 'Código inválido o inactivo' };
+    }
+
+    const kind = tenantKind(tenant.tenantType);
+    const discount = CREATOR_DISCOUNT[kind];
+
+    return {
+      valid: true,
+      code,
+      codeId: creatorCode.id,
+      influencerId: creatorCode.influencerId,
+      influencerName: `${creatorCode.influencer.firstName} ${creatorCode.influencer.lastName}`,
+      discount,
+      months: DISCOUNT_MONTHS,
+    };
+  }
+
+  /** Crea un Stripe Coupon de monto fijo para los meses 1-2, en la moneda del price. */
+  private async createCreatorCoupon(priceId: string, discountUnits: number): Promise<string> {
+    const price = await this.stripe.prices.retrieve(priceId);
+    const currency = price.currency || 'usd';
+    const coupon = await this.stripe.coupons.create({
+      amount_off: Math.round(discountUnits * 100),
+      currency,
+      duration: 'repeating',
+      duration_in_months: DISCOUNT_MONTHS,
+      name: `Creador -${discountUnits} (${DISCOUNT_MONTHS} meses)`,
+    });
+    return coupon.id;
+  }
+
   /** Creates a fresh Stripe subscription and returns its clientSecret. */
   private async createFreshStripeSubscription(
     customerId: string,
@@ -336,14 +505,38 @@ export class StripeService implements OnModuleInit {
     quantity: number,
     tenantId: string,
     employeeCount: number,
+    creatorCode?: string,
   ): Promise<{ subscriptionId: string; clientSecret: string | null }> {
+    // Validar y preparar cupón de creador (si aplica)
+    let creatorContext: { codeId: string; couponId: string } | null = null;
+    if (creatorCode) {
+      const validation = await this.validateCreatorCodeForTenant(tenantId, creatorCode);
+      if (validation.valid && validation.codeId) {
+        const couponId = await this.createCreatorCoupon(priceId, validation.discount!);
+        creatorContext = { codeId: validation.codeId, couponId };
+      }
+      // Si no es válido, se ignora silenciosamente (el UI ya validó antes).
+    }
+
     const subscription = await this.stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId, quantity }],
+      ...(creatorContext ? { discounts: [{ coupon: creatorContext.couponId }] } : {}),
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
-      metadata: { tenantId },
+      metadata: { tenantId, ...(creatorContext ? { creatorCodeId: creatorContext.codeId } : {}) },
     });
+
+    // Registrar el uso del código (un solo uso de por vida garantizado por @@unique tenantId)
+    if (creatorContext) {
+      try {
+        await this.prisma.creatorCodeUsage.create({
+          data: { codeId: creatorContext.codeId, tenantId, discountMonthsLeft: DISCOUNT_MONTHS },
+        });
+      } catch (err: any) {
+        this.logger.error(`[creatorCode] no se pudo registrar usage: ${err.message}`);
+      }
+    }
 
     const pricePerSeat = 10;
     await this.prisma.subscription.update({
@@ -363,7 +556,7 @@ export class StripeService implements OnModuleInit {
     return { subscriptionId: subscription.id, clientSecret };
   }
 
-  async createPlatformSubscription(tenantId: string, employeeCount: number) {
+  async createPlatformSubscription(tenantId: string, employeeCount: number, creatorCode?: string) {
     const priceId = process.env.STRIPE_PLATFORM_PRICE_ID;
     if (!priceId) throw new BadRequestException('STRIPE_PLATFORM_PRICE_ID no configurado');
 
@@ -402,7 +595,7 @@ export class StripeService implements OnModuleInit {
       });
     }
 
-    const result = await this.createFreshStripeSubscription(customerId, priceId, quantity, tenantId, employeeCount);
+    const result = await this.createFreshStripeSubscription(customerId, priceId, quantity, tenantId, employeeCount, creatorCode);
     return { ...result, reactivated: false };
   }
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/hooks/use-auth';
 
 type Tab = 'register' | 'history';
 
@@ -41,6 +42,7 @@ export default function EmployeeAttendancePage() {
 
 function RegisterTab() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [outOfRangeInfo, setOutOfRangeInfo] = useState<{ distance: number; type: 'in' | 'out'; coords: { latitude: number; longitude: number } } | null>(null);
@@ -115,6 +117,21 @@ function RegisterTab() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-10">
+      {/* Identidad — deja claro de quién es la asistencia que se registra */}
+      {user && (
+        <div className="mb-6 flex items-center gap-3 bg-white border border-gray-200 rounded-full pl-1 pr-4 py-1">
+          <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: '#008080' }}>
+            {user.avatarUrl
+              ? <img src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${user.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+              : <span>{(user.firstName?.[0] || '') + (user.lastName?.[0] || '')}</span>}
+          </div>
+          <div className="leading-tight">
+            <p className="text-[10px] text-gray-400">Registrando asistencia de</p>
+            <p className="text-sm font-semibold text-gray-900">{user.firstName} {user.lastName}</p>
+          </div>
+        </div>
+      )}
+
       <p className="text-5xl font-bold text-gray-900 tabular-nums mb-1">{timeStr}</p>
       <p className="text-sm text-gray-400 capitalize mb-8">{dateStr}</p>
 

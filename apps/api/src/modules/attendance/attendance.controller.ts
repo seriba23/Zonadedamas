@@ -57,7 +57,7 @@ export class AttendanceController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const employee = await this.resolveEmployee(tenantId, user.sub);
+    const employee = await this.resolveEmployee(tenantId, user.userId);
     const start = startDate || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
     const end = endDate || new Date().toISOString().split('T')[0];
     const records = await this.prisma.attendance.findMany({
@@ -73,7 +73,7 @@ export class AttendanceController {
     @CurrentTenant() tenantId: string,
     @CurrentUser() user: any,
   ) {
-    const employee = await this.resolveEmployee(tenantId, user.sub);
+    const employee = await this.resolveEmployee(tenantId, user.userId);
     return this.attendanceService.getMyAttendanceToday(tenantId, employee.id);
   }
 
@@ -84,7 +84,7 @@ export class AttendanceController {
     @CurrentUser() user: any,
     @Body() body: { latitude: number; longitude: number; forceOutOfRange?: boolean },
   ) {
-    const employee = await this.resolveEmployee(tenantId, user.sub);
+    const employee = await this.resolveEmployee(tenantId, user.userId);
     return this.attendanceService.checkIn(
       tenantId, employee.id, body.latitude, body.longitude, body.forceOutOfRange,
     );
@@ -97,7 +97,7 @@ export class AttendanceController {
     @CurrentUser() user: any,
     @Body() body: { latitude: number; longitude: number; forceOutOfRange?: boolean },
   ) {
-    const employee = await this.resolveEmployee(tenantId, user.sub);
+    const employee = await this.resolveEmployee(tenantId, user.userId);
     return this.attendanceService.checkOut(
       tenantId, employee.id, body.latitude, body.longitude, body.forceOutOfRange,
     );
@@ -113,7 +113,7 @@ export class AttendanceController {
     @Param('id') id: string,
     @Body() body: { status: 'APPROVED' | 'REJECTED' },
   ) {
-    return this.attendanceService.reviewAttendance(id, tenantId, body.status, user.sub);
+    return this.attendanceService.reviewAttendance(id, tenantId, body.status, user.userId);
   }
 
   private async resolveEmployee(tenantId: string, userId: string) {

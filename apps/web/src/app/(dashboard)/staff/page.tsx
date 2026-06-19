@@ -1010,13 +1010,25 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
     const st = statusOf(record);
     const hours = hoursLabel(record);
     const isAbsent = record.status === 'ABSENT';
+    const pending = record.status === 'PENDING_REVIEW';
+    // Llegó tarde: entrada (hora local) posterior al horario programado + tolerancia
+    const late = (() => {
+      if (!record.checkInTime || !record.scheduledStartTime) return false;
+      const d = new Date(record.checkInTime);
+      const inMin = d.getHours() * 60 + d.getMinutes();
+      const [h, m] = String(record.scheduledStartTime).split(':').map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) return false;
+      return inMin > h * 60 + m + 5;
+    })();
     return (
       <button
         key={record.id}
         type="button"
         disabled={isAbsent && !emp?.id}
         onClick={() => emp?.id && router.push(`/staff/${emp.id}/attendance`)}
-        className="w-full bg-white rounded-xl border border-gray-200 hover:border-[#008080] hover:shadow-sm transition-all p-3 text-left disabled:cursor-default disabled:hover:border-gray-200 disabled:hover:shadow-none"
+        className={`w-full bg-white rounded-xl border hover:border-[#008080] hover:shadow-sm transition-all p-3 text-left disabled:cursor-default disabled:hover:shadow-none ${
+          pending ? 'border-orange-200 disabled:hover:border-orange-200' : 'border-gray-200 disabled:hover:border-gray-200'
+        }`}
       >
         <div className="flex items-center gap-3">
           <div
@@ -1036,37 +1048,33 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
                 {emp?.firstName} {emp?.lastName}
               </p>
               {st && (
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color} ${st.bg}`}>
-                  {st.label}
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${pending ? 'text-orange-600 bg-orange-50' : `${st.color} ${st.bg}`}`}>
+                  {pending ? 'Por aprobar' : st.label}
                 </span>
+              )}
+              {late && !pending && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full text-red-600 bg-red-50">Tarde</span>
               )}
             </div>
             {!isAbsent && (
-              <div className="flex items-center gap-3 text-[11px] mt-0.5 flex-wrap">
-                {/* Entrada */}
-                <span className="inline-flex items-center gap-0.5 text-gray-500">
-                  <svg className="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                  </svg>
-                  <span className="font-mono">{formatTime(record.checkInTime)}</span>
+              <div className="flex items-center gap-4 text-[11px] mt-0.5 flex-wrap">
+                {/* Entrada (rojo si llegó tarde) */}
+                <span className="text-gray-400">
+                  Entrada{' '}
+                  <span className={`font-mono font-semibold ${late ? 'text-red-600' : 'text-gray-700'}`}>{formatTime(record.checkInTime)}</span>
                 </span>
-                {/* Salida — si falta, mostrar linea explicita */}
+                {/* Salida */}
                 {record.checkOutTime ? (
-                  <span className="inline-flex items-center gap-0.5 text-gray-500">
-                    <svg className="w-3 h-3 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                    </svg>
-                    <span className="font-mono">{formatTime(record.checkOutTime)}</span>
+                  <span className="text-gray-400">
+                    Salida <span className="font-mono font-semibold text-gray-700">{formatTime(record.checkOutTime)}</span>
                   </span>
                 ) : record.checkInTime ? (
-                  <span className="inline-flex items-center gap-0.5 text-amber-600 italic">
-                    Sin salida registrada
-                  </span>
+                  <span className="text-gray-400 italic">Sin salida</span>
                 ) : null}
                 {/* Total trabajado */}
                 {hours && (
-                  <span className="inline-flex items-center gap-0.5 text-gray-700 font-mono font-semibold">
-                    {hours}
+                  <span className="text-gray-400">
+                    Total <span className="font-mono font-semibold text-gray-700">{hours}</span>
                   </span>
                 )}
               </div>

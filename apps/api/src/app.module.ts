@@ -25,6 +25,8 @@ import { InviteCodesModule } from './modules/invite-codes/invite-codes.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { PlatformAuthModule } from './modules/platform-auth/platform-auth.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { CreatorCodesModule } from './modules/creator-codes/creator-codes.module';
+import { CreatorPortalModule } from './modules/creator-portal/creator-portal.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StaffNotificationsModule } from './modules/staff-notifications/staff-notifications.module';
 import { ClientPortalModule } from './modules/client-portal/client-portal.module';
@@ -79,6 +81,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     SubscriptionsModule,
     PlatformAuthModule,
     PlatformAdminModule,
+    CreatorCodesModule,
+    CreatorPortalModule,
     NotificationsModule,
     StaffNotificationsModule,
     ClientPortalModule,

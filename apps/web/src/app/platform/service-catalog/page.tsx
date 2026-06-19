@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { platformApi } from '@/lib/platform-auth';
+import { Modal } from '@/components/ui/modal';
 
 interface CatalogItem {
   id: string;
@@ -26,6 +27,8 @@ export default function ServiceCatalogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-service-catalog'],
@@ -48,7 +51,7 @@ export default function ServiceCatalogPage() {
 
   const createMutation = useMutation({
     mutationFn: (body: { name: string; category?: string }) => platformApi.post('/api/platform/service-catalog', body),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] }); setNewName(''); setNewCategory(''); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] }); setNewName(''); setNewCategory(''); setNewCustomCategory(''); setShowAddModal(false); },
   });
 
   const updateMutation = useMutation({
@@ -115,52 +118,77 @@ export default function ServiceCatalogPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Catalogo de Servicios</h1>
-      <p className="text-sm text-gray-500 mb-6">Los negocios solo pueden ofrecer servicios de este catalogo. Esto evita duplicados y mantiene la busqueda organizada.</p>
-
-      {/* Add new */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
-        <div className="flex gap-3 flex-wrap">
-          <input
-            type="text"
-            placeholder="Nombre del servicio..."
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim() && resolvedNewCategory) createMutation.mutate({ name: newName.trim(), category: resolvedNewCategory }); }}
-            className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <select
-            value={newCategory}
-            onChange={(e) => { setNewCategory(e.target.value); if (e.target.value !== '__custom__') setNewCustomCategory(''); }}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">Categoría</option>
-            {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-            <option value="__custom__">+ Nueva categoría</option>
-          </select>
-          {newCategory === '__custom__' && (
-            <input
-              type="text"
-              placeholder="Nombre de la categoría..."
-              value={newCustomCategory}
-              onChange={(e) => setNewCustomCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[160px]"
-            />
-          )}
-          <button
-            onClick={() => { if (newName.trim() && resolvedNewCategory) createMutation.mutate({ name: newName.trim(), category: resolvedNewCategory }); }}
-            disabled={!newName.trim() || !resolvedNewCategory || createMutation.isPending}
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
-            style={{ backgroundColor: '#008080' }}
-          >
-            {createMutation.isPending ? 'Agregando...' : 'Agregar'}
-          </button>
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Catalogo de Servicios</h1>
+          <p className="text-sm text-gray-500">Los negocios solo pueden ofrecer servicios de este catalogo. Esto evita duplicados y mantiene la busqueda organizada.</p>
         </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg"
+          style={{ backgroundColor: '#008080' }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="hidden sm:inline">Agregar servicio</span>
+        </button>
       </div>
 
-      {/* Buscador + filtro por categoria */}
-      <div className="mb-4 flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+      {/* Modal: agregar servicio */}
+      {showAddModal && (
+        <Modal title="Agregar servicio" onClose={() => setShowAddModal(false)} size="md">
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Nombre del servicio..."
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim() && resolvedNewCategory) createMutation.mutate({ name: newName.trim(), category: resolvedNewCategory }); }}
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]"
+            />
+            <select
+              value={newCategory}
+              onChange={(e) => { setNewCategory(e.target.value); if (e.target.value !== '__custom__') setNewCustomCategory(''); }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]"
+            >
+              <option value="">Categoría</option>
+              {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="__custom__">+ Nueva categoría</option>
+            </select>
+            {newCategory === '__custom__' && (
+              <input
+                type="text"
+                placeholder="Nombre de la categoría..."
+                value={newCustomCategory}
+                onChange={(e) => setNewCustomCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]"
+              />
+            )}
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { if (newName.trim() && resolvedNewCategory) createMutation.mutate({ name: newName.trim(), category: resolvedNewCategory }); }}
+                disabled={!newName.trim() || !resolvedNewCategory || createMutation.isPending}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+                style={{ backgroundColor: '#008080' }}
+              >
+                {createMutation.isPending ? 'Agregando...' : 'Agregar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Buscador + ícono de filtros */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative flex-1">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
             fill="none"
@@ -175,7 +203,7 @@ export default function ServiceCatalogPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por nombre o categoría..."
-            className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-9 pr-9 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]"
           />
           {searchQuery && (
             <button
@@ -190,58 +218,99 @@ export default function ServiceCatalogPage() {
             </button>
           )}
         </div>
-
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          aria-label="Filtros"
+          className={`shrink-0 p-2.5 rounded-lg border transition-colors ${
+            filterCategory
+              ? 'bg-[#008080] border-[#008080] text-white'
+              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+          }`}
         >
-          <option value="">Todas las categorías</option>
-          {allCategories.map((cat) => (
-            <option key={cat} value={cat}>{cat} ({grouped[cat]?.length || 0})</option>
-          ))}
-        </select>
-
-        {filterCategory && editingCategory === filterCategory ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={editCategoryName}
-              onChange={(e) => setEditCategoryName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && editCategoryName.trim()) renameCategoryMutation.mutate({ oldName: filterCategory, newName: editCategoryName.trim() }); if (e.key === 'Escape') setEditingCategory(null); }}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080]"
-              autoFocus
-            />
-            <button
-              onClick={() => renameCategoryMutation.mutate({ oldName: filterCategory, newName: editCategoryName.trim() })}
-              disabled={!editCategoryName.trim() || renameCategoryMutation.isPending}
-              className="px-3 py-1.5 text-xs font-medium text-white rounded-lg"
-              style={{ backgroundColor: '#008080' }}
-            >
-              Guardar
-            </button>
-            <button onClick={() => setEditingCategory(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg">
-              Cancelar
-            </button>
-          </div>
-        ) : filterCategory ? (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setEditingCategory(filterCategory); setEditCategoryName(filterCategory); }}
-              className="text-xs text-[#008080] font-medium hover:underline"
-            >
-              Editar categoría
-            </button>
-            <button
-              onClick={() => { if (confirm(`¿Eliminar la categoría "${filterCategory}" y todos sus ${grouped[filterCategory]?.length || 0} servicios?`)) deleteCategoryMutation.mutate(filterCategory); }}
-              disabled={deleteCategoryMutation.isPending}
-              className="text-xs text-red-500 font-medium hover:underline disabled:opacity-50"
-            >
-              Eliminar categoría
-            </button>
-          </div>
-        ) : null}
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+        </button>
       </div>
+
+      {/* Modal de filtros (categoría + gestión de categoría) */}
+      {showFilters && (
+        <Modal title="Filtros" onClose={() => setShowFilters(false)} size="sm">
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Categoría</label>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]"
+              >
+                <option value="">Todas las categorías</option>
+                {allCategories.map((cat) => (
+                  <option key={cat} value={cat}>{cat} ({grouped[cat]?.length || 0})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Gestión de la categoría seleccionada */}
+            {filterCategory && (
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Gestionar "{filterCategory}"</p>
+                {editingCategory === filterCategory ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editCategoryName}
+                      onChange={(e) => setEditCategoryName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && editCategoryName.trim()) renameCategoryMutation.mutate({ oldName: filterCategory, newName: editCategoryName.trim() }); if (e.key === 'Escape') setEditingCategory(null); }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080]"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => renameCategoryMutation.mutate({ oldName: filterCategory, newName: editCategoryName.trim() })}
+                        disabled={!editCategoryName.trim() || renameCategoryMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium text-white rounded-lg disabled:opacity-50"
+                        style={{ backgroundColor: '#008080' }}
+                      >
+                        Guardar
+                      </button>
+                      <button onClick={() => setEditingCategory(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg">Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => { setEditingCategory(filterCategory); setEditCategoryName(filterCategory); }}
+                      className="text-xs text-[#008080] font-medium hover:underline"
+                    >
+                      Editar categoría
+                    </button>
+                    <button
+                      onClick={() => { if (confirm(`¿Eliminar la categoría "${filterCategory}" y todos sus ${grouped[filterCategory]?.length || 0} servicios?`)) deleteCategoryMutation.mutate(filterCategory); }}
+                      disabled={deleteCategoryMutation.isPending}
+                      className="text-xs text-red-500 font-medium hover:underline disabled:opacity-50"
+                    >
+                      Eliminar categoría
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => { setFilterCategory(''); setEditingCategory(null); }}
+                className="flex-1 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                Limpiar
+              </button>
+              <button onClick={() => setShowFilters(false)}
+                className="flex-1 py-2 text-sm font-medium text-white rounded-lg" style={{ backgroundColor: '#008080' }}>
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* List grouped by category */}
       {isLoading ? (

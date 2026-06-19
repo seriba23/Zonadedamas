@@ -28,7 +28,39 @@ export class AttendanceService {
       },
       orderBy: [{ date: 'desc' }, { checkInTime: 'asc' }],
     });
-    return { data: records };
+
+    // Adjunta el horario programado de entrada/salida de cada registro para que
+    // el frontend pueda detectar tardanzas. Devolvemos el string "HH:mm" tal cual
+    // (hora local del negocio); la comparación con la hora de check-in se hace en
+    // el cliente con la hora local del navegador para evitar líos de zona horaria.
+    const employeeIds = [...new Set(records.map((r) => r.employeeId))];
+    const schedules = employeeIds.length
+      ? await this.prisma.employeeSchedule.findMany({
+          where: { employeeId: { in: employeeIds }, isWorking: true },
+        })
+      : [];
+    const DOW = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+    const data = records.map((r) => {
+      const recDate = new Date(r.date);
+      const dow = DOW[recDate.getUTCDay()];
+      const sched = schedules
+        .filter(
+          (s) =>
+            s.employeeId === r.employeeId &&
+            s.dayOfWeek === dow &&
+            new Date(s.effectiveFrom) <= recDate &&
+            (!s.effectiveUntil || new Date(s.effectiveUntil) >= recDate),
+        )
+        .sort((a, b) => new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime())[0];
+      return {
+        ...r,
+        scheduledStartTime: sched?.startTime ?? null,
+        scheduledEndTime: sched?.endTime ?? null,
+      };
+    });
+
+    return { data };
   }
 
   async getStats(tenantId: string, startDate: string, endDate: string) {

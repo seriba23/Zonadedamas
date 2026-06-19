@@ -17,6 +17,31 @@ interface AttendanceRecord {
   checkOutDistance?: number | null;
   status: 'APPROVED' | 'PENDING_REVIEW' | 'REJECTED';
   notes?: string | null;
+  scheduledStartTime?: string | null;
+  scheduledEndTime?: string | null;
+}
+
+const LATE_GRACE_MIN = 5;
+
+/** Minutos del día (hora local del navegador) de una marca de tiempo. */
+function localMinutes(iso?: string | null): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return d.getHours() * 60 + d.getMinutes();
+}
+/** Minutos del día de un "HH:mm". */
+function hhmmMinutes(hhmm?: string | null): number | null {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+/** ¿La entrada fue tarde respecto al horario programado (con tolerancia)? */
+function isLateCheckIn(r: AttendanceRecord): boolean {
+  const inMin = localMinutes(r.checkInTime);
+  const schedMin = hhmmMinutes(r.scheduledStartTime);
+  if (inMin == null || schedMin == null) return false;
+  return inMin > schedMin + LATE_GRACE_MIN;
 }
 
 interface Employee {
@@ -30,7 +55,7 @@ interface Employee {
   phone?: string;
 }
 
-type RangeMode = 'week' | 'month' | 'custom';
+type RangeMode = 'today' | 'week' | 'month' | 'custom';
 type StatusFilter = 'all' | 'in_shift' | 'completed' | 'pending' | 'rejected';
 
 function todayIso(): string {
@@ -40,6 +65,13 @@ function todayIso(): string {
 function daysAgoIso(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
+  return d.toISOString().split('T')[0];
+}
+
+function weekStartIso(): string {
+  const d = new Date();
+  const day = (d.getDay() + 6) % 7; // 0 = lunes
+  d.setDate(d.getDate() - day);
   return d.toISOString().split('T')[0];
 }
 
@@ -56,7 +88,7 @@ export default function EmployeeAttendancePage() {
   const { hasPermission } = usePermissions();
   const canReview = hasPermission('employees.update');
 
-  const [rangeMode, setRangeMode] = useState<RangeMode>('week');
+  const [rangeMode, setRangeMode] = useState<RangeMode>('today');
   const [customStart, setCustomStart] = useState(daysAgoIso(6));
   const [customEnd, setCustomEnd] = useState(todayIso());
   const [search, setSearch] = useState('');
@@ -68,9 +100,11 @@ export default function EmployeeAttendancePage() {
   const [draftCustomStart, setDraftCustomStart] = useState(customStart);
   const [draftCustomEnd, setDraftCustomEnd] = useState(customEnd);
   const [draftStatus, setDraftStatus] = useState<StatusFilter>(statusFilter);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
   const { startDate, endDate } = useMemo(() => {
-    if (rangeMode === 'week') return { startDate: daysAgoIso(6), endDate: todayIso() };
+    if (rangeMode === 'today') return { startDate: todayIso(), endDate: todayIso() };
+    if (rangeMode === 'week') return { startDate: weekStartIso(), endDate: todayIso() };
     if (rangeMode === 'month') return { startDate: monthStartIso(), endDate: todayIso() };
     return { startDate: customStart, endDate: customEnd };
   }, [rangeMode, customStart, customEnd]);
@@ -93,8 +127,10 @@ export default function EmployeeAttendancePage() {
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) =>
       api.put(`/api/attendance/${id}/review`, { status }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['attendance', employeeId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance', employeeId] });
+      setSelectedRecord(null);
+    },
   });
 
   const employee = empData?.data;
@@ -173,9 +209,16 @@ export default function EmployeeAttendancePage() {
   }
 
   const rangeModes: { key: RangeMode; label: string }[] = [
-    { key: 'week', label: 'Semana' },
-    { key: 'month', label: 'Mes' },
+    { key: 'today', label: 'Hoy' },
+    { key: 'week', label: 'Esta semana' },
+    { key: 'month', label: 'Este mes' },
     { key: 'custom', label: 'Personalizado' },
+  ];
+  // Filtros rápidos visibles (mismo set que el calendario, sin "Personalizado")
+  const quickRanges: { key: RangeMode; label: string }[] = [
+    { key: 'today', label: 'Hoy' },
+    { key: 'week', label: 'Esta semana' },
+    { key: 'month', label: 'Este mes' },
   ];
 
   return (
@@ -229,6 +272,22 @@ export default function EmployeeAttendancePage() {
           <StatCard label="Pendientes" value={String(pendingCount)} sub={rejectedCount > 0 ? `${rejectedCount} rechazados` : undefined} />
         </div>
 
+        {/* Filtros rápidos de fecha (estilo calendario) */}
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+          {quickRanges.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setRangeMode(m.key)}
+              className={`flex-1 px-3 py-2 text-xs sm:text-sm font-medium transition-colors ${
+                rangeMode === m.key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         {/* Buscador + filtro de fecha */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
@@ -259,7 +318,7 @@ export default function EmployeeAttendancePage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            {(rangeMode !== 'week' || statusFilter !== 'all') && (
+            {(rangeMode === 'custom' || statusFilter !== 'all') && (
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#008080] rounded-full border-2 border-white" />
             )}
           </button>
@@ -296,18 +355,26 @@ export default function EmployeeAttendancePage() {
         ) : (
           <div className="space-y-2">
             {filtered.map((r) => {
-              const st = statusOf(r);
               const hours = hoursLabel(r);
+              const pending = r.status === 'PENDING_REVIEW';
+              const late = isLateCheckIn(r);
               const dateLabel = new Date(r.date).toLocaleDateString('es', {
                 weekday: 'short',
                 day: 'numeric',
                 month: 'short',
               });
               return (
-                <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-3">
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setSelectedRecord(r)}
+                  className={`w-full text-left bg-white rounded-xl border p-3 transition-colors hover:bg-gray-50 ${
+                    pending ? 'border-orange-200' : 'border-gray-200'
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     {/* Día */}
-                    <div className="text-center w-12 flex-shrink-0">
+                    <div className="text-center w-11 flex-shrink-0">
                       <p className="text-[10px] uppercase tracking-wide text-gray-400">
                         {dateLabel.split(' ')[0]}
                       </p>
@@ -316,67 +383,34 @@ export default function EmployeeAttendancePage() {
                       </p>
                     </div>
 
-                    {/* Horarios */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${st.color} ${st.bg}`}>
-                          {st.label}
-                        </span>
-                        {hours && <span className="text-xs font-mono text-gray-700">{hours}</span>}
-                      </div>
-                      <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                        <span>
-                          <svg className="inline w-3 h-3 mr-0.5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                          </svg>
+                    {/* Entrada · Salida (entrada en rojo si llegó tarde) */}
+                    <div className="flex-1 grid grid-cols-2 gap-2 text-center">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400">Entrada</p>
+                        <p className={`text-sm font-mono font-semibold ${late ? 'text-red-600' : 'text-gray-800'}`}>
                           {formatTime(r.checkInTime)}
-                        </span>
-                        <span>
-                          <svg className="inline w-3 h-3 mr-0.5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                          </svg>
-                          {formatTime(r.checkOutTime)}
-                        </span>
+                        </p>
                       </div>
-                      {r.checkInDistance != null && r.checkInDistance > 50 && (
-                        <p className="text-[10px] text-red-500 mt-0.5">
-                          {r.checkInDistance}m de distancia
-                        </p>
-                      )}
-                      {r.notes && (
-                        <p className="text-[11px] text-gray-500 mt-0.5 italic truncate">
-                          {r.notes}
-                        </p>
-                      )}
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-400">Salida</p>
+                        <p className="text-sm font-mono font-semibold text-gray-800">{formatTime(r.checkOutTime)}</p>
+                      </div>
                     </div>
 
-                    {/* Acciones admin */}
-                    {canReview && r.status === 'PENDING_REVIEW' && (
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => reviewMutation.mutate({ id: r.id, status: 'APPROVED' })}
-                          className="w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center"
-                          aria-label="Aprobar"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => reviewMutation.mutate({ id: r.id, status: 'REJECTED' })}
-                          className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center"
-                          aria-label="Rechazar"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
+                    {/* Total en la esquina derecha (naranja si requiere aprobación) */}
+                    <div className={`text-right flex-shrink-0 w-16 border-l pl-2 ${pending ? 'border-orange-100' : 'border-gray-100'}`}>
+                      <p className="text-[10px] uppercase tracking-wide text-gray-400">Total</p>
+                      <p className={`text-sm font-bold tabular-nums ${pending ? 'text-orange-600' : 'text-gray-900'}`}>{hours || '—'}</p>
+                      {(pending || late) && (
+                        <span className={`mt-0.5 inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
+                          pending ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'
+                        }`}>
+                          {pending ? 'Por aprobar' : 'Tarde'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -479,6 +513,97 @@ export default function EmployeeAttendancePage() {
           </div>
         </div>
       )}
+
+      {/* Detalle del registro + aprobación */}
+      {selectedRecord && (() => {
+        const r = selectedRecord;
+        const late = isLateCheckIn(r);
+        const pending = r.status === 'PENDING_REVIEW';
+        const st = statusOf(r);
+        const outIn = r.checkInDistance != null && r.checkInDistance > 50;
+        const outOut = r.checkOutDistance != null && r.checkOutDistance > 50;
+        const longDate = new Date(r.date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+        return (
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40" onClick={() => setSelectedRecord(null)}>
+            <div className="bg-white w-full md:max-w-sm md:rounded-2xl rounded-t-2xl p-5 pb-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 md:hidden" />
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 capitalize">{longDate}</p>
+                  <span className={`mt-1 inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${st.color} ${st.bg}`}>{st.label}</span>
+                </div>
+                <button onClick={() => setSelectedRecord(null)} className="text-gray-400 hover:text-gray-600 p-1 -mr-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* Entrada / Salida / Total */}
+              <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                <div className="bg-gray-50 rounded-xl py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Entrada</p>
+                  <p className={`text-base font-mono font-bold ${late ? 'text-red-600' : 'text-gray-900'}`}>{formatTime(r.checkInTime)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Salida</p>
+                  <p className="text-base font-mono font-bold text-gray-900">{formatTime(r.checkOutTime)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Total</p>
+                  <p className="text-base font-bold text-gray-900 tabular-nums">{hoursLabel(r) || '—'}</p>
+                </div>
+              </div>
+
+              {/* Avisos */}
+              <div className="space-y-2 mb-4">
+                {r.scheduledStartTime && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Horario programado</span>
+                    <span className="font-medium text-gray-800">{r.scheduledStartTime}{r.scheduledEndTime ? ` – ${r.scheduledEndTime}` : ''}</span>
+                  </div>
+                )}
+                {late && (
+                  <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Llegó tarde respecto a su horario.
+                  </div>
+                )}
+                {(outIn || outOut) && (
+                  <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    Marcó fuera del rango del negocio
+                    {outIn ? ` (entrada: ${r.checkInDistance}m)` : ''}{outOut ? ` (salida: ${r.checkOutDistance}m)` : ''}.
+                  </div>
+                )}
+                {r.notes && <p className="text-xs text-gray-500 italic">{r.notes}</p>}
+              </div>
+
+              {/* Aprobación admin */}
+              {canReview ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => reviewMutation.mutate({ id: r.id, status: 'APPROVED' })}
+                    disabled={reviewMutation.isPending || r.status === 'APPROVED'}
+                    className="flex-1 py-2.5 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666] disabled:opacity-50"
+                  >
+                    {r.status === 'APPROVED' ? 'Aprobado' : 'Aprobar chequeo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => reviewMutation.mutate({ id: r.id, status: 'REJECTED' })}
+                    disabled={reviewMutation.isPending || r.status === 'REJECTED'}
+                    className="flex-1 py-2.5 rounded-lg border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {r.status === 'REJECTED' ? 'Rechazado' : 'Rechazar'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-gray-400 text-center">No tienes permiso para aprobar registros.</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

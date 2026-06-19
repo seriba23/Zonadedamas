@@ -42,6 +42,9 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>('start');
+  // Cuando el cajero añade un servicio desde el detalle del pedido (cobro de
+  // una cita), volvemos directo al detalle en vez de pasar por productos.
+  const [returnToDetails, setReturnToDetails] = useState(false);
   const [items, setItems] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [discount, setDiscount] = useState('0');
@@ -747,7 +750,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
           <div className="w-full max-w-md space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 text-center mb-2">¿Cómo deseas iniciar?</h2>
 
-            <button onClick={() => setStep('services')}
+            <button onClick={() => { setReturnToDetails(false); setStep('services'); }}
               className="w-full p-5 bg-white rounded-xl border-2 border-gray-200 hover:border-[#008080] hover:bg-teal-50 transition-all text-left">
               <p className="text-sm font-semibold text-gray-900">Venta directa</p>
               <p className="text-xs text-gray-500 mt-0.5">Sin cita previa — selecciona servicios y productos</p>
@@ -952,7 +955,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     return (
       <div className="flex flex-col h-full">
         <div className="border-b border-gray-200 px-4 py-3 bg-white flex items-center gap-2">
-          <button onClick={() => setStep('start')} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
+          <button onClick={() => { if (returnToDetails) { setReturnToDetails(false); setStep('details'); } else { setStep('start'); } }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
           </button>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">Servicios</h3>
@@ -987,7 +990,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
           {renderGridSection('Servicios', grouped, 'service')}
         </div>
         {renderEmployeePicker()}
-        {renderBottomBar('products')}
+        {returnToDetails ? renderBottomBar('details', 'Volver al pedido') : renderBottomBar('products')}
       </div>
     );
   }
@@ -999,7 +1002,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     return (
       <div className="flex flex-col h-full">
         <div className="border-b border-gray-200 px-4 py-3 bg-white flex items-center gap-2">
-          <button onClick={() => setStep('services')} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
+          <button onClick={() => { setReturnToDetails(false); setStep('services'); }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
           </button>
           <h3 className="text-sm font-semibold text-gray-900 flex-1">Productos</h3>
@@ -1101,6 +1104,15 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
                   );
                 })}
               </div>
+              <button
+                onClick={() => { setReturnToDetails(true); setSearch(''); setStep('services'); }}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-sm font-medium text-[#008080] hover:border-[#008080] hover:bg-teal-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Añadir servicio
+              </button>
             </div>
           )}
 

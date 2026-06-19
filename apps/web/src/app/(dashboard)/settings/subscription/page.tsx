@@ -209,6 +209,15 @@ export default function SubscriptionPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creatorCode, setCreatorCode] = useState('');
+  const [creatorCodeResult, setCreatorCodeResult] = useState<{
+    valid: boolean;
+    reason?: string;
+    discount?: number;
+    months?: number;
+    influencerName?: string;
+    code?: string;
+  } | null>(null);
 
   const { data: subData, isLoading, refetch } = useQuery({
     queryKey: ['subscription-info'],
@@ -236,9 +245,20 @@ export default function SubscriptionPage() {
 
   function closeModal() { setModal(null); setClientSecret(null); setModalData(null); }
 
+  // ── Validar código de creador (descuento meses 1-2)
+  const validateCodeMutation = useMutation({
+    mutationFn: (code: string) =>
+      api.post<{ data: any }>('/api/stripe/subscription/validate-creator-code', { code }),
+    onSuccess: (res: any) => setCreatorCodeResult(res?.data ?? null),
+    onError: () => setCreatorCodeResult({ valid: false, reason: 'No se pudo validar el código' }),
+  });
+
   // ── Activar / crear suscripción mensual
   const activateMutation = useMutation({
-    mutationFn: () => api.post('/api/stripe/subscription/create', {}),
+    mutationFn: () =>
+      api.post('/api/stripe/subscription/create', {
+        creatorCode: creatorCodeResult?.valid ? creatorCodeResult.code : undefined,
+      }),
     onSuccess: (res: any) => {
       setError(null);
       const d = res?.data;
@@ -629,6 +649,61 @@ export default function SubscriptionPage() {
           {/* Botones — uniformes en mobile: flex-1 min-w[140px] hace que
               cada uno ocupe el mismo ancho y wrappee a 2 por fila en
               pantallas chicas, manteniendo proporcion visual. */}
+          {/* ─── Código de creador (solo al activar por primera vez) ─── */}
+          {!sub.stripeSubscriptionId && !isCancelled && (
+            <div className="mx-6 mb-4 p-4 rounded-xl border border-gray-200 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-800">¿Tienes un código de creador?</p>
+              <p className="text-xs text-gray-500 mt-0.5 mb-3">
+                Aplica el código de quien te recomendó Siliba y obtén un descuento tus primeros 2 meses.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={creatorCode}
+                  onChange={(e) => {
+                    setCreatorCode(e.target.value.toUpperCase());
+                    if (creatorCodeResult) setCreatorCodeResult(null);
+                  }}
+                  placeholder="Ej: LUNA8X3K"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: TEAL }}
+                />
+                <button
+                  type="button"
+                  onClick={() => creatorCode.trim() && validateCodeMutation.mutate(creatorCode.trim())}
+                  disabled={!creatorCode.trim() || validateCodeMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border disabled:opacity-50"
+                  style={{ borderColor: TEAL, color: TEAL }}
+                >
+                  {validateCodeMutation.isPending ? '...' : 'Aplicar'}
+                </button>
+              </div>
+              {creatorCodeResult && (
+                <div className="mt-3">
+                  {creatorCodeResult.valid ? (
+                    <div className="flex items-start gap-2 text-sm rounded-lg px-3 py-2" style={{ backgroundColor: TEAL_LIGHT, color: '#005555' }}>
+                      <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} style={{ color: TEAL }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>
+                        Código válido. Obtendrás <strong>${creatorCodeResult.discount} de descuento</strong> cada
+                        uno de tus primeros {creatorCodeResult.months} meses
+                        {creatorCodeResult.influencerName ? `, cortesía de ${creatorCodeResult.influencerName}` : ''}.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-red-600 rounded-lg px-3 py-2 bg-red-50">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      {creatorCodeResult.reason || 'Código inválido'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="px-6 pb-5 flex gap-2 flex-wrap">
             {/* Cancelada → reactivar */}
             {isCancelled && (
