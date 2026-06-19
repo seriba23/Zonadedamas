@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
@@ -59,6 +60,11 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
 
   // Detalle (read-only) — se abre al clickear card/fila
   const [viewingSupplier, setViewingSupplier] = useState<Supplier | null>(null);
+  const router = useRouter();
+  function verProductosDeProveedor(supplierId: string) {
+    setViewingSupplier(null);
+    router.push(`/inventory?supplierId=${supplierId}`);
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['suppliers', 'all'],
@@ -506,9 +512,12 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
                 {stackRow('Notas', s.notes || '—')}
                 {inlineRow(
                   'Productos asociados',
-                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                    {s._count?.products ?? 0}
-                  </span>,
+                  <button
+                    onClick={() => verProductosDeProveedor(s.id)}
+                    className="px-2 py-0.5 text-xs font-medium rounded-full bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors"
+                  >
+                    {s._count?.products ?? 0} · Ver
+                  </button>,
                 )}
                 {inlineRow(
                   'Estado',

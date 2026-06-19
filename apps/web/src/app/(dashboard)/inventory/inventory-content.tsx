@@ -133,11 +133,17 @@ export function InventoryContent() {
   const [draftFilterSupplier, setDraftFilterSupplier] = useState(filterSupplier);
   const [draftFilterLowStock, setDraftFilterLowStock] = useState(filterLowStock);
 
-  // Sincroniza si el URL cambia (e.g. navegacion desde el alert del Home).
+  // Sincroniza si el URL cambia (e.g. navegacion desde el alert del Home,
+  // o desde "Ver productos del proveedor" en la pantalla de proveedores).
   useEffect(() => {
     const wantsLowStock =
       searchParams?.get('lowStock') === 'true' || searchParams?.get('stockBajo') === 'true';
     if (wantsLowStock) setFilterLowStock(true);
+    const sup = searchParams?.get('supplierId');
+    if (sup) {
+      setFilterSupplier(sup);
+      setDraftFilterSupplier(sup);
+    }
   }, [searchParams]);
   const [page, setPage] = useState(1);
   const perPage = 20;
