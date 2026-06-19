@@ -2520,6 +2520,10 @@ export default function BusinessDetailPage() {
           <div className="bg-white border-b border-gray-100 px-4 py-3">
             <div className="max-w-2xl mx-auto flex items-center gap-2">
               {[
+                // Si el cliente entró desde el perfil de un profesional, el
+                // empleado ya está elegido: mostramos "Profesional" al inicio y
+                // se marcará como completado (✓), no se oculta.
+                ...(bookEmployeeId ? [{ key: 'employee', label: 'Profesional' }] : []),
                 ...(biz?.locations?.length > 1 ? [{ key: 'location', label: 'Sucursal' }] : []),
                 { key: 'service', label: 'Servicio' },
                 ...((applicablePromotions.length > 0 || userApplicableCoupons.length > 0) ? [{ key: 'promotion', label: 'Cupones' }] : []),
