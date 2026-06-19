@@ -51,6 +51,9 @@ export class ClientsService {
           tags: {
             include: { tag: true },
           },
+          // La foto del cliente puede estar en su User vinculado (marketplace),
+          // no solo en Client.avatarUrl. La incluimos para resolver el avatar.
+          user: { select: { avatarUrl: true } },
           _count: {
             select: { appointments: true },
           },
@@ -66,9 +69,10 @@ export class ClientsService {
     ]);
 
     const mapped = data.map((client) => {
-      const { appointments, ...rest } = client;
+      const { appointments, user, ...rest } = client;
       return {
         ...rest,
+        avatarUrl: rest.avatarUrl ?? user?.avatarUrl ?? null,
         lastVisit: appointments[0]?.startTime ?? null,
       };
     });
