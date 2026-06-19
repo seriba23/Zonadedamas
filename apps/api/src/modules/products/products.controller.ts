@@ -110,6 +110,12 @@ export class ProductsController {
     });
   }
 
+  @Get(':id/sales')
+  @RequirePermissions('inventory.read')
+  getSales(@Request() req: any, @Param('id') id: string) {
+    return this.productsService.getSales(req.user.tenantId, id);
+  }
+
   @Get(':id')
   @RequirePermissions('inventory.read')
   findOne(@Request() req: any, @Param('id') id: string) {

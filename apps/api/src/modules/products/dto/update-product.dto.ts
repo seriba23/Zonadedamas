@@ -14,6 +14,15 @@ export class UpdateProductDto {
   name?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  commission?: number;
+
+  @IsOptional()
+  @IsString()
+  commissionType?: string;
+
+  @IsOptional()
   @IsString()
   sku?: string;
 

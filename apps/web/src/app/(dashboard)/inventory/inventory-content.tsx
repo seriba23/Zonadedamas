@@ -23,6 +23,8 @@ interface Product {
   category?: string;
   price: number;
   costPrice: number;
+  commission?: number | null;
+  commissionType?: string;
   stock: number;
   minStock: number;
   unit?: string;
@@ -46,6 +48,8 @@ interface ProductForm {
   category: string;
   price: number | string;
   costPrice: number | string;
+  commission: number | string;
+  commissionType: string;
   stock: number | string;
   minStock: number | string;
   unit: string;
@@ -70,6 +74,8 @@ const defaultForm: ProductForm = {
   category: '',
   price: '',
   costPrice: '',
+  commission: '',
+  commissionType: 'AMOUNT',
   stock: 0,
   minStock: 0,
   unit: 'pieza',
@@ -300,6 +306,8 @@ export function InventoryContent() {
       category: product.category || '',
       price: product.price,
       costPrice: product.costPrice,
+      commission: product.commission ?? '',
+      commissionType: product.commissionType || 'AMOUNT',
       stock: product.stock,
       minStock: product.minStock,
       unit: product.unit || 'pieza',
@@ -339,6 +347,8 @@ export function InventoryContent() {
       category: form.category || null,
       price: Number(form.price) || 0,
       costPrice: Number(form.costPrice) || 0,
+      commission: form.commission === '' ? null : Number(form.commission) || 0,
+      commissionType: form.commissionType || 'AMOUNT',
       stock: Number(form.stock) || 0,
       minStock: Number(form.minStock) || 0,
       unit: form.unit || 'pieza',
@@ -824,6 +834,32 @@ export function InventoryContent() {
                   placeholder="0.00"
                   className="w-32 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
+              </li>
+
+              {/* Comisión al empleado que vende este producto en el POS */}
+              <li className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                  Comisión
+                </span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={form.commissionType}
+                    onChange={(e) => setForm((f) => ({ ...f, commissionType: e.target.value }))}
+                    className="text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-2 py-2 text-[var(--text-primary)] focus:outline-none focus:border-[#008080]"
+                  >
+                    <option value="AMOUNT">$ fijo</option>
+                    <option value="PERCENT">% del precio</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.commission}
+                    onChange={(e) => setForm((f) => ({ ...f, commission: e.target.value }))}
+                    placeholder="0"
+                    className="w-24 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
+                  />
+                </div>
               </li>
 
               {/* Moneda — fija en MXN; el SaaS opera solo en pesos mexicanos. */}

@@ -129,6 +129,95 @@ export class ProductsService {
     return { data: product };
   }
 
+  /**
+   * Historial de ventas de un producto: ventas en POS (PaymentItem tipo PRODUCT)
+   * y apartados de tienda (ProductReservation), con comprador, vendedor (empleado
+   * en POS) y la comisión que se generó para ese empleado según la config del producto.
+   */
+  async getSales(tenantId: string, productId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+    });
+    if (!product) throw new NotFoundException('Producto no encontrado');
+
+    const commissionFor = (qty: number, unitPrice: number) => {
+      const c = Number(product.commission || 0);
+      if (!c) return 0;
+      return product.commissionType === 'PERCENT'
+        ? (unitPrice * c) / 100 * qty
+        : c * qty;
+    };
+
+    // POS: items de pago que referencian este producto
+    const posItems = await this.prisma.paymentItem.findMany({
+      where: { itemType: 'PRODUCT', referenceId: productId, payment: { tenantId } },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            createdAt: true,
+            client: { select: { firstName: true, lastName: true } },
+            appointment: {
+              select: { employee: { select: { id: true, firstName: true, lastName: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    // Tienda: apartados (no cancelados)
+    const reservations = await this.prisma.productReservation.findMany({
+      where: { productId, tenantId, status: { not: 'CANCELLED' } },
+    });
+
+    const posSales = posItems.map((it) => {
+      const qty = Number(it.quantity);
+      const unit = Number(it.unitPrice);
+      const emp = it.payment.appointment?.employee || null;
+      return {
+        date: it.payment.createdAt,
+        channel: 'POS' as const,
+        buyer: it.payment.client ? `${it.payment.client.firstName} ${it.payment.client.lastName}` : 'Cliente',
+        quantity: qty,
+        total: Number(it.totalPrice),
+        sellerId: emp?.id || null,
+        seller: emp ? `${emp.firstName} ${emp.lastName}` : null,
+        commission: emp ? commissionFor(qty, unit) : 0,
+      };
+    });
+
+    const shopSales = reservations.map((r) => {
+      const qty = Number(r.quantity);
+      const unit = Number(r.unitPrice);
+      return {
+        date: r.createdAt,
+        channel: 'TIENDA' as const,
+        buyer: r.customerName,
+        quantity: qty,
+        total: unit * qty,
+        sellerId: null,
+        seller: null, // venta en línea, sin empleado vendedor
+        commission: 0,
+      };
+    });
+
+    const sales = [...posSales, ...shopSales].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+
+    const totals = sales.reduce(
+      (acc, s) => {
+        acc.units += s.quantity;
+        acc.revenue += s.total;
+        acc.commission += s.commission;
+        return acc;
+      },
+      { units: 0, revenue: 0, commission: 0 },
+    );
+
+    return { data: { sales, totals, count: sales.length } };
+  }
+
   async create(tenantId: string, dto: CreateProductDto, userId?: string) {
     if (dto.supplierId) {
       const supplier = await this.prisma.supplier.findFirst({
@@ -146,6 +235,8 @@ export class ProductsService {
         category: dto.category,
         price: dto.price,
         costPrice: dto.costPrice,
+        commission: dto.commission,
+        commissionType: dto.commissionType || 'AMOUNT',
         stock: dto.stock ?? 0,
         minStock: dto.minStock ?? 0,
         unit: dto.unit,
@@ -203,6 +294,8 @@ export class ProductsService {
         ...(dto.category !== undefined && { category: dto.category }),
         ...(dto.price !== undefined && { price: dto.price }),
         ...(dto.costPrice !== undefined && { costPrice: dto.costPrice }),
+        ...(dto.commission !== undefined && { commission: dto.commission }),
+        ...(dto.commissionType !== undefined && { commissionType: dto.commissionType }),
         ...(dto.stock !== undefined && { stock: dto.stock }),
         ...(dto.minStock !== undefined && { minStock: dto.minStock }),
         ...(dto.unit !== undefined && { unit: dto.unit }),

@@ -36,6 +36,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  commission?: number;
+
+  @IsOptional()
+  @IsString()
+  commissionType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   stock?: number;
 
   @IsOptional()

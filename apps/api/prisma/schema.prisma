@@ -1586,6 +1586,10 @@ model Product {
   category     String?
   price        Decimal  @db.Decimal(10, 2)
   costPrice    Decimal? @map("cost_price") @db.Decimal(10, 2)
+  // Comisión que gana el empleado que vende este producto en el POS.
+  // 'AMOUNT' = monto fijo por unidad, 'PERCENT' = % del precio.
+  commission     Decimal? @map("commission") @db.Decimal(10, 2)
+  commissionType String   @default("AMOUNT") @map("commission_type") @db.VarChar(10)
   stock        Int      @default(0)
   minStock     Int      @default(0) @map("min_stock")
   unit         String   @default("unidad") @db.VarChar(50)
