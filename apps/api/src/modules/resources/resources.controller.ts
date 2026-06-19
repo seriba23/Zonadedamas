@@ -34,8 +34,9 @@ export class ResourcesController {
   async findAll(
     @CurrentTenant() tenantId: string,
     @Query() pagination: PaginationDto,
+    @Query('assignedTo') assignedTo?: string,
   ) {
-    return this.resourcesService.findAll(tenantId, pagination);
+    return this.resourcesService.findAll(tenantId, pagination, assignedTo);
   }
 
   @Post()

@@ -210,6 +210,14 @@ export default function EmployeeProfilePage() {
     enabled: !!employeeId,
   });
 
+  // Material/recursos asignados a este empleado (assignedTo = employeeId)
+  const { data: assignedResourcesData } = useQuery({
+    queryKey: ['employee-resources', employeeId],
+    queryFn: () => api.get<{ data: any[] }>(`/api/resources?assignedTo=${employeeId}&perPage=100`),
+    enabled: !!employeeId,
+  });
+  const assignedResources = assignedResourcesData?.data || [];
+
   // ─── Mutations ─────────────────────────────────────────
   const toggleActiveMutation = useMutation({
     mutationFn: (isActive: boolean) =>
@@ -756,6 +764,43 @@ export default function EmployeeProfilePage() {
                       )}
                     </div>
                   ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Material asignado (recursos con assignedTo = este empleado) */}
+            {assignedResources.length > 0 && (
+              <Section title="Material asignado" count={assignedResources.length}>
+                <div className="grid gap-3 p-3">
+                  {assignedResources.map((r: any) => {
+                    const img = r.imageUrl
+                      ? (r.imageUrl.startsWith('http') ? r.imageUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${r.imageUrl}`)
+                      : null;
+                    return (
+                      <div key={r.id} className="w-full p-3 rounded-xl border border-gray-200 bg-white flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {img ? (
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900 truncate">{r.name}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {[r.type, r.brand, r.serialNumber && `S/N ${r.serialNumber}`].filter(Boolean).join(' · ') || 'Recurso'}
+                          </p>
+                        </div>
+                        {r.value != null && (
+                          <p className="text-sm font-semibold text-gray-900 flex-shrink-0">
+                            {formatCurrency(Number(r.value), 'MXN')}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </Section>
             )}

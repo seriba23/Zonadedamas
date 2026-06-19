@@ -8,12 +8,13 @@ import { PaginationDto, buildPaginatedResponse } from '../../common/dto/paginati
 export class ResourcesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string, pagination: PaginationDto) {
+  async findAll(tenantId: string, pagination: PaginationDto, assignedTo?: string) {
     const page = pagination.page ?? 1;
     const perPage = pagination.perPage ?? 20;
     const skip = (page - 1) * perPage;
 
-    const where = { tenantId };
+    const where: any = { tenantId };
+    if (assignedTo) where.assignedTo = assignedTo;
 
     const [data, total] = await Promise.all([
       this.prisma.resource.findMany({
