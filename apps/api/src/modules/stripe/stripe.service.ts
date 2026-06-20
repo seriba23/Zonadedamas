@@ -387,8 +387,9 @@ export class StripeService implements OnModuleInit {
   }
 
   // ─── PLATFORM SUBSCRIPTIONS ─────────────────────────
-  // Tenants pay the platform owner a monthly fee:
-  // $10 base + $10 per active employee = quantity of (1 + employeeCount) seats at $10/seat.
+  // Modelo PLANO: el negocio paga una cuota mensual fija según su tipo de cuenta:
+  //   FREELANCER → PRO ($300/mes)   BUSINESS → PLUS ($500/mes)
+  // El número de empleados NO afecta el cobro (queda como dato informativo).
 
   async getOrCreateCustomer(tenantId: string): Promise<string> {
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
@@ -505,6 +506,7 @@ export class StripeService implements OnModuleInit {
     quantity: number,
     tenantId: string,
     employeeCount: number,
+    monthlyAmount: number,
     creatorCode?: string,
   ): Promise<{ subscriptionId: string; clientSecret: string | null }> {
     // Validar y preparar cupón de creador (si aplica)
@@ -538,14 +540,13 @@ export class StripeService implements OnModuleInit {
       }
     }
 
-    const pricePerSeat = 10;
     await this.prisma.subscription.update({
       where: { tenantId },
       data: {
         stripeSubscriptionId: subscription.id,
         stripePriceId: priceId,
         billedEmployeeCount: employeeCount,
-        monthlyAmountUsd: quantity * pricePerSeat,
+        monthlyAmountUsd: monthlyAmount, // monto PLANO del plan (300 PRO / 500 PLUS)
         status: 'ACTIVE', // will be confirmed by webhook; set optimistically
         cancelledAt: null,
       },
@@ -556,12 +557,32 @@ export class StripeService implements OnModuleInit {
     return { subscriptionId: subscription.id, clientSecret };
   }
 
+  /**
+   * Plan de plataforma según el tipo de cuenta (modelo PLANO, no por asiento):
+   *  - FREELANCER → PRO ($300/mes)  → STRIPE_PRICE_PRO
+   *  - BUSINESS   → PLUS ($500/mes)  → STRIPE_PRICE_PLUS
+   * Fallback a STRIPE_PLATFORM_PRICE_ID si no están las nuevas vars.
+   */
+  private async platformPlanFor(tenantId: string): Promise<{ priceId: string; amount: number; isFreelancer: boolean }> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantType: true },
+    });
+    const isFreelancer = tenant?.tenantType === 'FREELANCER';
+    const priceId = isFreelancer
+      ? (process.env.STRIPE_PRICE_PRO || process.env.STRIPE_PLATFORM_PRICE_ID)
+      : (process.env.STRIPE_PRICE_PLUS || process.env.STRIPE_PLATFORM_PRICE_ID);
+    if (!priceId) {
+      throw new BadRequestException('Falta configurar el price de Stripe (STRIPE_PRICE_PRO / STRIPE_PRICE_PLUS)');
+    }
+    return { priceId, amount: isFreelancer ? 300 : 500, isFreelancer };
+  }
+
   async createPlatformSubscription(tenantId: string, employeeCount: number, creatorCode?: string) {
-    const priceId = process.env.STRIPE_PLATFORM_PRICE_ID;
-    if (!priceId) throw new BadRequestException('STRIPE_PLATFORM_PRICE_ID no configurado');
+    const { priceId, amount } = await this.platformPlanFor(tenantId);
 
     const customerId = await this.getOrCreateCustomer(tenantId);
-    const quantity = 1 + employeeCount;
+    const quantity = 1; // Modelo plano: una sola licencia, sin multiplicar por empleados.
     const existingSub = await this.prisma.subscription.findUnique({ where: { tenantId } });
 
     // Try to reuse an existing Stripe subscription in usable state
@@ -595,32 +616,19 @@ export class StripeService implements OnModuleInit {
       });
     }
 
-    const result = await this.createFreshStripeSubscription(customerId, priceId, quantity, tenantId, employeeCount, creatorCode);
+    const result = await this.createFreshStripeSubscription(customerId, priceId, quantity, tenantId, employeeCount, amount, creatorCode);
     return { ...result, reactivated: false };
   }
 
   async updateSubscriptionEmployeeCount(tenantId: string, employeeCount: number) {
+    // Modelo PLANO: el número de empleados NO afecta el cobro (el plan es fijo
+    // por tipo de cuenta). Solo registramos el conteo como dato informativo;
+    // no se modifica la suscripción de Stripe ni el monto.
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
-    if (!sub?.stripeSubscriptionId) return;
-
-    const stripeSub = await this.stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
-    const itemId = stripeSub.items.data[0]?.id;
-    if (!itemId) return;
-
-    const quantity = 1 + employeeCount;
-
-    await this.stripe.subscriptions.update(sub.stripeSubscriptionId, {
-      items: [{ id: itemId, quantity }],
-      proration_behavior: 'always_invoice',
-    });
-
-    const pricePerSeat = 10;
+    if (!sub) return;
     await this.prisma.subscription.update({
       where: { tenantId },
-      data: {
-        billedEmployeeCount: employeeCount,
-        monthlyAmountUsd: quantity * pricePerSeat,
-      },
+      data: { billedEmployeeCount: employeeCount },
     });
   }
 
@@ -938,6 +946,24 @@ export class StripeService implements OnModuleInit {
         annualAmountUsd: isAnnual ? newAnnual : sub.annualAmountUsd,
       },
     });
+
+    // Cambiar el precio en la suscripción de Stripe (PRO → PLUS) para que el
+    // próximo cobro sea $500 y no siga en $300. Prorratea hasta fin de periodo.
+    if (sub.stripeSubscriptionId) {
+      const plusPrice = process.env.STRIPE_PRICE_PLUS || process.env.STRIPE_PLATFORM_PRICE_ID;
+      if (plusPrice) {
+        try {
+          const stripeSub = await this.stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+          const itemId = stripeSub.items.data[0]?.id;
+          if (itemId) {
+            await this.stripe.subscriptions.update(sub.stripeSubscriptionId, {
+              items: [{ id: itemId, price: plusPrice, quantity: 1 }],
+              proration_behavior: 'create_prorations',
+            });
+          }
+        } catch (_) { /* si Stripe falla, la BD ya quedó en PLUS; se reconcilia al renovar */ }
+      }
+    }
 
     return {
       changed: true,
