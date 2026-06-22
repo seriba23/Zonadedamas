@@ -894,9 +894,14 @@ export class MarketplaceService {
     });
     const tenantReviews = myTenantReview ? [myTenantReview, ...otherTenantReviews] : otherTenantReviews;
 
-    // Reseñas de empleados (calificación del negocio dentro del flujo de cierre)
+    // Reseñas DEL NEGOCIO que vienen del flujo de cierre de cita: solo las que
+    // traen businessRating (el cliente además calificó al negocio). Las que solo
+    // califican al empleado NO van aquí — esas se muestran en el perfil del
+    // empleado. Sin este filtro, el perfil del negocio mezclaba reseñas de
+    // empleados con la calificación del empleado, mostrando reseñas que no son
+    // del negocio.
     const employeeReviewsRaw = await this.prisma.employeeReview.findMany({
-      where: { tenantId: tenant.id, isVisible: true },
+      where: { tenantId: tenant.id, isVisible: true, businessRating: { not: null } },
       include: {
         client: { select: { firstName: true, lastName: true, avatarUrl: true } },
         employee: { select: { firstName: true, lastName: true } },
@@ -1072,8 +1077,10 @@ export class MarketplaceService {
           ...employeeReviewsRaw.map((r) => ({
             id: r.id,
             source: 'employee' as const,
-            rating: r.rating,
-            comment: r.comment,
+            // Esta es una reseña DEL NEGOCIO: mostramos businessRating/
+            // businessComment (la calificación al negocio), NO la del empleado.
+            rating: r.businessRating,
+            comment: r.businessComment,
             businessRating: r.businessRating,
             businessComment: r.businessComment,
             createdAt: r.createdAt,

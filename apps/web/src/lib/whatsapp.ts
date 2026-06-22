@@ -3,7 +3,11 @@
 // listo para enviar al negocio. Cero fricción y los negocios mexicanos
 // ya viven en WhatsApp.
 
-const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL || 'https://siliba.com';
+// Las rutas que se enlazan aquí (/c/:token, /calendar, /dashboard/...) viven
+// en la APP (app.siliba.com), no en la landing estática (siliba.com). Por eso
+// el fallback debe ser app.siliba.com: si apunta a siliba.com el cliente recibe
+// un 404 al abrir el link de confirmar/reagendar.
+const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.siliba.com';
 
 /**
  * Normaliza un teléfono al formato que espera wa.me (solo dígitos, sin +).

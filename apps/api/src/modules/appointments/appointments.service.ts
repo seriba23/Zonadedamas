@@ -1011,13 +1011,20 @@ export class AppointmentsService {
   async recordPayment(
     id: string,
     tenantId: string,
-    dto: { paymentMethod: string; amount?: number; notes?: string },
+    dto: {
+      paymentMethod: string;
+      amount?: number;
+      tipAmount?: number;
+      discountAmount?: number;
+      notes?: string;
+    },
     userId?: string,
   ) {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id, tenantId },
       include: {
         items: { select: { priceSnapshot: true } },
+        productReservations: { select: { unitPrice: true, quantity: true } },
         payments: true,
       },
     });
@@ -1034,9 +1041,25 @@ export class AppointmentsService {
       throw new ConflictException('Esta cita ya tiene un pago registrado');
     }
 
-    const totalAmount =
-      dto.amount ??
-      appointment.items.reduce((sum, i) => sum + Number(i.priceSnapshot), 0);
+    // Subtotal = servicios + productos. Si el front lo envía (dto.amount) lo
+    // usamos; si no, lo recalculamos para no depender solo de los servicios.
+    const servicesTotal = appointment.items.reduce(
+      (sum, i) => sum + Number(i.priceSnapshot),
+      0,
+    );
+    const productsTotal = appointment.productReservations.reduce(
+      (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity ?? 1),
+      0,
+    );
+    const subtotal = dto.amount ?? servicesTotal + productsTotal;
+    const tipAmount = Math.max(0, dto.tipAmount ?? 0);
+    const discountAmount = Math.max(
+      0,
+      dto.discountAmount ?? Number(appointment.discountAmount ?? 0),
+    );
+    // Total cobrado = subtotal − descuento + propina. Guardamos el desglose
+    // para que el QR del cliente muestre el mismo monto que se cobró.
+    const totalAmount = Math.max(0, subtotal - discountAmount) + tipAmount;
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -1044,7 +1067,9 @@ export class AppointmentsService {
         appointmentId: id,
         clientId: appointment.clientId,
         locationId: appointment.locationId,
-        amount: totalAmount,
+        amount: subtotal,
+        tipAmount,
+        discountAmount,
         totalAmount,
         currency: 'MXN',
         paymentMethod: dto.paymentMethod as any,
@@ -1059,7 +1084,7 @@ export class AppointmentsService {
       action: 'appointment.payment_recorded',
       entityType: 'appointment',
       entityId: id,
-      newValues: { paymentMethod: dto.paymentMethod, totalAmount },
+      newValues: { paymentMethod: dto.paymentMethod, totalAmount, tipAmount, discountAmount },
     });
 
     return { data: payment };

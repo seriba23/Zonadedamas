@@ -141,7 +141,14 @@ export class AppointmentsController {
     @CurrentTenant() tenantId: string,
     @CurrentUser() user: any,
     @Param('id') id: string,
-    @Body() body: { paymentMethod: string; amount?: number; notes?: string },
+    @Body()
+    body: {
+      paymentMethod: string;
+      amount?: number;
+      tipAmount?: number;
+      discountAmount?: number;
+      notes?: string;
+    },
   ) {
     return this.appointmentsService.recordPayment(id, tenantId, body, user.userId);
   }

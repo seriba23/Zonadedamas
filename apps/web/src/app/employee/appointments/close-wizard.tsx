@@ -19,10 +19,21 @@ interface AppointmentItem {
   durationSnapshot: number;
 }
 
+interface ProductReservation {
+  id?: string;
+  quantity: number;
+  unitPrice: string | number;
+  product?: { name?: string | null } | null;
+}
+
 interface Appointment {
   id: string;
   client: { id: string; firstName: string; lastName: string };
   items: AppointmentItem[];
+  // El total real de la cita = servicios + productos − descuento del cupón.
+  // Sin estos campos el cobro tomaba solo los servicios.
+  productReservations?: ProductReservation[];
+  discountAmount?: string | number | null;
 }
 
 interface UploadedPhoto {
@@ -90,6 +101,7 @@ export function CloseAppointmentWizard({
   const [photoConsent, setPhotoConsent] = useState<boolean | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
+  const [tip, setTip] = useState<number>(0);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // Servicio activo para el file picker. Usamos useRef en vez de useState
@@ -103,7 +115,16 @@ export function CloseAppointmentWizard({
   // null se muestra el bottom sheet con opciones "Camara" / "Galeria".
   const [photoSourceFor, setPhotoSourceFor] = useState<string | null>(null);
 
-  const total = appointment.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+  // Total real de la cita: servicios + productos − descuento + propina.
+  const products = appointment.productReservations ?? [];
+  const servicesSubtotal = appointment.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+  const productsSubtotal = products.reduce(
+    (s, p) => s + Number(p.unitPrice) * Number(p.quantity ?? 1),
+    0,
+  );
+  const discount = Number(appointment.discountAmount ?? 0);
+  const subtotal = servicesSubtotal + productsSubtotal;
+  const total = Math.max(0, subtotal - discount) + tip;
 
   // Servicios unicos de la cita (dedup por serviceId, si el mismo servicio
   // aparece 2 veces solo lo contamos una vez para el grid de fotos).
@@ -175,7 +196,9 @@ export function CloseAppointmentWizard({
     mutationFn: () =>
       api.post(`/api/appointments/${appointment.id}/record-payment`, {
         paymentMethod,
-        amount: total,
+        amount: subtotal,
+        tipAmount: tip,
+        discountAmount: discount,
       }),
     onSuccess: () => generateTokenMutation.mutate(),
     onError: (err: any) => {
@@ -421,15 +444,60 @@ export function CloseAppointmentWizard({
               {/* Desglose */}
               <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
                 {appointment.items.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
+                  <div key={`s-${i}`} className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">{item.serviceNameSnapshot}</span>
                     <span className="font-medium text-gray-900">{formatCurrency(Number(item.priceSnapshot))}</span>
                   </div>
                 ))}
+                {products.map((p, i) => (
+                  <div key={`p-${i}`} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">
+                      {p.product?.name ?? 'Producto'}
+                      {Number(p.quantity) > 1 ? ` ×${p.quantity}` : ''}
+                    </span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(Number(p.unitPrice) * Number(p.quantity ?? 1))}
+                    </span>
+                  </div>
+                ))}
+                {discount > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Descuento</span>
+                    <span className="font-medium text-gray-700">−{formatCurrency(discount)}</span>
+                  </div>
+                )}
+                {tip > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Propina</span>
+                    <span className="font-medium text-gray-700">+{formatCurrency(tip)}</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-2 mt-2 flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-900">Total</span>
                   <span className="text-base font-black" style={{ color: TEAL }}>{formatCurrency(total)}</span>
                 </div>
+              </div>
+
+              {/* Propina (opcional) — calculada sobre el servicio */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Propina (opcional)</p>
+              <div className="grid grid-cols-4 gap-2 mb-5">
+                {[0, 0.10, 0.15, 0.20].map((pct) => {
+                  const amt = pct === 0 ? 0 : Math.round(servicesSubtotal * pct);
+                  const active = tip === amt;
+                  return (
+                    <button
+                      key={pct}
+                      onClick={() => setTip(amt)}
+                      className="py-2 rounded-xl border text-xs font-semibold transition-all"
+                      style={active
+                        ? { borderColor: TEAL, backgroundColor: '#e0f2f1', color: TEAL }
+                        : { borderColor: '#e5e7eb', color: '#6b7280' }
+                      }
+                    >
+                      {pct === 0 ? 'Sin' : `${pct * 100}%`}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Método de pago */}
