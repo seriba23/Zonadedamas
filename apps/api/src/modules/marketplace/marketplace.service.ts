@@ -903,12 +903,60 @@ export class MarketplaceService {
     const employeeReviewsRaw = await this.prisma.employeeReview.findMany({
       where: { tenantId: tenant.id, isVisible: true, businessRating: { not: null } },
       include: {
-        client: { select: { firstName: true, lastName: true, avatarUrl: true } },
+        client: { select: { userId: true, firstName: true, lastName: true, avatarUrl: true } },
         employee: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      take: 20,
     });
+
+    // Una sola reseña por cliente (la más reciente). Unificamos las reseñas
+    // directas del marketplace (identificadas por userId) con las del cierre de
+    // cita (por el userId vinculado del cliente, o su clientId si no tiene
+    // cuenta de marketplace) y nos quedamos con la más reciente de cada persona.
+    const tenantReviewsMapped = tenantReviews.map((r) => ({
+      id: r.id,
+      source: 'tenant' as const,
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      isMine: marketplaceUserId ? r.userId === marketplaceUserId : false,
+      clientName: `${r.user.firstName} ${r.user.lastName?.[0] || ''}.`,
+      clientAvatarUrl: r.user.avatarUrl || null,
+      employeeName: null as string | null,
+      businessRating: r.rating,
+      businessComment: r.comment,
+      _key: r.userId ? `u:${r.userId}` : `t:${r.id}`,
+      _ts: new Date(r.updatedAt ?? r.createdAt).getTime(),
+    }));
+    const employeeReviewsMapped = employeeReviewsRaw.map((r) => ({
+      id: r.id,
+      source: 'employee' as const,
+      // Reseña DEL NEGOCIO: mostramos businessRating/businessComment.
+      rating: r.businessRating,
+      comment: r.businessComment,
+      createdAt: r.createdAt,
+      updatedAt: r.createdAt,
+      isMine: false,
+      clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
+      clientAvatarUrl: (r.client as any).avatarUrl || null,
+      employeeName: `${r.employee.firstName} ${r.employee.lastName}` as string | null,
+      businessRating: r.businessRating,
+      businessComment: r.businessComment,
+      _key: r.client.userId ? `u:${r.client.userId}` : `c:${r.clientId}`,
+      _ts: new Date(r.createdAt).getTime(),
+    }));
+    const seenReviewKeys = new Set<string>();
+    const dedupedReviews = [...tenantReviewsMapped, ...employeeReviewsMapped]
+      .sort((a, b) => b._ts - a._ts)
+      .filter((r) => {
+        if (seenReviewKeys.has(r._key)) return false;
+        seenReviewKeys.add(r._key);
+        return true;
+      })
+      .slice(0, 10)
+      .map(({ _key, _ts, ...rest }) => rest);
 
     // Get business hours
     const businessHours = await this.prisma.businessHours.findMany({
@@ -1061,36 +1109,7 @@ export class MarketplaceService {
         completedAppointments,
         services,
         employees,
-        reviews: [
-          ...tenantReviews.map((r) => ({
-            id: r.id,
-            source: 'tenant' as const,
-            rating: r.rating,
-            comment: r.comment,
-            createdAt: r.createdAt,
-            updatedAt: r.updatedAt,
-            isMine: marketplaceUserId ? r.userId === marketplaceUserId : false,
-            clientName: `${r.user.firstName} ${r.user.lastName?.[0] || ''}.`,
-            clientAvatarUrl: r.user.avatarUrl || null,
-            employeeName: null,
-          })),
-          ...employeeReviewsRaw.map((r) => ({
-            id: r.id,
-            source: 'employee' as const,
-            // Esta es una reseña DEL NEGOCIO: mostramos businessRating/
-            // businessComment (la calificación al negocio), NO la del empleado.
-            rating: r.businessRating,
-            comment: r.businessComment,
-            businessRating: r.businessRating,
-            businessComment: r.businessComment,
-            createdAt: r.createdAt,
-            updatedAt: r.createdAt,
-            isMine: false,
-            clientName: `${r.client.firstName} ${r.client.lastName?.[0] || ''}.`,
-            clientAvatarUrl: (r.client as any).avatarUrl || null,
-            employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
-          })),
-        ],
+        reviews: dedupedReviews,
         businessHours,
         locations,
         bundles,
