@@ -47,6 +47,8 @@ export class AppointmentReminderService {
             name: true,
             address: true,
             phone: true,
+            latitude: true,
+            longitude: true,
           },
         },
         tenant: {
@@ -54,6 +56,7 @@ export class AppointmentReminderService {
             name: true,
             slug: true,
             logoUrl: true,
+            coverImageUrl: true,
             tenantType: true,
           },
         },

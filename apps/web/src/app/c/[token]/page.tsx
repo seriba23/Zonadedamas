@@ -1,8 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
+
+/** Formatea una hora con AM/PM (ej. "3:30 PM"). */
+function fmtTime(d: Date): string {
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
 
 /**
  * Pagina publica del recordatorio de cita. El cliente abre el link
@@ -35,12 +42,15 @@ interface Location {
   name: string;
   address?: string | null;
   phone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface Tenant {
   name: string;
   slug: string;
   logoUrl?: string | null;
+  coverImageUrl?: string | null;
   tenantType?: string;
 }
 
@@ -73,6 +83,7 @@ export default function ReminderPage() {
 
   const [view, setView] = useState<View>('detail');
   const [successKind, setSuccessKind] = useState<SuccessKind | null>(null);
+  const [confettiDone, setConfettiDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Estados de reagenda
@@ -208,30 +219,114 @@ export default function ReminderPage() {
   const isInactiveStatus = ['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(apt.status);
   const isAlreadyConfirmed = apt.status === 'CONFIRMED' && !!apt.confirmedAt;
 
+  // Link a Google Maps: usa coordenadas si existen, si no la dirección.
+  const mapsUrl =
+    apt.location?.latitude != null && apt.location?.longitude != null
+      ? `https://www.google.com/maps/search/?api=1&query=${apt.location.latitude},${apt.location.longitude}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          `${apt.location?.name || ''} ${apt.location?.address || ''}`.trim(),
+        )}`;
+
+  // ──── Pantalla de éxito a pantalla completa con animación ────
+  if (view === 'success') {
+    const cancelled = successKind === 'cancelled';
+    return (
+      <>
+        <style>{`@keyframes cPop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}@keyframes cCheck{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}`}</style>
+        {!cancelled && (
+          <ConfettiCelebration
+            show={!confettiDone}
+            duration={5000}
+            particlesPerBurst={20}
+            onComplete={() => setConfettiDone(true)}
+          />
+        )}
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-10">
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl border-2 overflow-hidden text-center shadow-sm"
+            style={{ borderColor: cancelled ? '#fca5a5' : TEAL, animation: 'cPop .45s ease-out both' }}
+          >
+            <div className="px-6 pt-8 pb-6">
+              <div
+                className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
+                style={{
+                  backgroundColor: cancelled ? '#fee2e2' : '#e0f2f1',
+                  color: cancelled ? '#dc2626' : TEAL,
+                  animation: 'cCheck .5s .15s ease-out both',
+                }}
+              >
+                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                  {cancelled ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  )}
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                {successKind === 'confirmed' && '¡Cita confirmada!'}
+                {successKind === 'rescheduled' && '¡Cita reagendada!'}
+                {cancelled && 'Cita cancelada'}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {successKind === 'confirmed' && (
+                  <>Te esperamos en <span className="font-semibold text-gray-700">{apt.tenant.name}</span>.</>
+                )}
+                {successKind === 'rescheduled' && 'Te enviaremos un nuevo recordatorio antes de tu cita.'}
+                {cancelled && 'Esperamos verte pronto.'}
+              </p>
+            </div>
+            {apt.tenant.slug && (
+              <div className="border-t border-gray-100 p-4">
+                <Link
+                  href={`/marketplace/${apt.tenant.slug}`}
+                  className="block w-full py-3 rounded-xl text-sm font-semibold text-white transition-colors"
+                  style={{ backgroundColor: TEAL }}
+                >
+                  Ver perfil del negocio
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Header del negocio */}
-      <div className="bg-[#008080] text-white safe-top">
-        <div className="max-w-md mx-auto px-5 py-5 flex items-center gap-3">
-          {apt.tenant.logoUrl ? (
+      {/* Portada del negocio (igual que en la vista de reseña) */}
+      <div className="relative safe-top">
+        <div
+          className="h-40"
+          style={{ background: `linear-gradient(to right, ${TEAL}, #006666)` }}
+        >
+          {apt.tenant.coverImageUrl && (
             <img
-              src={`${API_URL}${apt.tenant.logoUrl}`}
+              src={`${API_URL}${apt.tenant.coverImageUrl}`}
               alt=""
-              className="w-10 h-10 rounded-full object-cover border-2 border-white/30"
+              className="w-full h-full object-cover"
             />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">
-              {apt.tenant.name.charAt(0)}
-            </div>
           )}
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wide text-white/70">Recordatorio</p>
-            <h1 className="text-base font-bold truncate">{apt.tenant.name}</h1>
-          </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 -mt-3">
+      <div className="max-w-md mx-auto px-4 relative">
+        {/* Logo + nombre del negocio, montado sobre la portada */}
+        <div className="-mt-10 mb-3 flex items-end gap-3">
+          <div className="w-16 h-16 rounded-full bg-white border-4 border-white shadow-md overflow-hidden flex items-center justify-center flex-shrink-0">
+            {apt.tenant.logoUrl ? (
+              <img src={`${API_URL}${apt.tenant.logoUrl}`} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xl font-bold text-gray-400">{apt.tenant.name.charAt(0)}</span>
+            )}
+          </div>
+          <div className="min-w-0 pb-1">
+            <p className="text-[11px] uppercase tracking-wide text-gray-400">Recordatorio</p>
+            <h1 className="text-lg font-bold text-gray-900 truncate">{apt.tenant.name}</h1>
+          </div>
+        </div>
+
         {/* Tarjeta de detalle de la cita */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -244,7 +339,7 @@ export default function ReminderPage() {
               })}
             </p>
             <p className="text-sm text-gray-500 mt-0.5">
-              {startDate.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+              {fmtTime(startDate)}
               {totalDuration > 0 && ` · ${totalDuration} min`}
             </p>
           </div>
@@ -278,22 +373,51 @@ export default function ReminderPage() {
             </div>
           </div>
 
-          {/* Dirección */}
-          {apt.location && apt.location.address && (
-            <div className="px-5 py-3 border-b border-gray-100">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
-                Dirección · {apt.location.name}
+          {/* Ubicación y teléfono con acciones (tap → maps / llamar) */}
+          {apt.location && (apt.location.address || apt.location.phone) && (
+            <div className="px-5 py-3 border-b border-gray-100 space-y-2">
+              <p className="text-[11px] uppercase tracking-wide text-gray-400">
+                {apt.location.name}
               </p>
-              <p className="text-sm text-gray-700">{apt.location.address}</p>
+
+              {apt.location.address && (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 group"
+                >
+                  <span className="w-9 h-9 rounded-full bg-[#e0f2f1] text-[#008080] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                  </span>
+                  <span className="text-sm text-gray-700 flex-1 group-hover:text-[#008080] transition-colors">
+                    {apt.location.address}
+                  </span>
+                  <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </a>
+              )}
+
               {apt.location.phone && (
                 <a
                   href={`tel:${apt.location.phone}`}
-                  className="text-xs text-[#008080] font-medium mt-1 inline-flex items-center gap-1"
+                  className="flex items-center gap-3 group"
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                  <span className="w-9 h-9 rounded-full bg-[#e0f2f1] text-[#008080] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                    </svg>
+                  </span>
+                  <span className="text-sm text-gray-700 flex-1 group-hover:text-[#008080] transition-colors">
+                    {apt.location.phone}
+                  </span>
+                  <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
-                  {apt.location.phone}
                 </a>
               )}
             </div>
@@ -373,7 +497,7 @@ export default function ReminderPage() {
               <div className="grid grid-cols-4 gap-1.5 mb-3 max-h-48 overflow-y-auto">
                 {availability.slots.filter((s) => s.available).map((slot) => {
                   const dt = new Date(slot.startTime);
-                  const label = dt.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+                  const label = fmtTime(dt);
                   const isSelected = pickedSlot === slot.startTime;
                   return (
                     <button
@@ -459,36 +583,6 @@ export default function ReminderPage() {
           </div>
         )}
 
-        {/* ──── Success ──── */}
-        {view === 'success' && (
-          <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-6 text-center shadow-sm">
-            <div
-              className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
-              style={{
-                backgroundColor: successKind === 'cancelled' ? '#fee2e2' : '#d1fae5',
-                color: successKind === 'cancelled' ? '#dc2626' : '#059669',
-              }}
-            >
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                {successKind === 'cancelled' ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                )}
-              </svg>
-            </div>
-            <h2 className="text-base font-semibold text-gray-900 mb-1">
-              {successKind === 'confirmed' && '¡Cita confirmada!'}
-              {successKind === 'rescheduled' && '¡Cita reagendada!'}
-              {successKind === 'cancelled' && 'Cita cancelada'}
-            </h2>
-            <p className="text-sm text-gray-500">
-              {successKind === 'confirmed' && `${apt.tenant.name} te esperará.`}
-              {successKind === 'rescheduled' && 'Te enviaremos un nuevo recordatorio antes.'}
-              {successKind === 'cancelled' && 'Esperamos verte pronto.'}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
