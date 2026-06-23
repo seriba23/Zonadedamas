@@ -13,6 +13,30 @@ import { DualReviewModal } from '@/components/ui/dual-review-modal';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
 
+// Persistimos en localStorage las citas cuya reseña el cliente ya omitió, para
+// que el modal NO vuelva a saltar al cambiar de sección y regresar (antes solo
+// vivía en memoria y se perdía al desmontar la página).
+const REVIEW_DISMISS_KEY = 'siliba-review-dismissed';
+function getDismissedReviews(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem(REVIEW_DISMISS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+function addDismissedReview(id: string) {
+  if (typeof window === 'undefined' || !id) return;
+  try {
+    const cur = getDismissedReviews();
+    if (!cur.includes(id)) {
+      localStorage.setItem(REVIEW_DISMISS_KEY, JSON.stringify([...cur, id]));
+    }
+  } catch {
+    /* localStorage lleno o bloqueado — no es crítico */
+  }
+}
+
 const RESERVATION_STATUS_LABEL: Record<string, string> = {
   PENDING: 'Apartado',
   CONFIRMED: 'Confirmado',
@@ -107,12 +131,20 @@ export default function MarketplaceAppointmentsPage() {
   const [reviewDismissed, setReviewDismissed] = useState(false);
   useEffect(() => {
     if (reviewDismissed || reviewTarget || tab !== 'citas') return;
-    // Buscamos la cita COMPLETED más reciente sin review.
+    // Buscamos la cita COMPLETED más reciente sin review, excluyendo las que el
+    // cliente ya omitió antes (persistido en localStorage).
     // Exigimos también pago registrado: una cita meramente reservada
     // (CONFIRMED/PENDING) no tiene payments, por lo que aunque por error
     // estuviera en COMPLETED tampoco dispararía el modal.
+    const dismissed = getDismissedReviews();
     const pending = appointments
-      .filter((a) => a.status === 'COMPLETED' && !a.review && (a.payments || []).length > 0)
+      .filter(
+        (a) =>
+          a.status === 'COMPLETED' &&
+          !a.review &&
+          (a.payments || []).length > 0 &&
+          !dismissed.includes(a.id),
+      )
       .sort((a, b) => (b.startTime || '').localeCompare(a.startTime || ''));
     if (pending.length > 0) setReviewTarget(pending[0]);
   }, [appointments, tab, reviewDismissed, reviewTarget]);
@@ -621,7 +653,11 @@ export default function MarketplaceAppointmentsPage() {
         businessName={reviewTarget?.tenant?.name || ''}
         mode={reviewTarget?.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
         onSubmit={(payload) => submitReviewMutation.mutate(payload)}
-        onSkip={() => { setReviewTarget(null); setReviewDismissed(true); }}
+        onSkip={() => {
+          if (reviewTarget?.id) addDismissedReview(reviewTarget.id);
+          setReviewTarget(null);
+          setReviewDismissed(true);
+        }}
         isLoading={submitReviewMutation.isPending}
       />
     </div>

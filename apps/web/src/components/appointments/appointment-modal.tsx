@@ -51,6 +51,7 @@ interface AppointmentPhoto {
   id: string;
   imageUrl: string;
   caption: string | null;
+  serviceId?: string | null;
   createdAt: string;
 }
 
@@ -88,6 +89,7 @@ interface Appointment {
   photos?: AppointmentPhoto[];
   productReservations?: ProductReservation[];
   reminderSentAt?: string | null;
+  photoConsent?: boolean | null;
 }
 
 interface CheckAfterResult {
@@ -137,6 +139,10 @@ export function AppointmentModal({
   // Photo upload state
   const router = useRouter();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // Servicio al que se asignará la próxima foto (cuando la cita tiene 2+
+  // servicios, para clasificar el portafolio por servicio como en el cierre
+  // del empleado). null = usa el primer servicio por defecto.
+  const [photoServiceId, setPhotoServiceId] = useState<string | null>(null);
   // Flag para encadenar "Finalizar sin foto" → upload → completar.
   const [autoCompleteOnNextUpload, setAutoCompleteOnNextUpload] = useState(false);
   // Ref del input file oculto que dispara el "Finalizar" cuando no hay foto.
@@ -171,11 +177,15 @@ export function AppointmentModal({
 
   const photos = photosData?.data || [];
 
-  const handlePhotoUpload = async (file: File) => {
+  const handlePhotoUpload = async (file: File, serviceId?: string | null) => {
     if (!appointmentId) return;
     setUploadingPhoto(true);
     try {
-      await api.upload(`/api/appointments/${appointmentId}/photos`, file);
+      await api.upload(
+        `/api/appointments/${appointmentId}/photos`,
+        file,
+        serviceId ? { serviceId } : undefined,
+      );
       queryClient.invalidateQueries({ queryKey: ['appointment-photos', appointmentId] });
       // Si veníamos del botón "Finalizar" sin fotos, encadenamos completar
       // automáticamente tras un upload exitoso.
@@ -232,6 +242,45 @@ export function AppointmentModal({
   });
 
   const appointment = appointmentData?.data;
+  // Servicios únicos de la cita (dedup por serviceId) para clasificar las fotos
+  // del resultado. effectivePhotoServiceId es el servicio destino de la próxima
+  // foto: el elegido, o el primero por defecto.
+  const uniqueServices = (() => {
+    const map = new Map<string, AppointmentItem>();
+    for (const it of appointment?.items ?? []) {
+      if (!map.has(it.serviceId)) map.set(it.serviceId, it);
+    }
+    return Array.from(map.values());
+  })();
+  const effectivePhotoServiceId = photoServiceId ?? uniqueServices[0]?.serviceId ?? null;
+  const serviceNameById = (id?: string | null) =>
+    uniqueServices.find((s) => s.serviceId === id)?.serviceNameSnapshot ?? null;
+  // Selector "¿de qué servicio es la foto?" — solo cuando hay 2+ servicios.
+  const photoServiceSelector = uniqueServices.length > 1 ? (
+    <div className="mb-3">
+      <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+        ¿De qué servicio es la foto?
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {uniqueServices.map((s) => {
+          const active = effectivePhotoServiceId === s.serviceId;
+          return (
+            <button
+              key={s.serviceId}
+              type="button"
+              onClick={() => setPhotoServiceId(s.serviceId)}
+              className="px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors"
+              style={active
+                ? { backgroundColor: '#008080', borderColor: '#008080', color: '#fff' }
+                : { backgroundColor: '#fff', borderColor: '#d1d5db', color: '#6b7280' }}
+            >
+              {s.serviceNameSnapshot}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
   const services = servicesData?.data || [];
   const employees = employeesData?.data || [];
   const clientResults = clientsData?.data || [];
@@ -861,34 +910,37 @@ export function AppointmentModal({
                     </button>
                   </div>
                 ) : photos.length === 0 ? (
-                  <label className="block cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handlePhotoUpload(file);
-                        e.target.value = '';
-                      }}
-                      disabled={uploadingPhoto}
-                    />
-                    <div
-                      className="w-full px-4 py-4 rounded-xl border-2 border-dashed text-sm font-semibold flex items-center justify-center gap-2 transition-colors hover:bg-teal-50"
-                      style={{ borderColor: '#008080', color: '#008080' }}
-                    >
-                      {uploadingPhoto ? (
-                        <span>Subiendo...</span>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316zM16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                          </svg>
-                          + Agregar fotos del resultado
-                        </>
-                      )}
-                    </div>
-                  </label>
+                  <div>
+                    {photoServiceSelector}
+                    <label className="block cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePhotoUpload(file, effectivePhotoServiceId);
+                          e.target.value = '';
+                        }}
+                        disabled={uploadingPhoto}
+                      />
+                      <div
+                        className="w-full px-4 py-4 rounded-xl border-2 border-dashed text-sm font-semibold flex items-center justify-center gap-2 transition-colors hover:bg-teal-50"
+                        style={{ borderColor: '#008080', color: '#008080' }}
+                      >
+                        {uploadingPhoto ? (
+                          <span>Subiendo...</span>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316zM16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                            </svg>
+                            + Agregar fotos del resultado
+                          </>
+                        )}
+                      </div>
+                    </label>
+                  </div>
                 ) : (
                   <div
                     className="rounded-xl border-2 p-4"
@@ -907,15 +959,25 @@ export function AppointmentModal({
                       </div>
                     </div>
 
+                    {/* Selector de servicio para la próxima foto (2+ servicios) */}
+                    {photoServiceSelector}
+
                     {/* Grid de fotos + tile para añadir más al final */}
                     <div className="grid grid-cols-4 gap-2">
-                      {photos.map((photo) => (
+                      {photos.map((photo) => {
+                        const svcName = serviceNameById(photo.serviceId);
+                        return (
                         <div key={photo.id} className="relative group aspect-square">
                           <img
                             src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${photo.imageUrl}`}
                             alt={photo.caption || 'Resultado'}
                             className="w-full h-full object-cover rounded-lg ring-1 ring-white"
                           />
+                          {uniqueServices.length > 1 && svcName && (
+                            <span className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-[8px] leading-tight px-1 py-0.5 rounded-b-lg truncate">
+                              {svcName}
+                            </span>
+                          )}
                           <button
                             onClick={() => handlePhotoDelete(photo.id)}
                             className="absolute top-1 right-1 bg-white text-red-500 rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
@@ -924,7 +986,8 @@ export function AppointmentModal({
                             &times;
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                       <label className="aspect-square rounded-lg border-2 border-dashed bg-white/60 flex items-center justify-center cursor-pointer hover:bg-white transition-colors" style={{ borderColor: '#008080' }}>
                         <input
                           type="file"
@@ -932,7 +995,7 @@ export function AppointmentModal({
                           className="sr-only"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handlePhotoUpload(file);
+                            if (file) handlePhotoUpload(file, effectivePhotoServiceId);
                             e.target.value = '';
                           }}
                           disabled={uploadingPhoto}
