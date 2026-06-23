@@ -2188,6 +2188,27 @@ export class MarketplaceService {
     return { data: review };
   }
 
+  /**
+   * El cliente omite dejar reseña de UNA cita. Permanente y por cita: marca
+   * reviewDismissedAt para que el modal no vuelva a saltar para esa cita (no
+   * afecta otras citas, ni futuras, del mismo negocio).
+   */
+  async dismissMyAppointmentReview(marketplaceUserId: string, appointmentId: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { id: true, client: { select: { userId: true } } },
+    });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+    if (appointment.client?.userId !== marketplaceUserId) {
+      throw new ForbiddenException('No puedes modificar una cita ajena');
+    }
+    await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { reviewDismissedAt: new Date() },
+    });
+    return { data: { dismissed: true } };
+  }
+
   async getMyAppointments(
     marketplaceUserId: string,
     filter: 'upcoming' | 'past' | 'all',
@@ -2257,6 +2278,8 @@ export class MarketplaceService {
         },
         // Para saber si la cita ya tiene reseña (oculta el modal en marketplace).
         review: { select: { id: true, rating: true, businessRating: true } },
+        // Si el cliente ya omitió la reseña de esta cita, no volver a pedirla.
+        reviewDismissedAt: true,
       },
     });
 

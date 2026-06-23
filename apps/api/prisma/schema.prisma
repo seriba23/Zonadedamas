@@ -942,6 +942,9 @@ model Appointment {
   // disparar el wa.me y se usa para filtrar la lista de "pendientes de
   // recordar". El admin puede "Reenviar" y el campo se actualiza.
   reminderSentAt     DateTime?         @map("reminder_sent_at")
+  // El cliente omitió dejar reseña de ESTA cita (no de futuras). Permanente:
+  // si se setea, el modal de reseña ya no vuelve a saltar para esta cita.
+  reviewDismissedAt  DateTime?         @map("review_dismissed_at")
   bundleId           String?           @map("bundle_id")
   redemptionId       String?           @unique @map("redemption_id")
   discountAmount     Decimal?          @map("discount_amount") @db.Decimal(10, 2)

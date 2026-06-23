@@ -202,6 +202,19 @@ export class MarketplaceController {
     );
   }
 
+  // El cliente omite la reseña de UNA cita (permanente, solo esa cita).
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('my-appointments/:id/dismiss-review')
+  async dismissMyAppointmentReview(
+    @Req() req: any,
+    @Param('id') appointmentId: string,
+  ) {
+    return this.marketplaceService.dismissMyAppointmentReview(
+      req.user.marketplaceUserId,
+      appointmentId,
+    );
+  }
+
   @UseGuards(MarketplaceJwtGuard)
   @Get('my-purchases')
   async getMyPurchases(

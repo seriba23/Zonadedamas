@@ -142,6 +142,7 @@ export default function MarketplaceAppointmentsPage() {
         (a) =>
           a.status === 'COMPLETED' &&
           !a.review &&
+          !a.reviewDismissedAt &&
           (a.payments || []).length > 0 &&
           !dismissed.includes(a.id),
       )
@@ -654,7 +655,14 @@ export default function MarketplaceAppointmentsPage() {
         mode={reviewTarget?.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
         onSubmit={(payload) => submitReviewMutation.mutate(payload)}
         onSkip={() => {
-          if (reviewTarget?.id) addDismissedReview(reviewTarget.id);
+          if (reviewTarget?.id) {
+            // Persistencia permanente en el servidor (por cita) + respaldo
+            // local por si no hay red. No bloqueamos el cierre del modal.
+            addDismissedReview(reviewTarget.id);
+            marketplaceApi
+              .post(`/my-appointments/${reviewTarget.id}/dismiss-review`, {})
+              .catch(() => {});
+          }
           setReviewTarget(null);
           setReviewDismissed(true);
         }}
