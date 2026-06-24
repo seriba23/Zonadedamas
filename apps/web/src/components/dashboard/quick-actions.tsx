@@ -1,9 +1,21 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// QuickActions: bloque de "Acciones rápidas" del dashboard. Muestra 4 botones
+// grandes que llevan a las pantallas más usadas (crear cita, cliente, vender,
+// ver reportes). No pide datos al servidor: es puramente navegación.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// "Link" de Next.js: como un <a href> pero navega entre páginas SIN recargar
+// todo el navegador (más rápido y mantiene el estado de la app).
 import Link from 'next/link';
 
+// "actions" es un ARREGLO de objetos definido FUERA del componente (no cambia
+// nunca, así que no hace falta recrearlo en cada render). Cada objeto describe
+// un botón: su texto (label), su destino (href) y su icono (un <svg>).
+// Más abajo lo recorreremos con .map() para pintar un botón por cada elemento.
 const actions = [
   {
     label: 'Nueva Cita',
-    href: '/calendar?new=1',
+    href: '/calendar?new=1', // "?new=1" abre el calendario con el modal de nueva cita.
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -39,18 +51,23 @@ const actions = [
   },
 ];
 
+// Componente sin props: siempre muestra los mismos 4 botones.
 export function QuickActions() {
   return (
     <div className="card p-3 md:p-5">
       <h2 className="text-xs md:text-sm font-semibold mb-3 md:mb-4" style={{ color: 'var(--text-secondary)' }}>Acciones rápidas</h2>
+      {/* grid-cols-2 = rejilla de 2 columnas, así los 4 botones quedan en 2x2. */}
       <div className="grid grid-cols-2 gap-2 md:gap-3">
+        {/* LISTA CON .map(): recorre el arreglo "actions" y por cada "action"
+            devuelve un <Link>. React necesita una "key" única por elemento de la
+            lista (aquí usamos el label) para saber cuál es cuál al re-renderizar. */}
         {actions.map((action) => (
           <Link
-            key={action.label}
-            href={action.href}
+            key={action.label}      // identificador único de este elemento de la lista.
+            href={action.href}      // a dónde navega al hacer click.
             className="flex flex-col items-center justify-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl border bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700 transition-colors [&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6"
           >
-            {action.icon}
+            {action.icon}           {/* el icono SVG de este botón. */}
             <span className="text-[11px] md:text-xs font-medium">{action.label}</span>
           </Link>
         ))}

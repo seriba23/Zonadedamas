@@ -1,14 +1,17 @@
-'use client';
+'use client'; // usa hooks (useQuery, useCurrency) -> debe correr en el navegador.
 
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { useCurrency } from '@/lib/hooks/use-currency';
+import { useQuery } from '@tanstack/react-query'; // hook para pedir datos al backend.
+import { api } from '@/lib/api';                  // cliente HTTP propio.
+import { useCurrency } from '@/lib/hooks/use-currency'; // formateo de dinero.
 
+// "interface" describe la FORMA de un objeto en TypeScript: aquí, el desglose
+// de ventas que devuelve el backend. Sirve para que el editor avise si usamos
+// un campo que no existe. No genera código en tiempo de ejecución.
 interface SalesBreakdown {
-  total: number;
-  services: number;
-  bundles: number;
-  products: number;
+  total: number;     // venta total del período.
+  services: number;  // parte que vino de servicios.
+  bundles: number;   // parte que vino de paquetes.
+  products: number;  // parte que vino de productos.
 }
 
 /**
@@ -19,9 +22,10 @@ interface SalesBreakdown {
  * en cada vista (selector de Reports, mes en Home, filtro POS).
  */
 export function SalesBreakdownGrid({
-  startDate,
-  endDate,
-  periodLabel,
+  // ── PROPS ──
+  startDate,    // fecha inicio del rango a consultar (texto "YYYY-MM-DD").
+  endDate,      // fecha fin del rango.
+  periodLabel,  // texto opcional para el card Total.
 }: {
   startDate: string;
   endDate: string;
@@ -30,6 +34,9 @@ export function SalesBreakdownGrid({
 }) {
   const { format: formatCurrency } = useCurrency();
 
+  // Pedimos el desglose al backend. La queryKey incluye las fechas: si cambian,
+  // react-query detecta que es otra consulta y vuelve a pedir los datos.
+  // "isLoading" es true mientras la petición está en curso (para mostrar skeletons).
   const { data, isLoading } = useQuery({
     queryKey: ['sales-breakdown', startDate, endDate],
     queryFn: () =>
@@ -38,6 +45,9 @@ export function SalesBreakdownGrid({
       ),
   });
 
+  // breakdown = los datos recibidos. El operador "??" (nullish coalescing) usa el
+  // objeto de ceros SOLO si data?.data es null o undefined (aún no cargó). A
+  // diferencia de "||", el "??" NO reemplaza valores como 0 o "" (que son válidos).
   const breakdown = data?.data ?? { total: 0, services: 0, bundles: 0, products: 0 };
 
   return (
@@ -57,14 +67,19 @@ export function SalesBreakdownGrid({
             Venta Total
           </p>
         </div>
+        {/* Si está cargando mostramos un "skeleton" (barra gris que pulsa);
+            si ya hay datos, el total formateado como dinero. */}
         <p className="text-lg md:text-2xl font-extrabold leading-tight tabular-nums break-words" style={{ letterSpacing: '-0.015em' }}>
           {isLoading ? <span className="inline-block h-6 w-24 bg-white/20 rounded animate-pulse" /> : formatCurrency(breakdown.total)}
         </p>
+        {/* periodLabel && ... : el subtítulo solo aparece si vino esa prop. */}
         {periodLabel && (
           <p className="text-[10px] md:text-[11px] mt-1 opacity-80 truncate">{periodLabel}</p>
         )}
       </div>
 
+      {/* Las otras 3 cards reutilizan el mismo subcomponente BreakdownCell,
+          pasándole por props su etiqueta, su valor y su icono. */}
       <BreakdownCell
         label="Servicios"
         value={breakdown.services}
@@ -91,18 +106,23 @@ export function SalesBreakdownGrid({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BreakdownCell: subcomponente reutilizable para cada una de las 3 cards
+// secundarias (Servicios / Paquetes / Productos). Recibe todo por props, así
+// evitamos repetir el mismo JSX tres veces.
+// ─────────────────────────────────────────────────────────────────────────────
 function BreakdownCell({
-  label,
-  value,
-  isLoading,
-  formatCurrency,
-  iconPath,
-  iconExtra,
+  label,          // título de la card.
+  value,          // monto a mostrar.
+  isLoading,      // si true, muestra skeleton en vez del monto.
+  formatCurrency, // función para formatear el monto como dinero (viene del padre).
+  iconPath,       // trazo principal del icono SVG.
+  iconExtra,      // trazo extra opcional del icono.
 }: {
   label: string;
   value: number;
   isLoading: boolean;
-  formatCurrency: (n: number) => string;
+  formatCurrency: (n: number) => string; // tipo: función que recibe número y da texto.
   iconPath: string;
   iconExtra?: string;
 }) {
@@ -117,7 +137,9 @@ function BreakdownCell({
           style={{ backgroundColor: 'var(--primary-tint)', color: 'var(--primary-tint-fg)' }}
         >
           <svg className="w-4 h-4 md:w-4.5 md:h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            {/* Trazo principal del icono (d = el "dibujo" recibido por props). */}
             <path strokeLinecap="round" strokeLinejoin="round" d={iconPath} />
+            {/* Segundo trazo solo si la prop iconExtra existe (&&). */}
             {iconExtra && <path strokeLinecap="round" strokeLinejoin="round" d={iconExtra} />}
           </svg>
         </div>
@@ -125,6 +147,7 @@ function BreakdownCell({
           {label}
         </p>
       </div>
+      {/* Igual que en el card Total: skeleton mientras carga, valor cuando llega. */}
       <p className="text-base md:text-xl font-extrabold leading-tight tabular-nums break-words" style={{ color: 'var(--text-primary)', letterSpacing: '-0.015em' }}>
         {isLoading ? <span className="inline-block h-6 w-20 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(value)}
       </p>

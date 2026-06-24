@@ -1,15 +1,21 @@
-'use client';
+'use client'; // usa hooks de estado y eventos -> componente de cliente.
 
-import { useState } from 'react';
+import { useState } from 'react';                              // hook para guardar estado local que cambia con el tiempo.
 import Link from 'next/link';
+// De react-query traemos tres herramientas:
+//   - useQuery: leer datos (las citas pendientes).
+//   - useMutation: hacer cambios en el servidor (marcar recordatorio enviado).
+//   - useQueryClient: acceso al "cerebro" de caché para refrescar consultas.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+// Helpers propios para armar el texto del recordatorio y la URL de WhatsApp.
 import { buildReminderMessage, buildWhatsAppUrl } from '@/lib/whatsapp';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { useAuth } from '@/lib/hooks/use-auth';                 // hook con datos del usuario logueado.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const TEAL = '#008080';
+const TEAL = '#008080'; // color teal de la marca, guardado en constante.
 
+// Forma de cada cita pendiente de recordatorio que devuelve el backend.
 interface PendingReminderAppointment {
   id: string;
   startTime: string;
@@ -37,11 +43,21 @@ interface PendingReminderAppointment {
  * que incluye el link a /c/:token.
  */
 export function RemindersCard() {
+  // queryClient: lo usaremos para "invalidar" la lista y forzar que se recargue
+  // tras enviar un recordatorio (así la cita enviada desaparece de la lista).
   const queryClient = useQueryClient();
+  // user: el usuario logueado. De aquí sacamos el nombre del negocio.
   const { user } = useAuth();
+  // tenantName: nombre del negocio para el mensaje. "(user as any)" evita un
+  // choque de tipos; "?.tenantName" lee la propiedad sin romper si user es null;
+  // "|| 'tu negocio'" es el texto por defecto si no hay nombre.
   const tenantName = (user as any)?.tenantName || 'tu negocio';
+  // ESTADO LOCAL "busy": guarda el id de la cita que se está enviando ahora mismo
+  // (o null si ninguna). Sirve para mostrar el spinner solo en ESE botón.
+  // useState(null) crea la variable; setBusy la cambia y re-renderiza la card.
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Pedimos al backend las citas próximas (next 36h) sin recordatorio enviado.
   const { data, isLoading } = useQuery({
     queryKey: ['reminders-pending'],
     queryFn: () =>
@@ -50,6 +66,9 @@ export function RemindersCard() {
       ),
   });
 
+  // MUTACIÓN: a diferencia de useQuery (que LEE), useMutation se usa para CAMBIAR
+  // datos en el servidor. Aquí marca una cita como "recordatorio enviado" y
+  // devuelve un token (que va en el link del mensaje de WhatsApp).
   const markSentMutation = useMutation({
     mutationFn: (appointmentId: string) =>
       api.post<{ data: { token: string; reminderSentAt: string } }>(
@@ -58,31 +77,47 @@ export function RemindersCard() {
       ),
   });
 
+  // Lista de recordatorios, o [] si aún no llegó (evita errores al recorrer).
   const reminders = data?.data || [];
 
+  // handleSend: se ejecuta al pulsar el botón verde de WhatsApp de una cita.
+  // "async" porque hace una llamada al servidor que toma su tiempo (await).
   async function handleSend(apt: PendingReminderAppointment) {
+    // Si el cliente no tiene teléfono, no podemos enviar -> salimos.
     if (!apt.client.phone) return;
+    // Marcamos esta cita como "ocupada" para mostrar su spinner.
     setBusy(apt.id);
+    // try/finally: pase lo que pase, el finally limpiará el estado "busy".
     try {
+      // await = esperamos a que el servidor confirme y nos devuelva el token.
       const res = await markSentMutation.mutateAsync(apt.id);
+      // Construimos el texto del recordatorio con los datos de la cita.
+      // apt.items[0]?.serviceNameSnapshot: el nombre del primer servicio (?. por
+      // si la cita no tuviera items).
       const msg = buildReminderMessage({
         clientFirstName: apt.client.firstName,
         tenantName,
         serviceName: apt.items[0]?.serviceNameSnapshot,
         employeeFirstName: apt.employee.firstName,
         startTime: apt.startTime,
-        token: res.data.token,
+        token: res.data.token, // token devuelto, para armar el link /c/:token.
       });
+      // Construimos la URL de WhatsApp (wa.me) con el teléfono y el mensaje.
       const url = buildWhatsAppUrl(apt.client.phone, msg);
+      // Si se pudo armar la URL, abrimos WhatsApp en una pestaña nueva.
       if (url) window.open(url, '_blank');
+      // invalidateQueries: le decimos a react-query que esa lista quedó vieja y
+      // debe volver a pedirla; así la cita ya enviada desaparece de "pendientes".
       queryClient.invalidateQueries({ queryKey: ['reminders-pending'] });
     } finally {
+      // Liberamos el estado "ocupado" (oculta el spinner del botón).
       setBusy(null);
     }
   }
 
   // Si no hay nada que recordar y carga termino, ocultamos la card para
   // no contaminar el dashboard. Aparece automaticamente cuando hay citas.
+  // "return null" en React significa "no pintes nada".
   if (!isLoading && reminders.length === 0) {
     return null;
   }
@@ -105,6 +140,7 @@ export function RemindersCard() {
           <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)]">
             Recordatorios pendientes
           </h3>
+          {/* Burbuja con el número de pendientes; solo si hay al menos uno. */}
           {reminders.length > 0 && (
             <span
               className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"

@@ -2,21 +2,28 @@
 
 import Link from 'next/link';
 import { useCurrency } from '@/lib/hooks/use-currency';
-import { formatTimeUtc } from '@/lib/utils';
+import { formatTimeUtc } from '@/lib/utils'; // formatea una hora UTC a "HH:mm" legible.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Forma de cada cita próxima que recibe este componente por props.
 interface UpcomingAppointment {
   id: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  client: { firstName: string; lastName: string; avatarUrl?: string | null };
-  employee: { id: string; firstName: string; lastName: string; color: string; avatarUrl: string | null };
-  items: { serviceNameSnapshot: string; priceSnapshot: number }[];
+  startTime: string; // hora de inicio (texto ISO).
+  endTime: string;   // hora de fin.
+  status: string;    // estado de la cita (CONFIRMED, PENDING, ...).
+  client: { firstName: string; lastName: string; avatarUrl?: string | null };   // datos del cliente.
+  employee: { id: string; firstName: string; lastName: string; color: string; avatarUrl: string | null }; // datos del empleado.
+  items: { serviceNameSnapshot: string; priceSnapshot: number }[];              // servicios de la cita.
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// statusInfo: función auxiliar que traduce un código de estado (texto en inglés
+// y mayúsculas) a su info visual: etiqueta en español + clases de color + color
+// del puntito. Devuelve un objeto con esos 4 datos.
+// ─────────────────────────────────────────────────────────────────────────────
 function statusInfo(status: string): { text: string; bg: string; textColor: string; dot: string } {
+  // "map" es un diccionario: clave = estado, valor = su info visual.
   const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
     CONFIRMED: { text: 'Confirmada', bg: 'bg-primary-50', textColor: 'text-primary-700', dot: '#008080' },
     PENDING: { text: 'Sin confirmar', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
@@ -25,9 +32,15 @@ function statusInfo(status: string): { text: string; bg: string; textColor: stri
     CANCELLED: { text: 'Cancelada', bg: 'bg-red-50', textColor: 'text-red-700', dot: '#dc2626' },
     NO_SHOW: { text: 'Ausente', bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' },
   };
+  // map[status] busca la entrada; si el estado no está en el diccionario, el "||"
+  // devuelve un valor por defecto genérico (gris, mostrando el código tal cual).
   return map[status] || { text: status, bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UpcomingAppointments: lista "Próximas citas" del dashboard. Recibe el arreglo
+// "appointments" ya calculado por el componente padre (no pide datos él mismo).
+// ─────────────────────────────────────────────────────────────────────────────
 export function UpcomingAppointments({ appointments }: { appointments: UpcomingAppointment[] }) {
   const { format: formatCurrency } = useCurrency();
   return (
@@ -39,6 +52,8 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
         </Link>
       </div>
 
+      {/* Ternario: si la lista está vacía, mostramos un estado vacío con icono;
+          si tiene citas, la lista <ul>. */}
       {appointments.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-[var(--text-muted)]">
           <svg className="w-10 h-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -48,15 +63,26 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
         </div>
       ) : (
         <ul className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+          {/* Una fila por cita. */}
           {appointments.map((apt) => {
+            // totalPrice: suma de los precios de todos los servicios de la cita.
+            // reduce arranca en 0 y va sumando i.priceSnapshot de cada item.
             const totalPrice = apt.items.reduce((sum, i) => sum + i.priceSnapshot, 0);
+            // services: nombres de los servicios unidos con coma (".map" saca el
+            // nombre de cada item y ".join(', ')" los pega: "Corte, Tinte").
             const services = apt.items.map((i) => i.serviceNameSnapshot).join(', ');
+            // st: info visual del estado (texto, colores) según la función de arriba.
             const st = statusInfo(apt.status);
+            // Foto del cliente (puede ser null/undefined si no tiene).
             const clientAvatar = apt.client.avatarUrl;
+            // Iniciales del cliente para el avatar de respaldo.
+            // firstName?.[0]: primera letra del nombre (?. evita error si es null);
+            // "|| ''" usa cadena vacía si no hay letra. toUpperCase() las pone en
+            // mayúscula. Ej.: "ana", "gil" -> "AG".
             const clientInitials = `${apt.client.firstName?.[0] || ''}${apt.client.lastName?.[0] || ''}`.toUpperCase();
 
             return (
-              <li key={apt.id}>
+              <li key={apt.id}> {/* key única = id de la cita. */}
               <Link
                 href={`/calendar?appointmentId=${apt.id}`}
                 className="grid items-center gap-x-3 gap-y-1.5 px-3 py-3 rounded-2xl border border-[var(--border)] hover:bg-[var(--bg-muted)] cursor-pointer transition-colors no-underline text-inherit"
@@ -77,6 +103,8 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   className="row-span-2 self-center w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden"
                   style={{ backgroundColor: '#008080' }}
                 >
+                  {/* Si hay foto la mostramos (URL absoluta o relativa + API_URL);
+                      si no, mostramos las iniciales calculadas arriba. */}
                   {clientAvatar ? (
                     <img
                       src={clientAvatar.startsWith('http') ? clientAvatar : `${API_URL}${clientAvatar}`}
@@ -112,8 +140,11 @@ export function UpcomingAppointments({ appointments }: { appointments: UpcomingA
                   {services}
                 </p>
 
-                {/* Status — col 4, row 2 (esquina inferior derecha) */}
+                {/* Status — col 4, row 2 (esquina inferior derecha).
+                    Las clases st.bg y st.textColor vienen de statusInfo y pintan
+                    la "pastilla" con el color correcto según el estado. */}
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap self-start justify-self-end ${st.bg} ${st.textColor}`}>
+                  {/* Puntito de color (st.dot) antes del texto del estado. */}
                   <span className="w-1 h-1 rounded-full" style={{ backgroundColor: st.dot }} />
                   {st.text}
                 </span>

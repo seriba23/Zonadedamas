@@ -1,32 +1,53 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Sidebar — menú lateral del PANEL DE ADMINISTRACIÓN del negocio.
+//
+// QUÉ HACE: pinta la lista de secciones (Inicio, Citas, Clientes...), resalta la
+//   que coincide con la URL actual, oculta las que el usuario no tiene permiso de
+//   ver, muestra insignias de notificaciones sin leer y, abajo, el usuario con
+//   botón de cerrar sesión. En móvil aparece como cajón deslizante.
+//
+// CONCEPTOS DE REACT/NEXT QUE USA:
+// - Link (next/link): navegación entre páginas SIN recargar (más rápido que <a>).
+// - usePathname(): hook de Next que devuelve la URL actual (ej. "/clients").
+// - Hooks propios: useAuth (usuario logueado), usePermissions (permisos),
+//   useUnreadCounts (contadores de notificaciones).
+// - useState con un Set: para recordar qué submenús están desplegados.
+// ─────────────────────────────────────────────────────────────────────────────
+
 'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/lib/hooks/use-auth';
-import { usePermissions } from '@/lib/hooks/use-permissions';
-import { useUnreadCounts } from '@/lib/hooks/use-staff-notifications';
-import { getInitials } from '@/lib/utils';
-import { cn } from '@/lib/utils';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useAuth } from '@/lib/hooks/use-auth';            // Usuario actual + logout.
+import { usePermissions } from '@/lib/hooks/use-permissions'; // ¿Tiene tal permiso?
+import { useUnreadCounts } from '@/lib/hooks/use-staff-notifications'; // Contadores no leídos.
+import { getInitials } from '@/lib/utils';                 // Iniciales para el avatar.
+import { cn } from '@/lib/utils';                          // Une clases CSS condicionalmente.
+import { ThemeToggle } from '@/components/ui/theme-toggle'; // Botón claro/oscuro.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Forma de un SUB-elemento de menú (los que cuelgan dentro de un menú padre).
 interface NavChild {
-  label: string;
-  href: string;
-  permission?: string;
+  label: string;       // Texto visible.
+  href: string;        // Ruta a la que navega.
+  permission?: string; // Permiso requerido para verlo (opcional).
 }
 
+// Forma de un elemento de menú principal.
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ReactNode;
-  permission?: string;
-  children?: NavChild[];
-  section?: string; // clave para matchear con unreadCounts.counts
+  icon: React.ReactNode; // El icono ya renderizado como JSX (no un string).
+  permission?: string;   // Permiso para verlo (opcional).
+  children?: NavChild[]; // Submenú (opcional).
+  section?: string;      // clave para matchear con unreadCounts.counts
 }
 
+// `I` es una pequeña función-fábrica de iconos: recibe el "path" SVG (la `d`)
+// y devuelve el <svg> ya armado. Así no repetimos el boilerplate del SVG en
+// cada item del menú; solo cambia el dibujo interior.
 const I = (d: string) => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d={d} />

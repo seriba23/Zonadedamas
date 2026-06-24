@@ -1,40 +1,55 @@
+// Client Component (corre en el navegador): usa hooks y maneja eventos.
 'use client';
 
+// useState: hook para guardar "estado" (datos que, al cambiar, repintan el
+// componente). Cada llamada crea una variable + su función para actualizarla.
 import { useState } from 'react';
+// react-query: librería que gestiona las llamadas al servidor por nosotros
+// (cache, recarga, estados de carga/error).
+//   - useQuery: para LEER datos (GET).
+//   - useMutation: para ESCRIBIR/cambiar datos (POST, PUT, DELETE).
 import { useQuery, useMutation } from '@tanstack/react-query';
+// Helper que formatea un número como moneda (ej. 1500 → "$1,500.00").
 import { formatCurrency } from '@/lib/utils';
+// Popup centrado con palomita de éxito (estilo estándar del proyecto).
 import { SuccessPopup } from '@/components/ui/success-popup';
 
+// URL base de la API y colores de marca reutilizados como constantes.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const TEAL = '#008080';
-const TEAL_DARK = '#006666';
-const TEAL_LIGHT = '#e0f2f1';
+const TEAL = '#008080';       // teal principal
+const TEAL_DARK = '#006666';  // teal oscuro (hover)
+const TEAL_LIGHT = '#e0f2f1'; // teal claro (fondos suaves)
 
+// Forma de un producto de la tienda tal como llega del servidor.
 interface ShopProduct {
   id: string;
   name: string;
   description?: string;
   category?: string;
   price: number;
-  stock: number;
-  imageUrl?: string;
-  shippingCost?: number;
+  stock: number;          // unidades disponibles
+  imageUrl?: string;      // imagen principal
+  shippingCost?: number;  // costo de envío (0/ausente = gratis)
+  // Galería de imágenes adicionales. sortOrder define el orden de aparición.
   images: { id: string; imageUrl: string; sortOrder: number }[];
 }
 
+// Datos bancarios para transferencia SPEI (México).
 interface SpeiInfo {
   bankName?: string;
-  holderName?: string;
-  clabe?: string;
+  holderName?: string;  // titular de la cuenta
+  clabe?: string;       // número CLABE interbancaria
 }
 
+// Configuración de la tienda del negocio.
 interface ShopSettings {
-  shopEnabled: boolean;
-  paymentMethods: string[];
-  fulfillmentOptions: string[];
-  speiInfo?: SpeiInfo | null;
+  shopEnabled: boolean;          // ¿la tienda está activa?
+  paymentMethods: string[];      // métodos de pago aceptados (códigos)
+  fulfillmentOptions: string[];  // formas de entrega (PICKUP, SHIPPING)
+  speiInfo?: SpeiInfo | null;    // datos bancarios (si acepta SPEI)
 }
 
+// Diccionarios que traducen códigos a etiquetas en español para mostrar.
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
   SPEI: 'SPEI / Transferencia',
@@ -46,69 +61,108 @@ const FULFILLMENT_LABELS: Record<string, string> = {
   SHIPPING: 'Envio a domicilio',
 };
 
+// Componente "ShopSection": sección de tienda dentro del perfil público de un
+// negocio en el marketplace. Lista productos, permite ver su detalle y
+// "apartarlos" (reservarlos) llenando un formulario de contacto.
+// Recibe una sola prop: tenantSlug (el identificador del negocio en la URL).
 export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
+  // ── ESTADOS (useState) ──
+  // useState devuelve un par [valor, función_para_cambiarlo]. Al llamar la
+  // función, React vuelve a renderizar el componente con el nuevo valor.
+
+  // Producto seleccionado para ver su detalle (null = ninguno abierto).
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
+  // ¿Está visible el formulario para apartar?
   const [showReserveForm, setShowReserveForm] = useState(false);
+  // ¿Mostrar el popup de éxito tras apartar?
   const [showSuccess, setShowSuccess] = useState(false);
+  // Categoría elegida en el filtro (null = "Todos").
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // Índice de la imagen mostrada en grande dentro del detalle (galería).
   const [mainImageIdx, setMainImageIdx] = useState(0);
+  // Página actual de la lista paginada de productos.
   const [page, setPage] = useState(1);
 
-  // Form state
+  // Estado del formulario de apartado, todo en un solo objeto para comodidad.
   const [form, setForm] = useState({
-    quantity: 1,
-    customerName: '',
-    customerPhone: '',
-    customerEmail: '',
-    fulfillmentType: '',
-    preferredPaymentMethod: '',
-    shippingAddress: '',
-    notes: '',
+    quantity: 1,                  // cantidad a apartar
+    customerName: '',             // nombre del cliente
+    customerPhone: '',            // teléfono de contacto
+    customerEmail: '',            // email (opcional)
+    fulfillmentType: '',          // forma de entrega elegida
+    preferredPaymentMethod: '',   // forma de pago elegida
+    shippingAddress: '',          // dirección (si es envío)
+    notes: '',                    // notas adicionales
   });
+  // Mensaje de error de validación del formulario ('' = sin error).
   const [formError, setFormError] = useState('');
 
+  // ── QUERY 1: configuración de la tienda ──
+  // useQuery descarga datos del servidor y los cachea.
+  //   - queryKey: identificador único del dato en el cache. Si cambia (porque
+  //     cambia tenantSlug), react-query vuelve a pedir.
+  //   - queryFn: función async que hace el fetch y devuelve los datos.
   const { data: settingsData } = useQuery({
     queryKey: ['shop-settings', tenantSlug],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/settings`);
-      if (!res.ok) return null;
-      return res.json();
+      if (!res.ok) return null;       // si la respuesta falla, devolvemos null
+      return res.json();               // si va bien, parseamos el JSON
     },
   });
 
+  // Extraemos los settings. ?.data evita error si settingsData es undefined
+  // (optional chaining). || null da un valor por defecto.
   const settings: ShopSettings | null = settingsData?.data || null;
 
+  // ── QUERY 2: lista de productos (paginada y filtrada por categoría) ──
   const { data: productsData, isLoading } = useQuery({
+    // La key incluye categoría y página: al cambiar cualquiera, se recarga.
     queryKey: ['shop-products', tenantSlug, selectedCategory, page],
     queryFn: async () => {
+      // URLSearchParams construye el "?page=1&perPage=12" de la URL.
       const params = new URLSearchParams({ page: String(page), perPage: '12' });
       if (selectedCategory) params.set('category', selectedCategory);
       const res = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/products?${params}`);
       if (!res.ok) return null;
       return res.json();
     },
+    // enabled: la query SOLO se ejecuta cuando la tienda está habilitada.
+    // Así no pedimos productos de una tienda apagada.
     enabled: !!settings?.shopEnabled,
   });
 
+  // Lista de productos (o [] si aún no hay datos) y metadatos de paginación.
   const products: ShopProduct[] = productsData?.data || [];
   const meta = productsData?.meta;
 
-  // Extract unique categories
+  // Categorías únicas presentes en los productos cargados, para el filtro:
+  //   - products.map((p) => p.category)  → array de categorías (con repetidos)
+  //   - .filter(Boolean)  → quita las vacías/undefined
+  //   - new Set(...)  → elimina duplicados
+  //   - [...]  → vuelve a convertir el Set en array
   const categories = [...new Set(products.map((p) => p.category).filter(Boolean))] as string[];
 
+  // ── MUTATION: apartar (reservar) un producto ──
+  // useMutation se usa para acciones que MODIFICAN datos en el servidor.
   const reserveMutation = useMutation({
+    // mutationFn: recibe el cuerpo (body) y hace el POST de reserva.
     mutationFn: async (body: any) => {
       const res = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/reserve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' }, // enviamos JSON
+        body: JSON.stringify(body),                       // objeto → texto JSON
       });
+      // Si el servidor responde con error, lanzamos una excepción con su
+      // mensaje para que la capture onError (abajo).
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || 'Error al apartar producto');
       }
       return res.json();
     },
+    // onSuccess: se ejecuta si la mutación terminó bien. Cerramos modales,
+    // mostramos el popup de éxito y reseteamos el formulario.
     onSuccess: () => {
       setShowReserveForm(false);
       setSelectedProduct(null);
@@ -119,56 +173,81 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
       });
       setFormError('');
     },
+    // onError: si algo falla, mostramos el mensaje de error en el formulario.
     onError: (err: any) => {
       setFormError(err.message || 'Error al apartar');
     },
   });
 
+  // Renderizado condicional a nivel componente: si la tienda está apagada, o
+  // ya terminó de cargar y no hay productos, no mostramos nada (return null).
   if (!settings?.shopEnabled || (!isLoading && products.length === 0)) return null;
 
+  // handleReserve: valida el formulario y, si todo está bien, dispara la
+  // mutación de apartado. Cada validación devuelve (return) un setFormError
+  // para detenerse en el primer error encontrado.
   const handleReserve = () => {
-    setFormError('');
+    setFormError(''); // limpiamos error previo
+    // .trim() quita espacios al inicio/fin para no aceptar campos "en blanco".
     if (!form.customerName.trim()) return setFormError('Ingresa tu nombre');
     if (!form.customerPhone.trim() || form.customerPhone.length < 7) return setFormError('Ingresa un telefono valido');
     if (!form.fulfillmentType) return setFormError('Selecciona forma de entrega');
     if (!form.preferredPaymentMethod) return setFormError('Selecciona forma de pago');
+    // La dirección solo es obligatoria si la entrega es por envío a domicilio.
     if (form.fulfillmentType === 'SHIPPING' && !form.shippingAddress.trim()) return setFormError('Ingresa tu direccion de envio');
 
+    // .mutate(...) lanza la petición de apartado con el cuerpo armado abajo.
     reserveMutation.mutate({
+      // selectedProduct!.id  → el "!" le dice a TypeScript "confía, aquí NO es
+      // null" (sabemos que hay producto porque el formulario está abierto).
       productId: selectedProduct!.id,
       quantity: form.quantity,
       customerName: form.customerName.trim(),
       customerPhone: form.customerPhone.trim(),
+      // Si el email quedó vacío, mandamos undefined (campo opcional) en vez de
+      // una cadena vacía.
       customerEmail: form.customerEmail.trim() || undefined,
       fulfillmentType: form.fulfillmentType,
       preferredPaymentMethod: form.preferredPaymentMethod,
+      // Solo incluimos dirección si es envío; si es recoger, undefined.
       shippingAddress: form.fulfillmentType === 'SHIPPING' ? form.shippingAddress.trim() : undefined,
       notes: form.notes.trim() || undefined,
     });
   };
 
+  // getAllImages: arma la lista completa de imágenes de un producto, evitando
+  // duplicar la imagen principal. Recibe el producto y devuelve un array de
+  // rutas (string[]).
   const getAllImages = (product: ShopProduct) => {
-    const imgs: string[] = [];
-    if (product.imageUrl) imgs.push(product.imageUrl);
+    const imgs: string[] = [];                  // acumulador de rutas
+    if (product.imageUrl) imgs.push(product.imageUrl); // primero la principal
+    // .forEach recorre cada imagen de la galería; "img" es cada una.
     product.images.forEach((img) => {
+      // Solo la agregamos si NO es igual a la principal (para no repetirla).
       if (img.imageUrl !== product.imageUrl) imgs.push(img.imageUrl);
     });
     return imgs;
   };
 
   return (
+    // <>...</> es un Fragment: agrupa la tarjeta de la tienda y los modales sin
+    // añadir un contenedor extra al HTML.
     <>
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900">Tienda</h2>
+          {/* Contador de productos: usa el total del servidor (meta.total) o,
+              si no llegó, la cantidad cargada en pantalla. */}
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
             {meta?.total || products.length} productos
           </span>
         </div>
 
-        {/* Category Filter */}
+        {/* Filtro de categorías — solo si hay MÁS de una categoría (si no, no
+            tiene sentido filtrar). */}
         {categories.length > 1 && (
           <div className="flex gap-2 mb-4 flex-wrap">
+            {/* Pastilla "Todos": limpia el filtro y vuelve a la página 1. */}
             <button
               onClick={() => { setSelectedCategory(null); setPage(1); }}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
@@ -178,6 +257,9 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
             >
               Todos
             </button>
+            {/* .map recorre cada categoría "cat" y genera una pastilla-botón.
+                key={cat} ayuda a React a identificar cada elemento de la lista
+                (debe ser único y estable). */}
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -193,9 +275,12 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
           </div>
         )}
 
-        {/* Products Grid */}
+        {/* Cuadrícula de productos.
+            Ternario principal: SI isLoading (cargando) mostramos "esqueletos"
+            grises animados; SI NO, mostramos los productos reales. */}
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {/* 6 placeholders. "i" es el número de cada uno (1..6) y sirve de key. */}
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="aspect-square bg-gray-200 rounded-xl mb-2" />
