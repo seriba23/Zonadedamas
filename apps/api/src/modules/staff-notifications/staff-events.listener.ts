@@ -1,29 +1,47 @@
+// Injectable + Logger de NestJS.
 import { Injectable, Logger } from '@nestjs/common';
+// OnEvent: decorador que SUSCRIBE un método a un "evento de dominio". Cuando en
+// otra parte del sistema se emite ese evento (ej. 'appointment.created'),
+// NestJS ejecuta automáticamente el método decorado. Es el patrón "publicar/
+// suscribir": quien crea la cita NO sabe quién escucha; solo emite el evento.
 import { OnEvent } from '@nestjs/event-emitter';
+// Puente a la base de datos.
 import { PrismaService } from '../../prisma/prisma.service';
+// Servicio que crea las notificaciones y dispara el push.
 import { NotifyStaffService } from './notify-staff.service';
+// Tipo que describe la "carga" estándar de un evento de dominio (qué campos trae).
 import { DomainEventPayload } from '../events/events.service';
 
+// Esta clase ESCUCHA eventos del negocio y, por cada uno, genera la notificación
+// adecuada para el staff. No expone endpoints HTTP: solo reacciona a eventos.
 @Injectable()
 export class StaffEventsListener {
   private readonly logger = new Logger(StaffEventsListener.name);
 
+  // Inyectamos la BD (para leer detalles del evento) y el notificador.
   constructor(
     private readonly prisma: PrismaService,
     private readonly notify: NotifyStaffService,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────
+  // (Métodos auxiliares privados reutilizados por los manejadores de abajo.)
 
+  // formatDateTime(): convierte una fecha en un texto legible en español de
+  // México, mostrando día, mes abreviado, hora y minutos (ej. "23 jun 15:30").
   private formatDateTime(date: Date): string {
+    // toLocaleString formatea según un idioma ('es-MX') y unas opciones.
     return date.toLocaleString('es-MX', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
+      day: '2-digit',   // día con 2 dígitos (ej. "03")
+      month: 'short',   // mes abreviado (ej. "jun")
+      hour: '2-digit',  // hora con 2 dígitos
+      minute: '2-digit',// minutos con 2 dígitos
     });
   }
 
+  // getAppointmentBasics(): trae los datos mínimos de una cita que necesitan
+  // varios manejadores (id, hora, empleado, nombre del cliente y servicios).
+  // Filtra por id + tenantId (seguridad multi-tenant). findFirst = 1 registro o null.
   private async getAppointmentBasics(id: string, tenantId: string) {
     return this.prisma.appointment.findFirst({
       where: { id, tenantId },
@@ -31,6 +49,7 @@ export class StaffEventsListener {
         id: true,
         startTime: true,
         employeeId: true,
+        // De relaciones, traemos solo lo que mostraremos en el texto:
         client: { select: { firstName: true, lastName: true } },
         items: { select: { serviceNameSnapshot: true } },
       },
@@ -39,28 +58,41 @@ export class StaffEventsListener {
 
   // ─── Appointments ──────────────────────────────────
 
+  // @OnEvent('appointment.created'): se ejecuta cuando se crea una cita.
+  // "event" trae, entre otros, aggregateId (id de la cita) y tenantId.
   @OnEvent('appointment.created')
   async handleAppointmentCreated(event: DomainEventPayload) {
+    // try/catch: si algo falla al notificar, NO queremos que se rompa el flujo
+    // que creó la cita. Capturamos el error y solo lo registramos.
     try {
+      // Leemos los datos básicos de la cita recién creada.
       const apt = await this.getAppointmentBasics(
         event.aggregateId,
         event.tenantId,
       );
+      // Si no se encontró (raro), salimos sin notificar.
       if (!apt) return;
 
+      // Armamos el nombre completo del cliente (plantilla con `${...}`).
       const clientName = `${apt.client.firstName} ${apt.client.lastName}`;
+      // Unimos los nombres de los servicios en un solo texto separado por comas.
       const services = apt.items.map((i) => i.serviceNameSnapshot).join(', ');
 
+      // Pedimos crear la notificación. Nótese link (vista empleado) y adminLink
+      // (vista admin/calendario): cada destinatario verá el que le corresponde.
       await this.notify.notify({
         tenantId: event.tenantId,
         type: 'appointment.created',
         section: 'appointments',
         title: 'Nueva cita',
+        // "services || 'una cita'": si no hubiera servicios, usamos un texto
+        // genérico para que la frase quede natural.
         body: `${clientName} reservó ${services || 'una cita'} para el ${this.formatDateTime(apt.startTime)}.`,
         link: `/employee/appointments?appointmentId=${apt.id}`,
         adminLink: `/calendar?appointmentId=${apt.id}`,
         entityType: 'appointment',
         entityId: apt.id,
+        // Audiencia: el empleado de la cita + los admins.
         audience: { kind: 'employee_and_admins', employeeId: apt.employeeId },
       });
     } catch (err: any) {
@@ -68,9 +100,11 @@ export class StaffEventsListener {
     }
   }
 
+  // @OnEvent('appointment.cancelled'): cuando una cita se cancela.
   @OnEvent('appointment.cancelled')
   async handleAppointmentCancelled(event: DomainEventPayload) {
     try {
+      // (Mismo patrón que el handler anterior: leer cita, validar, notificar.)
       const apt = await this.getAppointmentBasics(
         event.aggregateId,
         event.tenantId,
@@ -95,9 +129,11 @@ export class StaffEventsListener {
     }
   }
 
+  // @OnEvent('appointment.rescheduled'): cuando una cita cambia de horario.
   @OnEvent('appointment.rescheduled')
   async handleAppointmentRescheduled(event: DomainEventPayload) {
     try {
+      // (Mismo patrón.) Aquí apt.startTime ya es el NUEVO horario.
       const apt = await this.getAppointmentBasics(
         event.aggregateId,
         event.tenantId,
@@ -124,9 +160,11 @@ export class StaffEventsListener {
     }
   }
 
+  // @OnEvent('appointment.confirmed'): cuando el cliente confirma la cita.
   @OnEvent('appointment.confirmed')
   async handleAppointmentConfirmed(event: DomainEventPayload) {
     try {
+      // (Mismo patrón que los anteriores.)
       const apt = await this.getAppointmentBasics(
         event.aggregateId,
         event.tenantId,
@@ -153,6 +191,9 @@ export class StaffEventsListener {
 
   // ─── Shop / Payments ───────────────────────────────
 
+  // @OnEvent('purchase.created'): nueva compra en la tienda. Aquí el evento NO
+  // es un DomainEventPayload estándar, sino un objeto con la compra ya armada,
+  // por eso describimos su forma "inline" (entre llaves) en el parámetro.
   @OnEvent('purchase.created')
   async handlePurchaseCreated(payload: {
     tenantId: string;
@@ -164,11 +205,14 @@ export class StaffEventsListener {
     };
   }) {
     try {
+      // Construimos un texto resumen de los productos comprados.
       const itemsLabel =
         payload.purchase.items
-          .slice(0, 3)
+          .slice(0, 3) // tomamos como máximo los 3 primeros productos
+          // Para cada uno: "2× Shampoo" (cantidad + nombre).
           .map((i) => `${i.quantity}× ${i.productName}`)
           .join(', ') +
+        // Si había más de 3 productos, añadimos "..." al final (ternario).
         (payload.purchase.items.length > 3 ? '...' : '');
 
       await this.notify.notify({
@@ -176,10 +220,12 @@ export class StaffEventsListener {
         type: 'purchase.created',
         section: 'shop',
         title: 'Nueva compra en tu tienda',
+        // toFixed(2) formatea el total con 2 decimales (ej. 50 -> "50.00").
         body: `${payload.purchase.customerName} compró ${itemsLabel} ($${payload.purchase.total.toFixed(2)}).`,
         link: `/reservations?focus=${payload.purchase.id}`,
         entityType: 'purchase',
         entityId: payload.purchase.id,
+        // Solo admins (las ventas de tienda las gestionan ellos).
         audience: { kind: 'admins' },
       });
     } catch (err: any) {
@@ -187,9 +233,11 @@ export class StaffEventsListener {
     }
   }
 
+  // @OnEvent('payment.completed'): cuando se registra un pago completado.
   @OnEvent('payment.completed')
   async handlePaymentCompleted(event: DomainEventPayload) {
     try {
+      // Buscamos el pago por id + tenant y traemos solo lo necesario para el texto.
       const payment = await this.prisma.payment.findFirst({
         where: { id: event.aggregateId, tenantId: event.tenantId },
         select: {
@@ -208,6 +256,8 @@ export class StaffEventsListener {
       // que la cita realmente exista en el tenant antes de armar el link:
       // si la cita fue eliminada o pertenece a otro tenant, evitamos
       // mandar al admin a un modal vacio "Cita no encontrada".
+      // Empezamos con un link de respaldo a /reports; lo cambiamos solo si la
+      // cita existe. "let" porque puede reasignarse.
       let link: string = '/reports';
       if (payment.appointmentId) {
         const aptExists = await this.prisma.appointment.findFirst({
@@ -224,6 +274,8 @@ export class StaffEventsListener {
         type: 'payment.completed',
         section: 'payments',
         title: 'Pago recibido',
+        // Number(...) asegura que totalAmount sea numérico antes de toFixed(2)
+        // (Prisma puede devolver decimales como un tipo especial Decimal).
         body: `${clientName} pagó ${Number(payment.totalAmount).toFixed(2)} ${payment.currency} (${payment.paymentMethod}).`,
         link,
         entityType: 'payment',
@@ -237,12 +289,13 @@ export class StaffEventsListener {
 
   // ─── Reviews ──────────────────────────────────────
 
+  // @OnEvent('review.created'): cuando un cliente deja una reseña.
   @OnEvent('review.created')
   async handleReviewCreated(payload: {
     tenantId: string;
     reviewId: string;
     employeeId: string;
-    rating: number;
+    rating: number;     // número de estrellas (1 a 5)
     clientName: string;
   }) {
     try {
@@ -251,11 +304,13 @@ export class StaffEventsListener {
         type: 'review.created',
         section: 'reviews',
         title: 'Nueva reseña',
+        // Pluralización: si rating es 1 -> "estrella"; si no -> "estrellas".
         body: `${payload.clientName} te dejó ${payload.rating} estrella${payload.rating === 1 ? '' : 's'}.`,
         link: `/employee/reviews`,
         adminLink: `/reviews`,
         entityType: 'review',
         entityId: payload.reviewId,
+        // El empleado reseñado + los admins.
         audience: {
           kind: 'employee_and_admins',
           employeeId: payload.employeeId,
@@ -268,13 +323,14 @@ export class StaffEventsListener {
 
   // ─── Inventory ─────────────────────────────────────
 
+  // @OnEvent('inventory.low_stock'): cuando un producto baja del umbral de stock.
   @OnEvent('inventory.low_stock')
   async handleLowStock(payload: {
     tenantId: string;
     productId: string;
     productName: string;
-    stock: number;
-    threshold: number;
+    stock: number;      // unidades restantes
+    threshold: number;  // umbral mínimo configurado
   }) {
     try {
       await this.notify.notify({
@@ -295,6 +351,7 @@ export class StaffEventsListener {
 
   // ─── Product Reservations ──────────────────────────
 
+  // @OnEvent('product_reservation.created'): cuando un cliente "aparta" producto.
   @OnEvent('product_reservation.created')
   async handleReservationCreated(payload: {
     tenantId: string;
