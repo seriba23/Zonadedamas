@@ -2,16 +2,23 @@
 // Los previews estaticos viven en apps/api/email-templates/preview/*.html
 // (no se sirven, solo para revision local). Mantener sincronizados al modificar.
 
-const BRAND_TEAL = '#008080';
-const BRAND_TEAL_LIGHT = '#e0f2f1';
-const BRAND_TEAL_BORDER = '#b2dfdb';
-const BG = '#f5f7f8';
-const TEXT_DARK = '#111827';
-const TEXT_MUTED = '#6b7280';
-const TEXT_LIGHT = '#9ca3af';
-const CARD_BORDER = '#e5e7eb';
-const DIVIDER = '#f3f4f6';
+// ── PALETA DE COLORES DE MARCA ──
+// Constantes (const = no cambian) con los códigos de color de Siliba. Se usan
+// dentro de los estilos CSS embebidos del HTML para no repetir el valor a mano.
+const BRAND_TEAL = '#008080';        // verde azulado principal de la marca.
+const BRAND_TEAL_LIGHT = '#e0f2f1';  // versión clara (fondos suaves).
+const BRAND_TEAL_BORDER = '#b2dfdb'; // tono para bordes.
+const BG = '#f5f7f8';                // color de fondo general del correo.
+const TEXT_DARK = '#111827';         // texto principal (casi negro).
+const TEXT_MUTED = '#6b7280';        // texto secundario (gris medio).
+const TEXT_LIGHT = '#9ca3af';        // texto tenue (gris claro, pies de página).
+const CARD_BORDER = '#e5e7eb';       // borde de la tarjeta blanca.
+const DIVIDER = '#f3f4f6';           // línea divisoria.
 
+// escapeHtml: convierte caracteres peligrosos en su "entidad HTML" segura, para
+// evitar que un texto (ej. el nombre del usuario) rompa el HTML o inyecte código.
+// Cada .replace(regex, reemplazo) cambia TODAS las apariciones (la "g" = global):
+//   - & -> &amp;   < -> &lt;   > -> &gt;   " -> &quot;
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -20,9 +27,16 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// shell(): construye el "cascarón" común a todos los correos (cabecera con el
+// logo, pie de página, etc.) y mete dentro el cuerpo concreto (bodyHtml).
+// Recibe un objeto con: title (título de la pestaña), preheader (texto preview)
+// y bodyHtml (el contenido propio de cada email). Devuelve el HTML completo.
 function shell(opts: { title: string; preheader: string; bodyHtml: string }): string {
   // El preheader es el texto que algunos clientes muestran como preview en la
   // bandeja, justo despues del subject.
+  // Usamos un "template literal" (texto entre comillas invertidas ``) que permite
+  // insertar valores con ${...}. Aquí escapamos textos del usuario e insertamos
+  // los colores de marca dentro de los estilos CSS.
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -76,6 +90,9 @@ function shell(opts: { title: string; preheader: string; bodyHtml: string }): st
 </html>`;
 }
 
+// codeBlock(): genera el bloque visual que muestra el código de 6 dígitos
+// resaltado (con su recuadro teal) y debajo una etiqueta de expiración.
+// Recibe el código y el texto de caducidad; devuelve un fragmento HTML.
 function codeBlock(code: string, expirationLabel: string): string {
   return `
   <tr>
@@ -92,11 +109,18 @@ function codeBlock(code: string, expirationLabel: string): string {
   </tr>`;
 }
 
+// renderPasswordResetEmail(): arma el correo de RESTABLECER contraseña (cuenta
+// que YA tiene contraseña y la olvidó). Recibe el nombre y el código; devuelve el
+// HTML final listo para enviar.
 export function renderPasswordResetEmail(params: {
   firstName: string;
   code: string;
 }): string {
+  // safeName = nombre del usuario ya "escapado" para que sea seguro en el HTML.
+  // "params.firstName || 'Hola'": si no hubiera nombre, usamos "Hola" como saludo.
   const safeName = escapeHtml(params.firstName || 'Hola');
+  // body = el cuerpo HTML específico de este correo (título, saludo y, mediante
+  // codeBlock, el código). Se inserta luego dentro de shell().
   const body = `
   <tr>
     <td style="padding:40px 32px 8px 32px;text-align:center;">
@@ -117,6 +141,7 @@ export function renderPasswordResetEmail(params: {
     </td>
   </tr>`;
 
+  // Envolvemos el cuerpo en el cascarón común y devolvemos el HTML completo.
   return shell({
     title: 'Restablece tu contraseña - Siliba',
     preheader: `Tu código de Siliba es ${params.code}. Expira en 15 minutos.`,
@@ -124,12 +149,21 @@ export function renderPasswordResetEmail(params: {
   });
 }
 
+// renderPasswordSetOAuthEmail(): arma el correo para ESTABLECER contraseña por
+// primera vez, en cuentas creadas con login social (Google/Facebook) que aún no
+// tienen contraseña propia. Recibe nombre, código y el proveedor usado.
 export function renderPasswordSetOAuthEmail(params: {
   firstName: string;
   code: string;
   provider: 'google' | 'facebook' | string | null;
 }): string {
+  // Nombre saneado para HTML (o "Hola" si falta).
   const safeName = escapeHtml(params.firstName || 'Hola');
+  // providerLabel = nombre "bonito" del proveedor a mostrar al usuario. Es un
+  // ternario ANIDADO (un "if/else" en cadena):
+  //   si provider === 'google'  -> 'Google'
+  //   si no, si === 'facebook'  -> 'Facebook'
+  //   en cualquier otro caso    -> 'una red social'
   const providerLabel =
     params.provider === 'google'
       ? 'Google'
@@ -168,6 +202,7 @@ export function renderPasswordSetOAuthEmail(params: {
     </td>
   </tr>`;
 
+  // Envolvemos el cuerpo en el cascarón común y devolvemos el HTML completo.
   return shell({
     title: 'Establece tu contraseña - Siliba',
     preheader: `Establece tu contraseña de Siliba. Tu código es ${params.code}.`,
