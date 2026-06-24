@@ -1,76 +1,89 @@
+// Decoradores de validación:
+//   - IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min (ya explicados),
+//   - IsDateString: el texto debe tener formato de fecha ISO (ej. "1990-05-20").
 import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+// Transform: convierte el valor recibido (aquí, texto -> número entero).
 import { Transform } from 'class-transformer';
 
+/**
+ * DTO para actualizar el PERFIL del usuario de marketplace. Todos los campos
+ * son opcionales: solo se actualizan los que el usuario envíe.
+ */
 export class UpdateMarketplaceProfileDto {
   @IsOptional()
   @IsString()
-  firstName?: string;
+  firstName?: string; // nombre
 
   @IsOptional()
   @IsString()
-  lastName?: string;
+  lastName?: string; // apellido
 
   @IsOptional()
-  @IsDateString()
-  birthDate?: string;
+  @IsDateString() // fecha en formato ISO
+  birthDate?: string; // fecha de nacimiento
 
   @IsOptional()
   @IsString()
+  // El género debe ser uno de estos valores fijos.
   @IsEnum(['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_SAY'])
   gender?: string;
 
   @IsOptional()
   @IsString()
-  allergies?: string;
+  allergies?: string; // alergias / notas médicas
 
   @IsOptional()
   @IsString()
-  address?: string;
+  address?: string; // dirección
 
   @IsOptional()
   @IsString()
-  country?: string;
+  country?: string; // país
 
   @IsOptional()
   @IsString()
-  phone?: string;
+  phone?: string; // teléfono
 }
 
+/**
+ * DTO para actualizar los AJUSTES del usuario (preferencias de idioma, moneda,
+ * radio de búsqueda y notificaciones). También todo opcional.
+ */
 export class UpdateMarketplaceSettingsDto {
   @IsOptional()
   @IsString()
-  country?: string;
+  country?: string; // país de los ajustes
 
   @IsOptional()
   @IsString()
-  @IsEnum(['es', 'en', 'pt'])
+  @IsEnum(['es', 'en', 'pt']) // idioma: español, inglés o portugués
   language?: string;
 
   @IsOptional()
   @IsString()
-  @IsEnum(['LOCAL', 'USD'])
+  @IsEnum(['LOCAL', 'USD']) // moneda: local o dólares
   currency?: string;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInt(value)) // texto -> entero
   @IsInt()
-  @Min(1)
-  @Max(50)
-  searchRadius?: number;
+  @Min(1)  // mínimo 1 km
+  @Max(50) // máximo 50 km
+  searchRadius?: number; // radio de búsqueda preferido por defecto
 
   @IsOptional()
   @IsBoolean()
-  notifAppointments?: boolean;
+  notifAppointments?: boolean; // ¿recibir avisos de citas?
 
   @IsOptional()
   @IsBoolean()
-  notifPromotions?: boolean;
+  notifPromotions?: boolean; // ¿recibir avisos de promociones?
 
   @IsOptional()
   @IsBoolean()
-  notifRewards?: boolean;
+  notifRewards?: boolean; // ¿recibir avisos de recompensas?
 
   @IsOptional()
   @IsBoolean()
-  notifMessages?: boolean;
+  notifMessages?: boolean; // ¿recibir avisos de mensajes?
 }
