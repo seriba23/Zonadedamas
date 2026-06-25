@@ -60,6 +60,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 // useCurrency → hook con la moneda preferida del usuario.
 
 import { RebookPromptModal } from '@/components/ui/rebook-prompt-modal';
+import { CensorEyesModal } from '@/components/ui/censor-eyes-modal';
 // RebookPromptModal → modal que aparece al FINAL del wizard (paso 5) preguntando
 // si el empleado quiere agendar otra cita al mismo cliente de inmediato.
 
@@ -212,6 +213,12 @@ export function CloseAppointmentWizard({
   // tip: monto de propina en pesos. 0 = sin propina.
   // Se selecciona con botones de 0%, 10%, 15%, 20%.
   const [tip, setTip] = useState<number>(0);
+  // "Cubrir ojos": por defecto activado si el cliente es menor de edad. El staff
+  // puede activarlo/desactivarlo para cualquier cita. Si está activo, al elegir
+  // una foto se abre el editor de censura antes de subirla.
+  const [coverEyes, setCoverEyes] = useState<boolean>(() => isMinorFromDob(appointment.client.dateOfBirth));
+  // Foto pendiente de censurar { file, serviceId } mientras el editor está abierto.
+  const [pendingCensor, setPendingCensor] = useState<{ file: File; serviceId: string } | null>(null);
 
   // uploadingFor: serviceId del servicio para el cual se está subiendo
   // una foto en este momento. null = no hay upload en progreso.
@@ -321,6 +328,18 @@ export function CloseAppointmentWizard({
   // PARÁMETROS:
   //   file      → el File seleccionado por el usuario (del <input type="file">)
   //   serviceId → a qué servicio pertenece esta foto
+  // Decide qué hacer con una foto recién elegida/tomada: si "Cubrir ojos" está
+  // activo, abre el editor de censura (antes de subir); si no, la sube directo.
+  const handlePickedPhoto = (file: File, serviceId: string) => {
+    const photosForService = uploadedPhotos.filter((p) => p.serviceId === serviceId);
+    if (photosForService.length >= MAX_PHOTOS_PER_SERVICE) return;
+    if (coverEyes) {
+      setPendingCensor({ file, serviceId });
+    } else {
+      handleUploadPhoto(file, serviceId);
+    }
+  };
+
   const handleUploadPhoto = async (file: File, serviceId: string) => {
     // .filter() cuenta cuántas fotos ya subimos para ESTE servicio.
     const photosForService = uploadedPhotos.filter((p) => p.serviceId === serviceId);
@@ -578,6 +597,23 @@ export function CloseAppointmentWizard({
                   : `Sube hasta ${MAX_PHOTOS_PER_SERVICE} fotos por cada servicio`}
               </p>
 
+              {/* Toggle "Cubrir ojos": al elegir foto, abre el editor de censura.
+                  Por defecto activado si el cliente es menor de edad. */}
+              <label className="flex items-center justify-between gap-2 mb-4 px-3 py-2 rounded-xl border border-gray-200 cursor-pointer">
+                <span className="text-xs font-medium text-gray-700">
+                  Cubrir los ojos antes de subir
+                  {isMinorFromDob(appointment.client.dateOfBirth) && (
+                    <span className="text-[10px] text-[#008080] font-semibold"> · menor de edad</span>
+                  )}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={coverEyes}
+                  onChange={(e) => setCoverEyes(e.target.checked)}
+                  style={{ accentColor: TEAL }}
+                />
+              </label>
+
               {/* Error de upload: solo se muestra si uploadError no es null */}
               {uploadError && (
                 <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
@@ -685,7 +721,7 @@ export function CloseAppointmentWizard({
                   // Leemos el serviceId del ref (está disponible sincrónicamente)
                   const sid = pendingServiceIdRef.current;
                   // Si tenemos archivo y serviceId, iniciamos la subida
-                  if (file && sid) handleUploadPhoto(file, sid);
+                  if (file && sid) handlePickedPhoto(file, sid);
                   pendingServiceIdRef.current = null; // limpiamos el ref
                   e.target.value = ''; // reseteamos el input para poder seleccionar el mismo archivo otra vez
                 }}
@@ -700,7 +736,7 @@ export function CloseAppointmentWizard({
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   const sid = pendingServiceIdRef.current;
-                  if (file && sid) handleUploadPhoto(file, sid);
+                  if (file && sid) handlePickedPhoto(file, sid);
                   pendingServiceIdRef.current = null;
                   e.target.value = '';
                 }}
@@ -999,6 +1035,22 @@ export function CloseAppointmentWizard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Editor para cubrir los ojos antes de subir la foto. */}
+      {pendingCensor && (
+        <CensorEyesModal
+          imageFile={pendingCensor.file}
+          onAccept={(edited) => {
+            handleUploadPhoto(edited, pendingCensor.serviceId);
+            setPendingCensor(null);
+          }}
+          onSkip={() => {
+            handleUploadPhoto(pendingCensor.file, pendingCensor.serviceId);
+            setPendingCensor(null);
+          }}
+          onCancel={() => setPendingCensor(null)}
+        />
       )}
 
       <RebookPromptModal

@@ -47,6 +47,7 @@ import { AppointmentStatusBadge } from '@/components/ui/badge';
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
 // SearchableSelect: dropdown con buscador interno (para elegir clientes).
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { CensorEyesModal } from '@/components/ui/censor-eyes-modal';
 // formatDate / formatTime: convierte fechas ISO a texto legible ("Lun 15 ene").
 // resolveImageUrl: construye la URL completa de una imagen del servidor.
 import { formatDate, formatTime, resolveImageUrl } from '@/lib/utils';
@@ -267,6 +268,10 @@ export function AppointmentModal({
   // servicios, para clasificar el portafolio por servicio como en el cierre
   // del empleado). null = usa el primer servicio por defecto.
   const [photoServiceId, setPhotoServiceId] = useState<string | null>(null);
+  // "Cubrir ojos": abre el editor de censura antes de subir. Default activado si
+  // el cliente es menor de edad (lo ajusta un effect cuando carga la cita).
+  const [coverEyes, setCoverEyes] = useState(false);
+  const [pendingCensor, setPendingCensor] = useState<{ file: File; serviceId?: string | null } | null>(null);
 
   // Flag para encadenar "Finalizar sin foto" → upload → completar.
   // Si el cliente sí autorizó fotos pero no hay ninguna, al pulsar "Finalizar"
@@ -338,6 +343,16 @@ export function AppointmentModal({
   // Es async porque necesita esperar (await) a que el servidor responda.
   // Recibe el objeto File (el archivo elegido por el usuario) y opcionalmente
   // el serviceId al que se asigna esta foto.
+  // Si "Cubrir ojos" está activo, abre el editor de censura antes de subir;
+  // si no, sube directo.
+  const handlePickedPhoto = (file: File, serviceId?: string | null) => {
+    if (coverEyes) {
+      setPendingCensor({ file, serviceId });
+    } else {
+      handlePhotoUpload(file, serviceId);
+    }
+  };
+
   const handlePhotoUpload = async (file: File, serviceId?: string | null) => {
     if (!appointmentId) return; // Guarda: no subir si no hay cita activa
     setUploadingPhoto(true);    // Muestra "Subiendo..." en la UI
@@ -422,6 +437,11 @@ export function AppointmentModal({
   // ¿El cliente de esta cita es menor de edad? Cambia el texto del consentimiento.
   const isMinorClient = isMinorFromDob((appointment?.client as any)?.dateOfBirth);
 
+  // Por defecto activamos "Cubrir ojos" si el cliente es menor (al cargar la cita).
+  useEffect(() => {
+    setCoverEyes(isMinorClient);
+  }, [isMinorClient]);
+
   // Servicios únicos de la cita (dedup por serviceId) para clasificar las fotos
   // del resultado. effectivePhotoServiceId es el servicio destino de la próxima
   // foto: el elegido, o el primero por defecto.
@@ -485,6 +505,24 @@ export function AppointmentModal({
       </div>
     </div>
   ) : null;
+
+  // Toggle "Cubrir ojos": al elegir una foto, abre el editor de censura antes de
+  // subir. Por defecto activado si el cliente es menor de edad.
+  const coverEyesToggle = (
+    <label className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg border border-gray-200 cursor-pointer">
+      <span className="text-[11px] font-medium text-gray-700">
+        Cubrir los ojos antes de subir
+        {isMinorClient && <span className="text-[10px] text-[#008080] font-semibold"> · menor de edad</span>}
+      </span>
+      <input
+        type="checkbox"
+        checked={coverEyes}
+        onChange={(e) => setCoverEyes(e.target.checked)}
+        style={{ accentColor: '#008080' }}
+      />
+    </label>
+  );
+
   // Extraemos los arrays de datos. || [] garantiza array vacío mientras carga.
   const services = servicesData?.data || [];
   const employees = employeesData?.data || [];
@@ -1330,6 +1368,7 @@ export function AppointmentModal({
                   </div>
                 ) : photos.length === 0 ? (
                   <div>
+                    {coverEyesToggle}
                     {photoServiceSelector}
                     <label className="block cursor-pointer">
                       <input
@@ -1338,7 +1377,7 @@ export function AppointmentModal({
                         className="sr-only"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handlePhotoUpload(file, effectivePhotoServiceId);
+                          if (file) handlePickedPhoto(file, effectivePhotoServiceId);
                           e.target.value = '';
                         }}
                         disabled={uploadingPhoto}
@@ -1379,6 +1418,7 @@ export function AppointmentModal({
                     </div>
 
                     {/* Selector de servicio para la próxima foto (2+ servicios) */}
+                    {coverEyesToggle}
                     {photoServiceSelector}
 
                     {/* Grid de fotos + tile para añadir más al final */}
@@ -1414,7 +1454,7 @@ export function AppointmentModal({
                           className="sr-only"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handlePhotoUpload(file, effectivePhotoServiceId);
+                            if (file) handlePickedPhoto(file, effectivePhotoServiceId);
                             e.target.value = '';
                           }}
                           disabled={uploadingPhoto}
@@ -2123,6 +2163,27 @@ export function AppointmentModal({
             </button>
           </div>
         </form>
+      )}
+
+      {/* Editor para cubrir los ojos antes de subir la foto. */}
+      {pendingCensor && (
+        <CensorEyesModal
+          imageFile={pendingCensor.file}
+          onAccept={(edited) => {
+            handlePhotoUpload(edited, pendingCensor.serviceId);
+            setPendingCensor(null);
+          }}
+          onSkip={() => {
+            handlePhotoUpload(pendingCensor.file, pendingCensor.serviceId);
+            setPendingCensor(null);
+          }}
+          onCancel={() => {
+            setPendingCensor(null);
+            // Si veníamos del flujo "Finalizar sin foto", cancelar la censura no
+            // debe encadenar el completar en la siguiente subida.
+            setAutoCompleteOnNextUpload(false);
+          }}
+        />
       )}
     </DetailSheet>
   );
