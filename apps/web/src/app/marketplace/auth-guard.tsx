@@ -61,7 +61,7 @@ export function MarketplaceAuthGuard({ children }: { children: React.ReactNode }
   // Extraemos del contexto de auth los valores que necesitamos:
   //   isAuthenticated: ¿tiene el usuario una sesión válida?
   //   isLoading: ¿está aún verificando el token? (petición inicial a la API)
-  const { isAuthenticated, isLoading } = useMarketplaceAuth();
+  const { isAuthenticated, isLoading, activeProfile, profilesLoaded } = useMarketplaceAuth();
 
   // pathname: la ruta actual del navegador. Ej: "/marketplace/profile".
   const pathname = usePathname();
@@ -75,6 +75,11 @@ export function MarketplaceAuthGuard({ children }: { children: React.ReactNode }
   // Ej: pathname="/marketplace/login" → isPublicPath = true.
   // Ej: pathname="/marketplace/profile" → isPublicPath = false.
   const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+
+  // ¿Estamos ya en la pantalla de selección/gestión de perfiles? Ahí NO se debe
+  // aplicar el "gate de perfil" (sería un bucle: te manda al selector estando ya
+  // en el selector).
+  const isProfilesPath = pathname.startsWith('/marketplace/profiles');
 
   // useEffect se ejecuta DESPUÉS del render, cuando el DOM ya está listo.
   // El array de dependencias [isLoading, isAuthenticated, isPublicPath, pathname, router]
@@ -92,6 +97,22 @@ export function MarketplaceAuthGuard({ children }: { children: React.ReactNode }
       router.replace(`/marketplace/login?redirect=${encodeURIComponent(pathname)}`);
     }
   }, [isLoading, isAuthenticated, isPublicPath, pathname, router]);
+
+  // GATE DE PERFIL: si el usuario está autenticado pero todavía no eligió un
+  // perfil (estilo Netflix), lo enviamos al selector. Esperamos a profilesLoaded
+  // para no redirigir antes de saber si había un perfil activo guardado.
+  useEffect(() => {
+    if (
+      !isLoading &&
+      isAuthenticated &&
+      profilesLoaded &&
+      !activeProfile &&
+      !isPublicPath &&
+      !isProfilesPath
+    ) {
+      router.replace('/marketplace/profiles');
+    }
+  }, [isLoading, isAuthenticated, profilesLoaded, activeProfile, isPublicPath, isProfilesPath, router]);
 
   // ─── Decisiones de renderizado (renderizado condicional) ────────────
 
@@ -129,7 +150,11 @@ export function MarketplaceAuthGuard({ children }: { children: React.ReactNode }
   // redirección. Evitamos mostrar contenido privado por un instante.
   if (!isAuthenticated) return null;
 
-  // CASO 4: el usuario SÍ está autenticado.
-  // Renderizamos los hijos (la página protegida) normalmente.
+  // CASO 4: autenticado pero aún no eligió perfil (y no está en el selector):
+  // no renderizamos la página; el efecto de arriba redirige al selector.
+  if (profilesLoaded && !activeProfile && !isProfilesPath) return null;
+
+  // CASO 5: el usuario SÍ está autenticado y ya tiene perfil activo (o está en
+  // el selector). Renderizamos los hijos (la página protegida) normalmente.
   return <>{children}</>;
 }

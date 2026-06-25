@@ -117,7 +117,7 @@ export default function MarketplaceAppointmentsPage() {
 
   // isAuthenticated: si el cliente tiene sesión activa.
   // isLoading (renombrado a authLoading): true mientras se verifica el token.
-  const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+  const { isAuthenticated, isLoading: authLoading, activeProfile } = useMarketplaceAuth();
 
   // Pestaña activa: 'citas' o 'compras'. El tipo unión `'citas' | 'compras'`
   // limita los valores posibles (TypeScript detecta errores de tipeo).
@@ -154,9 +154,14 @@ export default function MarketplaceAppointmentsPage() {
   // Carga las citas del cliente. Solo cuando está autenticado y en la pestaña 'citas'.
   // `enabled: isAuthenticated && tab === 'citas'`: React Query no pide datos hasta
   // que ambas condiciones sean verdaderas (evita peticiones sin token o innecesarias).
+  // Filtramos por el perfil activo: cada perfil ve solo SUS citas. El profileId
+  // va en la queryKey para que React Query recargue al cambiar de perfil.
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-my-appointments'],
-    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments?filter=all&perPage=100'),
+    queryKey: ['marketplace-my-appointments', activeProfile?.id],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any[] }>(
+        `/my-appointments?filter=all&perPage=100${activeProfile ? `&profileId=${activeProfile.id}` : ''}`,
+      ),
     enabled: isAuthenticated && tab === 'citas',
     ...sharedQueryOpts,
   });

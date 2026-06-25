@@ -349,7 +349,7 @@ function SlotGrid({
 // Next.js App Router lo renderiza cuando el usuario visita /marketplace/[tenantSlug].
 export default function BusinessDetailPage() {
   // Estado de autenticación del marketplace (usuario cliente, no el dueño del negocio).
-  const { isAuthenticated, user, refreshUser } = useMarketplaceAuth();
+  const { isAuthenticated, user, refreshUser, activeProfile } = useMarketplaceAuth();
 
   // Controla si se muestra el modal para completar el perfil (teléfono incompleto).
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
@@ -840,6 +840,8 @@ export default function BusinessDetailPage() {
         referralCode: referralCodeInput.trim() || undefined,
         payWithPoints: payWithPoints || undefined,
         serviceAssignments: assignments,
+        // Perfil activo (tutor o hijo): la cita se atribuye a ese perfil.
+        profileId: activeProfile?.id,
       });
 
       // Also create product reservations if cart has items

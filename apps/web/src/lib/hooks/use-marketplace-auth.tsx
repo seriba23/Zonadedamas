@@ -56,6 +56,26 @@ interface MarketplaceUser {
 }
 
 // ============================================================
+// PERFILES (estilo Netflix): un usuario (tutor) tiene varios perfiles (él +
+// sus hijos). El perfil activo determina bajo quién se reservan las citas.
+// La clave de localStorage donde guardamos el id del perfil activo.
+// ============================================================
+const ACTIVE_PROFILE_KEY = 'marketplace_active_profile_id';
+
+export interface MarketplaceProfile {
+  id: string;
+  relationship: string;        // 'SELF' | 'CHILD' | 'OTHER'
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  allergies?: string | null;
+  isMinor: boolean;
+  isDefault: boolean;
+}
+
+// ============================================================
 // FUNCIÓN AUXILIAR EXPORTADA: genderSuffix
 // Devuelve el sufijo de género correcto para mensajes en español.
 //
@@ -104,6 +124,13 @@ interface MarketplaceAuthContextType {
   }>;
   // enterBusiness: crea sesión de cliente para un negocio específico,
   // sin que el usuario tenga que registrarse de nuevo en ese negocio
+
+  // ── Perfiles (estilo Netflix) ──
+  profiles: MarketplaceProfile[];               // todos los perfiles del usuario
+  activeProfile: MarketplaceProfile | null;     // perfil bajo el que se opera
+  profilesLoaded: boolean;                      // ¿ya se intentó cargar la lista?
+  setActiveProfile: (profile: MarketplaceProfile | null) => void; // elegir/cambiar perfil
+  reloadProfiles: () => Promise<MarketplaceProfile[]>;            // recargar la lista
 }
 
 // ============================================================
@@ -125,6 +152,47 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
   // isLoading: true mientras verificamos si ya había sesión activa
   const [isLoading, setIsLoading] = useState(true);
 
+  // Perfiles del usuario y el perfil activo (el que se está usando ahora).
+  const [profiles, setProfiles] = useState<MarketplaceProfile[]>([]);
+  const [activeProfile, setActiveProfileState] = useState<MarketplaceProfile | null>(null);
+  // profilesLoaded: true cuando ya intentamos cargar los perfiles al menos una
+  // vez. El guard lo usa para no redirigir al selector ANTES de saber si hay un
+  // perfil activo guardado (evita un parpadeo/redirección indebida al recargar).
+  const [profilesLoaded, setProfilesLoaded] = useState(false);
+
+  // Carga la lista de perfiles desde el backend y, si había un perfil activo
+  // guardado en localStorage que sigue existiendo, lo restaura.
+  const reloadProfiles = useCallback(async () => {
+    try {
+      const res = await marketplaceApi.get<{ data: MarketplaceProfile[] }>('/profiles');
+      const list = res.data || [];
+      setProfiles(list);
+      if (typeof window !== 'undefined') {
+        const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+        // find() busca el perfil guardado; si ya no existe, queda null y el
+        // usuario tendrá que elegir de nuevo en el selector.
+        const found = savedId ? list.find((p) => p.id === savedId) || null : null;
+        setActiveProfileState(found);
+      }
+      return list;
+    } catch {
+      setProfiles([]);
+      return [];
+    } finally {
+      setProfilesLoaded(true);
+    }
+  }, []);
+
+  // Elige/cambia el perfil activo y lo persiste en localStorage. Pasar null lo
+  // borra (fuerza a volver al selector).
+  const setActiveProfile = useCallback((profile: MarketplaceProfile | null) => {
+    setActiveProfileState(profile);
+    if (typeof window !== 'undefined') {
+      if (profile) localStorage.setItem(ACTIVE_PROFILE_KEY, profile.id);
+      else localStorage.removeItem(ACTIVE_PROFILE_KEY);
+    }
+  }, []);
+
   // ============================================================
   // useEffect: corre una sola vez al montar el componente.
   // Verifica si marketplaceApi ya tiene tokens almacenados y,
@@ -137,14 +205,17 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       // Hay tokens → cargamos los datos del usuario
       marketplaceApi
         .get<{ data: MarketplaceUser }>('/auth/me')
-        .then((res) => setUser(res.data))  // Guardamos el usuario en el estado
+        .then((res) => {
+          setUser(res.data);  // Guardamos el usuario en el estado
+          reloadProfiles();   // y cargamos sus perfiles (para el selector)
+        })
         .catch(() => setUser(null))         // Si falla (token expirado), sin sesión
         .finally(() => setIsLoading(false)); // En cualquier caso, terminamos de cargar
     } else {
       // Sin tokens → no hay sesión activa
       setIsLoading(false);
     }
-  }, []); // [] = solo corre una vez al montar
+  }, [reloadProfiles]); // corre al montar (reloadProfiles es estable)
 
   // ============================================================
   // fetchFullUser: función interna para cargar los datos COMPLETOS del usuario.
@@ -188,8 +259,11 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     const { reactivated, ...userData } = result;
     setUser(userData);   // Guardamos los datos básicos del usuario (respuesta rápida)
     fetchFullUser();     // Luego cargamos datos completos en segundo plano
+    // Cargamos perfiles y limpiamos el activo: tras un login explícito SIEMPRE
+    // mostramos el selector (el gate redirige porque no hay perfil activo).
+    reloadProfiles().then(() => setActiveProfile(null));
     return result;       // Devolvemos el resultado completo (con reactivated) al componente
-  }, [fetchFullUser]);
+  }, [fetchFullUser, reloadProfiles, setActiveProfile]);
 
   // ============================================================
   // register: registra un nuevo usuario de marketplace.
@@ -209,9 +283,11 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       const u = await marketplaceApi.registerAndStore(params);
       setUser(u);       // Guardamos datos básicos
       fetchFullUser();  // Cargamos datos completos en segundo plano
+      // Tras registrarse, mostramos el selector (perfil activo limpio).
+      reloadProfiles().then(() => setActiveProfile(null));
       return u;
     },
-    [fetchFullUser],
+    [fetchFullUser, reloadProfiles, setActiveProfile],
   );
 
   // ============================================================
@@ -232,10 +308,12 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       const { isNewUser, ...userData } = result;
       setUser(userData);  // Guardamos datos básicos
       fetchFullUser();    // Cargamos datos completos en segundo plano
+      // Tras login social, mostramos el selector (perfil activo limpio).
+      reloadProfiles().then(() => setActiveProfile(null));
       return result;      // Devolvemos con isNewUser para que el componente pueda
                           // mostrar un mensaje de bienvenida diferente si es usuario nuevo
     },
-    [fetchFullUser],
+    [fetchFullUser, reloadProfiles, setActiveProfile],
   );
 
   // ============================================================
@@ -246,6 +324,13 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     marketplaceApi.logout(); // Limpia tokens de localStorage/memoria
     setUser(null);           // Limpia el estado del contexto
+    // Limpiamos también el estado de perfiles y el perfil activo persistido.
+    setProfiles([]);
+    setActiveProfileState(null);
+    setProfilesLoaded(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ACTIVE_PROFILE_KEY);
+    }
   }, []);
 
   // ============================================================
@@ -280,8 +365,12 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
   const enterBusiness = useCallback(
     async (tenantSlug: string) => {
       // POST /api/marketplace/enter/:tenantSlug
-      // El backend usa el token del marketplace para generar tokens de cliente
-      const res: any = await marketplaceApi.post(`/enter/${tenantSlug}`);
+      // El backend usa el token del marketplace para generar tokens de cliente.
+      // Mandamos el perfil activo para que el portal opere bajo ese perfil.
+      const res: any = await marketplaceApi.post(
+        `/enter/${tenantSlug}`,
+        activeProfile ? { profileId: activeProfile.id } : {},
+      );
       const data = res.data;
 
       // Store client tokens so portal auth works seamlessly
@@ -302,7 +391,7 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
 
       return data; // Devolvemos todos los datos al componente que llamó
     },
-    [], // Sin dependencias: la función nunca se recrea
+    [activeProfile], // se recrea si cambia el perfil activo (para enviarlo)
   );
 
   // ============================================================
@@ -322,6 +411,11 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
         logout,
         refreshUser,
         enterBusiness,
+        profiles,
+        activeProfile,
+        profilesLoaded,
+        setActiveProfile,
+        reloadProfiles,
       }}
     >
       {children}
