@@ -1,18 +1,34 @@
+// 'use client': componente de navegador con estado y memoización.
 'use client';
 
+// useState: filtros (búsqueda, período, método de pago, detalle abierto, filtros visibles).
+// useMemo: memoiza cálculos de rango de fechas y lista filtrada.
 import { useState, useMemo } from 'react';
+// useQuery: carga el historial de pagos del backend con caché.
 import { useQuery } from '@tanstack/react-query';
+// api: cliente HTTP del proyecto.
 import { api } from '@/lib/api';
+// useCurrency: hook que devuelve formatCurrency para mostrar montos.
 import { useCurrency } from '@/lib/hooks/use-currency';
+// Utilidades para mostrar fecha/hora de la venta en el card de historial.
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort } from '@/lib/booking-time';
+// DetailSheet: panel lateral deslizante para mostrar el detalle de una venta.
 import { DetailSheet } from '@/components/ui/detail-sheet';
+// SalesBreakdownGrid: grid de desglose de ventas (servicios + paquetes + productos).
 import { SalesBreakdownGrid } from '@/components/dashboard/sales-breakdown-grid';
 
+// API_URL: URL base del backend (para imágenes de productos si aplica).
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Period: rango de tiempo para filtrar el historial de ventas.
 type Period = 'today' | 'week' | 'month' | 'all';
+
+// Method: método de pago para filtrar. '' = todos los métodos.
 type Method = '' | 'CASH' | 'CARD' | 'TRANSFER';
 
+// PaymentItem: un ítem individual dentro de un pago (servicio o producto).
+// unitPrice: puede llegar como number o string desde el backend (Prisma Decimal → JSON).
+// itemType: 'SERVICE' o 'PRODUCT' para distinguir los ítems en el resumen.
 interface PaymentItem {
   id: string;
   description: string;
@@ -21,6 +37,11 @@ interface PaymentItem {
   itemType: 'SERVICE' | 'PRODUCT';
 }
 
+// Payment: estructura completa de un pago registrado en el POS.
+// client: puede ser null si el pago fue sin cliente seleccionado (venta anónima).
+// amount: subtotal antes de descuentos y propinas (en Prisma se llama 'amount').
+// totalAmount: monto final cobrado al cliente.
+// number | string: Prisma devuelve Decimal como string en JSON; usamos Number() para operar.
 interface Payment {
   id: string;
   appointmentId: string | null;
@@ -39,6 +60,8 @@ interface Payment {
   createdAt: string;
 }
 
+// PaymentDetail: Payment extendido con datos de la cita asociada (para el modal de detalle).
+// extends Payment: hereda todos los campos de Payment y agrega el campo appointment?.
 interface PaymentDetail extends Payment {
   appointment?: {
     id: string;
@@ -48,18 +71,26 @@ interface PaymentDetail extends Payment {
   };
 }
 
+// METHOD_LABEL: mapa de clave técnica a texto en español para el usuario.
+// Record<Payment['paymentMethod'], string>: las claves son exactamente los valores de paymentMethod.
 const METHOD_LABEL: Record<Payment['paymentMethod'], string> = {
   CASH: 'Efectivo',
   CARD: 'Tarjeta',
   TRANSFER: 'Transferencia',
 };
 
+// METHOD_BADGE: clases Tailwind para colorear el badge de método de pago.
 const METHOD_BADGE: Record<Payment['paymentMethod'], string> = {
   CASH: 'bg-green-50 text-green-700',
   CARD: 'bg-blue-50 text-blue-700',
   TRANSFER: 'bg-purple-50 text-purple-700',
 };
 
+// fmtLocal: convierte un objeto Date a string 'YYYY-MM-DD' usando la zona horaria LOCAL.
+// Importante: NO usa toISOString() porque ese devuelve UTC, lo que puede dar un día distinto.
+// Ejemplo: si son las 23:00 en México y las 05:00 UTC del día siguiente,
+// toISOString() daría la fecha del día siguiente en lugar del día actual local.
+// .padStart(2, '0'): garantiza 2 dígitos (p.ej. '6' → '06').
 // Formato YYYY-MM-DD usando fecha LOCAL del navegador (no UTC). El backend
 // recibe esto, lo parsea como UTC al `new Date(...)` y le pega `T23:59:59Z`
 // al endDate, así que ampliamos +/- 1 día y volvemos a filtrar en frontend
@@ -72,16 +103,26 @@ function fmtLocal(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// buildDateRange: calcula el rango de fechas para el filtro según el período seleccionado.
+// Devuelve startDate/endDate para el backend y localStart/localEnd para el filtro fino en frontend.
+// Estrategia de timezone:
+//   - localStart/localEnd: rango exacto en la hora local del navegador.
+//   - backendStart/backendEnd: se amplía +/- 1 día para compensar la diferencia UTC.
+//     El filtrado preciso se hace en frontend después de recibir los datos del backend.
+// Si period === 'all': devuelve objeto vacío (sin filtro de fecha).
 function buildDateRange(period: Period): { startDate?: string; endDate?: string; localStart?: Date; localEnd?: Date } {
   if (period === 'all') return {};
   const now = new Date();
+  // localStart: inicio del período en la zona horaria local.
   const localStart = new Date(now);
-  localStart.setHours(0, 0, 0, 0);
+  localStart.setHours(0, 0, 0, 0); // Medianoche del inicio del día
   const localEnd = new Date(now);
-  localEnd.setHours(23, 59, 59, 999);
+  localEnd.setHours(23, 59, 59, 999); // Último milisegundo del día actual
 
+  // Para 'week': retroceder 6 días desde hoy (= últimos 7 días).
   if (period === 'week') {
     localStart.setDate(localStart.getDate() - 6);
+  // Para 'month': retroceder 1 mes calendario desde hoy.
   } else if (period === 'month') {
     localStart.setMonth(localStart.getMonth() - 1);
   }
@@ -101,6 +142,7 @@ function buildDateRange(period: Period): { startDate?: string; endDate?: string;
   };
 }
 
+// PERIOD_LABEL: mapa de clave de período a texto para mostrar en la UI.
 const PERIOD_LABEL: Record<Period, string> = {
   today: 'Hoy',
   week: 'Esta semana',
@@ -108,6 +150,7 @@ const PERIOD_LABEL: Record<Period, string> = {
   all: 'Todo',
 };
 
+// PERIOD_OPTIONS: opciones del selector de período en el bottom sheet de filtros.
 const PERIOD_OPTIONS: { key: Period; label: string }[] = [
   { key: 'today', label: 'Hoy' },
   { key: 'week', label: 'Esta semana' },
@@ -117,6 +160,8 @@ const PERIOD_OPTIONS: { key: Period; label: string }[] = [
 
 // Orden en el grid 2x2 del filtro: fila 1 = Efectivo | Transferencia,
 // fila 2 = Tarjeta | Todos. (Tailwind grid llena por filas.)
+// METHOD_OPTIONS: opciones del selector de método de pago.
+// El orden importa: Tailwind grid las rellena izquierda→derecha, arriba→abajo.
 const METHOD_OPTIONS: { key: Method; label: string }[] = [
   { key: 'CASH', label: 'Efectivo' },
   { key: 'TRANSFER', label: 'Transferencia' },
@@ -124,19 +169,36 @@ const METHOD_OPTIONS: { key: Method; label: string }[] = [
   { key: '', label: 'Todos' },
 ];
 
+// PosHistory: pantalla del historial de ventas del POS.
+// Muestra la lista de pagos registrados con filtros de período y método de pago.
+// Al hacer click en una venta, abre un panel lateral con el detalle completo.
 export function PosHistory() {
+  // formatCurrency: función de formato monetario.
   const { format: formatCurrency } = useCurrency();
+
+  // search: texto del buscador libre (filtra por nombre de cliente, ítem o monto).
   const [search, setSearch] = useState('');
+  // period: período de tiempo seleccionado. 'all' por defecto para ver todas.
   // Default 'all': muestra todas las ventas; el usuario filtra por período
   // desde el sheet si quiere. Evita que un timezone offset oculte ventas
   // recientes al entrar.
   const [period, setPeriod] = useState<Period>('all');
+
+  // method: filtro de método de pago. '' = todos.
   const [method, setMethod] = useState<Method>('');
+
+  // detailId: id del pago cuyo panel de detalle está abierto (null = cerrado).
   const [detailId, setDetailId] = useState<string | null>(null);
+
+  // filtersOpen: controla si el bottom sheet de filtros está visible.
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // range: rango de fechas calculado según el período. Se memoiza para no
+  // recalcular en cada render (solo cuando cambia period).
+  // useMemo([period]): solo se recalcula si period cambia.
   const range = useMemo(() => buildDateRange(period), [period]);
 
+  // breakdownRange: rango para el grid SalesBreakdownGrid (alineado al período activo).
   // Rango (YYYY-MM-DD local) para el grid Venta Total. Sigue el período activo
   // del POS history. Si "Todo" → desde 2020-01-01 hasta hoy.
   const breakdownRange = useMemo(() => {
@@ -149,12 +211,19 @@ export function PosHistory() {
       return { start: fmtLocal(s), end };
     }
     if (period === 'month') {
+      // new Date(year, month, 1): primer día del mes actual (month es base-0).
       const s = new Date(today.getFullYear(), today.getMonth(), 1);
       return { start: fmtLocal(s), end };
     }
+    // 'all': desde 2020 hasta hoy (cubre todo el historial del negocio).
     return { start: '2020-01-01', end };
   }, [period]);
 
+  // Carga el historial de pagos filtrado por rango y método.
+  // queryKey: incluye range y method — si cambian, React Query refetcha.
+  // URLSearchParams: construye los query params de la URL dinámicamente.
+  // refetchOnMount: 'always': siempre refetcha al mostrar esta pantalla (evita datos obsoletos).
+  // staleTime: 0: los datos siempre se consideran "viejos" (fuerza refetch si hay caché).
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['pos-history', range.startDate, range.endDate, method],
     queryFn: () => {
@@ -170,12 +239,16 @@ export function PosHistory() {
     staleTime: 0,
   });
 
+  // payments: array de pagos del backend (o vacío si aún carga).
   const payments = data?.data || [];
 
+  // filtered: lista final de pagos después de aplicar filtro de fecha local y búsqueda.
+  // useMemo: recalcula solo si cambian payments, search, localStart o localEnd.
   // Filtro fino en frontend por fecha local exacta (el backend amplió +/- 1
   // día por timezone) + búsqueda libre.
   const filtered = useMemo(() => {
     let list = payments;
+    // Filtro de fecha local: compara milisegundos (getTime()) para mayor precisión.
     if (range.localStart && range.localEnd) {
       const startMs = range.localStart.getTime();
       const endMs = range.localEnd.getTime();
@@ -184,10 +257,15 @@ export function PosHistory() {
         return t >= startMs && t <= endMs;
       });
     }
+    // Búsqueda libre: filtra por nombre de cliente, nombre de ítem o monto total.
+    // .trim(): elimina espacios al inicio/fin antes de validar si hay texto.
+    // .toLowerCase(): comparación sin distinción de mayúsculas.
+    // .includes(q): true si el string contiene el texto buscado.
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((p) => {
         const clientName = `${p.client?.firstName || ''} ${p.client?.lastName || ''}`.toLowerCase();
+        // .map((i) => ...).join(' '): concatena los nombres de todos los ítems en un string.
         const itemNames = p.items.map((i) => i.description.toLowerCase()).join(' ');
         const total = String(p.totalAmount);
         return clientName.includes(q) || itemNames.includes(q) || total.includes(q);
@@ -196,9 +274,14 @@ export function PosHistory() {
     return list;
   }, [payments, search, range.localStart, range.localEnd]);
 
+  // periodTotal: suma del monto total de las ventas del período filtrado.
+  // Number(p.totalAmount): convierte el string de Prisma Decimal a número.
   const periodTotal = filtered.reduce((s, p) => s + Number(p.totalAmount), 0);
   const periodCount = filtered.length;
 
+  // activeFiltersCount: número de filtros activos (para el badge del botón de filtros).
+  // Solo cuenta período (si no es 'all') y método (si no es '' = todos).
+  // Excluye la búsqueda libre porque tiene su propio input visible.
   // Contador de filtros activos (excluye búsqueda libre, que tiene su input).
   const activeFiltersCount = (period !== 'all' ? 1 : 0) + (method !== '' ? 1 : 0);
 
@@ -388,13 +471,26 @@ export function PosHistory() {
   );
 }
 
+// PaymentCard: tarjeta de resumen de una venta en la lista del historial.
+// Muestra: fecha + hora, avatar del cliente, nombre, total y método de pago.
+// onClick: al hacer click, abre el panel de detalle de esa venta.
 function PaymentCard({ payment, onClick, formatCurrency }: { payment: Payment; onClick: () => void; formatCurrency: (n: number) => string }) {
+  // clientName: nombre completo del cliente o 'Cliente' si es anónimo.
   const clientName = payment.client ? `${payment.client.firstName} ${payment.client.lastName}` : 'Cliente';
+  // initials: iniciales del cliente para el avatar. '?' si es anónimo.
+  // ?.[0]: acceso seguro al primer carácter (si firstName es null, devuelve undefined, no error).
+  // .toUpperCase(): garantiza mayúsculas en las iniciales.
   const initials = payment.client
     ? `${payment.client.firstName?.[0] || ''}${payment.client.lastName?.[0] || ''}`.toUpperCase()
     : '?';
+  // itemsPreview: primeros 2 ítems como texto (p.ej. "Corte de cabello, Tinte").
+  // .slice(0, 2): toma solo los 2 primeros elementos del array.
+  // .join(', '): une los nombres con coma y espacio.
   const itemsPreview = payment.items.slice(0, 2).map((i) => i.description).join(', ');
+  // more: cuántos ítems adicionales hay más allá de los 2 mostrados.
+  // Si more > 0, se muestra "+N más" al final del preview.
   const more = payment.items.length - 2;
+  // Fecha y hora de la venta formateadas para la UI.
   const day = formatBookingDay(payment.createdAt);
   const month = formatBookingMonthShort(payment.createdAt);
   const time = formatBookingTime(payment.createdAt);
@@ -440,19 +536,35 @@ function PaymentCard({ payment, onClick, formatCurrency }: { payment: Payment; o
   );
 }
 
+// PaymentDetailModal: panel lateral con el detalle completo de una venta.
+// Carga los datos de la BD para ese paymentId (incluye la cita si aplica).
+// Muestra: total, método, cliente, lista de ítems, desglose de montos y enlace a WhatsApp.
 function PaymentDetailModal({ paymentId, onClose, formatCurrency }: { paymentId: string; onClose: () => void; formatCurrency: (n: number) => string }) {
+  // Carga el detalle del pago específico.
   const { data, isLoading } = useQuery({
     queryKey: ['pos-history-detail', paymentId],
     queryFn: () => api.get<{ data: PaymentDetail }>(`/api/payments/${paymentId}`),
   });
   const payment = data?.data;
 
+  // phone: número de teléfono del cliente extraído de las notas del pago.
+  // Las notas guardan el teléfono en el formato "Recibo al: 1234567890".
+  // payment.notes.match(/regex/): busca el patrón en el texto. Devuelve array o null.
+  // m[1]: primer grupo de captura de la expresión regular (\d{10} = 10 dígitos).
   const phone = useMemo(() => {
     if (!payment?.notes) return null;
     const m = payment.notes.match(/Recibo al:\s*(\d{10})/);
     return m ? m[1] : null;
   }, [payment]);
 
+  // whatsappUrl: URL de WhatsApp para reenviar el comprobante al cliente.
+  // Solo se genera si hay número de teléfono (phone !== null).
+  // Construye el mensaje con servicios, productos, descuentos y total.
+  // .filter(Boolean): elimina los strings vacíos ('') del array antes de unirlos.
+  //   Ejemplo: clientName='' → el elemento '' se descarta del array.
+  // .join('\n'): une todas las líneas con saltos de línea para formato WhatsApp.
+  // encodeURIComponent(msg): codifica el texto para usarlo en una URL.
+  // `https://wa.me/52${phone}`: abre WhatsApp con el número (prefijo México: 52).
   const whatsappUrl = useMemo(() => {
     if (!payment || !phone) return null;
     const clientName = payment.client ? `${payment.client.firstName} ${payment.client.lastName}` : '';
@@ -461,8 +573,11 @@ function PaymentDetailModal({ paymentId, onClose, formatCurrency }: { paymentId:
     const msg = [
       '*Comprobante de tu pedido*',
       clientName ? `Cliente: ${clientName}` : '',
+      // Template literal multi-línea con .map().join('\n'):
+      // genera líneas "• N× Nombre del servicio — $precio" para cada ítem.
       services.length > 0 ? `\n*Servicios:*\n${services.map((i) => `• ${i.quantity}× ${i.description} — ${formatCurrency(Number(i.unitPrice) * i.quantity)}`).join('\n')}` : '',
       products.length > 0 ? `\n*Productos:*\n${products.map((i) => `• ${i.quantity}× ${i.description} — ${formatCurrency(Number(i.unitPrice) * i.quantity)}`).join('\n')}` : '',
+      // Solo incluir descuento y propina si son mayores a 0.
       Number(payment.discountAmount) > 0 ? `\nDescuento: -${formatCurrency(Number(payment.discountAmount))}` : '',
       Number(payment.tipAmount) > 0 ? `Propina: ${formatCurrency(Number(payment.tipAmount))}` : '',
       `\n*Total pagado: ${formatCurrency(Number(payment.totalAmount))}*`,

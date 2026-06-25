@@ -1,17 +1,37 @@
+// 'use client': componente de navegador con estado complejo y efectos.
 'use client';
 
+// useState: múltiples estados del POS (paso actual, carrito, descuento, propina, etc.).
+// useEffect: efectos para pre-cargar datos de cita/apartado seleccionado.
+// useRef: referencia mutable para evitar recargas duplicadas.
 import { useState, useEffect, useRef } from 'react';
+// useQuery: para cargar listas (citas, servicios, productos, empleados, clientes, ubicaciones).
+// useMutation: para registrar pagos y crear clientes.
+// useQueryClient: para invalidar caché y actualizar listas tras una venta.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// QRCodeSVG: genera un código QR SVG a partir de una URL (para que el cliente deje reseña).
 import { QRCodeSVG } from 'qrcode.react';
+// api: cliente HTTP del proyecto (GET/POST/upload).
 import { api } from '@/lib/api';
+// RebookPromptModal: modal de "¿Agendar nueva cita?" al cerrar la venta.
 import { RebookPromptModal } from '@/components/ui/rebook-prompt-modal';
+// useCurrency: hook que devuelve formatCurrency para mostrar precios formateados.
 import { useCurrency } from '@/lib/hooks/use-currency';
+// SearchableSelect: combo con búsqueda para seleccionar clientes/ubicaciones.
 import { SearchableSelect } from '@/components/ui/searchable-select';
+// Modal: diálogo/overlay reutilizable del proyecto.
 import { Modal } from '@/components/ui/modal';
+// Utilidades de formato de hora/día para mostrar citas en la pantalla de inicio del POS.
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort } from '@/lib/booking-time';
 
+// API_URL: URL base del backend para construir URLs de imágenes.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// CartItem: interfaz que describe cada elemento del carrito de venta.
+// type: distingue entre servicio (requiere asignar empleado) y producto (stock).
+// imageUrl: ruta relativa de la imagen del producto (opcional).
+// employeeId/employeeName: empleado que realizará el servicio (solo para type='service').
+// duration: duración en minutos del servicio (para informar al cajero).
 interface CartItem {
   id: string;
   name: string;
@@ -24,9 +44,22 @@ interface CartItem {
   duration?: number;
 }
 
+// PaymentMethod: unión de tipos de pago disponibles en el POS.
 type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER';
+
+// Step: los 6 pasos del flujo POS.
+// 'start' → seleccionar cita o crear venta nueva
+// 'services' → agregar servicios al carrito
+// 'products' → agregar productos al carrito
+// 'details' → confirmar cliente, ubicación, descuento, propina
+// 'pay' → método de pago + ejecutar cobro
+// 'receipt' → comprobante + QR de reseña
 type Step = 'start' | 'services' | 'products' | 'details' | 'pay' | 'receipt';
 
+// PosCheckoutProps: props que recibe el componente POS.
+// onComplete: callback que el padre llama cuando el cajero termina (cierra el POS).
+// initialAppointmentId: si se pasa, el POS carga la cita directamente en 'details'.
+// initialReservationId: si se pasa, el POS carga el apartado directamente en 'details'.
 interface PosCheckoutProps {
   onComplete: () => void;
   /** Si viene una cita preseleccionada (ej: desde "Proceder al pago" en el
@@ -38,64 +71,135 @@ interface PosCheckoutProps {
   initialReservationId?: string;
 }
 
+// PosCheckout: componente principal del punto de venta (POS).
+// Gestiona todo el flujo de cobro: selección de cita/apartado, carrito,
+// descuentos, propina, método de pago, comprobante y QR de reseña.
 export function PosCheckout({ onComplete, initialAppointmentId, initialReservationId }: PosCheckoutProps) {
+  // formatCurrency: función que formatea un número como moneda local (p.ej. $1,500.00).
   const { format: formatCurrency } = useCurrency();
+  // queryClient: permite invalidar consultas del caché para refrescar datos tras una venta.
   const queryClient = useQueryClient();
+
+  // step: controla qué pantalla del POS se muestra.
+  // Valor inicial: 'start' (pantalla de inicio con lista de citas/apartados).
   const [step, setStep] = useState<Step>('start');
   // Cuando el cajero añade un servicio desde el detalle del pedido (cobro de
   // una cita), volvemos directo al detalle en vez de pasar por productos.
   const [returnToDetails, setReturnToDetails] = useState(false);
+
+  // items: carrito de venta — array de servicios y productos seleccionados.
   const [items, setItems] = useState<CartItem[]>([]);
+
+  // search: texto del campo de búsqueda para filtrar servicios/productos.
   const [search, setSearch] = useState('');
+
+  // discount: valor del descuento. Puede ser un número fijo ('10') o porcentaje ('15').
   const [discount, setDiscount] = useState('0');
+
+  // discountType: 'amount' = descuento en dinero fijo, 'percent' = porcentaje del subtotal.
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
+
+  // tipPercent: porcentaje de propina seleccionado de un botón rápido (10%, 15%, 20%).
+  // null = no hay propina por porcentaje (se usa tipManual si lo hay).
   const [tipPercent, setTipPercent] = useState<number | null>(null);
+
+  // tipManual: propina ingresada manualmente por el cajero (campo de texto libre).
   const [tipManual, setTipManual] = useState('');
+
+  // paymentMethod: método de pago seleccionado. 'CASH' por defecto.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+
+  // cashGiven: efectivo que entregó el cliente (para calcular el cambio).
   const [cashGiven, setCashGiven] = useState('');
+
+  // phone: teléfono del cliente para enviar el recibo por WhatsApp.
   const [phone, setPhone] = useState('');
+
+  // error: mensaje de error a mostrar al usuario (null si no hay error).
   const [error, setError] = useState<string | null>(null);
+
+  // employeePickerFor: id del ítem de servicio que espera que se le asigne un empleado.
+  // Al agregar un servicio al carrito, se abre el picker de empleados automáticamente.
+  // null = el picker está cerrado.
   const [employeePickerFor, setEmployeePickerFor] = useState<string | null>(null);
+
+  // selectedClientId: id del cliente seleccionado para facturar la venta.
   const [selectedClientId, setSelectedClientId] = useState('');
+
+  // selectedLocationId: id de la ubicación/sucursal donde se realiza la venta.
   const [selectedLocationId, setSelectedLocationId] = useState('');
+
+  // showNewClient: controla si el formulario de "Nuevo cliente" está visible.
   const [showNewClient, setShowNewClient] = useState(false);
+
+  // newClient: campos del formulario de nuevo cliente (nombre, apellido, email, teléfono).
   const [newClient, setNewClient] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+
+  // selectedAppointmentId: id de la cita seleccionada para cobrar.
+  // Valor inicial: initialAppointmentId si el padre lo pasó, o null.
+  // || null: convierte undefined a null.
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialAppointmentId || null);
   // Apartado standalone (sin cita o con cita cancelada). Mutuamente
   // excluyente con selectedAppointmentId.
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(initialReservationId || null);
+
+  // startTab: pestaña activa en la pantalla de inicio (citas o apartados cobrables).
+  // Si se inicia con un apartado, la pestaña 'apartados' es la activa por defecto.
   // Pestaña activa del step start: Citas o Apartados.
   const [startTab, setStartTab] = useState<'citas' | 'apartados'>(initialReservationId ? 'apartados' : 'citas');
   // Cupón/descuento heredado de la cita pre-cargada. Se muestra como badge
   // encima del campo discount para que el cajero sepa de dónde viene el
   // descuento precargado y pueda removerlo o sumar más manualmente.
   const [appointmentCoupon, setAppointmentCoupon] = useState<{ amount: number; label: string; code: string | null } | null>(null);
+  // loadedAppointmentRef: ref para controlar si la cita ya fue pre-cargada.
+  // Evita que refetches del query "pos-appointments" sobrescriban lo que el
+  // cajero acabe de editar. useRef no dispara re-renders al cambiar.
   // Marca que appointment ya pre-cargamos (cliente, items, phone). Evita
   // que refetches del query "pos-appointments" sobrescriban lo que el
   // cajero acabe de editar.
   const loadedAppointmentRef = useRef<string | null>(null);
+
+  // productDetail: datos del producto cuyo modal de detalle está abierto (null = cerrado).
   const [productDetail, setProductDetail] = useState<any | null>(null);
+
+  // transferProofFile: archivo de imagen del comprobante de transferencia.
   const [transferProofFile, setTransferProofFile] = useState<File | null>(null);
+
+  // transferProofPreview: URL data: de la previsualización del comprobante (base64).
   const [transferProofPreview, setTransferProofPreview] = useState<string | null>(null);
+
+  // pendingPaymentId: id de la cita asociada al pago recién procesado.
+  // Se usa para subir el comprobante de transferencia y para el QR de reseña.
   const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
   // Tras cobrar una cita, generamos el token de reseña para que el cliente
   // escanee el QR aquí mismo en recepción. Si no puede/no quiere, el cajero
   // pulsa "Saltar reseña" y el cliente la dejará luego desde su app.
   const [confirmationToken, setConfirmationToken] = useState<string | null>(null);
+
+  // reviewSkipped: true si el cajero pulsó "Saltar reseña" en el comprobante.
   const [reviewSkipped, setReviewSkipped] = useState(false);
   // Modal "¿Agendar nueva cita?" al cerrar la venta. Solo aparece si la
   // venta tuvo cliente conocido (cita pre-cargada o cliente seleccionado).
   const [showRebook, setShowRebook] = useState(false);
 
+  // ── Consultas al backend (useQuery) ──────────────────────────────────────
+  // today: fecha de hoy en formato 'YYYY-MM-DD' para el filtro de citas.
+  // .toISOString().split('T')[0]: extrae solo la fecha de un ISO completo.
   // Queries
   // Citas desde hoy y hasta los próximos 30 días — el cajero puede adelantar
   // pagos de citas futuras (por ej. el cliente llegó antes o quiere prepagar).
   const today = new Date().toISOString().split('T')[0];
+
+  // horizon: fecha de hoy + 30 días.
+  // d.setDate(d.getDate() + 30): modifica el día del mes sumando 30 días.
+  // La IIFE (() => { ... })() permite usar variables locales sin declarar const extra.
   const horizon = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   })();
+
+  // Citas próximas (hoy → +30 días): para que el cajero vea las citas de la semana.
   const { data: appointmentsData } = useQuery({
     queryKey: ['pos-appointments', today, horizon],
     queryFn: () => api.get<{ data: any[] }>(`/api/appointments?startDate=${today}&endDate=${horizon}&perPage=100`),
@@ -113,20 +217,32 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     queryKey: ['pos-payable-reservations'],
     queryFn: () => api.get<{ data: any[] }>(`/api/products/reservations/payable`),
   });
+  // payableReservations: extrae el array del wrapper de respuesta (?.data || []).
   const payableReservations = payableReservationsData?.data || [];
+
+  // Listas de catálogo para los steps de selección.
   const { data: servicesData } = useQuery({ queryKey: ['pos-services'], queryFn: () => api.get<{ data: any[] }>('/api/services?perPage=100') });
   const { data: productsData } = useQuery({ queryKey: ['pos-products'], queryFn: () => api.get<{ data: any[] }>('/api/products?perPage=100') });
   const { data: employeesData } = useQuery({ queryKey: ['pos-employees'], queryFn: () => api.get<{ data: any[] }>('/api/employees?perPage=100') });
   const { data: locationsData } = useQuery({ queryKey: ['pos-locations'], queryFn: () => api.get<{ data: any[] }>('/api/locations') });
   const { data: clientsData } = useQuery({ queryKey: ['pos-clients'], queryFn: () => api.get<{ data: any[] }>('/api/clients?perPage=100') });
+  // tenantData: datos del negocio, incluyendo posWhatsappNumber para envío de recibos.
   const { data: tenantData } = useQuery({ queryKey: ['tenant-current'], queryFn: () => api.get<{ data: any }>('/api/tenants/current') });
 
+  // appointments: array combinado y deduplicado de citas próximas + pendientes de pago.
   // Mergeamos:
   //  - Citas próximas (hoy → +30 días)
   //  - Citas pending POS de cualquier día (puede ser de ayer si el empleado
   //    delegó el cobro y el cliente vuelve hoy)
   // Dedup por id. Las pending POS siempre arriba, después por startTime asc
   // (la más próxima primero).
+  // Algoritmo:
+  // 1. Filtramos citas próximas por estados activos (no CANCELLED, no COMPLETED).
+  // 2. Usamos un Map<id, cita> para deduplicar (si una cita está en ambas listas, gana la última).
+  // 3. Array.from(byId.values()): convierte el Map de vuelta a un array.
+  // 4. .sort(): ordena poniendo las "pendingPosPayment" primero; luego cronológicamente.
+  //    -1: a va antes que b. 1: b va antes que a. 0: iguales (mantiene orden).
+  //    new Date(x).getTime(): convierte fecha ISO a milisegundos (comparable numéricamente).
   const appointments = (() => {
     const upcoming = (appointmentsData?.data || []).filter((a: any) =>
       ['CONFIRMED', 'PENDING', 'IN_PROGRESS', 'RESCHEDULED'].includes(a.status),
@@ -142,11 +258,16 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
       return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
   })();
+
+  // Listas filtradas del catálogo. || []: fallback si aún carga.
   const services = servicesData?.data || [];
+  // Productos: solo los activos, listados en tienda y con stock disponible.
   const products = (productsData?.data || []).filter((p: any) => p.isActive && p.isShopListed && p.stock > 0);
+  // Empleados: solo los activos (pueden atender clientes).
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
   const locations = locationsData?.data || [];
   const clients = clientsData?.data || [];
+  // posWhatsapp: número de WhatsApp para enviar recibos (puede ser vacío).
   const posWhatsapp = tenantData?.data?.posWhatsappNumber || '';
 
   // Pre-load from appointment — solo UNA vez por appointmentId, no en cada
@@ -255,6 +376,14 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   const filteredServices = search ? services.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase())) : services;
   const filteredProducts = search ? products.filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase())) : products;
 
+  // ── Funciones del carrito ─────────────────────────────────────────────────
+
+  // addToCart: agrega un ítem al carrito o incrementa su cantidad si ya existe.
+  // Si el ítem ya está (existing !== undefined): incrementa quantity en 1.
+  //   { ...i, quantity: i.quantity + 1 }: spread del ítem existente + quantity actualizado.
+  // Si es nuevo: agrega un CartItem con quantity: 1.
+  //   [...prev, { ... }]: spread del array anterior + el nuevo elemento al final.
+  // Para servicios: abre el selector de empleado automáticamente (UX: el cajero asigna inmediatamente).
   // Cart
   function addToCart(id: string, name: string, price: number, type: 'service' | 'product', imageUrl?: string, duration?: number) {
     const existing = items.find((i) => i.id === id);
@@ -265,25 +394,86 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
       if (type === 'service') setEmployeePickerFor(id);
     }
   }
+
+  // updateQuantity: actualiza la cantidad de un ítem o lo elimina si qty <= 0.
+  // .filter(): devuelve un nuevo array sin el ítem (equivale a eliminarlo).
+  // .map() con { ...i, quantity: qty }: actualiza solo el ítem que coincide.
   function updateQuantity(id: string, qty: number) {
     if (qty <= 0) setItems((prev) => prev.filter((i) => i.id !== id));
     else setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: qty } : i));
   }
+
+  // assignEmployee: asigna un empleado a un ítem de servicio del carrito.
+  // { ...i, employeeId: empId, employeeName: empName }: spread + dos campos nuevos.
+  // setEmployeePickerFor(null): cierra el selector de empleados.
   function assignEmployee(itemId: string, empId: string, empName: string) {
     setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, employeeId: empId, employeeName: empName } : i));
     setEmployeePickerFor(null);
   }
+
+  // getCartQty: devuelve la cantidad de un ítem en el carrito (0 si no está).
+  // ?.quantity: acceso seguro si el ítem no existe. || 0: fallback si es undefined.
   function getCartQty(id: string) { return items.find((i) => i.id === id)?.quantity || 0; }
 
+  // ── Cálculos financieros del carrito ──────────────────────────────────────
+  // serviceItems: solo los ítems del carrito que son servicios (type='service').
   const serviceItems = items.filter((i) => i.type === 'service');
+  // productItems: solo los ítems del carrito que son productos (type='product').
   const productItems = items.filter((i) => i.type === 'product');
+
+  // subtotal: suma de (precio × cantidad) de TODOS los ítems del carrito.
+  // .reduce(acumulador, ítem): reduce el array a un único valor.
+  // s = acumulador (suma parcial), i = ítem actual.
+  // i.price * i.quantity: precio unitario × número de unidades.
+  // , 0: valor inicial del acumulador (sin esto puede dar NaN si el carrito está vacío).
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  // totalItems: suma de cantidades de todos los ítems (para mostrar "N artículos").
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+
+  // discountAmount: monto del descuento en dinero.
+  // Si discountType = 'percent': se calcula como porcentaje del subtotal.
+  //   Ejemplo: subtotal=1000, discount='15' → discountAmount = 1000 * 0.15 = 150
+  //   parseFloat(discount): convierte el string '15' a número 15.
+  //   || 0: si discount es '' o 'abc' (inválido), parseFloat devuelve NaN; || 0 lo reemplaza por 0.
+  //   / 100: convierte el porcentaje a decimal (15% → 0.15).
+  // Si discountType = 'amount': el descuento es un monto fijo.
+  //   Ejemplo: discount='50' → discountAmount = 50 (sin importar el subtotal).
   const discountAmount = discountType === 'percent' ? subtotal * ((parseFloat(discount) || 0) / 100) : (parseFloat(discount) || 0);
+
+  // tipAmount: monto de la propina en dinero.
+  // Si tipPercent != null (botón rápido 10/15/20% pulsado):
+  //   tipAmount = subtotal × (tipPercent / 100)
+  //   Ejemplo: subtotal=1000, tipPercent=15 → tipAmount = 150
+  //   != null: tanto null como undefined se excluyen (tipPercent podría ser 0 válido).
+  // Si tipPercent es null (propina manual):
+  //   tipAmount = parseFloat(tipManual) || 0
+  //   Ejemplo: tipManual='30' → tipAmount = 30
   const tipAmount = tipPercent != null ? subtotal * (tipPercent / 100) : (parseFloat(tipManual) || 0);
+
+  // total: monto final a cobrar al cliente.
+  // Fórmula: (subtotal − descuento) + propina
+  // Math.max(0, subtotal - discountAmount): garantiza que el total no sea negativo
+  //   (si el descuento supera el subtotal, el resultado sería 0, no un número negativo).
+  // + tipAmount: la propina se suma DESPUÉS de aplicar el descuento.
+  // Ejemplo completo:
+  //   subtotal=1000, descuento=150, propina=150
+  //   total = Math.max(0, 1000-150) + 150 = 850 + 150 = 1000
   const total = Math.max(0, subtotal - discountAmount) + tipAmount;
+
+  // cashChange: cambio/vuelto a devolver al cliente cuando paga en efectivo.
+  // cashGiven: dinero que entregó el cliente (string del input → parseFloat → número).
+  // Math.max(0, ...): evita cambio negativo si el cliente entregó menos de lo que debe.
+  // Ejemplo: total=850, cashGiven='1000' → cashChange = Math.max(0, 1000-850) = 150
   const cashChange = Math.max(0, (parseFloat(cashGiven) || 0) - total);
 
+  // ── Mutación: crear cliente nuevo ─────────────────────────────────────────
+  // createClientMutation: crea un cliente y lo selecciona automáticamente.
+  // onSuccess: al crear exitosamente →
+  //   1. Invalida el caché de clientes (para que la lista se actualice con el nuevo).
+  //   2. Selecciona el nuevo cliente automáticamente (usando su id devuelto).
+  //   3. Cierra el formulario de nuevo cliente.
+  //   4. Limpia los campos del formulario.
   // Create client
   const createClientMutation = useMutation({
     mutationFn: (data: any) => api.post<{ data: any }>('/api/clients', data),
@@ -295,18 +485,29 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     },
   });
 
+  // ── Mutación principal: procesar pago ────────────────────────────────────
+  // processPayment: registra el pago en el backend y, si hay servicios sin cita,
+  // crea una cita "desde POS" para trazabilidad.
   // Process payment
   const processPayment = useMutation({
+    // mutationFn: función async que realiza los pasos del cobro.
+    // Retorna { appointmentId } para que onSuccess sepa si hay cita asociada.
     mutationFn: async (payload: any): Promise<{ appointmentId: string | null }> => {
+      // 1. Registrar el pago en la BD (siempre, independientemente de si hay cita).
       const payRes = await api.post<{ data: any }>('/api/payments', payload);
       let appointmentId: string | null = selectedAppointmentId;
+      // 2. Si es venta libre (sin cita) con servicios: crear cita from-pos para
+      //    mantener el historial del empleado y las comisiones.
+      // serviceItems.length > 0: solo si hay servicios (no solo productos).
       // Create appointment from POS if no existing appointment
       if (!selectedAppointmentId && serviceItems.length > 0) {
         const aptRes = await api.post<{ data: any }>('/api/appointments/from-pos', {
           clientId: payload.clientId,
           locationId: payload.locationId,
+          // .map().filter(): genera la lista de asignaciones servicio→empleado,
+          // filtrando los que no tienen empleado asignado aún.
           serviceAssignments: serviceItems.map((i) => ({
-            serviceId: i.id.replace('svc-', ''),
+            serviceId: i.id.replace('svc-', ''),  // Quita el prefijo 'svc-'
             employeeId: i.employeeId,
           })).filter((a) => a.employeeId),
           notes: 'Venta desde POS',
@@ -319,6 +520,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     // comprobante para que el cajero pueda mandar el recibo por WhatsApp.
     // El cierre real (onComplete) se dispara solo cuando hace "Nueva venta".
     onSuccess: ({ appointmentId }) => {
+      // Guardamos el appointmentId para el comprobante y la subida del comprobante.
       setPendingPaymentId(appointmentId);
       // Invalida historial y citas del POS para que al cambiar de tab la
       // venta recién registrada aparezca al instante (sin esto el cache
@@ -326,6 +528,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
       queryClient.invalidateQueries({ queryKey: ['pos-history'] });
       queryClient.invalidateQueries({ queryKey: ['pos-appointments'] });
       queryClient.invalidateQueries({ queryKey: ['pos-pending-pos'] });
+      // Si hay cita asociada: generar token de reseña → QR para que el cliente escanee.
       // Si hay cita asociada (sea pendingPosPayment o cobro estándar de
       // cita), generamos el token de reseña para mostrar el QR aquí.
       if (appointmentId) {
@@ -336,11 +539,17 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
           .then((res) => setConfirmationToken(res.data.token))
           .catch(() => { /* silencioso — el receipt sigue funcionando sin QR */ });
       }
+      // Navegar al paso de comprobante.
       setStep('receipt');
     },
+    // onError: si falla el cobro, mostrar el mensaje de error del backend.
     onError: (err: any) => setError(err.message || 'Error al procesar el pago'),
   });
 
+  // ── Mutación: subir comprobante de transferencia ─────────────────────────
+  // uploadProofMutation: sube la foto/captura del comprobante bancario.
+  // Se ejecuta después del cobro si el método de pago es TRANSFER.
+  // pendingPaymentId: el id de la cita creada/usada en el cobro.
   // Upload de comprobante (transferencia) — adjunta la captura al
   // appointmentId creado tras cobrar.
   const uploadProofMutation = useMutation({
@@ -353,6 +562,8 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     },
   });
 
+  // resetCheckout: limpia TODOS los estados del POS para iniciar una venta nueva.
+  // Llamado desde el botón "Nueva venta" en el paso de comprobante.
   // Resetea todo el estado a una venta nueva — lo usa el botón "Nueva venta"
   // del paso de comprobante.
   function resetCheckout() {
@@ -379,13 +590,26 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     setStep('start');
   }
 
+  // handlePay: valida el formulario y lanza el procesamiento del pago.
+  // Validaciones (early return con setError si alguna falla):
+  // 1. Cliente seleccionado (requerido para facturación).
+  // 2. Ubicación seleccionada (requerido para trazabilidad).
+  // 3. Todos los servicios tienen empleado asignado.
+  // Si todo es válido: llama a processPayment.mutate() con el payload completo.
   function handlePay() {
     if (!selectedClientId) { setError('Selecciona un cliente'); return; }
     if (!selectedLocationId) { setError('Selecciona una ubicación'); return; }
+    // serviceItems.filter(): busca servicios sin empleado asignado.
     const unassigned = serviceItems.filter((i) => !i.employeeId);
     if (unassigned.length > 0) { setError(`Asigna un empleado a: ${unassigned.map((i) => i.name).join(', ')}`); return; }
     setError(null);
 
+    // processPayment.mutate(): ejecuta la mutación con el payload.
+    // items.map(): transforma cada CartItem al formato que espera el backend.
+    // ...(condición && { campo }): spread condicional — solo añade el campo si la condición es true.
+    //   Ejemplo: si el id comienza con 'svc-', añade referenceId y referenceType: 'service'.
+    // i.id.replace('svc-', ''): elimina el prefijo para obtener el UUID real del servicio.
+    // discountAmount || 0: si discountAmount es 0 o NaN, envía 0 en lugar de undefined.
     processPayment.mutate({
       appointmentId: selectedAppointmentId || undefined,
       productReservationId: selectedReservationId || undefined,
@@ -401,10 +625,16 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
       discountAmount: discountAmount || 0,
       tipAmount: tipAmount || 0,
       taxAmount: 0,
+      // notes: solo si hay teléfono, adjunta el número para el recibo.
       notes: phone ? `Recibo al: ${phone}` : undefined,
     });
   }
 
+  // ── Helpers de renderizado ────────────────────────────────────────────────
+
+  // renderStepProgress: barra de progreso visual de los 4 pasos del POS.
+  // Muestra círculos numerados (1→4) con checkmarks para los pasos completados.
+  // active: el paso actual del flujo.
   // Progress bar — mismo patrón visual que el flujo de reserva del cliente
   function renderStepProgress(active: 'services' | 'products' | 'details' | 'pay') {
     const steps: { key: 'services' | 'products' | 'details' | 'pay'; label: string }[] = [
@@ -413,29 +643,37 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
       { key: 'details', label: 'Detalles' },
       { key: 'pay', label: 'Pago' },
     ];
+    // currentIdx: índice del paso activo dentro del array steps.
+    // .findIndex(): devuelve el índice del primer elemento que cumple la condición, o -1.
     const currentIdx = steps.findIndex((s) => s.key === active);
     return (
       <div className="bg-white border-b border-gray-100 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           {steps.map(({ key, label }, idx) => {
+            // isDone: este paso ya fue completado (el índice actual es mayor).
+            // isCurrent: este es el paso activo ahora mismo.
             // Estados visuales — usan vars CSS para los pasos NO completados
             // de modo que el modo oscuro los respete. El paso completado se
             // mantiene en teal sólido (color de marca).
             const isDone = currentIdx > idx;
             const isCurrent = currentIdx === idx;
+            // circleStyle: estilo en línea del círculo según el estado del paso.
+            // React.CSSProperties: tipo TypeScript para estilos CSS en línea (objetos JS).
             const circleStyle: React.CSSProperties = isDone
-              ? { backgroundColor: '#008080', color: '#fff' }
+              ? { backgroundColor: '#008080', color: '#fff' }        // Completado: teal sólido
               : isCurrent
-                ? { backgroundColor: 'var(--primary-tint)', color: '#008080', border: '2px solid #008080' }
-                : { backgroundColor: 'var(--bg-muted)', color: 'var(--text-tertiary)' };
+                ? { backgroundColor: 'var(--primary-tint)', color: '#008080', border: '2px solid #008080' } // Activo: contorno teal
+                : { backgroundColor: 'var(--bg-muted)', color: 'var(--text-tertiary)' }; // Futuro: gris
             const labelColor = isCurrent ? '#008080' : 'var(--text-tertiary)';
             const connectorBg = isDone ? '#008080' : 'var(--border)';
             return (
               <div key={key} className="flex items-center gap-2 flex-1">
                 <div className="flex items-center gap-1.5">
+                  {/* Círculo: muestra '✓' si completado, número si no. */}
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" style={circleStyle}>
                     {isDone ? '✓' : idx + 1}
                   </div>
+                  {/* Etiqueta: solo en pantallas sm y mayores (hidden sm:block). */}
                   <span
                     className="text-xs hidden sm:block"
                     style={{ color: labelColor, fontWeight: isCurrent ? 500 : 400 }}
@@ -443,6 +681,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
                     {label}
                   </span>
                 </div>
+                {/* Línea conectora entre pasos. No se dibuja después del último. */}
                 {idx < steps.length - 1 && (
                   <div className="flex-1 h-0.5" style={{ backgroundColor: connectorBg }} />
                 )}
@@ -454,6 +693,8 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     );
   }
 
+  // renderSearchRow: campo de búsqueda reutilizable para filtrar servicios/productos.
+  // placeholder: texto de ayuda que varía según el paso ('Buscar servicio...' vs 'Buscar producto...').
   // Buscador en su propio renglón (debajo del header con el progreso de pasos)
   function renderSearchRow(placeholder: string) {
     return (

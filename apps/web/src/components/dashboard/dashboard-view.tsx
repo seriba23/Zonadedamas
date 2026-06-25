@@ -1,9 +1,16 @@
+// NOTA: este archivo tiene errores TypeScript preexistentes — no se modifican.
+// 'use client': componente de navegador (necesita useQuery, useRouter, etc.).
 'use client';
 
+// useRouter: hook de Next.js para navegar programáticamente entre páginas.
 import { useRouter } from 'next/navigation';
+// useQuery: para cargar datos del backend con caché y refresco automático.
 import { useQuery } from '@tanstack/react-query';
+// api: cliente HTTP del proyecto.
 import { api } from '@/lib/api';
+// useCurrency: hook que devuelve formatCurrency (formatea números como moneda).
 import { useCurrency } from '@/lib/hooks/use-currency';
+// Sub-componentes del dashboard. Cada uno muestra una sección específica.
 import { KpiCard } from './kpi-card';
 import { SalesBreakdownGrid } from './sales-breakdown-grid';
 import { Last7DaysChart } from './last-7-days-chart';
@@ -13,6 +20,9 @@ import { RemindersCard } from './reminders-card';
 import { QuickActions } from './quick-actions';
 import { EmployeesToday } from './employees-today';
 
+// TodayReport: interfaz con la forma de la respuesta del endpoint /api/reports/today.
+// Tiene datos de HOY (appointments, revenue, payments) y del MES (appointments, revenue…).
+// any[]: los datos de citas próximas no tienen interfaz tipada (se pasan directo al componente).
 interface TodayReport {
   today: { appointments: number; revenue: number; payments: number };
   month: {
@@ -26,17 +36,30 @@ interface TodayReport {
   last7Days: { date: string; revenue: number }[];
 }
 
+// DashboardView: orquestador de la pantalla principal del dashboard.
+// Carga el reporte del día y compone todos los sub-componentes del dashboard.
 export function DashboardView() {
+  // useRouter: para navegar al hacer click en las KPI cards.
   const router = useRouter();
+  // formatCurrency: convierte número a moneda (p. ej. $1,500.00).
   const { format: formatCurrency } = useCurrency();
+
+  // Carga el reporte del día con refresco automático cada 60 segundos.
+  // isLoading: true mientras llega la primera respuesta del servidor.
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'today'],
     queryFn: () => api.get<TodayReport>('/api/reports/today'),
-    refetchInterval: 60_000,
+    refetchInterval: 60_000, // Refresca cada 60.000 ms = 1 minuto (60_000 con separador visual)
   });
 
+  // report: los datos del reporte (puede ser undefined si aún está cargando).
   const report = data?.data;
 
+  // monthBounds: rango de fechas "desde el 1ro del mes hasta hoy".
+  // Se calcula con una IIFE (función auto-invocada) para poder usar variables locales.
+  // (now.getMonth() + 1): getMonth() devuelve 0–11; sumamos 1 para obtener 1–12.
+  // .padStart(2, '0'): añade "0" si el número es de 1 dígito ("6" → "06").
+  // .toISOString().split('T')[0]: obtiene "YYYY-MM-DD" del ISO "2026-06-24T...".
   // Rango "este mes" para el grid Venta Total — coherente con los KPIs de mes
   // del row inferior (citas del mes, ticket promedio). Se evalua una sola vez
   // por render; el cambio de dia natural reabre la vista igualmente.
@@ -47,14 +70,20 @@ export function DashboardView() {
     return { start, end };
   })();
 
+  // Mientras carga o no hay datos → mostrar esqueleto animado.
+  // "Skeleton loader": bloques grises que pulsan (animate-pulse) para
+  // indicar que el contenido está llegando. Mejora la percepción de velocidad.
   if (isLoading || !report) {
     return (
       <div className="space-y-6 animate-pulse">
+        {/* 4 tarjetas KPI en esqueleto */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* [1, 2, 3, 4].map() genera 4 rectángulos; key={i} es obligatorio. */}
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="card h-20" />
           ))}
         </div>
+        {/* 2 paneles grandes en esqueleto */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card h-64" />
           <div className="card h-64" />
@@ -63,8 +92,11 @@ export function DashboardView() {
     );
   }
 
+  // ── Render del dashboard completo ─────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Row 0: Desglose de ventas del mes (servicios + paquetes + productos).
+          monthBounds.start/end: rango de fechas calculado arriba. */}
       {/* Row 0: Venta total del mes (servicios + paquetes + productos) */}
       <SalesBreakdownGrid
         startDate={monthBounds.start}
@@ -72,8 +104,12 @@ export function DashboardView() {
         periodLabel="Este mes"
       />
 
+      {/* Row 1: 4 KPI cards con números clave del negocio.
+          KpiCard recibe onClick (navega a otra página), icon (SVG), label y value.
+          String(...): convierte número a string para mostrarlo como texto. */}
       {/* Row 1: KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Citas de hoy: click → calendario con filtro "solo con citas" */}
         <KpiCard
           onClick={() => router.push('/calendar?view=day&onlyWithAppointments=true')}
           icon={
@@ -84,6 +120,7 @@ export function DashboardView() {
           label="Citas hoy"
           value={String(report.today.appointments)}
         />
+        {/* Ingresos de hoy: click → reporte diario */}
         <KpiCard
           onClick={() => router.push('/reports?range=today')}
           icon={
@@ -94,6 +131,7 @@ export function DashboardView() {
           label="Ingresos hoy"
           value={formatCurrency(report.today.revenue)}
         />
+        {/* Ticket promedio del mes. || 0: si averageTicket es null, usa 0. */}
         <KpiCard
           onClick={() => router.push('/reports?range=month')}
           icon={
@@ -105,6 +143,7 @@ export function DashboardView() {
           value={formatCurrency(report.month.averageTicket || 0)}
           subtitle="por cita completada este mes"
         />
+        {/* Citas del mes con ingresos como subtítulo. Template literal: `${valor}` */}
         <KpiCard
           onClick={() => router.push('/calendar?view=month')}
           icon={
@@ -118,16 +157,20 @@ export function DashboardView() {
         />
       </div>
 
+      {/* Row 2: Panel de alertas (citas sin confirmar) + recordatorios pendientes. */}
       {/* Row 2: Alerts + Reminders */}
       <AlertsPanel />
       <RemindersCard />
 
+      {/* Row 3: Gráfica de ingresos últimos 7 días + próximas citas del día.
+          report.last7Days || []: si last7Days es null, usa array vacío. */}
       {/* Row 3: Chart + Upcoming */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Last7DaysChart days={report.last7Days || []} />
         <UpcomingAppointments appointments={report.upcomingAppointments || []} />
       </div>
 
+      {/* Row 4: Acciones rápidas (crear cita, cliente, etc.) + empleados del día. */}
       {/* Row 4: Quick Actions + Employees */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <QuickActions />

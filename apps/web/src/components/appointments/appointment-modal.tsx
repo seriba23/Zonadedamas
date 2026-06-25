@@ -1,113 +1,186 @@
-'use client';
+// ============================================================
+// COMPONENTE: AppointmentModal
+// ============================================================
+// ¿Qué hace?
+//   Muestra un panel lateral (DetailSheet) que sirve para DOS cosas:
+//   1. VER una cita existente: muestra estado, cliente, empleado, servicios,
+//      fotos del resultado, y botones de acción (cancelar / reagendar /
+//      finalizar / recordatorio WhatsApp).
+//   2. CREAR una cita nueva: formulario con buscador de cliente, selector de
+//      servicios (checkboxes), selector de empleado y calendario de
+//      disponibilidad (AvailabilityPicker).
+//
+// Modo edición vs. creación:
+//   - Si llega la prop `appointmentId` → modo edición (ver cita existente).
+//   - Si NO llega → modo creación (formulario vacío).
+//
+// Principales conceptos React usados aquí:
+//   • useState   — variables reactivas (el valor cambia → pantalla se actualiza)
+//   • useEffect  — código que corre como "efecto secundario" al montar o cambiar deps
+//   • useRef     — referencia a un elemento del DOM (sin re-renderizar)
+//   • useQuery   — petición GET al backend (React Query)
+//   • useMutation — petición POST/PUT/DELETE al backend (React Query)
+//   • Renderizado condicional (&&, ternario ? : ) — muestra partes distintas
+//     según el estado actual
+// ============================================================
 
+'use client'; // Indica a Next.js que este componente corre en el navegador (cliente), no en el servidor.
+
+// ── Imports de React ─────────────────────────────────────────────────────────
+// useState: crea variables que React "observa"; cuando cambian, re-renderiza.
+// useEffect: ejecuta código en respuesta a cambios (similar a "escuchar eventos").
+// useRef: crea una referencia que apunta a un elemento DOM sin causar re-render.
 import { useState, useEffect, useRef } from 'react';
+// useRouter: permite navegar a otras páginas desde código (ej. router.push('/pos')).
 import { useRouter } from 'next/navigation';
+// useQuery: obtiene datos del backend y los cachea automáticamente.
+// useMutation: envía cambios al backend (crear, actualizar, borrar).
+// useQueryClient: accede al cache global para invalidarlo (forzar re-fetch).
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// api: cliente HTTP del proyecto (envuelve fetch con manejo de errores y tokens JWT).
 import { api } from '@/lib/api';
+// DetailSheet: panel lateral deslizante que envuelve el contenido del modal.
 import { DetailSheet } from '@/components/ui/detail-sheet';
+// AppointmentStatusBadge: pequeña píldora de color que muestra el estado de la cita.
 import { AppointmentStatusBadge } from '@/components/ui/badge';
+// AvailabilityPicker: mini-calendario + grilla de slots horarios disponibles.
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
+// SearchableSelect: dropdown con buscador interno (para elegir clientes).
 import { SearchableSelect } from '@/components/ui/searchable-select';
+// formatDate / formatTime: convierte fechas ISO a texto legible ("Lun 15 ene").
+// resolveImageUrl: construye la URL completa de una imagen del servidor.
 import { formatDate, formatTime, resolveImageUrl } from '@/lib/utils';
+// formatBookingTime: extrae "HH:mm" de un string ISO respetando que las horas
+// se guardan como UTC-raw (la hora del negocio sin offset real).
 import { formatBookingTime } from '@/lib/booking-time';
+// dayjs: librería para manejar fechas fácilmente (equivalente a moment.js).
 import dayjs from 'dayjs';
+// useCurrency: hook que devuelve la función `format` para moneda local (ej. "$1,200").
 import { useCurrency } from '@/lib/hooks/use-currency';
+// useAuth: hook que devuelve el usuario autenticado actual (admin/cajero).
 import { useAuth } from '@/lib/hooks/use-auth';
+// buildReminderMessage / buildWhatsAppUrl: arman el mensaje y la URL de WhatsApp
+// para el recordatorio que se envía al cliente.
 import { buildReminderMessage, buildWhatsAppUrl } from '@/lib/whatsapp';
 
+// ── Interfaces de TypeScript ──────────────────────────────────────────────────
+// Una "interface" es como un contrato: describe exactamente qué campos tiene
+// un objeto. TypeScript comprueba que el código respete ese contrato.
+// El signo "?" después del nombre de un campo significa que es OPCIONAL
+// (puede no venir en el objeto).
+
+// Representa un servicio del negocio (ej. "Manicure, 60 min, $300").
 interface Service {
-  id: string;
-  name: string;
-  durationMinutes: number;
-  price: number;
-  color?: string;
+  id: string;           // Identificador único (UUID)
+  name: string;         // Nombre del servicio
+  durationMinutes: number; // Duración en minutos
+  price: number;        // Precio
+  color?: string;       // Color asignado (opcional, para el punto de color en la UI)
 }
 
+// Representa a un empleado/profesional del negocio.
 interface Employee {
   id: string;
   firstName: string;
   lastName: string;
-  locationId?: string;
+  locationId?: string;  // Sucursal donde trabaja; es obligatorio para crear citas
 }
 
+// Representa a un cliente (quien recibe el servicio).
 interface Client {
   id: string;
   firstName: string;
   lastName: string;
-  email?: string;
-  phone?: string;
+  email?: string;       // Email (puede no tener)
+  phone?: string;       // Teléfono (puede no tener)
 }
 
+// Un ítem dentro de una cita — guarda "snapshot" (copia) del precio y duración
+// al momento de reservar, por si el precio cambia después.
 interface AppointmentItem {
   id: string;
   serviceId: string;
-  serviceNameSnapshot: string;
-  priceSnapshot: number;
-  durationSnapshot: number;
-  commissionSnapshot: number | null;
+  serviceNameSnapshot: string;   // Nombre del servicio tal como era al reservar
+  priceSnapshot: number;         // Precio al momento de la reserva
+  durationSnapshot: number;      // Duración al momento de la reserva
+  commissionSnapshot: number | null; // Comisión del empleado (null si no aplica)
 }
 
+// Foto del resultado subida por el staff (portafolio de trabajos).
 interface AppointmentPhoto {
   id: string;
-  imageUrl: string;
-  caption: string | null;
-  serviceId?: string | null;
-  createdAt: string;
+  imageUrl: string;           // Ruta relativa al servidor (ej. "/uploads/...")
+  caption: string | null;     // Pie de foto (puede ser null)
+  serviceId?: string | null;  // Servicio al que pertenece la foto (opcional)
+  createdAt: string;          // Fecha ISO de cuando se subió
 }
 
+// Apartado (reserva de producto) ligado a esta cita.
+// El cliente pidió un producto que se le entrega en su visita.
 interface ProductReservation {
   id: string;
-  product: { id: string; name: string; imageUrl?: string };
-  quantity: number;
-  unitPrice: number;
-  status: string;
-  fulfillmentType: string;
-  preferredPaymentMethod: string;
+  product: { id: string; name: string; imageUrl?: string }; // El producto apartado
+  quantity: number;               // Cuántas unidades
+  unitPrice: number;              // Precio por unidad
+  status: string;                 // PENDING | CONFIRMED | READY | DELIVERED | CANCELLED
+  fulfillmentType: string;        // Cómo se entrega
+  preferredPaymentMethod: string; // Cómo prefiere pagar el cliente
 }
 
+// La cita completa con todos sus datos relacionados.
 interface Appointment {
   id: string;
   clientId: string;
-  client?: Client;
+  client?: Client;            // Datos del cliente (puede no venir poblado)
   employeeId: string;
-  employee?: Employee;
-  startTime: string;
-  endTime: string;
-  status: string;
-  notes?: string;
-  internalNotes?: string;
-  discountAmount?: number;
-  redemptionId?: string;
-  pointsSpent?: number;
+  employee?: Employee;        // Datos del empleado (puede no venir poblado)
+  startTime: string;          // Fecha/hora inicio en ISO (UTC-raw)
+  endTime: string;            // Fecha/hora fin en ISO (UTC-raw)
+  status: string;             // PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | etc.
+  notes?: string;             // Notas del cliente para el staff
+  internalNotes?: string;     // Notas internas (solo ve el negocio)
+  discountAmount?: number;    // Descuento aplicado (cupón o puntos)
+  redemptionId?: string;      // ID del canje de cupón (si aplica)
+  pointsSpent?: number;       // Puntos de lealtad usados para pagar
+  // El cupón canjeado con su código y recompensa — puede ser null si no usó cupón.
   redemption?: {
     id: string;
     code: string;
     pointsSpent: number;
     reward: { name: string; type: string; discountAmount?: number | null; discountMode?: string | null };
   } | null;
-  items?: AppointmentItem[];
-  photos?: AppointmentPhoto[];
-  productReservations?: ProductReservation[];
-  reminderSentAt?: string | null;
-  photoConsent?: boolean | null;
+  items?: AppointmentItem[];                 // Lista de servicios de la cita
+  photos?: AppointmentPhoto[];               // Fotos del resultado
+  productReservations?: ProductReservation[]; // Apartados de productos
+  reminderSentAt?: string | null;            // Cuándo se mandó el recordatorio WA (null = nunca)
+  photoConsent?: boolean | null;             // null=sin responder, true=autoriza, false=no autoriza
 }
 
+// Resultado del endpoint que verifica si hay un slot disponible
+// justo después de que termina una cita existente (para agregar más servicios).
 interface CheckAfterResult {
-  immediatelyAvailable: boolean;
-  immediateSlot: { startTime: string; endTime: string } | null;
-  nextAvailable: { date: string; startTime: string; endTime: string } | null;
+  immediatelyAvailable: boolean; // ¿Hay slot libre inmediatamente después?
+  immediateSlot: { startTime: string; endTime: string } | null; // El slot disponible más cercano
+  nextAvailable: { date: string; startTime: string; endTime: string } | null; // Siguiente slot en días futuros
 }
 
+// ── Props del componente ──────────────────────────────────────────────────────
+// "Props" son los parámetros que recibe el componente desde quien lo usa.
+// Es como los argumentos de una función, pero para componentes React.
 interface AppointmentModalProps {
-  appointmentId?: string;
-  initialStartTime?: string;
-  initialClientId?: string;
-  initialEmployeeId?: string;
-  onClose: () => void;
-  onSave: () => void;
-  onCreateAnother?: (clientId: string, employeeId: string) => void;
+  appointmentId?: string;       // Si viene → modo edición; si no → modo creación
+  initialStartTime?: string;    // Hora inicial pre-seleccionada (desde el click en el calendario)
+  initialClientId?: string;     // Cliente pre-seleccionado (ej. al reagendar desde el perfil del cliente)
+  initialEmployeeId?: string;   // Empleado pre-seleccionado
+  onClose: () => void;          // Función que llama el padre cuando se cierra el modal
+  onSave: () => void;           // Función que llama el padre cuando se guarda exitosamente
+  onCreateAnother?: (clientId: string, employeeId: string) => void; // Para encadenar "Crear otra cita"
 }
 
+// ── Componente principal ──────────────────────────────────────────────────────
+// Una función que empieza con mayúscula y devuelve JSX es un "componente React".
+// Las llaves { } en los parámetros son "desestructuración": extraen las props
+// directamente en variables con el mismo nombre.
 export function AppointmentModal({
   appointmentId,
   initialStartTime,
@@ -117,109 +190,195 @@ export function AppointmentModal({
   onSave,
   onCreateAnother,
 }: AppointmentModalProps) {
+  // useQueryClient() devuelve el objeto global de cache de React Query.
+  // Lo usamos para "invalidar" (borrar) entradas del cache cuando cambian datos,
+  // forzando que se vuelvan a pedir al servidor.
   const queryClient = useQueryClient();
+
+  // !! convierte cualquier valor a booleano: si appointmentId es una cadena
+  // no vacía → true (modo edición); si es undefined → false (modo creación).
   const isEditing = !!appointmentId;
 
-  // Form state for new appointment
+  // ── useState: variables de estado del formulario ──────────────────────────
+  // useState<tipo>(valorInicial) devuelve [valorActual, funcionParaCambiar].
+  // Cuando se llama la función de cambio, React re-renderiza el componente.
+
+  // Lista de IDs de los servicios que el usuario marcó con checkbox.
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+
+  // Hook de moneda: format("$1234.56") según la configuración del tenant.
   const { format: formatCurrency } = useCurrency();
+
+  // ID del empleado seleccionado. Si llegó initialEmployeeId, arranca pre-llenado.
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || '');
+
+  // Hora de inicio/fin elegida en el AvailabilityPicker (formato ISO sin TZ).
   const [selectedStartTime, setSelectedStartTime] = useState('');
   const [selectedEndTime, setSelectedEndTime] = useState('');
+
+  // Texto del buscador de clientes (no se usa ya directamente; SearchableSelect
+  // filtra internamente, pero se mantiene por compatibilidad futura).
   const [clientSearch, setClientSearch] = useState('');
+
+  // ID del cliente seleccionado. Se pre-llena si llegó initialClientId.
   const [selectedClientId, setSelectedClientId] = useState<string>(initialClientId || '');
+
+  // Notas opcionales del cajero para el profesional.
   const [notes, setNotes] = useState('');
+
+  // Mensaje de error del formulario (null = sin error).
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Motivo de cancelación que escribe el cajero en el textarea.
   const [cancelReason, setCancelReason] = useState('');
+
+  // Si true, muestra el bloque de "Motivo de cancelación" en pantalla.
   const [showCancelForm, setShowCancelForm] = useState(false);
+
+  // Si true, muestra el sub-panel de reagendamiento (AvailabilityPicker de nuevo).
   const [rescheduleMode, setRescheduleMode] = useState(false);
+
+  // Nuevas hora inicio/fin elegidas al reagendar.
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
 
-  // Photo upload state
+  // ── Estado para subida de fotos del resultado ─────────────────────────────
+
+  // useRouter: para redirigir al POS tras finalizar la cita.
   const router = useRouter();
+
+  // true mientras se está subiendo una foto al servidor (muestra "Subiendo...").
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
   // Servicio al que se asignará la próxima foto (cuando la cita tiene 2+
   // servicios, para clasificar el portafolio por servicio como en el cierre
   // del empleado). null = usa el primer servicio por defecto.
   const [photoServiceId, setPhotoServiceId] = useState<string | null>(null);
+
   // Flag para encadenar "Finalizar sin foto" → upload → completar.
+  // Si el cliente sí autorizó fotos pero no hay ninguna, al pulsar "Finalizar"
+  // abrimos el selector de archivo; cuando termina el upload, completamos la cita.
   const [autoCompleteOnNextUpload, setAutoCompleteOnNextUpload] = useState(false);
+
   // Ref del input file oculto que dispara el "Finalizar" cuando no hay foto.
+  // useRef<HTMLInputElement>(null) crea una "referencia" al elemento <input>
+  // para poder llamar .click() programáticamente desde el botón "Finalizar".
   const finalizeFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Active date for employee filtering (synced with AvailabilityPicker mini-calendar)
+  // ── Fecha activa para filtrar empleados disponibles ───────────────────────
+  // Extraemos solo la parte de fecha ("YYYY-MM-DD") del initialStartTime.
+  // split('T')[0] divide el string ISO en ["2026-06-10", "09:00:00"] y toma la primera parte.
   const initialDateStr = initialStartTime ? initialStartTime.split('T')[0] : undefined;
+
+  // La fecha que muestra el mini-calendario (sincronizada con AvailabilityPicker).
+  // Cuando cambia, re-consulta los empleados disponibles ese día.
   const [activeDate, setActiveDate] = useState<string | undefined>(initialDateStr);
 
-  // Add services flow state
+  // ── Estado para el flujo "Agregar servicios" a una cita existente ─────────
+  // Si true, muestra el panel para agregar más servicios justo después.
   const [addServicesMode, setAddServicesMode] = useState(false);
+
+  // IDs de los nuevos servicios que el cajero quiere agregar.
   const [newServiceIds, setNewServiceIds] = useState<string[]>([]);
+
+  // Resultado del endpoint /api/availability/check-after (ver si el empleado
+  // puede atender más servicios justo después de que termine la cita actual).
   const [checkAfterResult, setCheckAfterResult] = useState<CheckAfterResult | null>(null);
+
+  // true mientras espera respuesta del servidor al verificar disponibilidad.
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  // Mensaje de error específico del flujo de agregar servicios.
   const [addServiceError, setAddServiceError] = useState<string | null>(null);
 
-  // Fetch existing appointment
+  // ── useQuery: peticiones GET al backend ──────────────────────────────────
+  // useQuery({ queryKey, queryFn, enabled }) hace lo siguiente:
+  //   - queryKey: array que identifica este query en el cache. Si cambia,
+  //     se vuelve a pedir. Ej: ['appointment', '123'] identifica la cita 123.
+  //   - queryFn: la función que realmente llama al servidor.
+  //   - enabled: solo ejecuta el query si esta condición es true.
+  // Devuelve { data, isLoading, isError, ... }.
+  // data?.data: el "?" es "optional chaining" — si data es undefined, devuelve
+  // undefined en vez de lanzar un error.
+
+  // Carga los datos de la cita existente (solo en modo edición).
   const { data: appointmentData, isLoading: loadingAppointment } = useQuery({
-    queryKey: ['appointment', appointmentId],
+    queryKey: ['appointment', appointmentId],  // Clave única: cambia si appointmentId cambia
     queryFn: () =>
       api.get<{ data: Appointment }>(`/api/appointments/${appointmentId}`),
-    enabled: isEditing,
+    enabled: isEditing, // Solo consulta si hay appointmentId (modo edición)
   });
 
-  // Fetch appointment photos
+  // Carga las fotos del resultado de la cita (para el portafolio del negocio).
   const { data: photosData } = useQuery({
     queryKey: ['appointment-photos', appointmentId],
     queryFn: () =>
       api.get<{ data: AppointmentPhoto[] }>(`/api/appointments/${appointmentId}/photos`),
-    enabled: isEditing && !!appointmentId,
+    enabled: isEditing && !!appointmentId, // Doble guarda: solo si editamos Y hay ID
   });
 
+  // || []: si photosData?.data es undefined (aún cargando), usa array vacío
+  // para no romper el .map() o .length que se usan más adelante.
   const photos = photosData?.data || [];
 
+  // ── Función para subir una foto al servidor ───────────────────────────────
+  // Es async porque necesita esperar (await) a que el servidor responda.
+  // Recibe el objeto File (el archivo elegido por el usuario) y opcionalmente
+  // el serviceId al que se asigna esta foto.
   const handlePhotoUpload = async (file: File, serviceId?: string | null) => {
-    if (!appointmentId) return;
-    setUploadingPhoto(true);
+    if (!appointmentId) return; // Guarda: no subir si no hay cita activa
+    setUploadingPhoto(true);    // Muestra "Subiendo..." en la UI
     try {
+      // api.upload envía el archivo como multipart/form-data al endpoint.
+      // Si hay serviceId, lo adjunta como campo extra del formulario.
       await api.upload(
         `/api/appointments/${appointmentId}/photos`,
         file,
         serviceId ? { serviceId } : undefined,
       );
+      // Invalida el cache de fotos → React Query las vuelve a pedir → pantalla actualizada.
       queryClient.invalidateQueries({ queryKey: ['appointment-photos', appointmentId] });
       // Si veníamos del botón "Finalizar" sin fotos, encadenamos completar
       // automáticamente tras un upload exitoso.
       if (autoCompleteOnNextUpload) {
-        setAutoCompleteOnNextUpload(false);
-        completeMutation.mutate();
+        setAutoCompleteOnNextUpload(false); // Limpiamos el flag
+        completeMutation.mutate();          // Completamos la cita ahora que ya hay foto
       }
     } catch (err) {
       console.error('Error uploading photo:', err);
-      setAutoCompleteOnNextUpload(false);
+      setAutoCompleteOnNextUpload(false); // Limpiamos el flag también en caso de error
     } finally {
-      setUploadingPhoto(false);
+      // finally se ejecuta SIEMPRE (con éxito o con error)
+      setUploadingPhoto(false); // Oculta "Subiendo..."
     }
   };
 
+  // ── Función para borrar una foto ──────────────────────────────────────────
   const handlePhotoDelete = async (photoId: string) => {
     if (!appointmentId) return;
     try {
       await api.delete(`/api/appointments/${appointmentId}/photos/${photoId}`);
+      // Volvemos a pedir las fotos para que desaparezca la borrada de la UI.
       queryClient.invalidateQueries({ queryKey: ['appointment-photos', appointmentId] });
     } catch (err) {
       console.error('Error deleting photo:', err);
     }
   };
 
-  // Fetch services
+  // ── Queries de catálogos ──────────────────────────────────────────────────
+
+  // Todos los servicios activos del negocio (para los checkboxes de selección).
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
     queryFn: () => api.get<{ data: Service[] }>('/api/services'),
   });
 
-  // Fetch employees — filter by working date (synced with AvailabilityPicker date)
+  // Empleados disponibles, filtrados por fecha activa del mini-calendario.
+  // Cuando activeDate cambia (usuario navega a otro día), se re-consulta el
+  // endpoint con ?workingDate=YYYY-MM-DD para traer solo empleados que trabajan ese día.
+  // Esto impide seleccionar a alguien que no tiene horario asignado ese día.
   const { data: employeesData } = useQuery({
-    queryKey: ['employees', activeDate || 'all'],
+    queryKey: ['employees', activeDate || 'all'], // Clave incluye la fecha para diferenciar resultados
     queryFn: () => {
       const params = activeDate ? `?workingDate=${activeDate}` : '';
       return api.get<{ data: Employee[] }>(`/api/employees${params}`);
@@ -234,42 +393,71 @@ export function AppointmentModal({
     queryFn: () => api.get<{ data: Client[] }>('/api/clients?perPage=100'),
   });
 
-  // Pre-fill: if initialClientId, fetch that client's name
+  // Si vino un initialClientId (ej. al abrir el modal desde el perfil de un cliente),
+  // precargamos sus datos para mostrar su nombre aunque no esté en la lista paginada.
   const { data: initialClientData } = useQuery({
     queryKey: ['client', initialClientId],
     queryFn: () => api.get<{ data: Client }>(`/api/clients/${initialClientId}`),
-    enabled: !!initialClientId && !isEditing,
+    enabled: !!initialClientId && !isEditing, // Solo en modo creación con cliente predefinido
   });
 
+  // Extraemos el objeto Appointment del resultado del query.
+  // ?. es "optional chaining": si appointmentData es undefined, devuelve undefined
+  // en lugar de lanzar un error tipo "Cannot read property 'data' of undefined".
   const appointment = appointmentData?.data;
+
   // Servicios únicos de la cita (dedup por serviceId) para clasificar las fotos
   // del resultado. effectivePhotoServiceId es el servicio destino de la próxima
   // foto: el elegido, o el primero por defecto.
+  // Usamos una función inmediata (() => { ... })() que se ejecuta al declararse.
+  // Map<key, value> es una estructura de clave-valor que garantiza unicidad de claves.
   const uniqueServices = (() => {
     const map = new Map<string, AppointmentItem>();
+    // appointment?.items ?? [] : si items es undefined, usamos array vacío.
+    // ?? es "nullish coalescing": devuelve el lado derecho solo si el izquierdo es null/undefined.
     for (const it of appointment?.items ?? []) {
+      // Si ya existe este serviceId en el mapa, lo ignoramos (deduplicación).
       if (!map.has(it.serviceId)) map.set(it.serviceId, it);
     }
+    // Convertimos el Map a array de valores (los AppointmentItem sin duplicados).
     return Array.from(map.values());
   })();
+
+  // Si el usuario eligió un servicio para la foto → usa ese.
+  // Si no eligió nada (null) → usa el primero de la lista.
+  // ?? : si photoServiceId es null, evalúa uniqueServices[0]?.serviceId ?? null.
   const effectivePhotoServiceId = photoServiceId ?? uniqueServices[0]?.serviceId ?? null;
+
+  // Helper: dado un serviceId, devuelve el nombre snapshot del servicio.
+  // .find() busca el primero que cumple la condición. ?. evita error si no encuentra nada.
+  // ?? null: si no encuentra nada, devuelve null.
   const serviceNameById = (id?: string | null) =>
     uniqueServices.find((s) => s.serviceId === id)?.serviceNameSnapshot ?? null;
   // Selector "¿de qué servicio es la foto?" — solo cuando hay 2+ servicios.
+  // Renderizado condicional: si uniqueServices.length > 1 → muestra el selector,
+  // si no → null (React no renderiza nada cuando se devuelve null).
   const photoServiceSelector = uniqueServices.length > 1 ? (
     <div className="mb-3">
       <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
         ¿De qué servicio es la foto?
       </p>
       <div className="flex flex-wrap gap-1.5">
+        {/* .map() itera el array y devuelve un botón por cada servicio único.
+            key={s.serviceId}: React necesita una "key" única en cada elemento
+            de una lista para identificar cuál cambió y solo re-renderizar ese.
+            active: true si este servicio es el activo actualmente. */}
         {uniqueServices.map((s) => {
           const active = effectivePhotoServiceId === s.serviceId;
           return (
             <button
               key={s.serviceId}
               type="button"
+              // onClick: al hacer click, guardamos el serviceId elegido.
+              // Esto cambia effectivePhotoServiceId en el siguiente render.
               onClick={() => setPhotoServiceId(s.serviceId)}
               className="px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors"
+              // style con objeto: aplica estilos inline. Si está activo → teal sólido,
+              // si no → borde gris y fondo blanco.
               style={active
                 ? { backgroundColor: '#008080', borderColor: '#008080', color: '#fff' }
                 : { backgroundColor: '#fff', borderColor: '#d1d5db', color: '#6b7280' }}
@@ -281,30 +469,54 @@ export function AppointmentModal({
       </div>
     </div>
   ) : null;
+  // Extraemos los arrays de datos. || [] garantiza array vacío mientras carga.
   const services = servicesData?.data || [];
   const employees = employeesData?.data || [];
   const clientResults = clientsData?.data || [];
 
-  // Clear employee selection if the selected employee is not available on the new date
+  // ── useEffect: limpiar la selección de empleado si ya no está disponible ──
+  // useEffect(función, [dependencias]) ejecuta la función cada vez que alguna
+  // de las dependencias cambia (en este caso: employees, selectedEmployeeId,
+  // selectedServiceIds).
+  // Aquí lo usamos para validar: si el empleado elegido no cubre ninguno de
+  // los servicios seleccionados, lo deseleccionamos automáticamente.
   useEffect(() => {
     // Si el empleado seleccionado no tiene NINGUNO de los servicios actuales
     // (porque cambió la selección), lo limpiamos. Si tiene al menos uno,
     // lo dejamos: el AvailabilityPicker filtrará slots viables.
     if (selectedEmployeeId && selectedServiceIds.length > 0 && employees.length > 0) {
+      // Buscamos el empleado en la lista cargada del servidor.
       const emp = employees.find((e: any) => e.id === selectedEmployeeId);
+      // Extraemos los IDs de servicios que puede hacer este empleado.
+      // (emp as any) fuerza el tipo a "any" porque employeeServices no está
+      // en la interfaz Employee básica — viene del backend con datos extra.
       const empServiceIds: string[] = ((emp as any)?.employeeServices || []).map(
         (es: any) => es.serviceId || es.service?.id,
       );
+      // .some() devuelve true si AL MENOS UN elemento cumple la condición.
+      // Si ningún servicio del carrito lo puede atender este empleado → lo limpiamos.
       const hasAny = selectedServiceIds.some((sid) => empServiceIds.includes(sid));
       if (!hasAny) {
-        setSelectedEmployeeId('');
+        setSelectedEmployeeId(''); // Resetea la selección
       }
     }
+    // Si el empleado seleccionado ya no está en la lista filtrada por fecha,
+    // también lo deseleccionamos.
     if (selectedEmployeeId && employees.length > 0 && !employees.find((e) => e.id === selectedEmployeeId)) {
       setSelectedEmployeeId('');
     }
-  }, [employees, selectedEmployeeId, selectedServiceIds]);
+  }, [employees, selectedEmployeeId, selectedServiceIds]); // Ejecutar cuando estas variables cambien
 
+  // ── useMutation: peticiones de escritura al backend ──────────────────────
+  // useMutation({ mutationFn, onSuccess, onError }) sirve para operaciones
+  // que MODIFICAN datos (POST, PUT, DELETE).
+  //   - mutationFn: la función que hace la petición HTTP.
+  //   - onSuccess: se ejecuta cuando el servidor responde OK.
+  //   - onError: se ejecuta si el servidor responde con error.
+  //   - .mutate(payload): dispara la mutación desde la UI (ej. en un onClick).
+  //   - .isPending: true mientras espera respuesta (útil para deshabilitar botones).
+
+  // Crea una cita nueva (modo creación).
   const createMutation = useMutation({
     mutationFn: (payload: {
       clientId: string;
@@ -315,15 +527,18 @@ export function AppointmentModal({
       notes?: string;
     }) => api.post('/api/appointments', payload),
     onSuccess: () => {
+      // Invalida el cache de 'appointments' → el calendario se actualiza solo.
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      onSave();
+      onSave(); // Llama al callback del padre (cierra el modal y refresca)
     },
     onError: (err: { message?: string }) => {
+      // err.message || '...': si el error no trae mensaje, usa el texto por defecto.
       setFormError(err.message || 'Error al crear la cita');
     },
   });
 
-  // Mutation for creating follow-up appointment from add-services flow
+  // Crea una cita nueva con servicios adicionales justo después de la actual.
+  // Mutation for creating follow-up appointment from add-services flow.
   const addServicesMutation = useMutation({
     mutationFn: (payload: {
       clientId: string;
@@ -335,6 +550,7 @@ export function AppointmentModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      // Cerramos el modo agregar servicios y limpiamos el estado.
       setAddServicesMode(false);
       setNewServiceIds([]);
       setCheckAfterResult(null);
@@ -345,10 +561,11 @@ export function AppointmentModal({
     },
   });
 
+  // Cancela la cita actual enviando el motivo de cancelación.
   const cancelMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/cancel`, {
-        reason: cancelReason,
+        reason: cancelReason, // El texto que escribió el cajero en el textarea
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
@@ -360,11 +577,22 @@ export function AppointmentModal({
     },
   });
 
+  // ── Recordatorio por WhatsApp ─────────────────────────────────────────────
   // Genera token + marca como enviado + abre wa.me. Lo usa el boton de
   // "Recordatorio WhatsApp" en el modal.
+
+  // useAuth devuelve el usuario autenticado actualmente (el cajero/admin).
   const { user: authUser } = useAuth();
+
+  // true mientras se espera la respuesta del servidor (deshabilita el botón).
   const [sendingReminder, setSendingReminder] = useState(false);
+
+  // sendReminder: función async que:
+  // 1. Llama al backend para generar un token único y marcar que se envió.
+  // 2. Construye el mensaje de WhatsApp con los datos de la cita.
+  // 3. Abre WhatsApp en una nueva pestaña del navegador.
   const sendReminder = async () => {
+    // Doble guarda: necesitamos cita cargada Y teléfono del cliente.
     if (!appointment || !appointment.client?.phone) return;
     setSendingReminder(true);
     try {
@@ -372,17 +600,27 @@ export function AppointmentModal({
         `/api/appointments/${appointmentId}/mark-reminder-sent`,
         {},
       );
+      // (authUser as any)?.tenantName: forzamos el tipo a "any" porque tenantName
+      // es un campo extra que el backend añade al JWT pero no está en la interfaz.
+      // || 'tu negocio': valor por defecto si el campo no existe.
       const tenantName = (authUser as any)?.tenantName || 'tu negocio';
+
+      // buildReminderMessage construye el texto del mensaje con toda la info.
       const msg = buildReminderMessage({
         clientFirstName: appointment.client.firstName,
         tenantName,
-        serviceName: appointment.items?.[0]?.serviceNameSnapshot,
+        serviceName: appointment.items?.[0]?.serviceNameSnapshot, // Primer servicio
         employeeFirstName: appointment.employee?.firstName,
         startTime: appointment.startTime,
-        token: res.data.token,
+        token: res.data.token, // Para el link de confirmación
       });
+
+      // buildWhatsAppUrl arma la URL wa.me/52XXXXXXXXXX?text=...
       const url = buildWhatsAppUrl(appointment.client.phone, msg);
+      // window.open abre WhatsApp en una nueva pestaña del navegador.
       if (url) window.open(url, '_blank');
+
+      // Invalida el cache para que el badge "Recordatorio enviado" aparezca.
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       queryClient.invalidateQueries({ queryKey: ['reminders-pending'] });
     } finally {
@@ -391,8 +629,11 @@ export function AppointmentModal({
   };
 
   // Tras finalizar mostramos un prompt para encadenar el cobro en el POS.
+  // true = muestra el panel "¿Deseas cobrar ahora? → Proceder al pago / Cerrar".
   const [showPayPrompt, setShowPayPrompt] = useState(false);
 
+  // Marca la cita como COMPLETED (finalizada).
+  // Después muestra el panel "¿Proceder al pago?" en vez de cerrar.
   const completeMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/complete`, {}),
@@ -408,14 +649,18 @@ export function AppointmentModal({
     },
   });
 
+  // Registra si el cliente autoriza (true) o no (false) el uso de sus fotos
+  // en el portafolio del negocio. Es un paso obligatorio antes de "Finalizar".
   // Consentimiento del cliente para fotos del resultado. Bloquea la
   // finalización de la cita hasta que el cajero registre la respuesta.
   // - true  → habilita la subida de fotos (y obliga al menos una)
   // - false → omite las fotos del resultado
   const consentMutation = useMutation({
+    // mutationFn recibe el booleano (true/false) como parámetro.
     mutationFn: (consent: boolean) =>
       api.post(`/api/appointments/${appointmentId}/photo-consent`, { consent }),
     onSuccess: () => {
+      // Recarga la cita para que photoConsent actualice la UI.
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
     },
@@ -424,6 +669,9 @@ export function AppointmentModal({
     },
   });
 
+  // Confirma una cita pendiente (cambia estado PENDING → CONFIRMED).
+  // Nota: actualmente canConfirm = false porque las citas se auto-confirman;
+  // este mutation existe para el caso en que se reactive la confirmación manual.
   const confirmMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/confirm`, {}),
@@ -437,15 +685,17 @@ export function AppointmentModal({
     },
   });
 
+  // Reagenda la cita a una nueva hora (elegida en el AvailabilityPicker del
+  // modo reschedule). Envía solo el nuevo startTime; el backend calcula endTime.
   const rescheduleMutation = useMutation({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/reschedule`, {
-        startTime: newStartTime,
+        startTime: newStartTime, // La nueva hora elegida por el cajero
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
-      setRescheduleMode(false);
+      setRescheduleMode(false); // Cierra el panel de reagendamiento
       onSave();
     },
     onError: (err: { message?: string }) => {
@@ -453,57 +703,83 @@ export function AppointmentModal({
     },
   });
 
-  // Check availability after appointment ends
+  // Consulta la disponibilidad del mismo profesional inmediatamente después
+  // de la hora de fin de la cita actual. Así el cajero puede agregar servicios
+  // adicionales en el mismo turno, sin conflictos de horario.
+  // Es una función async (asíncrona): usa await para esperar la respuesta del
+  // servidor antes de continuar.
   async function handleCheckAfter() {
+    // Guardas: si no hay cita cargada o no se seleccionaron nuevos servicios, salimos.
     if (!appointment || newServiceIds.length === 0) return;
-    setCheckingAvailability(true);
-    setAddServiceError(null);
-    setCheckAfterResult(null);
+    setCheckingAvailability(true); // Muestra spinner mientras espera
+    setAddServiceError(null);      // Limpia errores previos
+    setCheckAfterResult(null);     // Limpia resultado previo
     try {
+      // api.post hace una petición HTTP POST al endpoint check-after.
+      // Enviamos: el empleado, los servicios nuevos, y la hora de fin actual.
       const result = await api.post<{ data: CheckAfterResult }>(
         '/api/availability/check-after',
         {
           employeeId: appointment.employeeId,
           serviceIds: newServiceIds,
-          afterTime: appointment.endTime,
+          afterTime: appointment.endTime, // La cita nueva empieza donde termina la actual
         },
       );
+      // Guardamos el resultado: contiene el slot disponible más próximo.
       setCheckAfterResult(result.data);
     } catch (err: any) {
+      // Si el servidor devuelve error, mostramos el mensaje.
+      // (err: any) tipamos como any para acceder a .message sin error TS.
       setAddServiceError(err.message || 'Error al verificar disponibilidad');
     } finally {
+      // finally: se ejecuta SIEMPRE (haya error o no), para quitar el spinner.
       setCheckingAvailability(false);
     }
   }
 
+  // Cada vez que cambia la lista de nuevos servicios (o se activa addServicesMode),
+  // lanzamos automáticamente la verificación de disponibilidad.
+  // El comentario eslint-disable suprime la advertencia de que handleCheckAfter
+  // no está en las dependencias (es seguro porque la función no cambia entre renders).
   // Auto-check availability when services change in add-services mode
   useEffect(() => {
     if (addServicesMode && newServiceIds.length > 0 && appointment) {
+      // Si estamos en modo agregar servicios y hay servicios elegidos → verificar.
       handleCheckAfter();
     } else {
+      // Si quitamos todos los servicios o salimos del modo → borrar el resultado.
       setCheckAfterResult(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newServiceIds, addServicesMode]);
+  }, [newServiceIds, addServicesMode]); // Se ejecuta cuando cambia alguno de estos
 
+  // Confirma la creación de la cita adicional con el slot calculado por el backend.
+  // startTime viene del CheckAfterResult: la hora de inicio disponible más próxima.
   function handleConfirmAddServices(startTime: string) {
     if (!appointment) return;
+    // Buscamos los datos del profesional actual para obtener su locationId.
     const employee = employees.find((e) => e.id === appointment.employeeId);
     if (!employee?.locationId) {
+      // ?. : acceso seguro — si employee es undefined, no lanza error.
       setAddServiceError('El profesional no tiene ubicación asignada');
       return;
     }
+    // Disparamos la mutación para crear la cita adicional.
     addServicesMutation.mutate({
-      clientId: appointment.clientId,
-      employeeId: appointment.employeeId,
-      locationId: employee.locationId,
-      startTime,
-      serviceIds: newServiceIds,
+      clientId: appointment.clientId,     // Mismo cliente
+      employeeId: appointment.employeeId, // Mismo profesional
+      locationId: employee.locationId,    // Misma ubicación
+      startTime,                          // Slot calculado por el backend
+      serviceIds: newServiceIds,          // Los servicios adicionales elegidos
     });
   }
 
+  // Crea una cita nueva. Recibe el evento del formulario (e: React.FormEvent)
+  // para poder llamar e.preventDefault() y evitar que la página se recargue.
   function handleCreate(e: React.FormEvent) {
+    // Previene el comportamiento por defecto del formulario HTML (recargar la página).
     e.preventDefault();
+    // Validaciones: si falta algún campo obligatorio, mostramos error y salimos.
     if (!selectedClientId) {
       setFormError('Selecciona un cliente');
       return;
@@ -525,58 +801,112 @@ export function AppointmentModal({
       setFormError('El profesional no tiene una ubicación asignada');
       return;
     }
+    // Todo OK: disparamos la mutación con todos los datos necesarios.
     createMutation.mutate({
       clientId: selectedClientId,
       employeeId: selectedEmployeeId,
       locationId: selectedEmployee.locationId,
       startTime: selectedStartTime,
       serviceIds: selectedServiceIds,
-      notes,
+      notes, // Notas opcionales del cajero
     });
   }
 
+  // ── Flags derivados del estado de la cita ─────────────────────────────────
+  // statusLower: el estado en minúsculas para comparaciones uniformes.
+  // appointment?.status?.toLowerCase() : doble ?. por si appointment o status es undefined.
+  // || '' : si es undefined/null, usamos cadena vacía (evita errores en .includes()).
   const statusLower = appointment?.status?.toLowerCase() || '';
+
+  // canCancel: ¿se puede cancelar la cita? Solo si está en uno de estos estados.
+  // appointment && [...].includes(statusLower): evaluación corta — si appointment
+  // es null/undefined, la expresión es falsa sin evaluar el .includes().
   const canCancel =
     appointment &&
     ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
+
+  // canComplete: ¿se puede finalizar? Solo si está en progreso o confirmada.
   const canComplete =
     appointment &&
     ['confirmed', 'in_progress'].includes(statusLower);
+
+  // canReschedule: ¿se puede reagendar? Mismos estados que cancelar.
   const canReschedule =
     appointment &&
     ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
+
+  // canConfirm: siempre false porque las citas se auto-confirman al crearlas.
   const canConfirm = false; // Citas se auto-confirman al crearse
+
+  // canAddServices: ¿se puede agregar más servicios? No si ya está cancelada/completada.
   const canAddServices =
     appointment &&
     ['confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
 
+  // ── Cálculos financieros ──────────────────────────────────────────────────
+  // Nota: estos valores se calculan en el FRONTEND como resumen para mostrar.
+  // Los totales definitivos para el cobro siempre los calcula el backend.
+
+  // reservationsTotal: suma del costo de los productos apartados (reservas de inventario).
+  // .reduce(acumulador, valorInicial) itera el array sumando un valor por elemento.
+  // Si res.status === 'CANCELLED' → ese apartado no se cobra (se excluye sumando 0).
+  // res.unitPrice || 0: si unitPrice es null/undefined, usa 0.
+  // res.quantity || 1: si quantity es null/undefined, asume 1 unidad.
+  // ?? 0 al final: si productReservations es null/undefined, el .reduce no existe → usa 0.
   const reservationsTotal = appointment?.productReservations?.reduce(
     (sum, res) =>
       res.status === 'CANCELLED' ? sum : sum + Number(res.unitPrice || 0) * (res.quantity || 1),
     0,
   ) ?? 0;
 
+  // totalPrice: suma de los precios SNAPSHOT de cada ítem de servicio.
+  // priceSnapshot es el precio que tenía el servicio al MOMENTO de la reserva
+  // (no el precio actual, que puede haber cambiado).
   const totalPrice = appointment?.items?.reduce(
     (sum, item) => sum + Number(item.priceSnapshot || 0),
     0,
   ) ?? 0;
 
+  // totalDuration: duración total acumulada de todos los servicios (en minutos).
   const totalDuration = appointment?.items?.reduce(
     (sum, item) => sum + Number(item.durationSnapshot || 0),
     0,
   ) ?? 0;
 
+  // discount: monto de descuento aplicado (puede venir de un cupón o manual).
+  // Number(...): convierte el valor a número (por si viene como string del backend).
+  // || 0: si discountAmount es null/undefined/falsy, usamos 0.
   const discount = Number(appointment?.discountAmount || 0);
+
+  // pointsSpent: puntos de fidelidad que el cliente usó para pagar.
   const pointsSpent = Number(appointment?.pointsSpent || 0);
+
+  // paidWithPoints: true si el cliente pagó todo con puntos (pointsSpent > 0).
+  // En ese caso los servicios son gratis; solo se cobran los apartados de productos.
   const paidWithPoints = pointsSpent > 0;
+
+  // subtotalServicios: total de los servicios (alias de totalPrice para claridad).
   const subtotalServicios = totalPrice;
+
+  // subtotalApartados: total de los productos apartados (inventario reservado).
   const subtotalApartados = reservationsTotal;
+
+  // subtotal: suma de servicios + apartados (antes de descuentos).
   const subtotal = subtotalServicios + subtotalApartados;
+
+  // finalTotal: el importe real que debe pagar el cliente.
+  // - Si pagó con puntos (paidWithPoints = true): los servicios son $0; solo
+  //   paga los apartados. Math.max(0, ...) evita totales negativos.
+  // - Si no pagó con puntos: subtotal − descuento (con piso en 0).
   // Si pagó con puntos, los servicios cuestan 0; los apartados se mantienen en efectivo.
   const finalTotal = paidWithPoints
     ? Math.max(0, subtotalApartados)
     : Math.max(0, subtotal - discount);
 
+  // Devuelve el nombre completo del cliente pre-cargado para mostrarlo en el input.
+  // Si se pasó initialClientId (desde el calendario), lo buscamos en los resultados
+  // de búsqueda o en initialClientData (carga directa por ID).
+  // Si no, buscamos el selectedClientId en los resultados actuales.
   // Get the display name for pre-filled client
   const getPrefilledClientName = () => {
     if (initialClientId) {
@@ -586,40 +916,63 @@ export function AppointmentModal({
         const c = initialClientData.data;
         return `${c.firstName} ${c.lastName}`;
       }
-      return 'Cliente seleccionado';
+      return 'Cliente seleccionado'; // Fallback mientras carga
     }
     const found = clientResults.find((c) => c.id === selectedClientId);
     return found ? `${found.firstName} ${found.lastName}` : 'Cliente seleccionado';
   };
 
+  // Título del modal: varía según si estamos editando o creando.
+  // isEditing: true si se pasó un appointmentId (modo vista/edición de cita existente).
+  // loadingAppointment: true mientras se carga la cita del backend.
+  // ?? '': si client firstName/lastName es null/undefined → cadena vacía (sin error).
   const modalTitle = isEditing
     ? loadingAppointment
       ? 'Cargando...'
       : `Cita — ${appointment?.client?.firstName ?? ''} ${appointment?.client?.lastName ?? ''}`
     : 'Nueva Cita';
 
+  // ── JSX: la UI que renderiza el componente ───────────────────────────────
+  // return devuelve la estructura visual (JSX). React la convierte en HTML real.
+  // Todo lo que está dentro del return() se "pinta" en pantalla.
   return (
+    // DetailSheet es el componente de panel deslizante (drawer) del sistema.
+    // Recibe: title, onClose (función para cerrar), size ("lg" = ancho grande).
     <DetailSheet
       title={modalTitle}
       onClose={onClose}
       size="lg"
     >
+      {/* Renderizado condicional con ternario: si isEditing → modo vista,
+          si no → modo creación (formulario). */}
       {isEditing ? (
-        // View mode
+        // ── MODO VISTA: ver/gestionar cita existente ──────────────────────
+        // Otro ternario anidado: si está cargando → skeleton, si no → contenido.
         loadingAppointment ? (
+          // Skeleton: 4 rectángulos animados mientras carga la cita.
+          // Array.from({ length: 4 }) crea un array de 4 elementos vacíos.
+          // .map((_, i) => ): _ ignora el elemento (no lo usamos), i es el índice.
+          // key={i} es obligatorio en listas; usamos el índice porque son estáticos.
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-10 bg-[var(--bg-muted)] rounded animate-pulse" />
             ))}
           </div>
         ) : appointment ? (
+          // ── Cita cargada: mostrar todos sus datos ─────────────────────
           <div className="space-y-5">
+            {/* Renderizado condicional con &&: si formError tiene valor →
+                muestra el banner de error rojo. Si está vacío → no muestra nada. */}
             {formError && (
               <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
                 {formError}
               </div>
             )}
 
+            {/* Fila de estado y rango horario de la cita.
+                AppointmentStatusBadge muestra la pastilla coloreada (PENDING, CONFIRMED…).
+                formatDate convierte la ISO a "Lun 10 Jun 2026".
+                formatBookingTime → formatTime convierte la hora "UTC raw" a "10:30 AM". */}
             {/* Status */}
             <div className="flex items-center justify-between">
               <AppointmentStatusBadge status={appointment.status.toLowerCase()} />
@@ -631,14 +984,22 @@ export function AppointmentModal({
               </p>
             </div>
 
+            {/* Grid 2 columnas: datos del cliente (izquierda) y del profesional (derecha).
+                grid-cols-2: divide el espacio en 2 columnas iguales. */}
             {/* Client & Employee */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                   Cliente
                 </p>
+                {/* Ternario: si existe el cliente → muestra avatar+nombre, si no → guión. */}
                 {appointment.client ? (
                   <div className="flex items-center gap-2 min-w-0">
+                    {/* Avatar del cliente: si tiene foto → img, si no → iniciales.
+                        (appointment.client as any) fuerza el tipo a "any" para acceder
+                        a avatarUrl que no está en la interfaz Client básica.
+                        firstName?.[0] : primera letra del nombre (?. evita error si es null).
+                        ?? '' : si es null, usa cadena vacía. */}
                     <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center overflow-hidden text-xs font-semibold flex-shrink-0">
                       {(appointment.client as any).avatarUrl ? (
                         <img src={resolveImageUrl((appointment.client as any).avatarUrl) || ''} alt="" className="w-full h-full object-cover" />
@@ -650,6 +1011,7 @@ export function AppointmentModal({
                       <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                         {appointment.client.firstName} {appointment.client.lastName}
                       </p>
+                      {/* && : solo muestra el email si existe. */}
                       {appointment.client.email && (
                         <p className="text-xs text-[var(--text-secondary)] truncate">{appointment.client.email}</p>
                       )}
@@ -688,6 +1050,10 @@ export function AppointmentModal({
               </div>
             </div>
 
+            {/* Bloque de servicios: solo se renderiza si hay ítems en la cita.
+                appointment.items && appointment.items.length > 0 : doble guarda:
+                  1. items existe (no es null/undefined)
+                  2. el array tiene al menos 1 elemento. */}
             {/* Services */}
             {appointment.items && appointment.items.length > 0 && (
               <div>
@@ -695,12 +1061,16 @@ export function AppointmentModal({
                   Servicios
                 </p>
                 <div className="bg-[var(--bg-subtle)] rounded-lg p-3 space-y-2">
+                  {/* Lista de ítems: .map() devuelve un <div> por cada servicio.
+                      key={item.id}: clave única para que React identifique cambios. */}
                   {appointment.items.map((item) => (
                     <div
                       key={item.id}
                       className="flex justify-between items-center"
                     >
                       <div>
+                        {/* serviceNameSnapshot: el nombre tal como estaba al reservar
+                            (aunque el negocio haya cambiado el nombre después). */}
                         <span className="text-sm text-[var(--text-secondary)]">
                           {item.serviceNameSnapshot}
                         </span>
@@ -708,11 +1078,13 @@ export function AppointmentModal({
                           {item.durationSnapshot} min
                         </span>
                       </div>
+                      {/* formatCurrency formatea el número con el símbolo monetario del tenant. */}
                       <span className="text-sm font-medium text-[var(--text-primary)]">
                         {formatCurrency(Number(item.priceSnapshot))}
                       </span>
                     </div>
                   ))}
+                  {/* Línea de subtotal de servicios con la duración total acumulada. */}
                   <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
                     <span className="text-sm font-semibold text-[var(--text-primary)]">
                       Subtotal servicios ({totalDuration} min)
@@ -721,28 +1093,33 @@ export function AppointmentModal({
                       {formatCurrency(subtotalServicios)}
                     </span>
                   </div>
+                  {/* Solo muestra la fila de apartados si hay alguno (subtotalApartados > 0). */}
                   {subtotalApartados > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-[var(--text-secondary)]">Apartados (productos)</span>
                       <span className="text-sm font-medium text-[var(--text-primary)]">{formatCurrency(subtotalApartados)}</span>
                     </div>
                   )}
+                  {/* Solo muestra el cupón si la cita tiene redemption (canje activo). */}
                   {appointment.redemption && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-teal-700">
                         Cupón <span className="font-mono">{appointment.redemption.code}</span> · {appointment.redemption.reward.name}
                       </span>
+                      {/* Muestra el monto ahorrado solo si el descuento es mayor a 0. */}
                       {discount > 0 && (
                         <span className="text-sm font-medium text-teal-700">-{formatCurrency(discount)}</span>
                       )}
                     </div>
                   )}
+                  {/* Descuento manual (sin cupón): solo si discount > 0 Y no hay redemption. */}
                   {discount > 0 && !appointment.redemption && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-green-600">Descuento aplicado</span>
                       <span className="text-sm font-medium text-green-600">-{formatCurrency(discount)}</span>
                     </div>
                   )}
+                  {/* Pago con puntos: solo si paidWithPoints es true (pointsSpent > 0). */}
                   {paidWithPoints && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-teal-700">Pagado con puntos</span>
@@ -751,6 +1128,8 @@ export function AppointmentModal({
                   )}
                   {/* CTA agregar servicios — entre el último concepto y el
                       "Total a cobrar", donde es más natural ampliar el ticket. */}
+                  {/* Botón "Agregar servicios": visible si la cita está activa y
+                      no estamos ya en modo de agregar servicios. */}
                   {canAddServices && !addServicesMode && (
                     <button
                       type="button"
@@ -761,6 +1140,7 @@ export function AppointmentModal({
                       + Agregar servicios
                     </button>
                   )}
+                  {/* Total final en teal. finalTotal ya tiene descuentos y puntos aplicados. */}
                   <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
                     <span className="text-sm font-bold text-[var(--text-primary)]">Total a cobrar</span>
                     <span className="text-base font-bold text-[#008080]">{formatCurrency(finalTotal)}</span>
@@ -769,6 +1149,8 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Bloque de apartados (productos reservados del inventario).
+                Solo visible si hay al menos un productReservation en la cita. */}
             {/* Product Reservations (Apartados) */}
             {appointment.productReservations && appointment.productReservations.length > 0 && (
               <div>
@@ -832,6 +1214,13 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Bloque de fotos de resultado del servicio.
+                Solo aparece si la cita está en estado activo o completada.
+                Tiene cuatro sub-estados según el consentimiento y las fotos:
+                  1. consent null  → pedir consentimiento (Sí/No)
+                  2. consent false → aviso "no autorizó" + botón "Cambiar y subir"
+                  3. consent true, sin fotos → botón para subir la primera foto
+                  4. con fotos → grid de miniaturas + tile "+" para agregar más */}
             {/* Consentimiento + Fotos de resultado — visible para CONFIRMED,
                 IN_PROGRESS, COMPLETED.
 
@@ -1014,6 +1403,8 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Panel para agregar servicios adicionales justo después de la cita.
+                Solo visible cuando addServicesMode = true (botón "+ Agregar servicios"). */}
             {/* Add services mode */}
             {addServicesMode && (
               <div className="border-t border-[var(--border)] pt-4">
@@ -1021,6 +1412,7 @@ export function AppointmentModal({
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
                     Agregar servicios
                   </p>
+                  {/* Botón "Cancelar" resetea el modo y limpia los estados temporales. */}
                   <button
                     onClick={() => {
                       setAddServicesMode(false);
@@ -1034,6 +1426,10 @@ export function AppointmentModal({
                   </button>
                 </div>
 
+                {/* Grid de checkboxes de servicios para elegir los adicionales.
+                    max-h-40 overflow-y-auto: scroll si hay muchos servicios.
+                    La clase dinámica usa plantilla de cadena para cambiar el estilo
+                    del borde según si el servicio está seleccionado o no. */}
                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto mb-3">
                   {services.map((s) => (
                     <label
@@ -1044,6 +1440,11 @@ export function AppointmentModal({
                           : 'border-[var(--border)] hover:border-[var(--border)]'
                       }`}
                     >
+                      {/* input type="checkbox" oculto con sr-only (solo lectores de pantalla).
+                          El estilo visual lo hace la <label> padre, no el checkbox nativo.
+                          onChange: e.target.checked es true si el checkbox se marcó.
+                            - Si se marcó → agrega el ID al array (spread + nuevo elemento).
+                            - Si se desmarcó → filtra el array quitando ese ID. */}
                       <input
                         type="checkbox"
                         checked={newServiceIds.includes(s.id)}
@@ -1194,12 +1595,23 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Panel de reagendamiento: visible cuando rescheduleMode = true.
+                Muestra el selector de fecha/hora y el botón de confirmación. */}
             {/* Reschedule mode */}
             {rescheduleMode && (
               <div className="border-t border-[var(--border)] pt-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                   Reagendar cita
                 </p>
+                {/* AvailabilityPicker muestra el calendario y los slots disponibles.
+                    serviceIds: los IDs de los servicios de los ítems de la cita.
+                      appointment.items?.map(...) extrae los serviceId de cada ítem.
+                      .filter((id): id is string => !!id) filtra los IDs vacíos/null.
+                      El tipo (id): id is string es un "type guard" de TypeScript que
+                      le dice al compilador que después del filtro todos son string.
+                      || [] : si items es undefined, usa array vacío.
+                    onSelect: callback llamado cuando el usuario elige un slot.
+                      Guarda el nuevo start/end en el estado para usarlo en rescheduleMutation. */}
                 <AvailabilityPicker
                   serviceIds={
                     appointment.items
@@ -1239,12 +1651,16 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Formulario de cancelación: visible cuando showCancelForm = true.
+                El cajero debe escribir el motivo antes de confirmar la cancelación. */}
             {/* Cancel form */}
             {showCancelForm && (
               <div className="border-t border-[var(--border)] pt-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                   Motivo de cancelacion
                 </p>
+                {/* Textarea controlado: value={cancelReason} + onChange actualiza el estado.
+                    Así React siempre sabe qué hay en el campo (componente "controlado"). */}
                 <textarea
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
@@ -1272,6 +1688,8 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Banner "Cita finalizada" que aparece después de completeMutation.
+                Ofrece dos opciones: ir al POS a cobrar, o simplemente cerrar. */}
             {/* Prompt tras finalizar: encadena al POS si quieren cobrar ya */}
             {showPayPrompt && (
               <div
@@ -1424,6 +1842,8 @@ export function AppointmentModal({
             )}
           </div>
         ) : (
+          // Rama del ternario cuando appointment es null/undefined.
+          // Ocurre si la cita fue eliminada o pertenece a otro tenant.
           // Cita no encontrada: pudo haber sido eliminada o pertenecer
           // a otro tenant. Damos contexto util al admin en vez de un
           // modal hueco con una linea solitaria.
@@ -1450,14 +1870,21 @@ export function AppointmentModal({
           </div>
         )
       ) : (
+        // ── MODO CREACIÓN: formulario para agendar una cita nueva ────────
+        // <form onSubmit={handleCreate}> : cuando el usuario pulsa el botón
+        // "Crear cita" (type="submit"), se dispara el evento "submit"
+        // y React llama a handleCreate (que llama a e.preventDefault() primero).
         // Create mode
         <form onSubmit={handleCreate} className="space-y-5">
+          {/* Error del formulario: solo visible si formError tiene valor. */}
           {formError && (
             <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
               {formError}
             </div>
           )}
 
+          {/* Búsqueda de cliente con autocompletado.
+              SearchableSelect muestra un input que filtra la lista de opciones. */}
           {/* Client search */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
@@ -1484,6 +1911,9 @@ export function AppointmentModal({
             />
           </div>
 
+          {/* Selector de servicios con checkboxes. Al marcar/desmarcar:
+              - Se limpia la hora seleccionada (el slot puede cambiar con distintos servicios).
+              - Se agrega o quita el ID del array selectedServiceIds. */}
           {/* Services */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
@@ -1499,6 +1929,8 @@ export function AppointmentModal({
                       : 'border-[var(--border)] hover:border-[var(--border)]'
                   }`}
                 >
+                  {/* Al cambiar la selección de servicios limpiamos la hora
+                      elegida (el tiempo necesario puede ser diferente). */}
                   <input
                     type="checkbox"
                     checked={selectedServiceIds.includes(s.id)}
@@ -1532,6 +1964,9 @@ export function AppointmentModal({
             </div>
           </div>
 
+          {/* Selector de profesional. Solo muestra empleados que tienen AL MENOS UNO
+              de los servicios seleccionados. La función IIFE (()=>{...})() calcula
+              la lista filtrada inline y devuelve el JSX directamente. */}
           {/* Employee — solo aparecen profesionales que tienen TODOS los
               servicios seleccionados asignados. Sin servicios no se filtra.
               Esto evita el error backend "el empleado no tiene asignado(s):
@@ -1579,6 +2014,14 @@ export function AppointmentModal({
             );
           })()}
 
+          {/* Selector de fecha y hora. Solo aparece si ya se eligió al menos un servicio.
+              selectedServiceIds.length > 0 && : si el array está vacío no muestra nada.
+              AvailabilityPicker internamente consulta los slots disponibles y los muestra.
+              onSelect: cuando el usuario elige un slot, recibimos (empId, start, end)
+                - empId: el profesional asignado al slot (puede ser "" si es "cualquiera")
+                - start/end: hora de inicio y fin del slot en formato "YYYY-MM-DDTHH:mm:00"
+              onDateChange: se llama cuando el usuario navega a otro día;
+                limpiamos el slot elegido para forzar nueva selección. */}
           {/* Date & Time picker */}
           {selectedServiceIds.length > 0 && (
             <div>
@@ -1619,6 +2062,13 @@ export function AppointmentModal({
             />
           </div>
 
+          {/* Botones de acción del formulario de creación.
+              "Cancelar" (type="button") no envía el formulario.
+              "Crear cita" (type="submit") dispara el evento submit → handleCreate.
+              disabled: el botón queda deshabilitado mientras:
+                - La mutación está en curso (isPending)
+                - Falta algún campo obligatorio (cliente, servicios, hora, empleado)
+              Esto evita doble-submit accidental. */}
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -1638,6 +2088,7 @@ export function AppointmentModal({
               }
               className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              {/* Ternario: si está procesando → texto "Creando...", si no → "Crear cita". */}
               {createMutation.isPending ? 'Creando...' : 'Crear cita'}
             </button>
           </div>
