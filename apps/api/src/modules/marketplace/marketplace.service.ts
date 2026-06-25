@@ -2235,6 +2235,7 @@ export class MarketplaceService {
       allergies: p.allergies,
       isMinor: p.isMinor,
       isDefault: p.isDefault,
+      guardianTermsAcceptedAt: p.guardianTermsAcceptedAt ?? null,
     };
   }
 
@@ -2340,10 +2341,15 @@ export class MarketplaceService {
   // Crea un perfil nuevo (hijo/familiar). No se permite crear un segundo SELF.
   async createProfile(
     userId: string,
-    dto: { firstName: string; lastName: string; relationship?: string; dateOfBirth?: string; gender?: string; allergies?: string },
+    dto: { firstName: string; lastName: string; relationship?: string; dateOfBirth?: string; gender?: string; allergies?: string; guardianTermsAccepted?: boolean },
   ) {
     const relationship = dto.relationship === 'OTHER' ? 'OTHER' : 'CHILD';
     const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
+    const isMinor = this.computeIsMinor(dateOfBirth);
+    // Si el perfil es de un menor, el tutor DEBE aceptar el aviso/términos.
+    if (isMinor && dto.guardianTermsAccepted !== true) {
+      throw new BadRequestException('Debes aceptar el aviso para perfiles de menores');
+    }
     const profile = await this.prisma.profile.create({
       data: {
         userId,
@@ -2353,8 +2359,10 @@ export class MarketplaceService {
         dateOfBirth,
         gender: dto.gender ?? null,
         allergies: dto.allergies ?? null,
-        isMinor: this.computeIsMinor(dateOfBirth),
+        isMinor,
         isDefault: false,
+        // Registro de la aceptación (solo aplica a menores).
+        guardianTermsAcceptedAt: isMinor ? new Date() : null,
       },
     });
     return { data: this.mapProfile(profile) };
@@ -2365,7 +2373,7 @@ export class MarketplaceService {
   async updateProfileEntity(
     userId: string,
     profileId: string,
-    dto: { firstName?: string; lastName?: string; dateOfBirth?: string | null; gender?: string; allergies?: string; avatarUrl?: string },
+    dto: { firstName?: string; lastName?: string; dateOfBirth?: string | null; gender?: string; allergies?: string; avatarUrl?: string; guardianTermsAccepted?: boolean },
   ) {
     const profile = await this.prisma.profile.findFirst({ where: { id: profileId, userId } });
     if (!profile) throw new NotFoundException('Perfil no encontrado');
@@ -2377,6 +2385,13 @@ export class MarketplaceService {
           ? new Date(dto.dateOfBirth)
           : null;
 
+    const isMinor = this.computeIsMinor(dateOfBirth);
+    // Si el perfil (ahora) es de un menor y aún no se habían aceptado los
+    // términos, exigimos la aceptación del tutor antes de guardar.
+    if (isMinor && !profile.guardianTermsAcceptedAt && dto.guardianTermsAccepted !== true) {
+      throw new BadRequestException('Debes aceptar el aviso para perfiles de menores');
+    }
+
     const updated = await this.prisma.profile.update({
       where: { id: profileId },
       data: {
@@ -2386,7 +2401,10 @@ export class MarketplaceService {
         gender: dto.gender ?? profile.gender,
         allergies: dto.allergies ?? profile.allergies,
         avatarUrl: dto.avatarUrl ?? profile.avatarUrl,
-        isMinor: this.computeIsMinor(dateOfBirth),
+        isMinor,
+        // Sellamos la aceptación si es menor y aún no estaba registrada.
+        guardianTermsAcceptedAt:
+          isMinor ? profile.guardianTermsAcceptedAt ?? new Date() : profile.guardianTermsAcceptedAt,
       },
     });
 

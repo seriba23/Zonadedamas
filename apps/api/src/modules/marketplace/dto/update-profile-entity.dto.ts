@@ -1,7 +1,7 @@
 // Validadores para EDITAR un perfil existente. Todos los campos son opcionales
 // (solo se actualiza lo que venga). Se llama "entity" para no chocar con el DTO
 // que edita el perfil-cuenta del usuario (UpdateMarketplaceProfileDto).
-import { IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class UpdateProfileEntityDto {
   @IsOptional()
@@ -29,4 +29,10 @@ export class UpdateProfileEntityDto {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
+
+  // El tutor aceptó el aviso/términos para perfiles de menores (obligatorio en
+  // backend si el perfil resulta menor de edad).
+  @IsOptional()
+  @IsBoolean()
+  guardianTermsAccepted?: boolean;
 }

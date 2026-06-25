@@ -73,6 +73,7 @@ export interface MarketplaceProfile {
   allergies?: string | null;
   isMinor: boolean;
   isDefault: boolean;
+  guardianTermsAcceptedAt?: string | null; // si ya se aceptó el aviso de menor
 }
 
 // ============================================================

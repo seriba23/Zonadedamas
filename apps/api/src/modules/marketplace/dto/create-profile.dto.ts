@@ -1,6 +1,6 @@
 // Validadores de class-validator para crear un perfil (hijo/familiar) del
 // usuario de marketplace.
-import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateProfileDto {
   // Nombre del perfil (obligatorio, al menos 1 carácter).
@@ -34,4 +34,10 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   allergies?: string;
+
+  // El tutor aceptó el aviso/términos para perfiles de menores. Obligatorio en
+  // el backend SOLO cuando el perfil resulta menor de edad.
+  @IsOptional()
+  @IsBoolean()
+  guardianTermsAccepted?: boolean;
 }

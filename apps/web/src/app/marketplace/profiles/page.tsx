@@ -21,6 +21,18 @@ function initials(p: { firstName: string; lastName: string }) {
   return `${p.firstName?.[0] || ''}${p.lastName?.[0] || ''}`.toUpperCase();
 }
 
+// ¿La fecha de nacimiento (texto "AAAA-MM-DD") corresponde a un menor de edad (<18)?
+function isMinorFromDob(dob?: string | null): boolean {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
+}
+
 // Estado vacío del formulario de perfil.
 const emptyForm = { firstName: '', lastName: '', dateOfBirth: '', gender: '', allergies: '' };
 
@@ -39,6 +51,8 @@ export default function ProfilesSelectorPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Aceptación del aviso/términos para perfiles de menores.
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Elegir un perfil: lo marcamos como activo y volvemos al marketplace.
   function choose(p: MarketplaceProfile) {
@@ -50,6 +64,7 @@ export default function ProfilesSelectorPage() {
   function openCreate() {
     setError(null);
     setForm(emptyForm);
+    setTermsAccepted(false);
     setModalFor('new');
   }
 
@@ -64,6 +79,8 @@ export default function ProfilesSelectorPage() {
       gender: p.gender || '',
       allergies: p.allergies || '',
     });
+    // Si ya había aceptado el aviso de menor, no se lo volvemos a exigir.
+    setTermsAccepted(!!p.guardianTermsAcceptedAt);
     setModalFor(p);
   }
 
@@ -74,6 +91,12 @@ export default function ProfilesSelectorPage() {
       setError('El nombre y el apellido son obligatorios');
       return;
     }
+    // Si el perfil es de un menor y aún no se había aceptado el aviso, exigirlo.
+    const alreadyAccepted = modalFor !== 'new' && !!modalFor?.guardianTermsAcceptedAt;
+    if (isMinorFromDob(form.dateOfBirth) && !alreadyAccepted && !termsAccepted) {
+      setError('Debes aceptar el aviso para perfiles de menores');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -82,6 +105,7 @@ export default function ProfilesSelectorPage() {
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         allergies: form.allergies || undefined,
+        guardianTermsAccepted: termsAccepted,
       };
       if (modalFor === 'new') {
         await marketplaceApi.post('/profiles', { ...payload, relationship: 'CHILD' });
@@ -244,6 +268,37 @@ export default function ProfilesSelectorPage() {
                 />
               </div>
             </div>
+
+            {/* Aviso y términos para perfiles de menores: solo si la fecha de
+                nacimiento lo hace menor y aún no se había aceptado. */}
+            {isMinorFromDob(form.dateOfBirth) &&
+              !(modalFor !== 'new' && modalFor?.guardianTermsAcceptedAt) && (
+                <div className="mt-4 rounded-xl border border-[#008080] bg-[#e0f2f1]/40 p-3">
+                  <p className="text-xs font-semibold text-[#006666] mb-1">
+                    Aviso para perfiles de menores de edad
+                  </p>
+                  <div className="max-h-32 overflow-y-auto text-[11px] text-gray-600 leading-snug space-y-1 pr-1">
+                    <p>Al crear y usar un perfil de un menor de edad, declaras y aceptas que:</p>
+                    <p>1. Eres el <span className="font-semibold">padre, madre o tutor legal</span> del menor y cuentas con la patria potestad o representación legal para gestionar sus citas y autorizar en su nombre.</p>
+                    <p>2. <span className="font-semibold">Siliba es únicamente una plataforma tecnológica</span> que conecta clientes con negocios. Siliba no presta los servicios, no toma las fotografías ni decide su uso, y <span className="font-semibold">no es responsable</span> de los actos, omisiones, contenidos ni del tratamiento de datos o imágenes que realicen los negocios.</p>
+                    <p>3. Cualquier consentimiento, autorización o acuerdo sobre tomar, usar o publicar fotografías del menor (por ejemplo, en el portafolio del negocio) se celebra <span className="font-semibold">directa y exclusivamente entre tú (el tutor) y el negocio</span>. Siliba no es parte de ese acuerdo.</p>
+                    <p>4. Eres responsable de otorgar o negar ese consentimiento al negocio y, en su caso, de solicitar que se <span className="font-semibold">oculte el rostro del menor</span>.</p>
+                    <p>5. Los datos que proporcionas son veraces y usarás la plataforma conforme a la ley.</p>
+                  </div>
+                  <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-0.5"
+                      style={{ accentColor: TEAL }}
+                    />
+                    <span className="text-[11px] font-medium text-gray-700">
+                      He leído y acepto el aviso para perfiles de menores, y confirmo que actúo como su tutor.
+                    </span>
+                  </label>
+                </div>
+              )}
 
             <div className="flex gap-2 mt-5">
               <button

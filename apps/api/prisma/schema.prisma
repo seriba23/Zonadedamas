@@ -496,6 +496,9 @@ model Profile {
   isMinor      Boolean   @default(false) @map("is_minor") // derivado de dateOfBirth
   isDefault    Boolean   @default(false) @map("is_default") // el perfil SELF arranca como default
   archivedAt   DateTime? @map("archived_at") // soft-archive (conserva historial)
+  // Fecha en que el tutor aceptó el aviso/términos para perfiles de menores.
+  // Queda como registro (el userId del tutor + esta fecha) de la aceptación.
+  guardianTermsAcceptedAt DateTime? @map("guardian_terms_accepted_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
