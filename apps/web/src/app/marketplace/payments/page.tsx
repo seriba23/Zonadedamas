@@ -1,15 +1,36 @@
+// ============================================================
+// PÁGINA: Historial de pagos del cliente marketplace
+// RUTA:   /marketplace/payments
+//
+// ¿Qué muestra?
+//   - Tarjetas de resumen: total pagado, pagos pendientes, reembolsos.
+//   - Lista de pagos con filtros por estado (Todos/Completados/Pendientes/Reembolsados).
+//   - Cada pago muestra: negocio, método de pago, fecha, monto y badge de estado.
+//   - Paginación para cargar más registros.
+//   - Si no está autenticado, muestra pantalla de login.
+// ============================================================
 'use client';
 
+// useState: para filtro activo, página actual, etc.
+// useEffect: para sincronizar el filtro cuando cambia.
 import { useState, useEffect } from 'react';
+// useRouter: para navegar al detalle de cita al tocar un pago.
 import { useRouter } from 'next/navigation';
+// Link: para el botón "Iniciar sesión".
 import Link from 'next/link';
+// useQuery: para cargar el historial de pagos paginado.
 import { useQuery } from '@tanstack/react-query';
+// dayjs: formateo de fechas.
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
+// Estado de autenticación del cliente.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+// Cliente HTTP del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+// Utilidades de formato.
 import { formatCurrency, resolveImageUrl } from '@/lib/utils';
 
+// Configurar dayjs para nombres de días/meses en español.
 dayjs.locale('es');
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -17,8 +38,11 @@ const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+// Tipo unión para los posibles estados de filtro. TypeScript detecta errores si
+// se usa un string que no está en esta lista.
 type PaymentFilter = 'ALL' | 'COMPLETED' | 'PENDING' | 'REFUNDED';
 
+// Pestañas de filtro con su clave interna y etiqueta visible.
 const FILTER_TABS: { key: PaymentFilter; label: string }[] = [
   { key: 'ALL', label: 'Todos' },
   { key: 'COMPLETED', label: 'Completados' },
@@ -39,6 +63,8 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   TRANSFER: 'Transferencia',
 };
 
+// ── Interfaces TypeScript ──────────────────────────────────
+// PaymentRecord: un registro de pago del cliente.
 interface PaymentRecord {
   id: string;
   amount: string;
@@ -70,8 +96,10 @@ interface PaymentsResponse {
   meta: PaymentsMeta;
 }
 
-// ─── Payment Card ──────────────────────────────────────
-
+// ── Sub-componente PaymentCard ─────────────────────────────
+// Componente auxiliar que renderiza la tarjeta de UN pago.
+// Recibe un solo prop `payment` con los datos del pago.
+// El tipo `{ payment: PaymentRecord }` es la interfaz de props inline.
 function PaymentCard({ payment }: { payment: PaymentRecord }) {
   const statusCfg = PAYMENT_STATUS_CONFIG[payment.status] || {
     label: payment.status,
@@ -199,27 +227,35 @@ function EmptyState({ filtered }: { filtered: boolean }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────
 
 export default function MarketplacePaymentsPage() {
-  const { user, isAuthenticated, isLoading: authLoading } =
-    useMarketplaceAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
   const router = useRouter();
+
+  // Filtro activo (pestaña seleccionada). Default: 'ALL' = todos los pagos.
   const [activeFilter, setActiveFilter] = useState<PaymentFilter>('ALL');
+
+  // Página actual para la paginación del historial de pagos.
   const [page, setPage] = useState(1);
 
+  // Redirige al login si no hay sesión activa.
+  // Este useEffect actúa como un "guard": si el usuario intenta acceder directamente
+  // a /marketplace/payments sin estar autenticado, lo manda al login.
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/marketplace/login?redirect=/marketplace/payments');
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Reset page when filter changes
+  // Al cambiar el filtro, volvemos a la página 1 para no quedarnos en una
+  // página que ya no existe (ej: filtrado tiene menos resultados que la página 3).
   useEffect(() => {
     setPage(1);
   }, [activeFilter]);
 
-  // Build query string for the endpoint
+  // `URLSearchParams`: construye el query string de forma segura.
+  // Equivalente a escribir manualmente `?page=1&perPage=20&status=COMPLETED`.
   const queryParams = new URLSearchParams();
   queryParams.set('page', String(page));
   queryParams.set('perPage', '20');

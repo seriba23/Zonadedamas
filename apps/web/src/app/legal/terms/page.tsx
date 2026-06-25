@@ -1,6 +1,22 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/legal/terms/page.tsx
+//
+// CONCEPTO: Página de Términos y Condiciones de Uso de Siliba.
+// URL: /legal/terms
+//
+// Igual que privacy/page.tsx, es una página estática de contenido legal.
+// Contiene 13 secciones que cubren desde la aceptación de términos hasta
+// la jurisdicción y legislación aplicable (leyes mexicanas).
+//
+// Client Component por router.back() en el botón "Volver".
+//
+// También se carga en un <iframe> en el modal de T&C del registro.
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { useRouter } from 'next/navigation';
+// Link de Next.js: usado para el enlace interno al Aviso de Privacidad
+// dentro del texto de los términos (sección 9).
 import Link from 'next/link';
 
 const TEAL = '#008080';

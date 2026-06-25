@@ -1,19 +1,53 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/confirm-payment/[token]/page.tsx
+//
+// CONCEPTO: Página pública de confirmación de cobro y calificación.
+// URL: /confirm-payment/[token]
+//
+// Esta página se abre cuando el EMPLEADO le comparte al cliente un link al
+// cerrar la cita (cierre de cita wizard). El cliente puede desde aquí:
+//  1. Ver el resumen de lo que se cobró (servicios, productos, cupón, propina)
+//  2. Confirmar el cobro (firmar digitalmente que recibió el servicio)
+//  3. Calificar al empleado y/o al negocio (DualReviewModal)
+//
+// FLUJO:
+//  → Carga la cita con el token
+//  → Si ya está confirmada Y ya tiene reseña: muestra pantalla "Gracias" con confeti
+//  → Si NO está confirmada: muestra botón "Confirmar cobro y calificar"
+//  → Al confirmar: abre el modal de calificación (DualReviewModal)
+//  → Al calificar: muestra la pantalla "Gracias" (ThanksScreen)
+//
+// COMPONENTES INTERNOS:
+//  - ConfirmPaymentPage: la página principal
+//  - ThanksScreen: pantalla de agradecimiento con confeti (al completar todo)
+//
+// APIS (sin auth, el token es la credencial):
+//  GET /api/public/confirm-payment/:token          → detalles de la cita
+//  POST /api/public/confirm-payment/:token/confirm → confirma el cobro
+//  POST /api/public/confirm-payment/:token/review  → guarda la calificación
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+// DualReviewModal: modal de calificación dual (empleado + negocio en el mismo modal).
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
+// ConfettiCelebration: confeti animado para celebrar la confirmación.
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
 const TEAL = '#008080';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// ─── INTERFACES DE DATOS ──────────────────────────────────────────────────────
+// AppointmentData: estructura completa de la cita que devuelve esta API pública.
+// Incluye más campos que la vista de recordatorio porque aquí se muestran
+// los detalles financieros completos (pagos, cupones, propinas, fotos).
 interface AppointmentData {
   id: string;
   status: string;
   startTime: string;
-  confirmedAt: string | null;
-  discountAmount?: string | number | null;
+  confirmedAt: string | null;   // null = el cliente aún no confirmó el cobro
+  discountAmount?: string | number | null;   // Descuento total aplicado
   client?: { firstName: string; lastName: string; avatarUrl: string | null } | null;
   employee?: { id: string; firstName: string; lastName: string; avatarUrl: string | null; color: string | null } | null;
   items?: Array<{
@@ -54,6 +88,9 @@ interface AppointmentData {
   review?: { id: string; rating: number; businessRating: number | null } | null;
 }
 
+// ─── DATOS DE REFERENCIA ─────────────────────────────────────────────────────
+// Mapa de códigos de método de pago a etiquetas en español para mostrar al usuario.
+// Record<string, string>: objeto con claves y valores de tipo string.
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH: 'Efectivo',
   CARD: 'Tarjeta',
@@ -62,32 +99,64 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   OTHER: 'Otro',
 };
 
+// formatCurrency: formatea un número como moneda usando la API Intl del navegador.
+// Intl.NumberFormat es el estándar internacional para formato de números/moneda.
+// 'es-MX' = español de México (usa $ y coma para miles).
+// { style: 'currency', currency: 'MXN' } → muestra símbolo $ y decimales.
+// Ejemplo: formatCurrency(1500) → "$1,500.00"
 function formatCurrency(n: number, currency = 'MXN') {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(n);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ConfirmPaymentPage: componente principal de la página.
+// Recibe "params" como prop directamente desde Next.js App Router.
+// En Next.js 14, las páginas con rutas dinámicas reciben los parámetros
+// como prop "params" en el componente. Alternativa: usar useParams().
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ConfirmPaymentPage({ params }: { params: { token: string } }) {
+  // Extraemos el token del objeto params con destructuring.
   const { token } = params;
+
+  // ─── ESTADO ──────────────────────────────────────────────────────────────
+  // "data": los datos de la cita cargados desde la API (null mientras carga).
   const [data, setData] = useState<AppointmentData | null>(null);
+  // "loading": true mientras se carga la cita por primera vez.
   const [loading, setLoading] = useState(true);
+  // "error": mensaje de error si la carga falla (null si no hay error).
   const [error, setError] = useState<string | null>(null);
+  // "confirming": true mientras se procesa la confirmación del cobro.
   const [confirming, setConfirming] = useState(false);
+  // "showReview": true cuando debe mostrarse el modal de calificación.
   const [showReview, setShowReview] = useState(false);
+  // "reviewSubmitted": true cuando el cliente ya envió su calificación.
+  // Se usa para mostrar la pantalla de "Gracias" sin necesidad de recargar.
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  // "submittingReview": true mientras se envía la calificación a la API.
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // ─── CARGA INICIAL DE DATOS ──────────────────────────────────────────────
+  // useEffect con fetch manual (sin React Query) para cargar los datos de la cita.
+  // Podría haberse usado useQuery, pero se optó por fetch manual para tener
+  // control más fino sobre el estado (especialmente el showReview automático).
   useEffect(() => {
+    // Patrón de "cancelación" de efectos:
+    // Si el componente se desmonta mientras el fetch está en curso,
+    // la variable "cancelled" nos permite ignorar la respuesta y no actualizar
+    // el estado de un componente que ya no existe (evita memory leaks y errores).
     let cancelled = false;
     async function load() {
       try {
         const res = await fetch(`${API_URL}/api/public/confirm-payment/${token}`);
         if (!res.ok) {
+          // Diferenciamos el error 404 (enlace inválido) de otros errores.
           throw new Error(res.status === 404 ? 'Este enlace no es válido o expiró.' : 'No se pudo cargar la cita.');
         }
         const json = await res.json();
         if (!cancelled) {
           setData(json.data);
           // Si ya está confirmada y aún no dejó reseña, abrir directamente el wizard.
+          // "?." (optional chaining): evita error si json.data es null.
           if (json.data?.confirmedAt && !json.data?.review) {
             setShowReview(true);
           }
@@ -99,8 +168,10 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
       }
     }
     load();
+    // Función de limpieza del useEffect: se ejecuta cuando el componente
+    // se desmonta O cuando el token cambia (antes de re-ejecutar el efecto).
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token]);  // Dependencia: solo se re-ejecuta si cambia el token.
 
   async function handleConfirm() {
     setConfirming(true);
@@ -170,29 +241,53 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
     );
   }
 
-  const items = data.items ?? [];
-  const products = data.productReservations ?? [];
-  const photos = data.photos ?? [];
-  const payments = data.payments ?? [];
+  // ─── DATOS DERIVADOS ──────────────────────────────────────────────────────
+  // El operador "??" (nullish coalescing) devuelve el lado derecho solo si el
+  // lado izquierdo es null o undefined (NO si es 0 o '').
+  // Es más preciso que "||" que también considera 0 y '' como falsy.
+  const items = data.items ?? [];               // Servicios de la cita
+  const products = data.productReservations ?? [];  // Productos vendidos
+  const photos = data.photos ?? [];             // Fotos del resultado
+  const payments = data.payments ?? [];         // Pagos registrados
+
+  // Subtotal = suma de servicios + suma de productos (cantidad × precio unitario).
   const subtotal = items.reduce((s, i) => s + Number(i.priceSnapshot ?? 0), 0)
     + products.reduce((s, p) => s + Number(p.unitPrice ?? 0) * Number(p.quantity ?? 1), 0);
+
   const payment = payments[0]; // el backend ya filtra COMPLETED (más reciente)
+
   // Monto REAL cobrado: usamos el total del pago (incluye propina y descuento).
+  // Number() convierte string a número (los montos pueden venir como strings en MySQL).
   const tip = Number(payment?.tipAmount ?? 0);
   const discount = Number(payment?.discountAmount ?? data.discountAmount ?? 0);
+  // Si hay un pago registrado, usamos su totalAmount (el monto real cobrado).
+  // Si no, calculamos: subtotal - descuento + propina. Math.max(0, ...) evita negativos.
   const total = payment
     ? Number(payment.totalAmount)
     : Math.max(0, subtotal - discount) + tip;
-  const isConfirmed = !!data.confirmedAt;
-  const hasReview = !!data.review || reviewSubmitted;
+
+  // Flags de estado para controlar el flujo visual.
+  const isConfirmed = !!data.confirmedAt;          // !! convierte a booleano
+  const hasReview = !!data.review || reviewSubmitted;  // Ya dejó reseña
+
+  // Extraemos subobjetos para evitar acceder a "data.xxx" repetidamente.
   const tenant = data.tenant;
   const employee = data.employee;
   const redemption = data.redemption;
+
+  // Valores con fallback: si el campo es null/undefined, usamos un string por defecto.
   const tenantName = tenant?.name || 'Negocio';
   const tenantSlug = tenant?.slug || '';
   const employeeFirst = employee?.firstName || '';
   const employeeLast = employee?.lastName || '';
+  // Iniciales del empleado: primera letra del nombre + primera letra del apellido.
+  // [0] accede al primer caracter. || '' evita undefined si el string está vacío.
   const employeeInitials = (employeeFirst[0] || '') + (employeeLast[0] || '');
+
+  // URL de la imagen de portada: si es una URL absoluta (empieza con http),
+  // se usa tal cual. Si es una ruta relativa (/api/uploads/...), le añadimos
+  // la URL base de la API. Esto es porque algunos negocios pueden tener imágenes
+  // externas (CDN) y otros tienen imágenes subidas al propio backend.
   const coverUrl = tenant?.coverImageUrl
     ? (tenant.coverImageUrl.startsWith('http') ? tenant.coverImageUrl : `${API_URL}${tenant.coverImageUrl}`)
     : null;
@@ -411,6 +506,15 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ThanksScreen: componente auxiliar separado para la pantalla de agradecimiento.
+// Extraerlo en una función separada (en vez de JSX inline) mejora la legibilidad
+// y permite que tenga su propio estado (confettiDone).
+//
+// PROPS que recibe:
+//  tenantName, tenantSlug: datos del negocio para el link de "Ver perfil"
+//  confettiEnabled: si el negocio habilitó el confeti en su configuración
+//  confettiShapes/Shape/Colors: personalización del confeti por negocio
 /**
  * Pantalla completa de "Gracias" con confeti. Se muestra cuando la cita
  * ya está confirmada y calificada. Mismo estilo que el sheet de

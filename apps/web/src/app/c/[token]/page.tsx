@@ -1,12 +1,46 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/c/[token]/page.tsx
+//
+// CONCEPTO: Página pública de recordatorio y gestión de cita.
+// URL: /c/[token]  (ej. /c/abc123def456...)
+//
+// Esta página se abre cuando el cliente recibe un LINK por WhatsApp/SMS/Email
+// recordándole su cita próxima. El TOKEN en la URL es su credencial única:
+// no requiere login, el token identifica al cliente y a la cita.
+//
+// RUTA DINÁMICA [token]: el token es un identificador opaco (UUIDv4 o similar)
+// que el backend genera al crear la cita y que caduca después de la fecha.
+//
+// VISTAS DEL COMPONENTE (estado "view"):
+//  'detail'    → Muestra los detalles de la cita + botones de acción
+//  'reschedule'→ Formulario para elegir nueva fecha y hora
+//  'cancel'    → Confirmación de cancelación con campo de motivo
+//  'success'   → Pantalla de éxito con confeti (según la acción realizada)
+//
+// ACCIONES DISPONIBLES (si la cita está activa):
+//  - Confirmar asistencia   → POST /api/public/c/:token/confirm
+//  - Reagendar              → POST /api/public/c/:token/reschedule
+//  - Cancelar               → POST /api/public/c/:token/cancel
+//
+// CONSULTAS:
+//  - Detalles de la cita: GET /api/public/c/:token
+//  - Slots disponibles:   GET /api/public/c/:token/availability?date=YYYY-MM-DD
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
+// useParams lee el parámetro dinámico [token] de la URL.
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
+// ConfettiCelebration: componente que lanza confeti animado en pantalla.
+// Se usa para celebrar cuando el cliente confirma o reagenda su cita.
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
-/** Formatea una hora con AM/PM (ej. "3:30 PM"). */
+/** Formatea una hora con AM/PM (ej. "3:30 PM").
+ *  toLocaleTimeString: método nativo del Date de JS para formatear horas.
+ *  'en-US': usa el formato americano (AM/PM en vez de 24h).
+ *  hour12: true → usa formato de 12 horas con AM/PM. */
 function fmtTime(d: Date): string {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
@@ -23,86 +57,126 @@ function fmtTime(d: Date): string {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// ─── INTERFACES DE DATOS ──────────────────────────────────────────────────────
+// Describen la estructura de los objetos que devuelve la API.
+// "Snapshot" en los campos de item: el precio y duración se guardaron al momento
+// de hacer la reserva (para que no cambien si el negocio modifica los precios
+// después de que el cliente ya reservó). Es el "patrón snapshot".
+
+// Un ítem/servicio dentro de la cita
 interface AppointmentItem {
-  serviceNameSnapshot: string;
-  priceSnapshot: number;
-  durationSnapshot: number;
+  serviceNameSnapshot: string;  // Nombre del servicio al momento de reservar
+  priceSnapshot: number;        // Precio al momento de reservar
+  durationSnapshot: number;     // Duración al momento de reservar
   serviceId: string;
 }
 
+// El empleado que atiende la cita
 interface Employee {
   id: string;
   firstName: string;
   lastName: string;
   avatarUrl?: string | null;
-  color?: string | null;
+  color?: string | null;   // Color teal o personalizado del empleado
 }
 
+// La sucursal donde se atiende
 interface Location {
   name: string;
   address?: string | null;
   phone?: string | null;
-  latitude?: number | null;
+  latitude?: number | null;   // Coordenadas GPS para Google Maps
   longitude?: number | null;
 }
 
+// El negocio dueño de la cita
 interface Tenant {
   name: string;
-  slug: string;
+  slug: string;            // Identificador URL del negocio (ej. 'salon-maria')
   logoUrl?: string | null;
   coverImageUrl?: string | null;
-  tenantType?: string;
+  tenantType?: string;     // 'FREELANCER' o 'BUSINESS'
 }
 
+// La cita completa con toda su información relacionada
 interface Appointment {
   id: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  confirmedAt?: string | null;
+  startTime: string;        // ISO datetime de inicio de la cita
+  endTime: string;          // ISO datetime de fin de la cita
+  status: string;           // 'CONFIRMED', 'PENDING', 'CANCELLED', 'COMPLETED', 'NO_SHOW'
+  confirmedAt?: string | null;  // Fecha en que el cliente confirmó (null = no confirmada)
   client: { firstName: string; lastName: string };
   employee: Employee;
-  items: AppointmentItem[];
+  items: AppointmentItem[];  // Array de servicios en la cita
   location: Location;
   tenant: Tenant;
 }
 
+// Un slot de tiempo disponible para reagendar
 interface Slot {
-  startTime: string;
-  available: boolean;
+  startTime: string;   // ISO datetime del inicio del slot
+  available: boolean;  // true si el slot está libre
 }
 
+// Color teal de la marca Siliba (#008080)
 const TEAL = '#008080';
 
+// Los cuatro estados visuales posibles de esta página.
 type View = 'detail' | 'reschedule' | 'cancel' | 'success';
+// El tipo de acción exitosa realizada (para mostrar mensaje apropiado).
 type SuccessKind = 'confirmed' | 'rescheduled' | 'cancelled';
 
 export default function ReminderPage() {
+  // useParams con tipo genérico: especifica que el token es un string.
   const params = useParams<{ token: string }>();
   const token = params.token;
 
+  // ─── ESTADO VISUAL ────────────────────────────────────────────────────────
+  // "view" controla cuál de las 4 pantallas se muestra.
   const [view, setView] = useState<View>('detail');
+  // "successKind" recuerda qué acción exitosa se realizó para mostrar
+  // el mensaje correcto en la pantalla de éxito.
   const [successKind, setSuccessKind] = useState<SuccessKind | null>(null);
+  // "confettiDone" es true cuando el confeti ya terminó de animarse.
+  // Se pasa al componente ConfettiCelebration para que sepa cuándo parar.
   const [confettiDone, setConfettiDone] = useState(false);
+  // Mensaje de error de las mutaciones (null = sin error).
   const [error, setError] = useState<string | null>(null);
 
+  // ─── ESTADO DE REAGENDA ───────────────────────────────────────────────────
   // Estados de reagenda
+  // "pickedDate": la fecha que el cliente seleccionó para reagendar.
+  // useState con función inicializadora (lazy init): la función se ejecuta
+  // SOLO en el primer render para calcular el valor inicial.
+  // Inicia en "mañana" (hoy + 1 día) en formato 'YYYY-MM-DD'.
   const [pickedDate, setPickedDate] = useState<string>(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + 1);  // Mañana
+    // .toISOString() → "2026-06-18T06:00:00.000Z"
+    // .split('T')[0] → "2026-06-18" (solo la parte de la fecha)
     return d.toISOString().split('T')[0];
   });
+  // El slot horario específico que eligió para reagendar (null si no eligió aún).
   const [pickedSlot, setPickedSlot] = useState<string | null>(null);
 
+  // ─── ESTADO DE CANCELACIÓN ────────────────────────────────────────────────
   // Cancelacion
+  // El motivo opcional de cancelación que el cliente puede escribir.
   const [cancelReason, setCancelReason] = useState('');
 
+  // ─── QUERY: CARGAR LA CITA ────────────────────────────────────────────────
+  // Carga los detalles de la cita usando el token de la URL como identificador.
+  // retry: false → si hay un error (ej. token inválido/expirado), no reintenta.
+  // refetch: función para volver a cargar los datos manualmente (la usamos
+  //          después de confirmar/cancelar para refrescar el estado en pantalla).
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['reminder', token],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/public/c/${token}`);
       if (!res.ok) throw new Error('not found');
       const json = await res.json();
+      // "json.data as Appointment": le decimos a TypeScript que trate
+      // json.data como tipo Appointment (aserción de tipo).
       return json.data as Appointment;
     },
     retry: false,
@@ -210,19 +284,36 @@ export default function ReminderPage() {
     );
   }
 
+  // ─── DATOS DERIVADOS ──────────────────────────────────────────────────────
+  // Alias conveniente para no escribir "data" todo el tiempo.
   const apt = data;
+  // Template literal para nombre completo del empleado.
   const fullName = `${apt.employee.firstName} ${apt.employee.lastName}`;
+  // .map() extrae solo el nombre de cada ítem, .join(', ') une con comas.
+  // Resultado: "Corte de cabello, Tinte, Peinado"
   const services = apt.items.map((it) => it.serviceNameSnapshot).join(', ');
+  // Suma de duraciones de todos los servicios (en minutos).
+  // || 0: si durationSnapshot es null/undefined/0, usa 0.
   const totalDuration = apt.items.reduce((s, it) => s + (it.durationSnapshot || 0), 0);
+  // Suma de precios. Number() convierte a número por si viene como string del backend.
   const totalPrice = apt.items.reduce((s, it) => s + Number(it.priceSnapshot || 0), 0);
+  // Convertimos el string ISO de la cita a un objeto Date nativo de JavaScript.
   const startDate = new Date(apt.startTime);
+  // La cita está "inactiva" (no se puede actuar sobre ella) si su status es
+  // CANCELLED, COMPLETED o NO_SHOW.
+  // .includes() verifica si el status está en ese array.
   const isInactiveStatus = ['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(apt.status);
+  // La cita ya está confirmada si el status es CONFIRMED Y tiene fecha de confirmación.
+  // "!!" convierte a booleano: !!null → false, !!'2026-06-17T10:00:00' → true
   const isAlreadyConfirmed = apt.status === 'CONFIRMED' && !!apt.confirmedAt;
 
   // Link a Google Maps: usa coordenadas si existen, si no la dirección.
+  // La URL de Google Maps acepta tanto coordenadas GPS como texto de búsqueda.
   const mapsUrl =
     apt.location?.latitude != null && apt.location?.longitude != null
+      // Si tenemos coordenadas exactas, las usamos (más preciso).
       ? `https://www.google.com/maps/search/?api=1&query=${apt.location.latitude},${apt.location.longitude}`
+      // Si no, buscamos por nombre + dirección de texto.
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
           `${apt.location?.name || ''} ${apt.location?.address || ''}`.trim(),
         )}`;

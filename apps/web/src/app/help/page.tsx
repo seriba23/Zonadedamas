@@ -1,13 +1,33 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/help/page.tsx
+//
+// CONCEPTO: Centro de Ayuda del marketplace.
+// URL: /help
+//
+// Página estática de ayuda con tres secciones:
+//  1. Contactar soporte (enlace de email)
+//  2. FAQ (preguntas frecuentes con acordeón interactivo)
+//  3. Documentos legales (links a privacidad y términos)
+//
+// PATRÓN DE ACORDEÓN:
+// Las preguntas frecuentes usan un patrón de acordeón:
+// al hacer click en una pregunta, se abre su respuesta y se cierra la anterior.
+// Se implementa con "openFaq" (índice de la pregunta abierta, o null si ninguna).
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Constantes de color para no repetir el hexadecimal en cada elemento.
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+// FAQ_ITEMS: array de objetos con las preguntas y respuestas.
+// Se define FUERA del componente para que no se recree en cada render.
+// Cada objeto tiene "q" (question/pregunta) y "a" (answer/respuesta).
 const FAQ_ITEMS = [
   {
     q: '¿Cómo reservo una cita?',
@@ -41,6 +61,10 @@ const FAQ_ITEMS = [
 
 export default function MarketplaceHelpPage() {
   const router = useRouter();
+
+  // "openFaq" guarda el ÍNDICE de la pregunta FAQ abierta actualmente.
+  // Si es null, ninguna pregunta está abierta.
+  // "number | null" significa que puede ser un número O null.
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
@@ -104,14 +128,25 @@ export default function MarketplaceHelpPage() {
             </div>
 
             <div className="divide-y divide-gray-100">
+              {/* .map() con índice: itera sobre FAQ_ITEMS y retorna un elemento por pregunta.
+                  "faq" es el objeto {q, a} del elemento actual.
+                  "i" es el índice (0, 1, 2, ...) que usamos como key y para
+                  controlar cuál pregunta está abierta. */}
               {FAQ_ITEMS.map((faq, i) => (
+                // "key={i}": identificador único para React. En listas estáticas
+                // (que nunca se reordenan), el índice como key es aceptable.
                 <div key={i}>
                   <button
+                    // Al hacer click: si esta pregunta ya está abierta (openFaq === i),
+                    // la cerramos (null). Si no está abierta, la abrimos (i).
+                    // Es el patrón "toggle": abre si está cerrado, cierra si está abierto.
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
                     className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                   >
                     <p className="text-sm text-gray-700 pr-4">{faq.q}</p>
                     <svg
+                      // Clase dinámica: si esta FAQ está abierta, rotamos el ícono 180°.
+                      // La expresión dentro de ${ } evalúa la condición y retorna una clase CSS.
                       className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
                       fill="none"
                       viewBox="0 0 24 24"
@@ -121,6 +156,9 @@ export default function MarketplaceHelpPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
+                  {/* RENDERIZADO CONDICIONAL: solo muestra la respuesta si esta
+                      pregunta está abierta (openFaq === i). Cuando openFaq cambia
+                      a otro índice, React desmonta este div automáticamente. */}
                   {openFaq === i && (
                     <div className="px-4 pb-3">
                       <p className="text-sm text-gray-500 leading-relaxed">{faq.a}</p>

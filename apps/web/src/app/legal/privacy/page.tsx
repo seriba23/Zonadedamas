@@ -1,3 +1,22 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/legal/privacy/page.tsx
+//
+// CONCEPTO: Página del Aviso de Privacidad de Siliba.
+// URL: /legal/privacy
+//
+// Página ESTÁTICA de contenido legal. No hace llamadas a la API ni maneja
+// estado complejo. Solo muestra el texto del aviso de privacidad conforme
+// a la LFPDPPP (Ley Federal de Protección de Datos Personales en Posesión
+// de los Particulares) de México.
+//
+// Es un Client Component ('use client') ÚNICAMENTE porque usa useRouter()
+// para el botón "Volver" (router.back()). Si no necesitara ese botón,
+// podría ser un Server Component puro.
+//
+// Esta página también se carga dentro de un <iframe> en el modal de T&C
+// del flujo de registro (register/page.tsx) para que el usuario pueda leer
+// el aviso sin salir del formulario de registro.
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -8,11 +27,15 @@ export default function PrivacyPolicyPage() {
   const router = useRouter();
 
   return (
+    // "safe-top": clase personalizada de Tailwind que agrega padding-top
+    // igual al safe-area-inset-top del dispositivo (el "notch" del iPhone).
     <div className="min-h-screen bg-gray-50 safe-top">
 
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
+          {/* router.back(): navega a la página anterior del historial del navegador.
+              Es equivalente al botón "Atrás" del navegador. */}
           <button
             onClick={() => router.back()}
             className="w-9 h-9 rounded-full flex items-center justify-center bg-white border border-gray-200 hover:bg-gray-50 transition-colors"

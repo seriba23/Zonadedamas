@@ -1,3 +1,31 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/(auth)/register/page.tsx
+//
+// CONCEPTO: Página de registro de nuevos usuarios.
+// URL: /register
+//
+// Esta es la página más compleja del flujo de auth. Maneja 4 MODOS distintos
+// de registro, cada uno con su propio formulario y flujo:
+//
+//  1. 'select'      → Pantalla inicial: el usuario elige qué tipo de cuenta crear.
+//  2. 'client'      → Registro de CLIENTE del marketplace.
+//                     Solo nombre, email y contraseña. Sin datos de negocio.
+//  3. 'business'    → Registro de PROFESIONAL (empleado o freelancer).
+//                     Tiene dos sub-modos elegibles con pestañas:
+//                     - 'affiliated': necesita código de invitación del negocio
+//                     - 'freelancer': crea su propio espacio independiente
+//  4. 'individual'  → Registro de ADMINISTRADOR de negocio.
+//                     Wizard de 2 pasos: datos personales → datos del negocio.
+//
+// PARÁMETROS DE URL SOPORTADOS:
+//  ?type=individual|client|business  → salta la pantalla 'select' y va directo
+//  ?code=XXXX                        → fuerza modo 'business' + pre-llena el código
+//  ?redirect=/marketplace/slug       → después del registro, redirige ahí
+//
+// COMPONENTES INTERNOS:
+//  - PhoneInput: input de teléfono con selector de código de país
+//  - RegisterPageInner: el componente real (envuelto en Suspense para useSearchParams)
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { Suspense, useState, useEffect, type FormEvent } from 'react';
@@ -6,18 +34,36 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
+// PasswordRules: muestra una lista de requisitos de la contraseña (longitud,
+// mayúsculas, números, símbolos) que se marcan en verde conforme se cumplen.
 import { PasswordRules } from '@/components/ui/password-rules';
+// PasswordMatch: indicador visual de si las dos contraseñas coinciden.
 import { PasswordMatch } from '@/components/ui/password-match';
+// validatePassword: función que verifica las reglas de la contraseña y retorna
+// el primer error encontrado, o undefined si la contraseña es válida.
 import { validatePassword } from '@/lib/password-validation';
+// AddressFields: componente con campos de dirección (calle, ciudad, estado,
+// país, código postal) con droplists de países y estados del mundo.
+// AddressValue: tipo que describe la estructura de una dirección.
+// emptyAddress: crea un objeto AddressValue vacío con un país por defecto.
+// parseAddress: convierte un string de dirección guardado en BD al formato AddressValue.
+// serializeAddress: convierte un AddressValue al string que espera el backend.
 import { AddressFields, emptyAddress, parseAddress, serializeAddress, type AddressValue } from '@/components/ui/address-fields';
+// getCountrySync: busca un país por código ISO (ej. 'mx') y retorna sus datos.
+// loadCountries: carga de forma asíncrona la lista completa de países.
 import { getCountrySync, loadCountries } from '@/lib/geo-data';
 
 // Helper local: solo serializa si tiene al menos algo escrito.
+// El "!!" convierte cualquier valor a booleano (truthy/falsy):
+// !!'' → false, !!'Calle 5' → true
 function serializeAddressForBackend(a: AddressValue): string {
   const filled = !!(a.street || a.city || a.region || a.postalCode || a.countryCode);
   return filled ? serializeAddress(a) : '';
 }
 
+// ─── DATOS DE REFERENCIA ─────────────────────────────────────────────────────
+// Array con los códigos de país para el selector de teléfono.
+// Cada objeto tiene: código numérico (+52), bandera emoji, nombre del país.
 // Country phone codes
 const COUNTRY_CODES = [
   { code: '+52', flag: '🇲🇽', name: 'México' },
@@ -42,18 +88,37 @@ const COUNTRY_CODES = [
   { code: '+55', flag: '🇧🇷', name: 'Brasil' },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PhoneInput: componente reutilizable de input de teléfono.
+//
+// ESTRUCTURA: [selector país ▼] [input número]
+// Internamente mantiene dos valores separados:
+//  - countryCode: el código seleccionado ('+52', '+1', etc.)
+//  - local: los dígitos del número sin el código de país
+//
+// Hacia afuera (prop onChange) comunica el número completo: '+52 5512345678'
+//
+// PROPS (propiedades que recibe del componente padre):
+//  - value: el valor actual del teléfono completo (controlado desde afuera)
+//  - onChange: función callback que el padre proporciona para recibir el nuevo valor
+//  - error: mensaje de error a mostrar debajo del input (opcional)
+//  - id: id HTML para el <label htmlFor=...> (opcional)
+// ─────────────────────────────────────────────────────────────────────────────
 function PhoneInput({
   value,
   onChange,
   error,
   id,
 }: {
+  // Tipos de TypeScript para cada prop:
   value: string;
-  onChange: (full: string) => void;
-  error?: string;
+  onChange: (full: string) => void;  // función que recibe un string y no retorna nada
+  error?: string;  // "?" = opcional
   id?: string;
 }) {
+  // Estado interno: código de país seleccionado (default México +52)
   const [countryCode, setCountryCode] = useState('+52');
+  // Estado interno: los dígitos locales del número (sin código de país)
   const [local, setLocal] = useState('');
 
   // Sincroniza con el value externo. Antes era "only on mount" pero eso
@@ -73,28 +138,48 @@ function PhoneInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  // Se llama cada vez que el usuario escribe en el campo de número local.
+  // El tipo React.ChangeEvent<HTMLInputElement> describe el evento de cambio
+  // de un elemento <input>.
   function handleLocalChange(e: React.ChangeEvent<HTMLInputElement>) {
     // Solo digitos (sin espacios, guiones ni parentesis) y limite de 10.
     // Validacion estricta de 10 digitos exactos en el submit.
+    // .replace(/\D/g, '') elimina todo lo que no sea dígito.
+    // .slice(0, 10) limita a 10 caracteres máximo.
     const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
     setLocal(digits);
+    // Notificamos al padre con el número completo combinado.
+    // Template literal `${variable}`: forma moderna de concatenar strings en JS.
+    // .trim() elimina espacios al inicio/final por si "digits" está vacío.
     onChange(`${countryCode} ${digits}`.trim());
   }
 
+  // Se llama cuando el usuario selecciona un código de país diferente.
+  // React.ChangeEvent<HTMLSelectElement>: evento de cambio de un <select>.
   function handleCodeChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setCountryCode(e.target.value);
+    // Notificamos al padre con el nuevo código + el número local que ya había.
     onChange(`${e.target.value} ${local}`.trim());
   }
 
   return (
     <div>
+      {/* Contenedor del input compuesto: [selector] [número]
+          focus-within: aplica estilos cuando CUALQUIER hijo tiene focus.
+          El condicional en className agrega borde rojo si hay error. */}
       <div className={`flex rounded-lg border bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#008080] focus-within:border-[#008080] ${error ? 'border-red-400' : 'border-gray-300'}`}>
+        {/* Selector de código de país */}
         <select
           value={countryCode}
           onChange={handleCodeChange}
           className="border-r border-gray-200 bg-gray-50 text-sm text-gray-700 px-2 py-2.5 focus:outline-none cursor-pointer"
           style={{ minWidth: 72 }}
         >
+          {/* .map() itera sobre el array COUNTRY_CODES y retorna un elemento
+              <option> por cada país. "key={i}" es OBLIGATORIO cuando se renderizan
+              listas en React: ayuda a React a identificar qué elemento cambió.
+              En arrays donde el índice nunca cambia de orden, usar el índice (i)
+              como key es aceptable, aunque se prefiere un ID único. */}
           {COUNTRY_CODES.map((c, i) => (
             <option key={i} value={c.code}>
               {c.flag} {c.code}
@@ -117,8 +202,14 @@ function PhoneInput({
   );
 }
 
+// ─── TIPOS Y ESTRUCTURAS DEL FORMULARIO ──────────────────────────────────────
+// "type" define un alias. RegisterMode es un union type de 5 modos posibles.
+// Solo uno puede estar activo a la vez (no pueden combinarse).
 type RegisterMode = 'select' | 'professional' | 'business' | 'individual' | 'client';
 
+// FormState: define todos los campos posibles del formulario de registro.
+// Muchos campos solo aplican a ciertos modos (ej. businessName solo en 'individual').
+// Los usamos todos en un solo objeto para simplificar la gestión del estado.
 interface FormState {
   // Step 1 - Owner
   firstName: string;
@@ -127,11 +218,11 @@ interface FormState {
   password: string;
   confirmPassword: string;
   phone: string;
-  // Business invite
+  // Business invite (modo 'business' afiliado)
   inviteCode: string;
   // Step 2 - Business info (individual only)
   businessName: string;
-  businessTypes: string[];
+  businessTypes: string[];        // Array: puede seleccionar varios tipos de negocio
   businessPostalCode: string;
   businessCity: string;
   businessState: string;
@@ -140,10 +231,14 @@ interface FormState {
   businessStreetNumber: string;
   businessPhone: string;
   // Step 3 - Trial welcome (individual only)
-  acceptContract: boolean;
-  acceptPrivacy: boolean;
+  acceptContract: boolean;        // true si aceptó los términos y condiciones
+  acceptPrivacy: boolean;         // true si aceptó el aviso de privacidad
 }
 
+// FormErrors: objeto con errores de validación.
+// [key: string]: indexación de TypeScript → la clave puede ser cualquier string
+// (el nombre de un campo del formulario) y el valor es string o undefined.
+// undefined significa "sin error".
 interface FormErrors {
   [key: string]: string | undefined;
 }
@@ -1558,6 +1653,10 @@ function RegisterPageInner() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RegisterPage: el export default, envuelto en <Suspense> por la misma razón
+// que LoginPage: useSearchParams() requiere Suspense en Next.js App Router.
+// ─────────────────────────────────────────────────────────────────────────────
 export default function RegisterPage() {
   return (
     <Suspense fallback={null}>

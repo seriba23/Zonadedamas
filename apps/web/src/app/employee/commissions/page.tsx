@@ -1,20 +1,59 @@
+// ─── commissions/page.tsx — Comisiones del Empleado ─────────────────────
+//
+// Esta página está en /employee/commissions y muestra las comisiones ganadas
+// por el empleado en un período seleccionable.
+//
+// ¿QUÉ SON LAS COMISIONES?
+// Cuando un servicio tiene configurado un porcentaje de comisión, cada vez que
+// el empleado realiza ese servicio gana una parte del precio como comisión.
+// El porcentaje se guarda como "commissionSnapshot" en el ítem de la cita
+// (igual que el precio, se toma una copia al momento de crear la cita).
+//
+// PERÍODOS DISPONIBLES:
+//   - Este mes (por defecto)
+//   - Mes anterior
+//   - Personalizado (el usuario elige fechas)
+//
+// La página muestra:
+//   1. Selector de período.
+//   2. Tres tarjetas de resumen (total, servicios realizados, promedio).
+//   3. Tabla detallada (en escritorio) o lista (en móvil) de cada servicio.
+
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useAuth } from '@/lib/hooks/use-auth';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
-import { useCurrency } from '@/lib/hooks/use-currency';
-import dayjs from 'dayjs';
+// useState → para el período seleccionado y las fechas personalizadas.
+// useMemo  → para calcular las filas y los totales de forma eficiente.
 
+import { useAuth } from '@/lib/hooks/use-auth';
+// useAuth → para obtener el employeeId del usuario autenticado.
+
+import { useQuery } from '@tanstack/react-query';
+// useQuery → para pedir las citas completadas al backend.
+
+import { api } from '@/lib/api';
+// api → cliente HTTP con JWT.
+
+import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
+// rawFormatCurrency → formatea montos (fallback).
+
+import { useCurrency } from '@/lib/hooks/use-currency';
+// useCurrency → moneda preferida del usuario.
+
+import dayjs from 'dayjs';
+// dayjs → para calcular rangos de fechas (inicio/fin de mes, etc.)
+
+// AppointmentItem extendido con el campo de comisión.
+// commissionSnapshot → monto de comisión calculado al momento de crear la cita.
+// null si ese servicio no tiene comisión configurada.
 interface AppointmentItem {
   serviceNameSnapshot: string;
   priceSnapshot: string | number;
   durationSnapshot: number;
-  commissionSnapshot: string | number | null;
+  commissionSnapshot: string | number | null; // puede ser null si no hay comisión
 }
 
+// Appointment: cita completada con sus ítems (solo necesitamos los datos básicos).
 interface Appointment {
   id: string;
   startTime: string;
@@ -23,34 +62,53 @@ interface Appointment {
   items: AppointmentItem[];
 }
 
+// PeriodType: tipo de unión para los 3 tipos de período.
 type PeriodType = 'this_month' | 'last_month' | 'custom';
 
 export default function EmployeeCommissionsPage() {
   const { user } = useAuth();
   const currencyHook = useCurrency();
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
+
+  // period: período actualmente seleccionado. Empieza en 'this_month'.
   const [period, setPeriod] = useState<PeriodType>('this_month');
+
+  // customStart y customEnd: fechas del período personalizado.
+  // Solo se usan cuando period === 'custom'.
+  // Formato esperado: 'YYYY-MM-DD' (que es lo que devuelve <input type="date">).
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
+  // Calculamos startDate y endDate según el período seleccionado.
+  // useMemo: solo recalcula cuando cambian period, customStart o customEnd.
   const { startDate, endDate } = useMemo(() => {
     if (period === 'this_month') {
       return {
+        // .startOf('month') → primer día del mes actual (ej: 2026-06-01)
         startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
+        // .endOf('month') → último día del mes actual (ej: 2026-06-30)
         endDate: dayjs().endOf('month').format('YYYY-MM-DD'),
       };
     }
     if (period === 'last_month') {
       return {
+        // .subtract(1, 'month') → un mes atrás
         startDate: dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD'),
         endDate: dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD'),
       };
     }
+    // Para 'custom', usamos directamente los valores de los inputs de fecha.
     return { startDate: customStart, endDate: customEnd };
   }, [period, customStart, customEnd]);
 
+  // canFetch: condición para que useQuery ejecute la petición.
+  // Necesitamos employeeId y ambas fechas definidas.
+  // !! convierte valores a booleano ('' o undefined → false).
   const canFetch = !!user?.employeeId && !!startDate && !!endDate;
 
+  // Pedimos las citas COMPLETADAS del empleado en el período seleccionado.
+  // status=COMPLETED → solo citas cerradas (las comisiones no aplican a canceladas).
+  // perPage=100 → traemos hasta 100 citas (suficiente para mostrar en tabla).
   const { data: appointments, isLoading } = useQuery({
     queryKey: ['employee-commissions', user?.employeeId, startDate, endDate],
     queryFn: async () => {
@@ -59,11 +117,17 @@ export default function EmployeeCommissionsPage() {
       );
       return res.data;
     },
-    enabled: canFetch,
+    enabled: canFetch, // solo ejecuta si canFetch es true
   });
 
+  // rows: arreglo APLANADO de filas para la tabla.
+  // Una cita puede tener MÚLTIPLES servicios, cada uno con su comisión.
+  // Convertimos [{cita con 2 ítems}, {cita con 1 ítem}] → [fila1, fila2, fila3]
+  // useMemo: solo recalcula cuando cambian appointments.
   const rows = useMemo(() => {
-    if (!appointments) return [];
+    if (!appointments) return []; // si aún no cargaron, devolvemos vacío
+
+    // Definimos el tipo del arreglo de resultado (TypeScript inferencia explícita).
     const result: {
       appointmentId: string;
       date: string;
@@ -73,12 +137,16 @@ export default function EmployeeCommissionsPage() {
       commission: number;
     }[] = [];
 
+    // Doble bucle: por cada cita, por cada ítem (servicio) de la cita.
+    // for...of es más legible que forEach cuando hay lógica compleja dentro.
     for (const apt of appointments) {
       for (const item of apt.items) {
+        // Si no hay commissionSnapshot, la comisión es 0.
         const commission = item.commissionSnapshot ? Number(item.commissionSnapshot) : 0;
         result.push({
           appointmentId: apt.id,
           date: apt.startTime,
+          // Template literal para combinar nombre y apellido.
           clientName: `${apt.client.firstName} ${apt.client.lastName}`,
           serviceName: item.serviceNameSnapshot,
           price: Number(item.priceSnapshot),
@@ -86,11 +154,20 @@ export default function EmployeeCommissionsPage() {
         });
       }
     }
+
+    // Ordenamos por fecha DESCENDENTE (las más recientes primero).
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [appointments]);
 
+  // Calculamos los totales a partir del arreglo de filas ya calculado.
+  // .reduce() acumula la suma de todas las comisiones.
   const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
+
+  // rows.length → número total de servicios realizados en el período.
   const totalServices = rows.length;
+
+  // Promedio por servicio: evitamos división por cero con el ternario.
+  // Si no hay servicios, el promedio es 0.
   const avgPerService = totalServices > 0 ? totalCommission / totalServices : 0;
 
   if (!user?.employeeId) {

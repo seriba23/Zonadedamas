@@ -1,62 +1,132 @@
+// ─── appointments/page.tsx — Lista de Citas del Empleado ─────────────────
+//
+// Esta página está en /employee/appointments y muestra TODAS las citas del
+// empleado autenticado. Permite:
+//   - Ver citas próximas, de hoy, o pasadas (pestañas).
+//   - Buscar por nombre de cliente o servicio.
+//   - Filtrar por estado y por tipo de servicio.
+//   - Ver el detalle completo de una cita en un modal.
+//   - Cerrar una cita (cobro + fotos) con el wizard paso a paso.
+//   - Marcar al cliente como ausente (no-show).
+//   - Crear una nueva cita.
+//
+// FLUJO DE DATOS:
+// 1. Detectamos la pestaña activa (upcoming/today/past).
+// 2. Calculamos el rango de fechas para esa pestaña.
+// 3. Hacemos la petición al backend con ese rango.
+// 4. Aplicamos filtros locales (búsqueda, estado, servicio).
+// 5. Agrupamos por fecha y renderizamos.
+
 'use client';
+// 'use client' es obligatorio porque usamos hooks de React (useState, useMemo,
+// useEffect) y de React Query que solo funcionan en el navegador.
 
 import { useState, useMemo, useEffect } from 'react';
+// useState  → estado local del componente (pestaña activa, búsqueda, etc.)
+// useMemo   → memoriza el resultado de un cálculo para no repetirlo en cada render.
+//             Solo lo recalcula cuando cambian sus dependencias.
+// useEffect → ejecuta código cuando cambian ciertas variables (efectos secundarios).
+
 import { useSearchParams } from 'next/navigation';
+// useSearchParams → hook de Next.js para leer los parámetros de la URL.
+// Ejemplo: en /employee/appointments?appointmentId=xyz, podemos leer "xyz".
+
 import { useAuth } from '@/lib/hooks/use-auth';
+// useAuth → hook para acceder al usuario autenticado (y su employeeId).
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// useQuery     → hace peticiones GET y guarda en caché.
+// useMutation  → hace peticiones POST/PUT/DELETE (acciones que MODIFICAN datos).
+// useQueryClient → acceso al cliente de React Query para invalidar cachés
+//                  (cuando marcamos una cita como completada, invalidamos la
+//                   caché para que la lista se refresque automáticamente).
+
 import { api } from '@/lib/api';
+// api → cliente HTTP con JWT automático.
+
 import { formatCurrency as rawFormatCurrency, resolveImageUrl } from '@/lib/utils';
+// rawFormatCurrency → formatea montos (fallback sin moneda del usuario).
+// resolveImageUrl   → construye la URL completa de una imagen del servidor.
+
 import { useCurrency } from '@/lib/hooks/use-currency';
+// useCurrency → hook que devuelve la función format() con la moneda del usuario.
+
 import dayjs from 'dayjs';
+// dayjs → librería de fechas. Usamos dayjs.utc() para interpretar las fechas
+// del servidor como UTC y evitar desfases horarios.
+
 import { DatePicker } from '@/components/ui/date-picker';
+// DatePicker → componente de selector de fechas (importado pero no usado
+// directamente en el JSX visible, puede estar en el wizard).
+
 import { CloseAppointmentWizard } from './close-wizard';
+// CloseAppointmentWizard → wizard de 4-5 pasos para cerrar una cita
+// (consentimiento foto, subir fotos, cobro, QR de confirmación).
+
 import { AppointmentWizard } from '@/components/appointments/appointment-wizard';
+// AppointmentWizard → wizard para CREAR una nueva cita (reutilizado del calendario).
+
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
+// Funciones de formato de fecha para la tarjeta de cada cita:
+//   formatBookingTime  → "3:30 PM"
+//   formatBookingDay   → "17" (número del día)
+//   formatBookingMonthShort → "JUN"
+//   formatBookingWeekday   → "martes"
+
+// ─── INTERFACES DE TIPOS ──────────────────────────────────────────────────
+// Las interfaces describen la "forma" de los objetos que llegan del servidor.
 
 interface AppointmentItem {
-  serviceId: string;
-  serviceNameSnapshot: string;
-  priceSnapshot: string | number;
-  durationSnapshot: number;
+  serviceId: string;               // UUID del servicio
+  serviceNameSnapshot: string;     // nombre del servicio en el momento de la reserva
+  priceSnapshot: string | number;  // precio (puede venir como string desde la BD)
+  durationSnapshot: number;        // duración en minutos
 }
 
+// ProductReservation: un producto físico reservado junto con la cita
+// (ej: shampoo, tinte). Puede haber varios por cita.
 interface ProductReservation {
   id: string;
-  quantity: number;
-  unitPrice: string | number;
+  quantity: number;                              // cuántas unidades
+  unitPrice: string | number;                    // precio por unidad
   product: { id: string; name: string; imageUrl: string | null };
 }
 
+// AppointmentRedemption: cupón/recompensa canjeado en esta cita.
 interface AppointmentRedemption {
   id: string;
   code: string;
   reward: { name: string; type: string; discountAmount?: string | number; discountMode?: string };
 }
 
+// Appointment: objeto completo de una cita con todos sus sub-objetos.
 interface Appointment {
   id: string;
-  startTime: string;
+  startTime: string;              // ISO 8601: "2026-03-15T10:00:00Z"
   endTime: string;
-  status: string;
-  notes: string | null;
-  photoConsent: boolean | null;
-  discountAmount: string | number | null;
+  status: string;                 // "PENDING", "CONFIRMED", "COMPLETED", etc.
+  notes: string | null;           // notas opcionales
+  photoConsent: boolean | null;   // ¿el cliente aceptó que se tomen fotos?
+  discountAmount: string | number | null; // monto de descuento (cupón)
   /** Cita "deferred" enviada a la recepcion para cobrar via POS. */
-  pendingPosPayment?: boolean;
+  pendingPosPayment?: boolean;    // true si el empleado delegó el cobro a recepción
   client: {
     id: string;
     firstName: string;
     lastName: string;
     email?: string;
     phone?: string;
-    allergies?: string | null;
+    allergies?: string | null;    // alergias del cliente (IMPORTANTE para el servicio)
     user?: { avatarUrl?: string | null; allergies?: string | null } | null;
+    // user → si el cliente tiene cuenta en el portal, aquí están sus datos adicionales
   };
-  items: AppointmentItem[];
-  productReservations?: ProductReservation[];
-  redemption?: AppointmentRedemption | null;
+  items: AppointmentItem[];              // servicios de la cita (puede ser varios)
+  productReservations?: ProductReservation[]; // productos (opcional)
+  redemption?: AppointmentRedemption | null;  // cupón canjeado (opcional)
 }
 
+// SectionTab: tipo de unión de literales para las 3 pestañas de la página.
+// Solo puede ser exactamente uno de estos tres valores.
 type SectionTab = 'upcoming' | 'past' | 'today';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -90,16 +160,27 @@ const STATUS_LABEL: Record<string, string> = {
   NO_SHOW: 'Ausente',
 };
 
+// getDateRangeForSection: función utilitaria que, dado el nombre de la pestaña
+// activa, devuelve el rango de fechas a usar para filtrar las citas.
+// Así evitamos pedir TODAS las citas del historial completo (sería muy lento).
+//
+// PARÁMETRO: section → cuál pestaña está activa.
+// RETORNA: objeto con startDate y endDate en formato 'YYYY-MM-DD'.
 function getDateRangeForSection(section: SectionTab): { startDate: string; endDate: string } {
-  const today = dayjs();
+  const today = dayjs(); // momento actual
+
+  // switch: evalúa 'section' y ejecuta el caso que coincide.
   switch (section) {
     case 'today':
+      // Solo hoy: startDate = endDate = hoy.
       return { startDate: today.format('YYYY-MM-DD'), endDate: today.format('YYYY-MM-DD') };
     case 'upcoming':
       // Próximas 6 semanas. Suficiente para ver agenda futura sin overhead.
+      // .add(42, 'day') → suma 42 días al día actual (6 semanas).
       return { startDate: today.format('YYYY-MM-DD'), endDate: today.add(42, 'day').format('YYYY-MM-DD') };
     case 'past':
       // Últimos 90 días. Historial reciente para reseñas/cobros pendientes.
+      // .subtract(90, 'day') → resta 90 días al día actual.
       return { startDate: today.subtract(90, 'day').format('YYYY-MM-DD'), endDate: today.format('YYYY-MM-DD') };
   }
 }
@@ -108,15 +189,40 @@ export default function EmployeeAppointmentsPage() {
   const { user } = useAuth();
   const currencyHook = useCurrency();
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
+
+  // queryClient: referencia al cliente de React Query. Lo usamos para
+  // invalidar cachés manualmente después de mutaciones (ej: tras completar
+  // una cita, invalidamos la lista para que se refresque).
   const queryClient = useQueryClient();
+
+  // section: pestaña activa. Empieza en 'upcoming' (citas próximas).
+  // <SectionTab> es la anotación de tipo TypeScript: solo puede ser
+  // 'upcoming', 'past' o 'today'.
   const [section, setSection] = useState<SectionTab>('upcoming');
+
+  // search: texto que el usuario escribe en el buscador.
   const [search, setSearch] = useState('');
+
+  // statusFilter: estado seleccionado en el dropdown. '' = todos los estados.
   const [statusFilter, setStatusFilter] = useState<string>(''); // '' = todos
+
+  // serviceFilter: nombre del servicio seleccionado. '' = todos los servicios.
   const [serviceFilter, setServiceFilter] = useState<string>('');
+
+  // showNewWizard: controla si el wizard de "Nueva cita" está abierto.
   const [showNewWizard, setShowNewWizard] = useState(false);
+
+  // selectedApt: la cita seleccionada para ver su detalle en el modal.
+  // null = ninguna cita seleccionada (modal cerrado).
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+
+  // wizardApt: la cita que se está cerrando con el CloseAppointmentWizard.
+  // null = wizard de cierre cerrado.
   const [wizardApt, setWizardApt] = useState<Appointment | null>(null);
 
+  // Calculamos el rango de fechas según la pestaña activa.
+  // La desestructuración { startDate, endDate } extrae ambas propiedades
+  // del objeto devuelto por getDateRangeForSection().
   const { startDate, endDate } = getDateRangeForSection(section);
 
   const { data: appointments, isLoading } = useQuery({
@@ -163,6 +269,13 @@ export default function EmployeeAppointmentsPage() {
     }
   }, [targetAptId, appointments, deepLinkApt]);
 
+  // completeMutation: marca una cita como COMPLETADA.
+  // useMutation se usa para peticiones que MODIFICAN datos (POST, PUT, DELETE).
+  // mutationFn: la función que hace la petición real. Recibe el id de la cita.
+  // onSuccess: se ejecuta si la petición fue exitosa.
+  //   - invalidateQueries → marca la caché como "obsoleta" para que React Query
+  //     vuelva a pedir los datos actualizados al servidor automáticamente.
+  //   - setSelectedApt(null) → cierra el modal de detalle.
   const completeMutation = useMutation({
     mutationFn: (id: string) =>
       api.post(`/api/appointments/${id}/complete`, {}),
@@ -172,6 +285,10 @@ export default function EmployeeAppointmentsPage() {
     },
   });
 
+  // handleWizardDone: callback que se pasa al CloseAppointmentWizard.
+  // Se ejecuta cuando el empleado termina todos los pasos del wizard.
+  // opts?.awaitingReception → true si la cita fue enviada a recepción en vez
+  // de completarse directamente (para que el cajero la cobre).
   const handleWizardDone = (opts?: { awaitingReception?: boolean }) => {
     queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
     queryClient.invalidateQueries({ queryKey: ['employee-appointment-detail'] });
@@ -183,9 +300,11 @@ export default function EmployeeAppointmentsPage() {
     setSelectedApt(null);
     // opts.awaitingReception es informacion: si se necesita mostrar un
     // toast o similar a futuro, viene por aca.
-    void opts;
+    void opts; // void suprime la advertencia de TypeScript de "variable no usada"
   };
 
+  // noShowMutation: marca al cliente como ausente (no se presentó a la cita).
+  // Similar a completeMutation pero llama al endpoint /no-show.
   const noShowMutation = useMutation({
     mutationFn: (id: string) =>
       api.post(`/api/appointments/${id}/no-show`, {}),
@@ -195,28 +314,45 @@ export default function EmployeeAppointmentsPage() {
     },
   });
 
+  // ─── FILTRADO Y ORDENAMIENTO ─────────────────────────────────────────────
+  // useMemo: memoriza el resultado del cálculo. Solo se recalcula cuando
+  // cambian las dependencias del arreglo al final: [appointments, section, ...].
+  // Esto evita re-ejecutar el filtrado en cada render innecesario.
+  //
   // Lista filtrada: por sección (próximas/pasadas), search, status y servicio.
   const sorted = useMemo(() => {
-    const list = appointments || [];
-    const now = dayjs();
+    const list = appointments || []; // si appointments es undefined, usamos []
+    const now = dayjs();             // momento actual para comparar fechas
+    // .trim() quita espacios. .toLowerCase() hace la búsqueda insensible a mayúsculas.
     const q = search.trim().toLowerCase();
+
     return list
       .filter((apt) => {
-        // Sección: upcoming = futuras + en curso/confirmadas. past = pasadas o
-        // canceladas/completadas/no-show.
+        // ── Filtro de sección ──
+        // upcoming: solo citas activas (no canceladas/completadas/ausentes).
+        // Incluye las que están en el futuro O las que están en curso.
         if (section === 'upcoming') {
+          // dayjs.utc().isAfter(now) → la cita empieza después del momento actual
           const isFuture = dayjs.utc(apt.startTime).isAfter(now);
+          // .includes() verifica si el estado está en el arreglo
           const isOpen = ['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS'].includes(apt.status);
+          // Si no es futura Y no está abierta, no la mostramos en "Próximas"
           if (!isFuture && !isOpen) return false;
+          // Tampoco mostramos canceladas/completadas/ausentes en "Próximas"
           if (['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(apt.status)) return false;
         }
+        // past: solo citas pasadas o cerradas (completadas, canceladas, ausentes).
         if (section === 'past') {
           const isPast = dayjs.utc(apt.startTime).isBefore(now);
           const isClosed = ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(apt.status);
+          // Si no es pasada Y no está cerrada, no la mostramos en "Pasadas"
           if (!isPast && !isClosed) return false;
         }
-        // Búsqueda libre
+        // ── Filtro de búsqueda libre ──
         if (q) {
+          // Recopilamos todos los campos buscables en un arreglo.
+          // ...apt.items.map(...) → spread operator: "aplana" el arreglo de
+          // nombres de servicios dentro de 'fields'.
           const fields = [
             apt.client.firstName,
             apt.client.lastName,
@@ -224,34 +360,63 @@ export default function EmployeeAppointmentsPage() {
             apt.client.phone,
             ...apt.items.map((i) => i.serviceNameSnapshot),
           ];
+          // .some() devuelve true si AL MENOS UN elemento cumple la condición.
+          // (f || '') → si f es null/undefined, usamos '' para evitar errores.
+          // .includes(q) → verifica si el texto contiene lo que se busca.
           if (!fields.some((f) => (f || '').toLowerCase().includes(q))) return false;
         }
-        // Status
+        // ── Filtro por estado ──
+        // Solo filtra si statusFilter no está vacío. Si coincide el estado, pasa.
         if (statusFilter && apt.status !== statusFilter) return false;
-        // Servicio
+        // ── Filtro por servicio ──
+        // Solo filtra si serviceFilter no está vacío.
+        // apt.items.some(...) → true si algún servicio de la cita coincide.
         if (serviceFilter && !apt.items.some((i) => i.serviceNameSnapshot === serviceFilter)) return false;
+        // Si pasa todos los filtros, lo incluimos
         return true;
       })
+      // Ordenamos la lista ya filtrada.
+      // sort() recibe una función comparadora que devuelve:
+      //   negativo → 'a' va antes que 'b'
+      //   positivo → 'b' va antes que 'a'
+      //   0 → igual orden
       .sort((a, b) => {
-        const at = new Date(a.startTime).getTime();
-        const bt = new Date(b.startTime).getTime();
-        // upcoming asc (la más próxima arriba). past/today desc (la más reciente arriba).
+        const at = new Date(a.startTime).getTime(); // milisegundos del timestamp de 'a'
+        const bt = new Date(b.startTime).getTime(); // milisegundos del timestamp de 'b'
+        // upcoming: ascendente (la más próxima arriba = menor timestamp primero).
+        // past/today: descendente (la más reciente arriba = mayor timestamp primero).
         return section === 'upcoming' ? at - bt : bt - at;
       });
   }, [appointments, section, search, statusFilter, serviceFilter]);
+  // Las dependencias del useMemo: cada vez que cualquiera de estas variables
+  // cambie, React recalcula 'sorted'.
 
-  // Opciones de servicio para el dropdown (derivadas del set actual).
+  // serviceOptions: lista de nombres de servicios únicos para el dropdown.
+  // useMemo para no recalcular en cada render.
+  // new Set<string>() → estructura de datos que solo guarda valores únicos
+  // (automáticamente elimina duplicados).
   const serviceOptions = useMemo(() => {
     const names = new Set<string>();
+    // Por cada cita, por cada ítem, añadimos el nombre al Set.
     (appointments || []).forEach((a) => a.items.forEach((i) => names.add(i.serviceNameSnapshot)));
+    // Array.from() convierte el Set en un arreglo.
+    // .sort() lo ordena alfabéticamente.
     return Array.from(names).sort();
   }, [appointments]);
 
-  // Group by date para el render de upcoming/past (siempre por fecha).
+  // grouped: Map que agrupa las citas por fecha.
+  // Map es una estructura clave→valor donde la clave es la fecha 'YYYY-MM-DD'
+  // y el valor es el arreglo de citas de ese día.
+  // Por ejemplo: { '2026-06-17': [cita1, cita2], '2026-06-18': [cita3] }
   const grouped = new Map<string, Appointment[]>();
   sorted.forEach((apt) => {
     const dateKey = dayjs.utc(apt.startTime).format('YYYY-MM-DD');
+    // Si la fecha no existe en el Map, creamos un arreglo vacío para ella.
     if (!grouped.has(dateKey)) grouped.set(dateKey, []);
+    // Añadimos la cita al arreglo de esa fecha.
+    // El ! al final de grouped.get(dateKey)! es el "non-null assertion":
+    // le decimos a TypeScript que confiamos en que el valor no es undefined
+    // (porque lo acabamos de crear si no existía).
     grouped.get(dateKey)!.push(apt);
   });
 

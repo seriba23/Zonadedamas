@@ -1,17 +1,49 @@
+// ============================================================
+// PÁGINA: Detalle de una compra (apartado de producto) del marketplace
+// RUTA:   /marketplace/purchases/[id]
+//
+// ¿Qué muestra?
+//   - Producto comprado: foto, nombre, categoría, precio unitario y cantidad.
+//   - Estado del apartado (badge coloreado): Apartado → Confirmado → Listo → Entregado.
+//   - Forma de entrega (recoger / envío a domicilio) y dirección si aplica.
+//   - Método de pago preferido.
+//   - Comprobante de pago (PurchaseProofRow): el cliente puede subir la foto
+//     de su transferencia SPEI para que el negocio la verifique.
+//   - Botón de WhatsApp para contactar al negocio directamente.
+//   - Datos del negocio: nombre y logo.
+// ============================================================
 'use client';
 
+// useEffect: para redirigir si la compra no existe.
+// useState: para el estado de subida del comprobante.
 import { useEffect, useState } from 'react';
+
+// useParams: lee el [id] de la URL.
+// useRouter: para navegar (volver o redirigir).
 import { useParams, useRouter } from 'next/navigation';
+
+// React Query: cargar las compras y enviar el comprobante.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// Cliente HTTP del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Estado de autenticación.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+
+// Formateadores de fecha y moneda.
 import { formatBookingDate } from '@/lib/booking-time';
 import { formatCurrency } from '@/lib/utils';
+
+// Botón de WhatsApp con mensaje pre-armado para la compra.
 import { WhatsAppButton } from '@/components/ui/whatsapp-button';
 import { buildPurchaseMessage } from '@/lib/whatsapp';
 
+// URL base del backend.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Diccionario de estados de la compra: texto, color de fondo y texto.
+// Se usa para el badge de estado en la cabecera.
 const STATUS_LABEL: Record<string, { text: string; bg: string; color: string }> = {
   PENDING:   { text: 'Apartado',   bg: '#fef3c7', color: '#d97706' },
   CONFIRMED: { text: 'Confirmado', bg: '#ccfbf1', color: '#0d9488' },
@@ -31,11 +63,16 @@ const PAYMENT_LABELS: Record<string, string> = {
   CARD: 'Tarjeta',
 };
 
+// ── Componente principal ───────────────────────────────────
 export default function PurchaseDetailPage() {
+  // `id`: el segmento dinámico [id] de la URL.
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
 
+  // Cargamos TODAS las compras y filtramos por `id` localmente.
+  // `staleTime: 30_000`: los datos se consideran "frescos" por 30 segundos.
+  // `refetchOnWindowFocus: false`: no recarga al volver a la ventana.
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-purchases'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-purchases'),
@@ -46,8 +83,12 @@ export default function PurchaseDetailPage() {
   });
 
   const purchases: any[] = (data as any)?.data || [];
+  // `.find()`: busca la compra con el ID de la URL.
   const purchase = purchases.find((p) => p.id === id);
 
+  // Si la compra no existe en los datos cargados (ID inválido o borrado),
+  // redirigimos a la lista de citas/compras.
+  // La condición `purchases.length > 0` evita redirigir antes de que carguen los datos.
   useEffect(() => {
     if (!isLoading && !authLoading && !purchase && purchases.length > 0) {
       router.replace('/marketplace/appointments');

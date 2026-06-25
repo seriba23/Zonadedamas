@@ -1,22 +1,49 @@
+// ============================================================
+// PÁGINA: Mis citas y compras del marketplace
+// RUTA:   /marketplace/appointments
+//
+// ¿Qué muestra?
+//   - Dos pestañas: "Mis citas" y "Mis compras".
+//   - Mis citas: lista de citas del cliente agrupadas en "Próximas" e "Historial".
+//     Incluye buscador, filtros por estado/servicio/empleado y ordenamiento.
+//   - Mis compras: lista de apartados de productos (reservas de tienda).
+//   - Si una cita está COMPLETADA y no tiene reseña, el modal DualReviewModal
+//     aparece automáticamente al cargar la página.
+//   - Botón "Calificar" en tarjetas para abrir el modal de reseña manualmente.
+// ============================================================
 'use client';
 
+// useState: variables reactivas. useEffect: efectos secundarios.
 import { useState, useEffect } from 'react';
+// useRouter: para navegar al detalle de cita al hacer click.
 import { useRouter } from 'next/navigation';
+// React Query para cargar citas y compras, y para la mutation de cancelar.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// Cliente HTTP del marketplace (con JWT).
 import { marketplaceApi } from '@/lib/marketplace-api';
+// Estado de autenticación del cliente marketplace.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+// Utilidades de formato de moneda y fechas.
 import { formatCurrency } from '@/lib/utils';
 import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMonthShort, formatBookingWeekday, isBookingUpcoming } from '@/lib/booking-time';
+// Link: navegación SPA sin recarga completa.
 import Link from 'next/link';
+// Modal que permite calificar al empleado Y al negocio en un solo flujo.
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
 
+// URL base del backend.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
 
-// Persistimos en localStorage las citas cuya reseña el cliente ya omitió, para
-// que el modal NO vuelva a saltar al cambiar de sección y regresar (antes solo
-// vivía en memoria y se perdía al desmontar la página).
+// ── Persistencia de reseñas descartadas ───────────────────
+// Guardamos en localStorage los IDs de citas cuyo modal de reseña el cliente
+// ya cerró sin calificar. Así el modal no vuelve a aparecer al regresar a la página.
+// Sin localStorage, el estado vive solo en memoria y se pierde al desmontar el componente.
 const REVIEW_DISMISS_KEY = 'siliba-review-dismissed';
+
+// Devuelve el array de IDs descartados del localStorage.
+// `typeof window === 'undefined'`: en Next.js el código también corre en el servidor
+// (SSR), donde `window` no existe. Este check evita errores en el servidor.
 function getDismissedReviews(): string[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -37,6 +64,8 @@ function addDismissedReview(id: string) {
   }
 }
 
+// Diccionarios de traducción de estados: clave interna (inglés) → etiqueta en español.
+// `Record<string, string>`: tipo TypeScript para objeto con claves y valores string.
 const RESERVATION_STATUS_LABEL: Record<string, string> = {
   PENDING: 'Apartado',
   CONFIRMED: 'Confirmado',
@@ -82,29 +111,49 @@ function formatTime(dateStr: string) {
   return formatBookingTime(dateStr);
 }
 
+// ── Componente principal ───────────────────────────────────
 export default function MarketplaceAppointmentsPage() {
   const router = useRouter();
+
+  // isAuthenticated: si el cliente tiene sesión activa.
+  // isLoading (renombrado a authLoading): true mientras se verifica el token.
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+
+  // Pestaña activa: 'citas' o 'compras'. El tipo unión `'citas' | 'compras'`
+  // limita los valores posibles (TypeScript detecta errores de tipeo).
   const [tab, setTab] = useState<'citas' | 'compras'>('citas');
+
+  // Texto del buscador (filtra por nombre del servicio o negocio).
   const [search, setSearch] = useState('');
-  // Filtro de estado: '' = todos. Distintos sets por tab.
+
+  // Filtro de estado: '' = todos. Ej: 'CONFIRMED', 'COMPLETED', 'CANCELLED'.
   const [statusFilter, setStatusFilter] = useState<string>('');
-  // Filtros nuevos para citas: '' = todos.
+
+  // Filtros adicionales para citas: '' = todos.
   const [serviceFilter, setServiceFilter] = useState<string>('');
   const [employeeFilter, setEmployeeFilter] = useState<string>('');
-  // Orden: 'default' usa el orden por seccion (proximas asc, historial desc).
+
+  // Tipo unión para las opciones de ordenamiento. Se declara dentro del componente
+  // para que TypeScript la conozca en todo el scope de la función.
   type SortKey = 'default' | 'recent' | 'oldest' | 'employee' | 'price';
   const [sortBy, setSortBy] = useState<SortKey>('default');
+
+  // Controla si el bottom-sheet de filtros está visible.
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
-  // Cache 30s + sin refetch en focus/mount evita ráfagas de requests
-  // cuando el usuario alterna entre las pestañas.
+  // Opciones compartidas para los useQuery: caché de 30 segundos y sin refetch
+  // automático al enfocar la ventana o al montar el componente. Evita múltiples
+  // peticiones cuando el usuario alterna entre pestañas.
+  // `as const`: dice a TypeScript que estos valores son literales exactos (no genéricos).
   const sharedQueryOpts = {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   } as const;
 
+  // Carga las citas del cliente. Solo cuando está autenticado y en la pestaña 'citas'.
+  // `enabled: isAuthenticated && tab === 'citas'`: React Query no pide datos hasta
+  // que ambas condiciones sean verdaderas (evita peticiones sin token o innecesarias).
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments?filter=all&perPage=100'),
@@ -112,6 +161,9 @@ export default function MarketplaceAppointmentsPage() {
     ...sharedQueryOpts,
   });
 
+  // Carga las compras (apartados de productos) del cliente. Solo en la pestaña 'compras'.
+  // `{ data: purchasesData }`: desestructuración con renombre para evitar colisión
+  // con la variable `data` de la query de citas.
   const { data: purchasesData, isLoading: purchasesLoading } = useQuery({
     queryKey: ['marketplace-my-purchases'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-purchases'),
@@ -119,6 +171,8 @@ export default function MarketplaceAppointmentsPage() {
     ...sharedQueryOpts,
   });
 
+  // Extraemos el array de citas y compras del envelope de la respuesta.
+  // `|| []`: si no hay datos todavía, usamos array vacío para evitar errores.
   const appointments: any[] = (data as any)?.data || [];
   const purchases: any[] = (purchasesData as any)?.data || [];
 
@@ -161,8 +215,9 @@ export default function MarketplaceAppointmentsPage() {
     onError: (err: any) => alert(err?.message || 'No se pudo enviar la reseña'),
   });
 
-  // Buscador: matchea contra negocio, empleado y nombre de servicio (citas)
-  // o contra negocio + nombre del producto (compras). Case-insensitive.
+  // ── Funciones de filtrado ──────────────────────────────────
+  // q: texto de búsqueda normalizado (sin espacios extremos, en minúsculas).
+  // `.toLowerCase()` permite que "Corte" encuentre "corte" y "CORTE".
   const q = search.trim().toLowerCase();
   const matchesAppointment = (a: any) => {
     if (!q) return true;
@@ -198,8 +253,11 @@ export default function MarketplaceAppointmentsPage() {
     return a.employee?.id === employeeFilter;
   };
 
-  // Opciones disponibles (derivadas de las citas cargadas) para los
-  // dropdowns/chips de servicio y empleado en el sheet de filtros.
+  // Opciones para los filtros: extraídas dinámicamente de las citas cargadas.
+  // `.flatMap()`: como `.map()` pero aplana un nivel. Cada cita tiene varios
+  // items, y queremos un array plano con todos los nombres de servicio.
+  // `new Set(...)`: elimina duplicados (ej: "Corte de cabello" aparece muchas veces).
+  // `Array.from(...).sort()`: convierte el Set a array y lo ordena alfabéticamente.
   const serviceOptions = Array.from(
     new Set(appointments.flatMap((a) => (a.items || []).map((i: any) => i.serviceNameSnapshot)).filter(Boolean)),
   ).sort();
@@ -243,12 +301,12 @@ export default function MarketplaceAppointmentsPage() {
     return p.status === statusFilter;
   };
 
-  // Próximas: ascendente (la más cercana al ahora arriba).
-  // Perdidas: citas PENDING/CONFIRMED cuyo startTime ya paso (no se
-  //   completaron, no se cancelaron, no se marcaron NO_SHOW). Antes
-  //   aparecian en "Proximas" lo cual era confuso visualmente.
-  // Historial: descendente (la más reciente arriba).
-  // Comparamos strings raw (substring 0..19) para no convertir TZ.
+  // ── Agrupación de citas ────────────────────────────────────
+  // Las citas se dividen en tres secciones según su estado y fecha:
+  // - "Próximas": estado PENDING/CONFIRMED/IN_PROGRESS y fecha futura.
+  // - "Perdidas": estado PENDING/CONFIRMED pero la fecha ya pasó.
+  // - "Historial": estado COMPLETED/CANCELLED/NO_SHOW.
+  // Aplicamos todos los filtros activos (buscador, estado, servicio, empleado).
   const filteredAppointments = appointments.filter((a) =>
     matchesAppointment(a) &&
     matchesAppointmentStatus(a) &&
@@ -298,8 +356,10 @@ export default function MarketplaceAppointmentsPage() {
   ];
   const statusOptions = tab === 'citas' ? APPOINTMENT_STATUSES : PURCHASE_STATUSES;
 
+  // Mientras se verifica el token, no renderizamos nada (evita flash de UI incorrecta).
   if (authLoading) return null;
 
+  // Si el usuario no está autenticado, mostramos pantalla de login.
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col">

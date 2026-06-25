@@ -1,9 +1,26 @@
+// ============================================================
+// PÁGINA: Aviso de Privacidad (LFPDPPP)
+// RUTA:   /marketplace/legal/privacy
+//
+// ¿Qué muestra?
+//   - Documento estático: Aviso de Privacidad Integral de Siliba.
+//   - 9 secciones: Identidad del Responsable, Datos Recabados, Finalidades,
+//     Transferencias, Derechos ARCO, Cookies, Menores, Cambios, Contacto.
+//   - Botón "Volver" (router.back()) para regresar a la página anterior.
+//
+// Esta página NO usa queries ni mutaciones — es contenido estático.
+// Se usa `'use client'` porque necesita `useRouter` para el botón "Volver".
+// Si no necesitara navegación dinámica, podría ser un Server Component (sin 'use client').
+// ============================================================
 'use client';
 
+// useRouter: ÚNICAMENTE para el botón "Volver" (router.back()).
+// Es el único hook dinámico de esta página estática.
 import { useRouter } from 'next/navigation';
 
 const TEAL = '#008080';
 
+// ── Componente principal ───────────────────────────────────
 export default function PrivacyPolicyPage() {
   const router = useRouter();
 

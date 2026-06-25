@@ -1,40 +1,69 @@
+// ============================================================
+// PÁGINA: Galería personal del cliente marketplace
+// RUTA:   /marketplace/gallery
+//
+// ¿Qué muestra?
+//   - Fotos del resultado de las citas del cliente, subidas por el staff.
+//   - Organizadas por categoría de servicio (ej: "Corte de cabello", "Color").
+//   - Al tocar una foto se abre un lightbox (visor pantalla completa).
+//   - Si no está autenticado, muestra pantalla de login.
+// ============================================================
 'use client';
 
+// useState: para el lightbox (foto ampliada) y la imagen activa.
 import { useState } from 'react';
+// useRouter: para navegar (ej: botón "Volver").
 import { useRouter } from 'next/navigation';
+// useQuery: para cargar la galería del cliente del backend.
 import { useQuery } from '@tanstack/react-query';
+// Cliente HTTP del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+// Estado de autenticación.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+// Link: navegación SPA.
 import Link from 'next/link';
 
+// URL base del backend.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// GalleryPhoto: una foto de resultado subida por el staff.
+// `serviceName`: nombre del servicio al que pertenece (para agrupar).
+// `tenantSlug`: para hacer Link al perfil del negocio.
 interface GalleryPhoto {
   id: string;
   imageUrl: string;
-  serviceName: string;
+  serviceName: string;  // Categoría de agrupación
   date: string;
   tenantName: string;
   tenantSlug: string;
 }
 
+// GalleryCategory: un grupo de fotos del mismo tipo de servicio.
 interface GalleryCategory {
-  name: string;
-  photos: GalleryPhoto[];
+  name: string;           // Nombre del servicio/categoría
+  photos: GalleryPhoto[]; // Array de fotos de esa categoría
 }
 
+// ── Componente principal ───────────────────────────────────
 export default function MarketplaceGalleryPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+
+  // `lightbox`: foto seleccionada para mostrar en pantalla completa. null = cerrado.
   const [lightbox, setLightbox] = useState<GalleryPhoto | null>(null);
 
+  // Carga la galería personal del cliente (agrupada por categoría de servicio).
+  // `enabled: isAuthenticated` → no pide datos si no hay sesión activa.
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-gallery'],
     queryFn: () => marketplaceApi.get<{ data: GalleryCategory[] }>('/my-gallery'),
     enabled: isAuthenticated,
   });
 
+  // Extraemos el array de categorías del envelope del backend.
   const categories: GalleryCategory[] = (data as any)?.data || [];
+
+  // Total de fotos: suma la longitud de cada array `photos` con `.reduce()`.
   const totalPhotos = categories.reduce((sum, c) => sum + c.photos.length, 0);
 
   if (authLoading) return null;

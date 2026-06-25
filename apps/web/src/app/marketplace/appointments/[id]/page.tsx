@@ -1,18 +1,59 @@
+// ============================================================
+// PÁGINA: Detalle de una cita del marketplace
+// RUTA:   /marketplace/appointments/[id]
+//
+// ¿Qué muestra?
+//   - Cabecera con nombre del negocio, logo, estado y badge de estado coloreado.
+//   - Fecha y hora de la cita (formateada con helpers de booking-time).
+//   - Lista de servicios con precio y duración.
+//   - Foto del profesional y nombre del empleado.
+//   - Sección de comprobante de pago (AppointmentProofRow): el cliente puede
+//     subir una foto del pago para facilitar la coordinación con el negocio.
+//   - Cupón aplicado a la cita.
+//   - Fotos del resultado (subidas por el staff al completar).
+//   - Botón de WhatsApp para contactar al negocio.
+//   - Modal DualReviewModal: se abre automáticamente si la cita está COMPLETED
+//     y el cliente no ha dejado reseña.
+//   - Botón "Cancelar cita" (solo para citas futuras PENDING/CONFIRMED).
+// ============================================================
 'use client';
 
+// useEffect: para auto-abrir el modal de reseña y redirigir si no existe la cita.
+// useState: para controlar el modal de reseña y el estado de envío.
 import { useEffect, useState } from 'react';
+
+// useParams: lee el [id] de la URL (ID de la cita).
+// useRouter: para navegar (volver, redirigir si la cita no existe).
 import { useParams, useRouter } from 'next/navigation';
+
+// React Query: cargar citas, enviar reseña, cancelar cita.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// Cliente HTTP del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Estado de autenticación del cliente marketplace.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+
+// Helpers de formato de fecha y hora para citas (respetan zona horaria del negocio).
 import { formatBookingTime, formatBookingDate } from '@/lib/booking-time';
+
+// Formateo de moneda.
 import { formatCurrency } from '@/lib/utils';
+
+// Botón de WhatsApp con mensaje pre-armado.
 import { WhatsAppButton } from '@/components/ui/whatsapp-button';
+
+// Función que construye el mensaje de WhatsApp con los detalles de la cita.
 import { buildAppointmentMessage } from '@/lib/whatsapp';
+
+// Modal de reseña dual (empleado + negocio en un solo formulario).
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
 
+// URL base del backend (variable de entorno del build).
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Diccionarios de traducción de estado → etiqueta y estilos visuales.
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendiente',
   CONFIRMED: 'Confirmada',
@@ -40,14 +81,24 @@ function formatDateTime(dateStr: string) {
   };
 }
 
+// ── Componente principal ───────────────────────────────────
 export default function AppointmentDetailPage() {
+  // `id`: el segmento dinámico [id] de la URL, leído con useParams.
+  // `<{ id: string }>`: tipo genérico que indica la forma del objeto de parámetros.
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+
+  // Controla si el modal de reseña está abierto.
   const [showReview, setShowReview] = useState(false);
+
+  // true = el usuario ya envió la reseña en esta sesión (evita re-abrir el modal).
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
+  // Carga TODAS las citas del cliente. Usamos la misma key que la lista para
+  // compartir el caché (no hay petición de red duplicada si la lista ya cargó).
+  // Luego filtramos por `id` para encontrar esta cita específica.
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments'],
     queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-appointments?filter=all&perPage=100'),
@@ -55,6 +106,7 @@ export default function AppointmentDetailPage() {
   });
 
   const appointments: any[] = (data as any)?.data || [];
+  // `.find()`: devuelve el primer elemento que cumple la condición, o undefined.
   const appt = appointments.find((a) => a.id === id);
 
   useEffect(() => {

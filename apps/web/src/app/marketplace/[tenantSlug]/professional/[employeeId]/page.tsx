@@ -1,11 +1,55 @@
+// ============================================================
+// PÁGINA: Perfil público de un profesional
+// RUTA:   /marketplace/[tenantSlug]/professional/[employeeId]
+//
+// ¿Qué muestra?
+//   - Hero con foto de portada o avatar del profesional (fondo fijo).
+//   - Nombre, negocio al que pertenece, bio y estadísticas (citas, especialidad).
+//   - Listado de servicios que ofrece el profesional (con precio y duración).
+//   - Dos secciones deslizables ("swiper"): Trabajos (portafolio) y Comentarios.
+//   - Botón flotante "Agendar cita" que redirige al booking del negocio.
+//
+// App Router de Next.js 14:
+//   - El nombre de la carpeta [employeeId] crea un SEGMENTO DINÁMICO.
+//   - El archivo page.tsx es el componente que se renderiza para esa ruta.
+//   - 'use client' al inicio indica que este componente corre en el NAVEGADOR,
+//     no en el servidor. Necesitamos esto porque usamos hooks (useState, etc.).
+//
+// Props / params:
+//   - `tenantSlug`  → slug del negocio al que pertenece el profesional.
+//   - `employeeId`  → ID único del empleado/profesional.
+//   - `fromAdmin`   → query param; si es "1", el dueño está previsualizando
+//                     desde /settings/business. En ese modo se bloquean reservas.
+// ============================================================
 'use client';
 
+// useParams: lee los segmentos dinámicos de la URL ([tenantSlug], [employeeId]).
+// useRouter: permite navegar a otras páginas programáticamente.
+// useSearchParams: permite leer los query params de la URL (?fromAdmin=1, etc.).
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+
+// useQuery: hook de React Query para pedir datos al backend y cachearlos.
 import { useQuery } from '@tanstack/react-query';
+
+// Hooks de React:
+//   useState   → crea una variable reactiva; cuando cambia, React re-renderiza.
+//   useEffect  → ejecuta código al montar el componente o cuando cambian dependencias.
+//   useRef     → crea una referencia a un elemento del DOM sin causar re-render.
+//   useCallback→ memoriza una función para no recrearla en cada render.
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// URL base del backend (NestJS). Se lee de la variable de entorno del proyecto;
+// si no existe, usamos localhost:3001 como valor por defecto.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// ────────────────────────────────────────────────────────────
+// INTERFACES (TypeScript)
+// Son como "moldes" que describen la forma de los datos que
+// vienen del backend. Si un campo no coincide, TypeScript avisa.
+// ────────────────────────────────────────────────────────────
+
+// PortfolioItem: una foto del portafolio del profesional.
+// `services`: lista de servicios relacionados con esa foto (tags).
 interface PortfolioItem {
   id: string;
   imageUrl: string;
@@ -14,65 +58,111 @@ interface PortfolioItem {
   services: { id: string; name: string }[];
 }
 
+// Professional: datos completos del profesional que vienen del endpoint
+//   GET /api/marketplace/professional/:tenantSlug/:employeeId
 interface Professional {
-  id: string;
-  firstName: string;
-  lastName: string;
-  avatarUrl: string | null;
-  coverImageUrl?: string | null;
-  color: string;
-  bio: string | null;
-  businessName: string;
-  tenantSlug: string;
-  completedAppointments: number;
-  averageRating: number | null;
-  totalReviews: number;
-  portfolio: PortfolioItem[];
-  services: {
+  id: string;               // ID único (CUID) del empleado en la base de datos
+  firstName: string;        // Nombre del profesional
+  lastName: string;         // Apellido del profesional
+  avatarUrl: string | null; // URL de su foto de perfil (puede no tener)
+  coverImageUrl?: string | null; // URL de foto de portada para el hero
+  color: string;            // Color de marca del profesional (#RRGGBB)
+  bio: string | null;       // Texto de presentación / descripción
+  businessName: string;     // Nombre del negocio al que pertenece
+  tenantSlug: string;       // Slug del negocio (para rutas internas)
+  completedAppointments: number; // Total de citas completadas (estadística)
+  averageRating: number | null;  // Calificación promedio (1-5, null si sin reseñas)
+  totalReviews: number;     // Número total de reseñas recibidas
+  portfolio: PortfolioItem[]; // Fotos del portafolio de trabajos realizados
+  services: {               // Servicios que este profesional puede realizar
     id: string;
     name: string;
     description?: string | null;
-    durationMinutes: number;
-    price: number;
-    currency?: string;
+    durationMinutes: number;  // Duración del servicio en minutos
+    price: number;            // Precio del servicio
+    currency?: string;        // Moneda (ej. "MXN")
     category?: string | null;
     subcategory?: string | null;
   }[];
-  topServices: { serviceName: string; count: number }[];
-  reviews: {
+  topServices: { serviceName: string; count: number }[]; // Servicios más realizados (para "Especialidad")
+  reviews: {                // Reseñas de clientes
     id: string;
-    rating: number;
-    comment: string | null;
-    createdAt: string;
-    clientName: string;
-    clientAvatarUrl: string | null;
+    rating: number;           // Calificación de 1 a 5
+    comment: string | null;   // Comentario escrito (puede estar vacío)
+    createdAt: string;        // Fecha de la reseña (string ISO)
+    clientName: string;       // Nombre del cliente que reseñó
+    clientAvatarUrl: string | null; // Foto del cliente (puede no tener)
   }[];
 }
 
+// ────────────────────────────────────────────────────────────
+// COMPONENTE PRINCIPAL
+// `export default` significa que este componente es el que
+// Next.js renderiza automáticamente para esta ruta.
+// ────────────────────────────────────────────────────────────
 export default function ProfessionalProfilePage() {
+  // `useParams()` devuelve un objeto con los segmentos dinámicos de la URL.
+  // Ej: si la URL es /marketplace/salon-guada/professional/abc123
+  //   → params.tenantSlug = "salon-guada"
+  //   → params.employeeId = "abc123"
   const params = useParams();
+
+  // `useRouter()` nos permite navegar a otra página con router.push() o router.back().
   const router = useRouter();
+
+  // `useSearchParams()` nos da acceso a los query params de la URL.
+  // Ej: /marketplace/salon/professional/abc?fromAdmin=1
   const searchParams = useSearchParams();
+
   // Modo preview admin: viene desde /settings/business → /marketplace/[slug]?fromAdmin=1
   // y de ahi al perfil del empleado con el mismo query param. Bloquea reservas.
+  // `searchParams.get('fromAdmin')` devuelve "1" o null.
+  // La comparación === '1' convierte a booleano.
   const fromAdmin = searchParams.get('fromAdmin') === '1';
+
+  // Extraemos los parámetros dinámicos de la URL y los casteamos a string
+  // (TypeScript los reconoce como `string | string[]`, pero sabemos que son simples).
   const tenantSlug = params.tenantSlug as string;
   const employeeId = params.employeeId as string;
+
+  // Estado para el lightbox: cuando el usuario toca una foto del portafolio,
+  // guardamos su URL aquí para mostrarla en pantalla completa.
+  // null = lightbox cerrado; string = URL de la imagen ampliada.
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
   // IDs de imagenes del portafolio cuyo archivo fallo al cargar (404, etc).
   // Las filtramos del grid para no dejar recuadros rotos visibles.
+  // `Set<string>` es una colección sin duplicados; más eficiente que un array para búsquedas.
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
 
   // Tabs Trabajos/Comentarios + categoria activa dentro de Trabajos.
+  // activeSection: 0 = Trabajos, 1 = Comentarios.
   const [activeSection, setActiveSection] = useState<0 | 1>(0); // 0 trabajos, 1 comentarios
+  // activeCategory: filtro dentro del portafolio. 'all' = todos los trabajos.
   const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  // Refs al DOM:
+  // sectionsRef      → contenedor del swiper horizontal (Trabajos/Comentarios).
+  // sectionsAnchorRef → ancla invisible para hacer scroll al cambiar de pestaña.
   const sectionsRef = useRef<HTMLDivElement>(null);
   const sectionsAnchorRef = useRef<HTMLDivElement>(null);
 
-  // Sticky header: track when the name block scrolls out of view
+  // Sticky header: track when the name block scrolls out of view.
+  // Cuando el nombre del profesional sale del viewport (scroll hacia abajo),
+  // mostramos un header fijo con el nombre y la calificación.
   const [showStickyHeader, setShowStickyHeader] = useState(false);
+
+  // nameRef → referencia al elemento <h1> que contiene el nombre del profesional.
+  // Lo usamos para saber cuándo ha salido de la pantalla al hacer scroll.
   const nameRef = useRef<HTMLHeadingElement>(null);
 
+  // goToSection: navega al tab indicado (0=Trabajos, 1=Comentarios).
+  // - Actualiza el estado `activeSection` para pintar el tab activo.
+  // - Hace scroll horizontal en el swiper para mostrar la sección correcta.
+  //   `clientWidth` es el ancho del contenedor. Multiplicado por idx (0 o 1)
+  //   da la posición exacta de la página.
+  // - También hace scroll vertical hasta el ancla, para que las pestañas
+  //   queden visibles y no queden bajo el sticky header.
   function goToSection(idx: 0 | 1) {
     setActiveSection(idx);
     if (sectionsRef.current) {
@@ -87,50 +177,81 @@ export default function ProfessionalProfilePage() {
     }
   }
 
+  // handleSectionsScroll: se llama cada vez que el usuario desliza el swiper.
+  // Calcula en qué "página" está el swiper dividiendo el scroll actual entre
+  // el ancho del contenedor y redondeando al más cercano.
+  // Math.round(0.3) = 0 → Trabajos; Math.round(0.7) = 1 → Comentarios.
   function handleSectionsScroll() {
     if (!sectionsRef.current) return;
-    const left = sectionsRef.current.scrollLeft;
-    const w = sectionsRef.current.clientWidth || 1;
-    const idx = Math.round(left / w);
+    const left = sectionsRef.current.scrollLeft;   // pixels desplazados
+    const w = sectionsRef.current.clientWidth || 1; // ancho de la ventana (evitamos dividir por 0)
+    const idx = Math.round(left / w);              // 0 o 1
     if (idx === 0 || idx === 1) setActiveSection(idx as 0 | 1);
   }
 
+  // handleScroll: se ejecuta cada vez que el usuario hace scroll en la página.
+  // Comprueba si el <h1> con el nombre ya salió por arriba de la pantalla
+  // (rect.bottom < 0) y activa/desactiva el sticky header.
+  // `useCallback` evita que la función se recree en cada render (optimización).
   const handleScroll = useCallback(() => {
     if (!nameRef.current) return;
     const rect = nameRef.current.getBoundingClientRect();
-    // Show sticky when the name is scrolled above the viewport
+    // Show sticky when the name is scrolled above the viewport.
+    // getBoundingClientRect().bottom es la distancia desde el borde superior
+    // de la pantalla hasta la parte inferior del elemento.
+    // Cuando es negativo, el elemento ya quedó por encima del viewport.
     setShowStickyHeader(rect.bottom < 0);
   }, []);
 
+  // useEffect con listener de scroll:
+  // - Al montar el componente, registra el handler en el evento `scroll` de window.
+  // - `passive: true` optimiza el rendimiento (el browser sabe que no haremos
+  //   preventDefault, así puede hacer scroll más fluido).
+  // - Al desmontar (función de limpieza `return`), QUITAMOS el listener.
+  //   Esto es importante: sin limpieza, podríamos tener memory leaks.
   useEffect(() => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
+  }, [handleScroll]); // Re-ejecutar si handleScroll cambia (aunque no cambia gracias a useCallback)
 
+  // useQuery: pide los datos del profesional al backend.
+  // - `queryKey`: array que identifica de forma única esta petición en la caché.
+  //   Si tenantSlug o employeeId cambian, React Query vuelve a pedir los datos.
+  // - `queryFn`: función async que hace el fetch real. Si la respuesta no es OK,
+  //   lanzamos un error que React Query captura y expone en `error`.
+  // - Retorna: { data, isLoading, error }
+  //   · `pro` (data): el objeto Professional cuando llega la respuesta.
+  //   · `isLoading`: true mientras esperamos la respuesta del backend.
+  //   · `error`: el error si la petición falló.
   const { data: pro, isLoading, error } = useQuery({
     queryKey: ['professional-profile', tenantSlug, employeeId],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/marketplace/professional/${tenantSlug}/${employeeId}`);
       if (!res.ok) throw new Error('Not found');
       const json = await res.json();
-      return json.data as Professional;
+      return json.data as Professional; // Casteamos al tipo Professional que definimos arriba
     },
   });
 
+  // ── Renderizado condicional: estados de carga y error ──────
+  // Mientras isLoading es true, mostramos un spinner animado en lugar de la página.
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        {/* Círculo giratorio (spinner): animate-spin + borde parcial de color teal */}
         <div className="animate-spin h-10 w-10 border-4 border-gray-200 border-t-[#008080] rounded-full" />
       </div>
     );
   }
 
+  // Si hubo un error en la petición o el profesional no existe (pro = undefined),
+  // mostramos un mensaje amigable con un botón para regresar.
   if (error || !pro) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
         <p className="text-gray-500 mb-4">Profesional no encontrado</p>
         <button
-          onClick={() => router.back()}
+          onClick={() => router.back()} // Navega a la página anterior del historial del browser
           className="px-4 py-2 bg-[#008080] text-white rounded-lg text-sm font-medium"
         >
           Volver
@@ -139,9 +260,21 @@ export default function ProfessionalProfilePage() {
     );
   }
 
+  // ── Variables derivadas de los datos del profesional ───────
+  // Estas se calculan UNA VEZ cuando ya tenemos `pro` y se usan en el JSX de abajo.
+
+  // !! convierte a booleano: true si avatarUrl tiene valor, false si es null/undefined.
   const hasAvatar = !!pro.avatarUrl;
+
+  // Nombre completo para mostrarlo en la UI.
   const fullName = `${pro.firstName} ${pro.lastName}`;
+
+  // Iniciales para mostrar como fallback cuando no hay foto de perfil.
+  // [0] accede al primer carácter de la cadena (ej. "J" de "Juan").
   const initials = `${pro.firstName[0]}${pro.lastName[0]}`;
+
+  // Especialidad: el servicio más realizado según `topServices[0]`.
+  // Si no hay servicios realizados, specialty queda como null (se omite en la UI).
   const specialty = pro.topServices.length > 0 ? pro.topServices[0].serviceName : null;
 
   return (
@@ -300,7 +433,10 @@ export default function ProfessionalProfilePage() {
 
           {/* Servicios que ofrece — listado completo del catálogo del
               empleado. Click en una tarjeta abre el booking con ese
-              servicio + este profesional preseleccionados. */}
+              servicio + este profesional preseleccionados.
+              `pro.services && pro.services.length > 0` usa renderizado condicional
+              con "&&": si la condición de la izquierda es falsa, React no renderiza
+              lo de la derecha. Es el equivalente de un if sin else en JSX. */}
           {pro.services && pro.services.length > 0 && (
             <section>
               <h2 className="text-base font-semibold text-gray-900 mb-3">
@@ -308,11 +444,18 @@ export default function ProfessionalProfilePage() {
                 <span className="text-xs text-gray-400 font-normal">({pro.services.length})</span>
               </h2>
               <div className="grid gap-3">
+                {/* .map(): itera el array de servicios y devuelve un elemento JSX por cada uno.
+                    `key={s.id}` es OBLIGATORIO en listas: permite a React identificar
+                    cada elemento y actualizar solo el que cambió (optimización). */}
                 {pro.services.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => {
+                      // Si estamos en modo admin preview, no hacemos nada (read-only).
+                      // De lo contrario, navegamos al booking con el empleado y servicio preseleccionados.
+                      // Los query params ?bookEmployee=... &service=... los lee la página [tenantSlug]/page.tsx
+                      // para abrir el wizard de reserva directamente en ese profesional y servicio.
                       if (fromAdmin) return;
                       router.push(`/marketplace/${tenantSlug}?bookEmployee=${employeeId}&service=${s.id}`);
                     }}
@@ -328,6 +471,10 @@ export default function ProfessionalProfilePage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="font-semibold text-gray-900">
+                          {/* Intl.NumberFormat formatea el número como moneda según el locale.
+                              'es-MX' = español mexicano → muestra "$1,200.00".
+                              s.currency || 'MXN' → si el servicio no tiene moneda definida, usamos MXN.
+                              Number(s.price) convierte de string a número por si el campo llega como texto. */}
                           {new Intl.NumberFormat('es-MX', { style: 'currency', currency: s.currency || 'MXN' }).format(Number(s.price))}
                         </p>
                         <p className="text-xs text-gray-500">{s.durationMinutes} min</p>
@@ -393,8 +540,17 @@ export default function ProfessionalProfilePage() {
                   </div>
                 ) : (
                   <>
-                    {/* Tabs de categorias (servicio) */}
+                    {/* Tabs de categorias (servicio) — filtro por tipo de trabajo.
+                        El IIFE (() => { ... })() es una función que se define y ejecuta
+                        de inmediato. Lo usamos porque en JSX no podemos poner múltiples
+                        sentencias (const, return, etc.) directamente. Es un patrón común
+                        para lógica que requiere declarar variables antes de devolver JSX. */}
                     {(() => {
+                      // `flatMap`: aplana un nivel. Primero hace .map() en cada elemento del
+                      //   portafolio para obtener los servicios, luego aplana el array de arrays.
+                      // `new Set(...)`: elimina duplicados (un servicio puede repetirse en varias fotos).
+                      // `Array.from(...)`: convierte el Set de vuelta a un array para poder llamar .sort().
+                      // `.sort((a,b) => a.localeCompare(b, 'es'))`: ordena alfabéticamente respetando tildes.
                       const allCats = Array.from(
                         new Set(pro.portfolio.flatMap((p) => p.services.map((s) => s.name))),
                       ).sort((a, b) => a.localeCompare(b, 'es'));
@@ -431,11 +587,18 @@ export default function ProfessionalProfilePage() {
 
                     {/* Grid de fotos filtradas — incluye filtro de imagenes
                         rotas (archivo borrado/404) para no dejar recuadros
-                        vacios con el alt-text visible. */}
+                        vacios con el alt-text visible.
+                        Otro IIFE para declarar variables antes de devolver JSX. */}
                     {(() => {
+                      // Filtramos por categoría activa:
+                      //   'all' → mostramos todo el portafolio sin filtrar.
+                      //   otro valor → solo fotos donde alguno de sus servicios tiene ese nombre.
+                      //   `.some()` devuelve true si AL MENOS UNO de los servicios de la foto cumple la condición.
                       const base = activeCategory === 'all'
                         ? pro.portfolio
                         : pro.portfolio.filter((p) => p.services.some((s) => s.name === activeCategory));
+                      // Quitamos las fotos que fallaron al cargar (onError las agrega a failedImageIds).
+                      // `!failedImageIds.has(img.id)` → true si la imagen NO está en la lista de rotas.
                       const filtered = base.filter((img) => !failedImageIds.has(img.id));
                       if (filtered.length === 0) {
                         return (
@@ -456,6 +619,11 @@ export default function ProfessionalProfilePage() {
                                 src={`${API_URL}${img.imageUrl}`}
                                 alt=""
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                // onError: evento que se dispara si la imagen no se puede cargar
+                                // (archivo borrado, URL incorrecta, etc.).
+                                // Añadimos el ID al Set de imágenes rotas. Usamos función de actualización
+                                // `(prev) => ...` para no depender del estado anterior desactualizado.
+                                // `new Set(prev).add(img.id)` crea una copia del Set (inmutabilidad).
                                 onError={() => setFailedImageIds((prev) => new Set(prev).add(img.id))}
                               />
                               {/* Etiqueta de servicios — solo en "Todos"
@@ -489,7 +657,8 @@ export default function ProfessionalProfilePage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {pro.reviews.map((review) => (
+                    {/* Iteramos cada reseña. `key={review.id}` identifica cada tarjeta para React. */}
+                {pro.reviews.map((review) => (
                       <div key={review.id} className="bg-white rounded-xl border border-gray-200 p-4">
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0">
@@ -509,6 +678,11 @@ export default function ProfessionalProfilePage() {
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-sm font-medium text-gray-900">{review.clientName}</span>
                               <div className="flex items-center gap-0.5">
+                                {/* Array.from({ length: 5 }): crea un array con 5 elementos vacíos.
+                                    Es un truco para hacer un bucle de N iteraciones en JSX.
+                                    `_` es el valor (ignorado); `i` es el índice (0, 1, 2, 3, 4).
+                                    Si i < review.rating, la estrella se pinta de amarillo (llena);
+                                    si no, se pinta de gris (vacía). Ej: rating=3 → 3 amarillas + 2 grises. */}
                                 {Array.from({ length: 5 }).map((_, i) => (
                                   <svg
                                     key={i}
@@ -525,6 +699,10 @@ export default function ProfessionalProfilePage() {
                               <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
                             )}
                             <p className="text-[10px] text-gray-400 mt-2">
+                              {/* new Date(string) convierte el string ISO (ej. "2025-03-15T10:00:00Z")
+                                  a un objeto Date de JavaScript.
+                                  .toLocaleDateString('es', {...}) lo formatea en español legible:
+                                  ej. "15 de marzo de 2025". */}
                               {new Date(review.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
                           </div>

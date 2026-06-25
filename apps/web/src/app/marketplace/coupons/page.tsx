@@ -1,64 +1,116 @@
+// ============================================================
+// PÁGINA: Cupones y puntos del cliente marketplace
+// RUTA:   /marketplace/coupons
+//
+// ¿Qué muestra?
+//   - Dos pestañas: "Mis cupones" y "Mis puntos".
+//   - Mis cupones: lista de RewardRedemptions del cliente (cupones ya canjeados).
+//     Incluye buscador y filtros (activos, descuento, gratis, por vencer, historial).
+//   - Mis puntos: puntos acumulados por negocio, con ordenamiento y opción de ocultar.
+//   - Tarjetas de referidos: códigos 2x1 propios + códigos recibidos de otros.
+//   - Los tenants ocultos y el orden de puntos se persisten en localStorage.
+// ============================================================
 'use client';
 
+// useState: variables reactivas. useEffect: efectos al montar/actualizar.
+// useMemo: calcula valores derivados solo cuando cambian sus dependencias (optimización).
 import { useState, useEffect, useMemo } from 'react';
+
+// useQuery: carga los cupones del usuario del backend.
 import { useQuery } from '@tanstack/react-query';
+
+// Cliente HTTP con JWT del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Estado de autenticación del cliente.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+
+// Link: navegación SPA entre páginas.
 import Link from 'next/link';
+
+// useRouter: para navegación programática.
 import { useRouter } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
 const TEAL_LIGHT = '#e0f2f1';
 
+// Claves de localStorage para persistir las preferencias del usuario entre sesiones.
+// `marketplace_points_hidden_tenants`: IDs de negocios ocultos en "Mis puntos".
+// `marketplace_points_sort`: criterio de ordenamiento seleccionado.
 const POINTS_HIDDEN_KEY = 'marketplace_points_hidden_tenants';
 const POINTS_SORT_KEY = 'marketplace_points_sort';
 
+// Tipos unión que limitan los valores posibles de filtro y ordenamiento.
+// TypeScript usa estos tipos para detectar errores si se asigna un string inválido.
 type CouponFilter = 'all' | 'active' | 'discount' | 'gratis' | 'expiring' | 'history';
 type PointsSort = 'points_desc' | 'points_asc' | 'name_asc' | 'name_desc';
 
+// formatExpiry: formatea una fecha de vencimiento como "15 jun. 2026".
+// `toLocaleDateString('es-MX', ...)`: usa el locale español de México.
 function formatExpiry(dateStr: string | null) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// daysLeft: calcula cuántos días faltan para que venza un cupón.
+// `Date.now()`: timestamp actual en milisegundos.
+// `Math.ceil(...)`: redondea hacia arriba (1.2 días → 2, nunca 0).
 function daysLeft(dateStr: string | null): number | null {
   if (!dateStr) return null;
   const diff = new Date(dateStr).getTime() - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+// normalize: normaliza texto para búsqueda insensible a acentos.
+// `.normalize('NFD')`: descompone los caracteres acentuados en base + acento.
+// `.replace(/[̀-ͯ]/g, '')`: elimina los acentos separados.
+// Ej: "café" → "cafe", "HÉROE" → "heroe". Permite que "cafe" encuentre "café".
 function normalize(s: string | null | undefined): string {
   return (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+// ── Componente principal ───────────────────────────────────
 export default function MarketplaceCouponsPage() {
   const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+
+  // Pestaña activa: 'cupones' o 'puntos'.
   const [tab, setTab] = useState<'cupones' | 'puntos'>('cupones');
 
-  // Búsqueda y filtros — comparten search entre tabs para que el usuario no
-  // pierda el contexto al cambiar entre Cupones y Mis puntos.
+  // Búsqueda y filtros — el buscador se comparte entre pestañas para que el
+  // usuario no pierda su texto al cambiar entre "Cupones" y "Mis puntos".
   const [search, setSearch] = useState('');
   const [couponFilter, setCouponFilter] = useState<CouponFilter>('all');
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
-  // Mis puntos: tenants ocultos (toggle desde modal "Personalizar").
+  // Estado de la sección "Mis puntos":
+  // `hiddenTenants`: Set de IDs de negocios que el usuario ocultó.
+  //   `new Set()`: estructura de datos que garantiza elementos únicos.
+  // `showCustomize`: controla el modal "Personalizar" (gestión de ocultos).
+  // `pointsSort`: criterio de ordenamiento activo.
   const [hiddenTenants, setHiddenTenants] = useState<Set<string>>(new Set());
   const [showCustomize, setShowCustomize] = useState(false);
   const [pointsSort, setPointsSort] = useState<PointsSort>('points_desc');
   const [showPointsFilters, setShowPointsFilters] = useState(false);
 
+  // Al montar el componente ([] = sin dependencias = solo una vez), cargamos
+  // las preferencias guardadas en localStorage.
+  // `try/catch`: si localStorage está bloqueado o el JSON está corrupto,
+  // no queremos que la app falle — simplemente usamos los valores por defecto.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return; // Guard de SSR (Next.js puede renderizar en servidor)
     try {
       const raw = localStorage.getItem(POINTS_HIDDEN_KEY);
       if (raw) {
         const arr = JSON.parse(raw);
+        // `Array.isArray(arr)`: validamos que el dato tenga el formato esperado.
         if (Array.isArray(arr)) setHiddenTenants(new Set(arr));
       }
     } catch {}
     try {
+      // `as PointsSort | null`: type assertion que le dice a TypeScript que
+      // el valor del localStorage puede ser ese tipo o null.
       const sort = localStorage.getItem(POINTS_SORT_KEY) as PointsSort | null;
       if (sort && ['points_desc', 'points_asc', 'name_asc', 'name_desc'].includes(sort)) {
         setPointsSort(sort);
@@ -66,6 +118,9 @@ export default function MarketplaceCouponsPage() {
     } catch {}
   }, []);
 
+  // persistHidden: actualiza el estado Y guarda en localStorage en un solo paso.
+  // `Array.from(next)`: convierte el Set a array para poder serializarlo con JSON.stringify.
+  // (JSON.stringify no sabe cómo serializar un Set directamente.)
   const persistHidden = (next: Set<string>) => {
     setHiddenTenants(next);
     if (typeof window !== 'undefined') {
@@ -73,6 +128,7 @@ export default function MarketplaceCouponsPage() {
     }
   };
 
+  // persistSort: mismo patrón — actualiza estado y guarda en localStorage.
   const persistSort = (next: PointsSort) => {
     setPointsSort(next);
     if (typeof window !== 'undefined') {
@@ -95,11 +151,16 @@ export default function MarketplaceCouponsPage() {
   const activeReferrals = referrals.filter((r) => r.status === 'ACTIVE');
   const usedReferrals = referrals.filter((r) => r.status !== 'ACTIVE');
 
-  // Received referral codes (from localStorage)
+  // Códigos de referido RECIBIDOS — guardados en localStorage por el negocio
+  // cuando el cliente llega a /marketplace/[slug]?ref=CODIGO.
+  // Los claves tienen formato `ref_[tenantSlug]`, valor = el código.
+  // Hacemos un fetch por cada código para obtener el nombre del remitente y
+  // el estado del referido (si ya fue usado, no lo mostramos).
   const [receivedReferrals, setReceivedReferrals] = useState<any[]>([]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const codes: string[] = [];
+    // Iteramos todo el localStorage buscando claves con prefijo "ref_".
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key?.startsWith('ref_')) {
@@ -108,26 +169,33 @@ export default function MarketplaceCouponsPage() {
       }
     }
     if (codes.length > 0) {
+      // `Promise.all`: ejecuta múltiples promesas en paralelo y espera a que
+      // todas terminen. Devuelve un array con el resultado de cada una.
       Promise.all(
         codes.map((code) =>
           fetch(`${API_URL}/api/marketplace/referral/${code}`)
             .then((r) => r.json())
             .then((res) => res?.data)
-            .catch(() => null)
+            .catch(() => null) // Si un referido falla, devolvemos null (lo filtramos abajo)
         )
       ).then((results) => {
+        // `.filter(...)`: elimina los null y los referidos ya usados.
         setReceivedReferrals(results.filter((r) => r && r.status === 'ACTIVE'));
       });
     }
   }, []);
 
+  // Carga los puntos del cliente agrupados por negocio. Solo cuando está en la pestaña 'puntos'.
   const { data: statsData } = useQuery({
     queryKey: ['marketplace-my-stats'],
     queryFn: () => marketplaceApi.get<{ data: any }>('/my-stats'),
     enabled: isAuthenticated && tab === 'puntos',
   });
+
+  // `?.data?.pointsByTenant`: acceso seguro a la propiedad anidada.
   const pointsByTenant: any[] = (statsData as any)?.data?.pointsByTenant || [];
 
+  // Separamos los cupones en activos (se pueden usar) e historial (ya usados/expirados).
   const redemptions: any[] = (data as any)?.data || [];
   const active = redemptions.filter((r) => r.status === 'ACTIVE');
   const used = redemptions.filter((r) => r.status !== 'ACTIVE');
@@ -167,7 +235,12 @@ export default function MarketplaceCouponsPage() {
   const showActiveSection = couponFilter !== 'history';
   const showHistorySection = couponFilter === 'all' || couponFilter === 'history';
 
-  // ── Filtrado de puntos ──────────────────────────────────
+  // ── Filtrado de puntos con useMemo ─────────────────────────
+  // `useMemo`: memoriza el resultado del cálculo para que no se recalcule
+  // en cada re-renderizado. Solo se recalcula cuando cambia una de las
+  // dependencias en el array `[pointsByTenant, q, hiddenTenants, pointsSort]`.
+  // Útil aquí porque la lista de negocios puede ser larga y el filtrado/ordenamiento
+  // involucra varias operaciones de array.
   const visiblePoints = useMemo(() => {
     let list = pointsByTenant;
     if (q) list = list.filter((t) => normalize(t.tenantName).includes(q));

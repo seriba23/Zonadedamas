@@ -1,19 +1,60 @@
+// ============================================================
+// PÁGINA: Tienda de productos de un negocio
+// RUTA:   /marketplace/[tenantSlug]/shop
+//
+// ¿Qué muestra?
+//   - Catálogo de productos físicos del negocio (con fotos, precio, stock).
+//   - Buscador + filtro por categoría (bottom sheet).
+//   - Carrito de compra con modal de detalle de producto.
+//   - Flujo de checkout: resumen, datos de contacto, forma de entrega,
+//     forma de pago (efectivo, tarjeta, SPEI), notas y confirmación.
+//   - Si el pago es SPEI, permite subir captura del comprobante.
+//   - En modo preview admin (fromAdmin=1), el carrito y las compras están bloqueados.
+//
+// ¿Cómo funciona el carrito?
+//   El carrito vive SOLO en el estado local (React useState).
+//   No se guarda en el servidor hasta que el usuario confirma el apartado.
+//   Al confirmar, se llama a la mutation `reserveMutation` que llama al endpoint
+//   POST /api/public/:tenantSlug/shop/reserve-batch.
+// ============================================================
 'use client';
 
+// useState: para manejar carrito, UI, formularios, etc.
 import { useState } from 'react';
+
+// Hooks de Next.js App Router para leer URL y navegar.
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+
+// useQuery: para cargar datos (settings y productos).
+// useMutation: para enviar el apartado al backend.
 import { useQuery, useMutation } from '@tanstack/react-query';
+
+// Utilidad para formatear precios con moneda y locale correcto.
 import { formatCurrency } from '@/lib/utils';
+
+// SuccessPopup: modal de éxito con checkmark teal (ver componente en @/components/ui).
 import { SuccessPopup } from '@/components/ui/success-popup';
+
+// useMarketplaceAuth: hook personalizado que expone si el usuario está autenticado
+// y sus datos. Los hooks personalizados son funciones que usan otros hooks de React.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+
+// marketplaceApi: cliente HTTP configurado con el token JWT del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Modal para que el cliente complete su perfil (teléfono) antes de comprar.
 import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
 
+// URL base del backend. Se lee de variables de entorno (proceso de Node.js).
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const TEAL = '#008080';
-const TEAL_DARK = '#006666';
-const TEAL_LIGHT = '#e0f2f1';
 
+// Constantes de color para no repetir el valor hexadecimal en todo el archivo.
+const TEAL = '#008080';      // Color principal teal
+const TEAL_DARK = '#006666'; // Teal más oscuro para hover
+const TEAL_LIGHT = '#e0f2f1'; // Teal muy suave para fondos
+
+// ── Interfaces TypeScript ──────────────────────────────────
+// ShopProduct: un producto de la tienda del negocio.
 interface ShopProduct {
   id: string;
   name: string;
@@ -28,128 +69,245 @@ interface ShopProduct {
   images: { id: string; imageUrl: string; sortOrder: number }[];
 }
 
+// CartItem: un elemento del carrito (producto + cantidad seleccionada).
 interface CartItem {
   product: ShopProduct;
-  quantity: number;
+  quantity: number; // Cuántas unidades el cliente quiere comprar
 }
 
+// SpeiInfo: datos bancarios para transferencia SPEI (opcional).
 interface SpeiInfo { bankName?: string; holderName?: string; clabe?: string; }
 
+// ShopSettings: configuración de la tienda del negocio (cargada del backend).
+// `shopEnabled`: si la tienda está activa. Si es false, no cargamos productos.
 interface ShopSettings {
   shopEnabled: boolean;
-  tenantName: string;
-  paymentMethods: string[];
-  fulfillmentOptions: string[];
-  speiInfo?: SpeiInfo | null;
+  tenantName: string;        // Nombre del negocio para mostrar en el header
+  paymentMethods: string[];  // Ej: ['CASH', 'SPEI', 'CARD']
+  fulfillmentOptions: string[]; // Ej: ['PICKUP', 'SHIPPING']
+  speiInfo?: SpeiInfo | null; // Datos bancarios (solo si SPEI está habilitado)
 }
 
+// Diccionarios para traducir códigos internos a etiquetas legibles en español.
+// `Record<string, string>` es un tipo de TypeScript que indica un objeto cuyas
+// claves y valores son strings.
 const PAYMENT_LABELS: Record<string, string> = { CASH: 'Efectivo', SPEI: 'SPEI / Transferencia', CARD: 'Tarjeta (en terminal)' };
 const FULFILLMENT_LABELS: Record<string, string> = { PICKUP: 'Recoger en tienda', SHIPPING: 'Envio a domicilio' };
 
 // ─── Cart Helpers ──────────────────────────────
 
+// buildAddress: toma los campos del formulario de dirección y los concatena
+// en una sola cadena legible.
+// `.filter(Boolean)` elimina los valores vacíos (null, undefined, '') del array.
+// `.join(', ')` une los elementos restantes con coma y espacio.
+// Ejemplo: "Av. Juárez 123, Colonia Centro, Guadalajara, Jalisco, 44100, México"
 function buildAddress(f: { addrStreet: string; addrNumber: string; addrColonia: string; addrCity: string; addrState: string; addrPostalCode: string; addrCountry: string }) {
   return [
-    [f.addrStreet, f.addrNumber].filter(Boolean).join(' '),
+    [f.addrStreet, f.addrNumber].filter(Boolean).join(' '), // "Av. Juárez 123"
     f.addrColonia, f.addrCity, f.addrState, f.addrPostalCode, f.addrCountry,
   ].filter(Boolean).join(', ');
 }
 
 // ─── Page ──────────────────────────────────────
 
+// ─── Page ──────────────────────────────────────
+
 export default function ShopPage() {
+  // Lee los parámetros dinámicos de la URL: [tenantSlug]
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tenantSlug = params.tenantSlug as string;
+  const tenantSlug = params.tenantSlug as string; // ej: "salon-belleza-guada"
+
+  // Datos del usuario autenticado en el marketplace.
+  // `user`: null si no está autenticado. `refreshUser`: función para recargar el perfil.
   const { user, isAuthenticated, refreshUser } = useMarketplaceAuth();
+
   // Modo preview admin: viene desde /settings/business → click en icono de tienda.
   // Puede ver el catalogo pero no agregar al carrito ni comprar.
   const fromAdmin = searchParams.get('fromAdmin') === '1';
 
-  // UI state
+  // ── Estado de la UI ─────────────────────────────────────
+  // Producto seleccionado para ver su detalle (modal). null = ninguno abierto.
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(null);
+
+  // Categoría activa para filtrar el catálogo. null = sin filtro.
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // Texto del buscador de productos.
   const [search, setSearch] = useState('');
+
+  // Índice de la imagen principal en el carrusel de fotos del detalle del producto.
   const [mainImageIdx, setMainImageIdx] = useState(0);
+
+  // Paginación del catálogo: página actual (empieza en 1).
   const [page, setPage] = useState(1);
+
+  // Controla si se muestra el popup de éxito al confirmar el apartado.
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Controla el bottom-sheet de filtros (categorías).
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+
+  // Controla el modal de completar perfil (si el teléfono está incompleto).
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+
+  // Archivo de imagen del comprobante de pago (para SPEI).
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+
+  // URL en el servidor del comprobante ya subido. Se envía al backend en el apartado.
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
+
+  // true mientras se está subiendo el comprobante al servidor.
   const [paymentProofUploading, setPaymentProofUploading] = useState(false);
 
-  // Cart
+  // ── Estado del carrito ──────────────────────────────────
+  // Lista de productos en el carrito. Array vacío = carrito vacío.
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Controla si el drawer del carrito está visible.
   const [showCart, setShowCart] = useState(false);
+
+  // Controla si el modal de checkout está visible.
   const [showCheckout, setShowCheckout] = useState(false);
 
-  // Checkout form
+  // ── Formulario de checkout ─────────────────────────────
+  // Objeto con TODOS los campos del formulario de apartado.
+  // Al actualizar uno de los campos, usamos el spread operator:
+  //   setForm({ ...form, customerName: 'Juan' })
+  // Esto crea un NUEVO objeto con todos los campos anteriores más el actualizado.
+  // (En React, el estado debe ser inmutable — no modificamos el objeto directamente.)
   const [form, setForm] = useState({
-    customerName: '', customerPhone: '', customerEmail: '',
-    fulfillmentType: '', preferredPaymentMethod: '',
-    useProfileAddress: true,
-    addrStreet: '', addrNumber: '', addrColonia: '', addrCity: '', addrState: '', addrPostalCode: '', addrCountry: '',
-    notes: '',
+    customerName: '',           // Nombre completo del cliente (si no está autenticado)
+    customerPhone: '',          // Teléfono del cliente
+    customerEmail: '',          // Email del cliente (opcional)
+    fulfillmentType: '',        // 'PICKUP' o 'SHIPPING'
+    preferredPaymentMethod: '', // 'CASH', 'SPEI' o 'CARD'
+    useProfileAddress: true,    // Si true, usa la dirección guardada en el perfil
+    addrStreet: '',             // Campos de dirección manual (si no usa la del perfil)
+    addrNumber: '',
+    addrColonia: '',
+    addrCity: '',
+    addrState: '',
+    addrPostalCode: '',
+    addrCountry: '',
+    notes: '',                  // Notas adicionales para el negocio
   });
+  // Mensaje de error de validación del formulario.
   const [formError, setFormError] = useState('');
 
-  // Data
+  // ── Queries al backend ─────────────────────────────────
+  // Primero cargamos la configuración de la tienda. Con ella sabemos si
+  // la tienda está activa antes de pedir los productos.
   const { data: settingsData } = useQuery({
     queryKey: ['shop-settings', tenantSlug],
     queryFn: async () => { const r = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/settings`); return r.ok ? r.json() : null; },
   });
+  // `?.data || null`: si settingsData no llegó todavía (undefined), devolvemos null.
   const settings: ShopSettings | null = settingsData?.data || null;
 
+  // Cargamos los productos SOLO si la tienda está activa (`enabled: !!settings?.shopEnabled`).
+  // !! convierte a booleano: true si shopEnabled tiene valor verdadero.
+  // Si shopEnabled es false o settings es null, la query no se ejecuta.
   const { data: productsData, isLoading } = useQuery({
     queryKey: ['shop-products', tenantSlug],
     queryFn: async () => { const r = await fetch(`${API_URL}/api/public/${tenantSlug}/shop/products?perPage=100`); return r.ok ? r.json() : null; },
-    enabled: !!settings?.shopEnabled,
+    enabled: !!settings?.shopEnabled, // Solo ejecutar si la tienda está habilitada
   });
 
+  // Extraemos el array de productos. Si no hay datos todavía, es un array vacío.
   const allProducts: ShopProduct[] = productsData?.data || [];
+
+  // Categorías únicas: extraemos `category` de cada producto, quitamos nulls/undefined
+  // con `.filter(Boolean)`, y eliminamos duplicados con `new Set(...)`.
+  // `[...new Set(...)]` convierte el Set a array (spread operator).
   const categories = [...new Set(allProducts.map((p) => p.category).filter(Boolean))] as string[];
+
+  // Filtrado cliente-side: aplica la categoría activa Y el texto de búsqueda.
   const filtered = allProducts.filter((p) => {
+    // Si hay categoría activa y el producto no es de esa categoría, excluirlo.
     if (selectedCategory && p.category !== selectedCategory) return false;
-    if (search) { const q = search.toLowerCase(); if (!p.name.toLowerCase().includes(q) && !(p.description || '').toLowerCase().includes(q)) return false; }
-    return true;
+    if (search) {
+      // Buscamos en nombre y descripción, ignorando mayúsculas/minúsculas (.toLowerCase()).
+      const q = search.toLowerCase();
+      if (!p.name.toLowerCase().includes(q) && !(p.description || '').toLowerCase().includes(q)) return false;
+    }
+    return true; // El producto pasa todos los filtros
   });
+
+  // Paginación cliente-side: mostramos 12 productos por página.
   const perPage = 12;
-  const totalPages = Math.ceil(filtered.length / perPage);
+  const totalPages = Math.ceil(filtered.length / perPage); // Total de páginas (redondeando arriba)
+
+  // `slice`: extrae un trozo del array.
+  // Página 1: slice(0, 12) → primeros 12
+  // Página 2: slice(12, 24) → siguientes 12
   const products = filtered.slice((page - 1) * perPage, page * perPage);
 
-  // Cart functions
+  // ── Funciones del carrito ──────────────────────────────
+  // addToCart: agrega un producto al carrito.
+  // Si el producto ya existe, suma la cantidad (respetando el stock máximo).
+  // Si no existe, lo agrega al final del array.
+  // `qty = 1` es el parámetro por defecto (si no se pasa, agrega 1).
   const addToCart = (product: ShopProduct, qty: number = 1) => {
-    if (fromAdmin) return; // preview readonly
+    if (fromAdmin) return; // preview readonly — no permitir compras
+    // Usamos la forma de actualización de estado `setCart((prev) => ...)`:
+    // esto garantiza que `prev` siempre sea el estado más reciente,
+    // incluso si hay múltiples actualizaciones en el mismo ciclo.
     setCart((prev) => {
-      const existing = prev.find((c) => c.product.id === product.id);
+      const existing = prev.find((c) => c.product.id === product.id); // buscar si ya está en el carrito
       if (existing) {
+        // El producto ya existe: actualizar su cantidad con .map()
+        // Math.min(...) asegura que no se supere el stock disponible.
         return prev.map((c) => c.product.id === product.id ? { ...c, quantity: Math.min(product.stock, c.quantity + qty) } : c);
       }
+      // El producto no existe: agregarlo al final del array (spread + nuevo elemento).
       return [...prev, { product, quantity: qty }];
     });
   };
 
+  // removeFromCart: elimina un producto del carrito usando `.filter()`.
+  // `.filter()` devuelve un NUEVO array con solo los elementos que cumplen la condición.
+  // `c.product.id !== productId` → mantiene todos EXCEPTO el que queremos eliminar.
   const removeFromCart = (productId: string) => setCart((prev) => prev.filter((c) => c.product.id !== productId));
 
+  // updateCartQty: cambia la cantidad de un producto en el carrito.
+  // `Math.max(1, ...)` → nunca menos de 1.
+  // `Math.min(stock, ...)` → nunca más que el stock disponible.
   const updateCartQty = (productId: string, qty: number) => {
     setCart((prev) => prev.map((c) => c.product.id === productId ? { ...c, quantity: Math.max(1, Math.min(c.product.stock, qty)) } : c));
   };
 
+  // ── Totales del carrito ────────────────────────────────
+  // `reduce`: acumula valores de un array. Empieza en 0 y suma precio × cantidad por cada item.
   const cartTotal = cart.reduce((sum, c) => sum + Number(c.product.price) * c.quantity, 0);
+
+  // Envío total: suma shippingCost solo de los productos con envío habilitado.
   const cartShipping = cart.reduce((sum, c) => sum + (c.product.shippingEnabled && c.product.shippingCost ? Number(c.product.shippingCost) : 0), 0);
+
+  // Cantidad total de unidades en el carrito (para mostrar en el badge del ícono).
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
 
+  // fc: función helper que formatea moneda usando la divisa del primer producto del carrito.
+  // Si el carrito está vacío, usa MXN por defecto.
   const fc = (amount: number) => formatCurrency(amount, cart[0]?.product.currency || 'MXN');
 
-  // Checkout
+  // ── Checkout ───────────────────────────────────────────
+  // getShippingAddress: determina cuál dirección de envío mandar al backend.
+  // Si no es envío a domicilio → no se necesita dirección.
+  // Si usa la del perfil y existe → la del perfil.
+  // Si no → la que ingresó manualmente en el formulario.
   const getShippingAddress = () => {
     if (form.fulfillmentType !== 'SHIPPING') return undefined;
     if (form.useProfileAddress && user?.address) return user.address;
-    return buildAddress(form);
+    return buildAddress(form); // construye string de la dirección manual
   };
 
+  // reserveMutation: mutation de React Query para enviar el apartado al backend.
+  // `useMutation` se diferencia de `useQuery` en que:
+  //   - No se ejecuta automáticamente al montar el componente.
+  //   - Se invoca manualmente con `.mutate(data)`.
+  //   - Ideal para operaciones que MODIFICAN datos (POST, PUT, DELETE).
   const reserveMutation = useMutation({
     mutationFn: async (body: any) => {
       if (fromAdmin) throw new Error('preview-readonly'); // no compras en preview
@@ -249,18 +407,25 @@ export default function ShopPage() {
     });
   };
 
+  // getAllImages: combina la imagen principal del producto con las imágenes
+  // adicionales del array `images`, evitando duplicar la imagen principal.
+  // Devuelve un array de URLs ordenadas: primero la principal, luego las extra.
   const getAllImages = (p: ShopProduct) => {
     const imgs: string[] = [];
-    if (p.imageUrl) imgs.push(p.imageUrl);
+    if (p.imageUrl) imgs.push(p.imageUrl); // Agregar imagen principal si existe
+    // Agregar las demás imágenes (que no sean la principal para no duplicar)
     p.images.forEach((img) => { if (img.imageUrl !== p.imageUrl) imgs.push(img.imageUrl); });
     return imgs;
   };
 
   // ─── Render ──────────────────────────────────
+  // Todo lo que está dentro del `return (...)` es JSX: sintaxis parecida a HTML
+  // que React convierte en elementos del DOM. Las expresiones JavaScript van
+  // entre llaves `{ }`. Los comentarios dentro de JSX también van entre `{/* */}`.
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
+      {/* Header — `sticky top-0` lo ancla en la parte superior al hacer scroll. */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-3">
           <button onClick={() => router.back()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
@@ -272,7 +437,9 @@ export default function ShopPage() {
             <h1 className="text-base font-bold text-gray-900">Tienda {settings?.tenantName || ''}</h1>
             <p className="text-[10px] text-gray-500">{filtered.length} producto{filtered.length !== 1 ? 's' : ''}</p>
           </div>
-          {/* Cart button — escondido en preview admin (no se puede comprar) */}
+          {/* Cart button — `!fromAdmin &&` es renderizado condicional: solo se
+              muestra si NO estamos en modo preview de administrador.
+              `&&` en JSX: si la expresión izquierda es falsa, React no renderiza nada. */}
           {!fromAdmin && (
             <button onClick={() => setShowCart(true)} className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100">
               <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -319,9 +486,16 @@ export default function ShopPage() {
           )}
         </div>
 
-        {/* Product Grid */}
+        {/* Product Grid — renderizado condicional con ternario encadenado:
+            - Si está cargando (`isLoading`): mostrar esqueleto animado (skeleton).
+            - Si no hay productos: mostrar mensaje vacío.
+            - Si hay productos: mostrar la grilla.
+            Patrón: condición1 ? A : condición2 ? B : C */}
         {isLoading ? (
           <div className="grid grid-cols-2 gap-3">
+            {/* Skeleton: array [1,2,3,4,5,6] solo sirve para tener 6 items.
+                `animate-pulse` de Tailwind hace que el bloque "parpadee"
+                visualmente mientras los datos reales cargan. */}
             {[1,2,3,4,5,6].map((i) => (<div key={i} className="animate-pulse"><div className="aspect-square bg-gray-200 rounded-xl mb-2" /><div className="h-4 bg-gray-200 rounded w-3/4 mb-1" /><div className="h-4 bg-gray-200 rounded w-1/2" /></div>))}
           </div>
         ) : products.length === 0 ? (
@@ -330,7 +504,11 @@ export default function ShopPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
+            {/* .map() itera el array `products` (ya filtrado y paginado)
+                y renderiza una tarjeta por cada producto. `key` es obligatorio. */}
             {products.map((product) => {
+              // `inCart`: busca si el producto ya está en el carrito.
+              // `.find()` devuelve el primer elemento que cumple la condición, o undefined.
               const inCart = cart.find((c) => c.product.id === product.id);
               return (
                 <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden transition-all hover:shadow-md flex flex-col">
@@ -393,8 +571,12 @@ export default function ShopPage() {
         )}
       </div>
 
-      {/* Floating cart bar — encima del bottom nav, mismo patron que
-          "Reservar cita" del perfil del negocio. */}
+      {/* Barra flotante del carrito — se muestra cuando:
+          - Hay al menos un producto en el carrito (`cartCount > 0`)
+          - El drawer del carrito NO está abierto (`!showCart`)
+          - El checkout NO está abierto (`!showCheckout`)
+          - No hay modal de producto abierto (`!selectedProduct`)
+          Las 4 condiciones con `&&` deben ser verdaderas para que aparezca. */}
       {cartCount > 0 && !showCart && !showCheckout && !selectedProduct && (
         <div className="fixed bottom-20 left-0 right-0 px-4 pointer-events-none z-40">
           <div className="max-w-lg mx-auto pointer-events-auto">
@@ -410,10 +592,17 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Product Detail Modal */}
+      {/* Modal de detalle del producto — abre al tocar una tarjeta.
+          `onClick` en el fondo cierra el modal (setSelectedProduct(null)).
+          `e.stopPropagation()` en el contenido evita que el click en el interior
+          se propague al fondo y cierre el modal accidentalmente. */}
       {selectedProduct && !showCart && !showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setSelectedProduct(null)}>
           <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto pb-24 sm:pb-0" onClick={(e) => e.stopPropagation()}>
+            {/* IIFE (Immediately Invoked Function Expression): función anónima
+                que se ejecuta al instante dentro del JSX. Se usa para poder
+                declarar variables locales (`imgs`) antes de retornar JSX.
+                Sin IIFE, no podríamos usar `const imgs = ...` dentro de JSX. */}
             {(() => {
               const imgs = getAllImages(selectedProduct);
               return imgs.length > 0 ? (
@@ -474,8 +663,9 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Cart Drawer — header + body scrollable + footer sticky (boton
-          siempre visible, mismo posicionamiento que "Reservar cita"). */}
+      {/* Drawer del carrito — se muestra con `showCart && !showCheckout`.
+          Estructura: header fijo + body scrollable (`flex-1 overflow-y-auto`) + footer fijo.
+          Esto garantiza que el botón "Proceder al pago" siempre sea visible. */}
       {showCart && !showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowCart(false)}>
           <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -537,7 +727,11 @@ export default function ShopPage() {
               )}
             </div>
 
-            {/* Footer sticky con el CTA */}
+            {/* Footer sticky con el CTA del carrito.
+                Al hacer click en "Proceder al pago":
+                1. Se abre el checkout.
+                2. Si el usuario está autenticado, pre-rellena los campos con su perfil.
+                3. Si solo hay una opción de entrega o pago, la pre-selecciona. */}
             {cart.length > 0 && (
               <div className="px-4 py-3 border-t border-gray-100 bg-white flex-shrink-0">
                 <button onClick={() => {
@@ -563,8 +757,9 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Checkout Modal — flex-col con header + body scrollable + footer
-          sticky. El boton "Confirmar apartado" queda siempre visible. */}
+      {/* Modal de checkout — misma estructura flex-col que el drawer del carrito.
+          Solo se muestra si `showCheckout` es true Y `settings` ya se cargó.
+          `settings &&` garantiza que tengamos los métodos de pago disponibles. */}
       {showCheckout && settings && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowCheckout(false)}>
           <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -614,7 +809,10 @@ export default function ShopPage() {
                 </div>
               )}
 
-              {/* Fulfillment */}
+              {/* Forma de entrega — IIFE para poder declarar variables locales
+                  antes de retornar el JSX de las opciones.
+                  `cart.some(...)` devuelve true si AL MENOS UN producto tiene envío habilitado.
+                  Si ningún producto tiene envío, la opción SHIPPING no aparece. */}
               {(() => {
                 const hasSomeShipping = cart.some((c) => c.product.shippingEnabled);
                 const fulfillOpts = settings.fulfillmentOptions.filter((o) => o === 'PICKUP' || (o === 'SHIPPING' && hasSomeShipping));
@@ -694,7 +892,11 @@ export default function ShopPage() {
                 </div>
               </div>
 
-              {/* SPEI Info + captura del comprobante */}
+              {/* Datos SPEI + comprobante: se muestra solo si el método seleccionado
+                  es SPEI (`===`) Y el negocio tiene datos bancarios configurados.
+                  `URL.createObjectURL(paymentProofFile)` crea una URL temporal
+                  (solo válida en el navegador) para previsualizar el archivo seleccionado
+                  sin subirlo al servidor todavía. */}
               {form.preferredPaymentMethod === 'SPEI' && settings.speiInfo && (
                 <div className="mb-4 rounded-lg p-3 border" style={{ backgroundColor: TEAL_LIGHT, borderColor: `${TEAL}30` }}>
                   <p className="text-xs font-semibold mb-2" style={{ color: TEAL }}>Datos para transferencia</p>
@@ -764,10 +966,15 @@ export default function ShopPage() {
                 Al apartar, el negocio se pondra en contacto contigo para coordinar el pago y la entrega. Siliba no procesa pagos de productos.
               </div>
 
+              {/* Mensaje de error de validación. `formError &&` lo oculta
+                  cuando el string está vacío (valor falsy en JavaScript). */}
               {formError && <div className="rounded-lg p-3 mb-2 bg-red-50 text-red-700 text-xs">{formError}</div>}
             </div>
 
-            {/* Footer sticky con el CTA */}
+            {/* Footer del checkout — el botón principal llama a `handleCheckout`.
+                `disabled`: se deshabilita mientras la mutation está en curso o
+                se está subiendo el comprobante (evita doble envío).
+                El texto del botón cambia según el estado: subiendo / apartando / confirmar. */}
             <div className="px-4 py-3 border-t border-gray-100 bg-white flex-shrink-0">
               <button onClick={handleCheckout} disabled={reserveMutation.isPending || paymentProofUploading}
                 className="w-full py-3 text-white text-sm font-semibold rounded-2xl transition-colors disabled:opacity-50 shadow-lg" style={{ backgroundColor: TEAL, boxShadow: '0 4px 16px rgba(0,128,128,0.4)' }}
@@ -780,8 +987,11 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Modal de completar perfil — aparece cuando el cliente intenta
-          comprar pero su perfil tiene telefono invalido. */}
+      {/* CompleteProfileModal — componente externo importado al inicio del archivo.
+          `user as any` es un type assertion de TypeScript: le decimos al compilador
+          que confíe en nosotros y no valide el tipo exacto en este punto.
+          Después de completar el perfil, `refreshUser()` recarga los datos del usuario
+          para que el teléfono quede disponible en el formulario. */}
       {showCompleteProfile && user && (
         <CompleteProfileModal
           user={user as any}
@@ -848,6 +1058,9 @@ export default function ShopPage() {
         </div>
       )}
 
+      {/* SuccessPopup: componente de éxito teal con checkmark y botón "Aceptar".
+          `show={showSuccess}`: controla si el popup es visible (prop booleana).
+          `onClose`: callback que se ejecuta cuando el usuario toca "Aceptar". */}
       <SuccessPopup show={showSuccess} title="Productos apartados" message="El negocio se pondra en contacto contigo para coordinar el pago y la entrega." onClose={() => setShowSuccess(false)} />
     </div>
   );

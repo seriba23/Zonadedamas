@@ -1,10 +1,29 @@
+// ============================================================
+// PÁGINA: Términos y Condiciones de Uso
+// RUTA:   /marketplace/legal/terms
+//
+// ¿Qué muestra?
+//   - Documento estático: Términos y Condiciones de la plataforma Siliba.
+//   - 13 cláusulas: Aceptación, Servicio, Cuenta, Reservas, Pagos, Cancelaciones,
+//     Conducta Prohibida, Propiedad Intelectual, Privacidad, Limitación de Responsabilidad,
+//     Indemnización, Modificaciones, Ley Aplicable.
+//   - Enlace al Aviso de Privacidad en el cuerpo del texto.
+//   - Botón "Volver" (router.back()).
+//
+// Esta página es 100% contenido estático. `'use client'` es necesario solo por
+// `useRouter`. Sin ese hook, podría ser un Server Component más eficiente.
+// ============================================================
 'use client';
 
+// useRouter: para el botón "Volver" que navega a la página anterior.
 import { useRouter } from 'next/navigation';
+
+// Link: para el enlace al Aviso de Privacidad dentro del texto.
 import Link from 'next/link';
 
 const TEAL = '#008080';
 
+// ── Componente principal ───────────────────────────────────
 export default function TermsAndConditionsPage() {
   const router = useRouter();
 

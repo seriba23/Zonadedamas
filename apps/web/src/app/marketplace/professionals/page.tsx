@@ -1,15 +1,43 @@
+// ============================================================
+// PÁGINA: Directorio de profesionales del marketplace
+// RUTA:   /marketplace/professionals
+//
+// ¿Qué muestra?
+//   - Directorio de profesionales independientes y empleados de salones.
+//   - Buscador con debounce (espera 400ms antes de buscar para no saturar el backend).
+//   - Filtros: profesión/puesto, solo favoritos, solo disponibles ahora.
+//   - Ordenamiento por rating o por número de citas.
+//   - Botón de corazón (favorito) en cada tarjeta con optimistic UI.
+//   - Geolocalización: si el usuario da permiso, muestra la distancia al profesional.
+//   - Tarjetas con foto, nombre, negocio, rating y especialidad.
+// ============================================================
 'use client';
 
+// useState: buscador, filtros, favoritos, etc.
+// useEffect: debounce del buscador, geolocalización.
 import { useState, useEffect } from 'react';
+
+// useQuery: cargar el catálogo de profesiones y la lista de profesionales.
+// useMutation: toggle de favorito.
+// useQueryClient: invalidar la caché de favoritos tras el toggle.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// Estado de autenticación (para saber si puede marcar favoritos).
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+
+// Cliente HTTP del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Link: navegación al perfil del profesional (/marketplace/[slug]/professional/[id]).
 import Link from 'next/link';
+
+// useRouter: para redirigir al login si no está autenticado al intentar dar favorito.
 import { useRouter } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TEAL = '#008080';
 
+// Professional: datos de un profesional devuelto por el endpoint /professionals.
 interface Professional {
   id: string;
   firstName: string;
@@ -27,45 +55,80 @@ interface Professional {
   _count: { appointments: number; reviews: number };
 }
 
+// ── Componente principal ───────────────────────────────────
 export default function ProfessionalsPage() {
   const router = useRouter();
   const { isAuthenticated } = useMarketplaceAuth();
   const queryClient = useQueryClient();
+
+  // Texto del buscador (lo que el usuario escribe en tiempo real).
   const [search, setSearch] = useState('');
+
+  // Versión "debouncada" del buscador: se actualiza 400ms después del último cambio.
+  // Técnica de "debounce": evita hacer una petición al backend por cada tecla
+  // que el usuario pulsa. Solo busca cuando el usuario termina de escribir.
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Coordenadas GPS del usuario (si dio permiso). null = sin ubicación.
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Filtros activos.
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // Set de IDs de profesionales marcados como favoritos (optimistic UI).
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
+
+  // Filtro de profesión/puesto (ej: "Estilista", "Barbero").
   const [filterJobTitle, setFilterJobTitle] = useState('');
-  // showJobSheet eliminado: la profesión se elige dentro del modal de Filtros.
+
+  // Controla si el bottom-sheet de filtros está abierto.
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+
+  // Mostrar solo los que están disponibles en este momento.
   const [availableNow, setAvailableNow] = useState(false);
+
+  // Criterio de ordenamiento: '' = por relevancia, 'rating' = mejor calificados.
   const [sortBy, setSortBy] = useState<'' | 'rating' | 'appointments'>('');
 
+  // Debounce del buscador: cada vez que `search` cambia, cancela el temporizador
+  // anterior (`clearTimeout`) y programa uno nuevo para 400ms después.
+  // Si el usuario escribe rápido, solo la última pulsación desencadena la búsqueda.
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
-    return () => clearTimeout(t);
+    return () => clearTimeout(t); // Función de limpieza: cancela el temporizador al desmontar
   }, [search]);
 
+  // Geolocalización: pide la posición del usuario al montar la página.
+  // Si el usuario rechaza el permiso, el callback de error `() => {}` es un no-op.
+  // `{ timeout: 5000 }`: espera máximo 5 segundos para obtener la posición.
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
+        () => {}, // Silenciar error si el usuario rechaza el permiso
         { timeout: 5000 },
       );
     }
   }, []);
 
+  // Carga el catálogo de profesiones disponibles para el filtro.
   const { data: professionsData } = useQuery({
     queryKey: ['professions-catalog'],
     queryFn: () => marketplaceApi.get<{ data: string[] }>('/professions'),
   });
-  // Ordenadas alfabéticamente (locale es) para el modal de Filtros.
+
+  // `[...array]`: crea una copia del array antes de ordenar (`.sort()` muta el array original).
+  // `localeCompare` con `sensitivity: 'base'` ignora acentos y mayúsculas al ordenar.
   const professions: string[] = [...((professionsData as any)?.data || [])].sort((a, b) =>
     a.localeCompare(b, 'es', { sensitivity: 'base' }),
   );
 
+  // Carga la lista de profesionales del backend.
+  // El queryKey incluye los filtros: si cambia el texto de búsqueda, profesión o
+  // coordenadas, React Query automáticamente hace una nueva petición al backend.
+  // `URLSearchParams`: clase del navegador para construir query strings de forma segura.
+  // Ej: `params.set('search', 'maria')` → "search=maria".
+  // `String(coords.lat)`: convierte número a string para el query param.
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-professionals', debouncedSearch, filterJobTitle, coords?.lat, coords?.lng],
     queryFn: () => {

@@ -1,65 +1,139 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/book/[tenantSlug]/page.tsx
+//
+// CONCEPTO: Página de reserva de citas pública (flujo de 5 pasos).
+// URL: /book/[tenantSlug]  (ej. /book/salon-maria)
+//
+// RUTA DINÁMICA: La carpeta "[tenantSlug]" con corchetes indica un parámetro
+// de URL dinámico. Next.js captura el valor de la URL y lo hace disponible
+// mediante useParams(). Por ejemplo:
+//   URL: /book/salon-maria  →  params.tenantSlug === 'salon-maria'
+//   URL: /book/mi-barberia  →  params.tenantSlug === 'mi-barberia'
+//
+// FLUJO DE 5 PASOS (wizard):
+//  Paso 1: Seleccionar SERVICIO(S) — puede elegir múltiples
+//  Paso 2: Seleccionar PROFESIONAL (o "cualquier disponible")
+//  Paso 3: Elegir FECHA Y HORA con calendario y slots de disponibilidad
+//  Paso 4: Ingresar DATOS DE CONTACTO (nombre, email, teléfono, notas)
+//  Paso 5: CONFIRMAR la reserva → llama a la API → pantalla de éxito
+//
+// AUTENTICACIÓN: Requiere estar logueado en el marketplace.
+// Si no hay token, redirige al login del marketplace.
+//
+// DATOS QUE CONSUME (APIs públicas, sin auth requerida en el backend):
+//  GET /api/public/:slug/services     → lista de servicios del negocio
+//  GET /api/public/:slug/employees    → lista de empleados disponibles
+//  POST /api/public/:slug/availability → slots horarios disponibles
+//  POST /api/public/:slug/book        → crea la cita
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import { useState, useEffect } from 'react';
+// useParams: lee los parámetros de la URL dinámica ([tenantSlug]).
 import { useParams, useRouter } from 'next/navigation';
+// useQuery: hook de React Query para hacer GET requests con caché automático.
+// useMutation: hook de React Query para POST/PUT/DELETE requests (modificaciones).
 import { useQuery, useMutation } from '@tanstack/react-query';
+// dayjs: librería para manejo de fechas. Mucho más ligera y amigable que el
+// objeto Date nativo de JavaScript.
 import dayjs from 'dayjs';
+// Funciones de utilidad para formatear moneda, fechas y horas.
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
 
+// ─── INTERFACES (TIPOS DE DATOS) ─────────────────────────────────────────────
+// Definen la estructura que esperamos recibir de la API.
+// TypeScript usa estas interfaces para validar los datos en tiempo de compilación.
+
+// Datos de un servicio del negocio (ej. Corte de cabello, Manicure, etc.)
 interface Service {
   id: string;
   name: string;
-  description?: string;
-  durationMinutes: number;
-  price: number;
-  color?: string;
+  description?: string;          // Opcional (puede no tener descripción)
+  durationMinutes: number;       // Duración en minutos
+  price: number;                 // Precio en la moneda del negocio
+  color?: string;                // Color de acento para el card del servicio
 }
 
+// Datos de un empleado/profesional disponible para atender
 interface Employee {
   id: string;
   firstName: string;
   lastName: string;
-  avatarUrl?: string | null;
-  color?: string;
+  avatarUrl?: string | null;     // URL de la foto (null si no tiene foto)
+  color?: string;                // Color de identificación del empleado
 }
 
+// Un slot de tiempo disponible para agendar
 interface AvailableSlot {
-  startTime: string;
-  endTime: string;
-  employeeId: string;
+  startTime: string;    // ISO datetime: "2026-06-17T10:00:00"
+  endTime: string;      // ISO datetime: "2026-06-17T11:00:00"
+  employeeId: string;   // ID del empleado que puede atender ese slot
 }
 
+// Datos de contacto que proporciona el cliente para la reserva
 interface BookingDetails {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  notes: string;
+  notes: string;    // Notas opcionales (alergias, preferencias, etc.)
 }
 
+// Tipo para el paso actual del wizard. Solo puede ser 1, 2, 3, 4 o 5.
 type Step = 1 | 2 | 3 | 4 | 5;
 
+// URL base de la API del backend. Se lee de las variables de entorno de Next.js.
+// "process.env.NEXT_PUBLIC_API_URL" es una variable de entorno que Next.js
+// inyecta en el cliente al hacer el build. Debe empezar con NEXT_PUBLIC_ para
+// estar disponible en el navegador (las variables sin ese prefijo solo están
+// en el servidor).
 const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function BookingPage() {
+  // useParams() lee los parámetros dinámicos de la URL.
+  // "as string" es un type cast: le decimos a TypeScript que sabemos que
+  // params.tenantSlug es un string (no un string[] que también es posible).
   const params = useParams();
   const router = useRouter();
   const tenantSlug = params.tenantSlug as string;
 
-  // Redirect to marketplace login if not authenticated
+  // ─── VERIFICAR AUTENTICACIÓN ────────────────────────────────────────────────
+  // Redirect to marketplace login if not authenticated.
+  // Esta página REQUIERE sesión de marketplace para reservar.
   useEffect(() => {
+    // "typeof window !== 'undefined'" verifica que estamos en el navegador
+    // (no en el servidor durante SSR). localStorage no existe en el servidor.
     const token = typeof window !== 'undefined' && localStorage.getItem('marketplace_access_token');
     if (!token) {
+      // encodeURIComponent convierte la URL de destino a formato seguro para
+      // incluirla como parámetro de otra URL. Ej: '/book/salon' → '%2Fbook%2Fsalon'
       router.replace(`/marketplace/login?redirect=${encodeURIComponent(`/book/${tenantSlug}`)}`);
     }
   }, [router, tenantSlug]);
 
+  // ─── ESTADO DEL WIZARD ──────────────────────────────────────────────────────
+  // "step" controla en qué paso del flujo de 5 pasos está el usuario.
   const [step, setStep] = useState<Step>(1);
+
+  // Lista de servicios seleccionados. Es un ARRAY porque el usuario puede
+  // elegir más de un servicio (ej. corte + tinte + peinado).
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+
+  // El empleado específico elegido (null si no eligió ninguno).
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  // true si el usuario eligió "Cualquier profesional disponible"
+  // (no importa quién lo atienda, solo quiere el horario).
   const [anyEmployee, setAnyEmployee] = useState(false);
+
+  // La fecha seleccionada en el calendario. dayjs() = hoy.
+  // dayjs es un objeto immutable: dayjs().add(1, 'day') crea un NUEVO objeto.
   const [selectedDate, setSelectedDate] = useState(dayjs());
+
+  // El slot de tiempo elegido (fecha + hora + empleado que lo atenderá).
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+
+  // Datos de contacto del cliente para la cita.
   const [details, setDetails] = useState<BookingDetails>({
     firstName: '',
     lastName: '',
@@ -67,17 +141,42 @@ export default function BookingPage() {
     phone: '',
     notes: '',
   });
+
+  // true cuando la reserva fue creada exitosamente → mostrar pantalla de éxito.
   const [isConfirmed, setIsConfirmed] = useState(false);
 
+  // ─── REACT QUERY: FETCHING DE DATOS ─────────────────────────────────────────
+  // useQuery hace las peticiones GET a la API y maneja automáticamente:
+  //  - Estado de carga (isLoading)
+  //  - Caché (si ya se cargaron, no vuelve a pedir)
+  //  - Reintento en caso de error
+  //  - Re-fetching cuando cambian las dependencias (queryKey)
+  //
+  // Estructura de useQuery:
+  //  queryKey: un array que identifica de forma única esta query.
+  //            Si algún elemento del array cambia, React Query vuelve a
+  //            ejecutar la queryFn automáticamente.
+  //  queryFn:  función async que hace el fetch real.
+  //  enabled:  booleano que indica si esta query debe ejecutarse.
+  //            Si es false, no hace la petición.
+
+  // Query de servicios del negocio (siempre activa al cargar la página).
+  // Renombramos las propiedades con ":" para no colisionar con las otras queries.
   const { data: servicesData, isLoading: loadingServices } = useQuery({
     queryKey: ['public-services', tenantSlug],
     queryFn: async () => {
       const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/services`);
+      // Si la respuesta HTTP no es 2xx, lanzamos un error.
+      // React Query capturará este error y pondrá isError en true.
       if (!res.ok) throw new Error('Error al cargar servicios');
+      // "as Promise<{ data: Service[] }>" es una aserción de tipo:
+      // le decimos a TypeScript cómo se verá el JSON de respuesta.
       return res.json() as Promise<{ data: Service[] }>;
     },
   });
 
+  // Query de empleados (solo se activa cuando el usuario llega al paso 2).
+  // "enabled: step >= 2" evita hacer la petición innecesariamente en el paso 1.
   const { data: employeesData, isLoading: loadingEmployees } = useQuery({
     queryKey: ['public-employees', tenantSlug],
     queryFn: async () => {
@@ -85,47 +184,71 @@ export default function BookingPage() {
       if (!res.ok) throw new Error('Error al cargar profesionales');
       return res.json() as Promise<{ data: Employee[] }>;
     },
-    enabled: step >= 2,
+    enabled: step >= 2,  // Solo carga cuando el usuario llega al paso 2 o posterior.
   });
 
+  // Query de slots disponibles (se reactiva cuando cambia la fecha o el empleado).
+  // La queryKey incluye la fecha y los servicios: si cualquiera cambia,
+  // React Query hace la petición de nuevo automáticamente.
   const { data: slotsData, isLoading: loadingSlots } = useQuery({
     queryKey: [
       'public-slots',
       tenantSlug,
-      selectedDate.format('YYYY-MM-DD'),
-      selectedServices.map((s) => s.id),
-      selectedEmployee?.id,
+      selectedDate.format('YYYY-MM-DD'),   // Formato estándar: '2026-06-17'
+      selectedServices.map((s) => s.id),   // Array de IDs de servicios seleccionados
+      selectedEmployee?.id,                // ID del empleado (undefined si cualquiera)
     ],
     queryFn: async () => {
+      // dayjs().format('YYYY-MM-DD') convierte a string de fecha ISO sin hora.
       const dateStr = selectedDate.format('YYYY-MM-DD');
+      // Esta query es un POST (no un GET) porque manda datos en el body.
+      // Es inusual para "buscar" datos, pero la API así lo requiere.
       const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/availability`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },  // Indicamos que mandamos JSON.
+        // JSON.stringify convierte el objeto JavaScript a string JSON para el body HTTP.
         body: JSON.stringify({
           startDate: dateStr,
           endDate: dateStr,
+          // .map() transforma cada servicio seleccionado a solo su "id".
+          // Resultado: ['id1', 'id2'] (no los objetos completos).
           serviceIds: selectedServices.map((s) => s.id),
+          // "?." evita error si selectedEmployee es null.
           employeeId: selectedEmployee?.id,
         }),
       });
       if (!res.ok) throw new Error('Error al cargar horarios');
       return res.json() as Promise<{ data: AvailableSlot[] }>;
     },
+    // Solo activa cuando estamos en el paso 3 Y hay al menos un servicio seleccionado.
     enabled: step === 3 && selectedServices.length > 0,
   });
 
+  // ─── MUTATION: CREAR LA CITA ─────────────────────────────────────────────────
+  // useMutation se usa para operaciones que MODIFICAN datos en el servidor
+  // (POST, PUT, DELETE). A diferencia de useQuery, no se ejecuta automáticamente:
+  // se dispara manualmente con "bookMutation.mutate()".
+  //
+  // Estados disponibles en una mutation:
+  //  isPending: true mientras la petición está en curso
+  //  isError:   true si la petición falló
+  //  isSuccess: true si la petición fue exitosa
   const bookMutation = useMutation({
+    // mutationFn: la función que hace la petición HTTP.
     mutationFn: async () => {
       const res = await fetch(`${PUBLIC_API}/api/public/${tenantSlug}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceIds: selectedServices.map((s) => s.id),
+          // El empleado que atenderá: primero usamos el del slot (que ya tiene
+          // asignado un empleado específico), si no, el que eligió el usuario.
           employeeId: selectedSlot?.employeeId || selectedEmployee?.id,
           // startTime tal cual ("YYYY-MM-DDTHH:mm:00" sin TZ) — ver nota en
           // marketplace/page.tsx. El backend trabaja con horas del negocio
           // en UTC raw, igual que los slots de availability.
           startTime: selectedSlot?.startTime,
+          // Datos del cliente para la cita (se guardan en la BD).
           client: {
             firstName: details.firstName,
             lastName: details.lastName,
@@ -138,31 +261,57 @@ export default function BookingPage() {
       if (!res.ok) throw new Error('Error al crear la cita');
       return res.json();
     },
+    // onSuccess: se ejecuta AUTOMÁTICAMENTE cuando la mutationFn termina con éxito.
     onSuccess: () => {
-      setIsConfirmed(true);
-      setStep(5);
+      setIsConfirmed(true);  // Activa la pantalla de confirmación.
+      setStep(5);            // Avanza al paso 5 (ya muestra la confirmación de éxito).
     },
   });
 
+  // ─── DATOS DERIVADOS ──────────────────────────────────────────────────────────
+  // Extraemos los arrays de las respuestas de la API.
+  // El "|| []" garantiza que siempre sea un array (nunca undefined),
+  // evitando errores al hacer .map() o .filter() sobre valores undefined.
   const services = servicesData?.data || [];
   const employees = employeesData?.data || [];
   const slots = slotsData?.data || [];
 
+  // toggleService: agrega o quita un servicio de la selección.
+  // Si ya está seleccionado → lo quita. Si no está → lo agrega.
+  // Usamos la forma funcional de setState: "prev" es el estado anterior.
+  // Esto garantiza que usamos el valor más reciente del estado.
   function toggleService(service: Service) {
     setSelectedServices((prev) =>
+      // prev.some((s) => s.id === service.id): recorre el array y retorna true
+      // si ALGÚN elemento cumple la condición (que el id coincida).
       prev.some((s) => s.id === service.id)
+        // Si ya estaba → filtramos para EXCLUIRLO (mantenemos solo los que NO son ese ID)
         ? prev.filter((s) => s.id !== service.id)
+        // Si no estaba → creamos un nuevo array con todos los anteriores + el nuevo.
+        // "[...prev, service]" usa el spread operator (...) para copiar el array.
         : [...prev, service],
     );
   }
 
+  // Calculamos totales sumando los valores de todos los servicios seleccionados.
+  // .reduce(función, valorInicial): recorre el array acumulando un valor.
+  //   acc = acumulador (empieza en 0)
+  //   s   = elemento actual del array
+  //   El resultado es la suma de todos los durationMinutes/price.
   const totalDuration = selectedServices.reduce((acc, s) => acc + s.durationMinutes, 0);
   const totalPrice = selectedServices.reduce((acc, s) => acc + s.price, 0);
 
   // Generate calendar days for current month view
-  const startOfMonth = selectedDate.startOf('month');
-  const daysInMonth = selectedDate.daysInMonth();
+  // Datos necesarios para renderizar el calendario mensual:
+  const startOfMonth = selectedDate.startOf('month');   // Primer día del mes actual.
+  const daysInMonth = selectedDate.daysInMonth();       // Número de días en el mes (28-31).
+  // .day() retorna el día de la semana del primer día del mes (0=Dom, 1=Lun, ..., 6=Sáb).
+  // Lo usamos para dejar celdas vacías al inicio del calendario.
   const firstDayOfWeek = startOfMonth.day();
+  // Array.from({ length: N }, (_, i) => ...) crea un array de N elementos.
+  // El "_" ignora el primer parámetro (el valor, que es undefined aquí).
+  // "i" es el índice (0, 1, 2, ..., daysInMonth-1).
+  // Resultado: array de objetos dayjs, uno por cada día del mes.
   const calendarDays = Array.from({ length: daysInMonth }, (_, i) =>
     startOfMonth.add(i, 'day'),
   );

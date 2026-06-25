@@ -1,33 +1,123 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// apps/web/src/app/(auth)/login/page.tsx
+//
+// CONCEPTO: Página de inicio de sesión de la aplicación.
+// URL: /login
+//
+// Esta página tiene TRES estados visuales distintos (renderiza cosas diferentes
+// dependiendo del estado):
+//
+//  1. FORMULARIO DE LOGIN (estado normal): el usuario ingresa email y contraseña
+//     o usa botones de login social (Google/Facebook).
+//
+//  2. SELECTOR DE PERFIL (roleChoice !== null): después de un login exitoso,
+//     se muestra un selector donde el usuario elige CÓMO quiere entrar:
+//     como Cliente, como Profesional o como Administrador. Siempre se muestra
+//     aunque solo tenga un perfil, para que el usuario elija conscientemente.
+//
+//  3. SOCIAL PROFILE (socialProfile !== null): el usuario intentó hacer login
+//     con Google/Facebook pero la cuenta no existe aún. Se muestran dos etapas:
+//     - 'choice': elegir el tipo de cuenta (Cliente/Profesional/Administrador)
+//     - 'professional': ingresar código de invitación (si eligió Profesional)
+//
+// FLUJO COMPLETO:
+//   Usuario ingresa credenciales → login() → mostrar selector de perfil →
+//   usuario elige rol → redirigir a /home (admin), /employee (profesional)
+//   o /marketplace (cliente)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Client Component porque usa todos los hooks de React y del navegador.
 'use client';
 
+// Suspense: componente de React que permite mostrar un "fallback" (contenido
+// provisional) mientras se carga código asíncrono. Lo usamos porque
+// useSearchParams() requiere ser envuelto en Suspense en Next.js App Router.
+//
+// useEffect: ejecuta código después del render (efectos secundarios).
+// useRef: guarda un valor mutable que NO provoca re-render cuando cambia.
+//   Útil para flags (banderas booleanas) que controlan lógica sin afectar la UI.
+// useState: guarda estado que SÍ provoca re-render cuando cambia.
+// FormEvent: tipo de TypeScript para el evento de submit de un formulario HTML.
 import { Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
+
+// useRouter: para navegar programáticamente entre rutas.
+// useSearchParams: para leer parámetros de la URL como ?redirect=/marketplace/salon1
+//   Permite que después del login el usuario vuelva a donde quería ir.
 import { useRouter, useSearchParams } from 'next/navigation';
+
+// Link: componente de Next.js para navegar entre páginas. Mejor que <a> porque
+// hace navegación del lado del cliente (sin recargar la página completa).
 import Link from 'next/link';
+
+// Hook personalizado de autenticación. Expone login(), user, isAuthenticated, etc.
 import { useAuth } from '@/lib/hooks/use-auth';
+
+// Botones de login social (Google, Facebook). Componente reutilizable que
+// maneja el flujo OAuth y llama a onSocialLogin con el token recibido.
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
+
+// Avatar: muestra la foto de perfil del usuario o sus iniciales si no hay foto.
 import { Avatar } from '@/components/ui/avatar';
+
+// api: cliente HTTP para la API del backend de negocio (NestJS, puerto 3001).
 import { api } from '@/lib/api';
+
+// marketplaceApi: cliente HTTP separado para la API del marketplace/cliente.
+// Tiene sus propios tokens JWT separados de la sesión de negocio.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Tipo de TypeScript que describe la estructura del objeto "user" autenticado.
 import type { AuthUser } from '@/lib/auth';
+
+// Función que cierra todas las sesiones (negocio + marketplace + portal).
 import { signOutAll } from '@/lib/sign-out-all';
 
+// ─── TIPOS ───────────────────────────────────────────────────────────────────
+// Interfaz TypeScript: define la "forma" (shape) de un objeto.
+// Si intentas usar un objeto como SocialProfile sin que tenga estas propiedades,
+// TypeScript mostrará un error de compilación.
 interface SocialProfile {
   email: string;
   firstName: string;
   lastName: string;
-  avatarUrl?: string;
-  provider: string;
+  avatarUrl?: string;  // El "?" indica que es OPCIONAL (puede no existir)
+  provider: string;    // 'google' o 'facebook'
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LoginPageInner: el componente REAL de la página.
+// Está separado del export default (LoginPage) porque useSearchParams()
+// requiere ser envuelto en <Suspense> en Next.js App Router. Si no usamos
+// <Suspense>, Next.js lanzaría un error durante el build de producción.
+// ─────────────────────────────────────────────────────────────────────────────
 function LoginPageInner() {
+  // useRouter para redirigir al usuario después del login.
   const router = useRouter();
+
+  // useSearchParams lee los parámetros de la URL actual.
+  // Por ejemplo, en la URL: /login?redirect=/marketplace/salon1
+  // searchParams.get('redirect') devuelve '/marketplace/salon1'
   const searchParams = useSearchParams();
+
+  // Si el usuario llegó al login desde una ruta protegida (que requería
+  // autenticación), guardamos esa ruta para redirigirlo después del login.
+  // Ejemplo: si intentó ir a /marketplace/mi-negocio sin estar logueado,
+  // el sistema lo mandó a /login?redirect=/marketplace/mi-negocio
   const redirectAfterLogin = searchParams.get('redirect');
+
+  // Extraemos funciones y estado del hook de autenticación.
+  // Renombramos isLoading → authLoading para no confundirlo con el isLoading
+  // local del formulario (isLoading del submit).
   const { login, user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Se setea a true durante el flujo de login en curso para que el useEffect
   // de auto-redirect no se dispare antes de que handleSubmit decida si mostrar
   // el selector de perfiles (admin/empleado/cliente) o redirigir directo.
+  //
+  // useRef: guarda un valor "mutable" que sobrevive entre renders pero NO
+  // provoca un re-render cuando cambia. Es perfecto para flags de control.
+  // "skipAutoRedirect.current = true" no causa un re-render, solo cambia
+  // el valor en memoria para que el useEffect lo lea en el próximo ciclo.
   const skipAutoRedirect = useRef(false);
 
   // Si ya hay sesion activa Y el usuario entro con un ?redirect explicito,
@@ -48,11 +138,35 @@ function LoginPageInner() {
     router.replace(redirectAfterLogin);
   }, [authLoading, isAuthenticated, user, redirectAfterLogin, router]);
 
+  // ─── ESTADO DEL FORMULARIO ─────────────────────────────────────────────────
+  // "form" guarda los valores actuales de los inputs del formulario.
+  // Usamos UN solo estado con un objeto en lugar de estados separados para
+  // cada campo. Es una práctica común para formularios pequeños.
   const [form, setForm] = useState({ email: '', password: '' });
+
+  // "errors" guarda los mensajes de error de validación de cada campo.
+  // "Record<string, string>" es un tipo de TypeScript que significa:
+  // "un objeto donde las claves son strings y los valores son strings".
+  // Ejemplo: { email: 'El correo es requerido', password: 'Mínimo 6 caracteres' }
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // "apiError" guarda el mensaje de error que viene del servidor
+  // (por ejemplo, "Credenciales incorrectas"). Es null cuando no hay error.
   const [apiError, setApiError] = useState<string | null>(null);
+
+  // "isLoading" controla si se está procesando el login. Se usa para:
+  //  - Mostrar el spinner en el botón de submit
+  //  - Deshabilitar el botón para evitar clicks múltiples
   const [isLoading, setIsLoading] = useState(false);
+
+  // "roleChoice" guarda el objeto "user" después de un login exitoso.
+  // Si es null → mostrar el formulario. Si no es null → mostrar el selector de perfiles.
+  // AuthUser | null significa que puede ser un AuthUser O null.
   const [roleChoice, setRoleChoice] = useState<AuthUser | null>(null);
+
+  // "availableProfiles" lista los tipos de perfil que tiene este usuario.
+  // Ejemplo: ['admin', 'professional'] si tiene cuenta de admin y empleado,
+  // pero no de cliente. Se usa para saber qué opciones mostrar en el selector.
   const [availableProfiles, setAvailableProfiles] = useState<string[]>([]);
 
   // Helper que setea state + persiste el selector en sessionStorage. Asi al
@@ -89,39 +203,106 @@ function LoginPageInner() {
     } catch {}
   }, [authLoading, isAuthenticated, user, roleChoice]);
 
+  // ─── ESTADO DEL FLUJO DE SOCIAL LOGIN ─────────────────────────────────────
   // Social login: tipo de cuenta + invite code step
+  // "socialProfile" guarda los datos del perfil social cuando el usuario
+  // intenta entrar con Google/Facebook y la cuenta aún no existe en Siliba.
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
+  // "socialToken" guarda el token OAuth de Google/Facebook para usarlo
+  // en el registro posterior (cuando el usuario elige el tipo de cuenta).
   const [socialToken, setSocialToken] = useState<string | null>(null);
   // 'choice' = mostrar selector (Cliente/Profesional/Administrador)
   // 'professional' = mostrar form de codigo de invitacion
+  // El tipo "'choice' | 'professional'" es un "union type": solo puede
+  // ser uno de esos dos string literales exactos.
   const [socialStage, setSocialStage] = useState<'choice' | 'professional'>('choice');
+  // Error específico del flujo de social login (distinto a apiError del form normal).
   const [socialError, setSocialError] = useState('');
+  // true mientras se está procesando la acción de social login.
   const [socialBusy, setSocialBusy] = useState(false);
+  // Código de invitación que ingresa el profesional para unirse a un negocio.
   const [inviteCode, setInviteCode] = useState('');
+  // Error de validación del código de invitación.
   const [inviteError, setInviteError] = useState('');
+  // true mientras se está verificando el código de invitación con la API.
   const [inviteLoading, setInviteLoading] = useState(false);
 
+  // ─── VALIDACIÓN DEL FORMULARIO ─────────────────────────────────────────────
+  // validate(): comprueba que el formulario tiene datos válidos ANTES de enviarlo
+  // a la API. Esto evita peticiones innecesarias al servidor con datos incorrectos.
+  // Retorna true si todo está bien, false si hay algún error.
   function validate(): boolean {
+    // Creamos un objeto temporal de errores para esta validación.
     const newErrors: Record<string, string> = {};
+
+    // Valida el campo email:
     if (!form.email) newErrors.email = 'El correo es requerido';
+    // La expresión regular (regex) valida el formato de email:
+    //  /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    //  ^ = inicio del string
+    //  [^\s@]+ = uno o más caracteres que NO sean espacio ni "@"
+    //  @  = el símbolo arroba literal
+    //  \. = un punto literal (\ escapa el . que en regex significa "cualquier caracter")
+    //  $ = fin del string
+    // .test(form.email) devuelve true si el email tiene formato válido.
+    // El "!" invierte el resultado: si NO es válido, agrega el error.
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Ingresa un correo válido';
+
     if (!form.password) newErrors.password = 'La contraseña es requerida';
     else if (form.password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
+
+    // Actualizamos el estado de errores para mostrarlos bajo cada campo.
     setErrors(newErrors);
+
+    // Object.keys(newErrors) devuelve un array con las claves del objeto de errores.
+    // Si está vacío (length === 0), no hay errores → retorna true.
     return Object.keys(newErrors).length === 0;
   }
 
+  // ─── MANEJADOR DEL SUBMIT DEL FORMULARIO ──────────────────────────────────
+  // handleSubmit se llama cuando el usuario hace click en "Iniciar sesión"
+  // o presiona Enter en el formulario.
+  //
+  // "async function" significa que esta función es ASÍNCRONA: puede usar "await"
+  // para esperar promesas (operaciones que toman tiempo, como llamadas a la API).
   async function handleSubmit(e: FormEvent) {
+    // e.preventDefault() evita que el formulario HTML haga su comportamiento
+    // por defecto (recargar la página al hacer submit). En React manejamos
+    // el submit de forma programática.
     e.preventDefault();
-    setApiError(null);
+    setApiError(null);  // Limpiamos errores previos de la API.
+
+    // Si la validación falla, no continuamos. El "return" detiene la ejecución.
     if (!validate()) return;
-    setIsLoading(true);
+
+    setIsLoading(true);  // Mostrar el spinner en el botón.
+
     // Bloquea el auto-redirect del useEffect mientras procesamos el resultado.
     skipAutoRedirect.current = true;
+
+    // try/catch/finally: manejo de errores para código asíncrono.
+    //  - try: ejecuta el código que podría fallar
+    //  - catch: si falla, ejecuta este bloque con el error
+    //  - finally: se ejecuta SIEMPRE, haya error o no (para limpiar el loading)
     try {
+      // "await" pausa la ejecución aquí hasta que login() complete.
+      // login() llama a la API, guarda los tokens en localStorage y retorna
+      // el resultado del servidor con los perfiles disponibles del usuario.
       const result = await login(form.email, form.password);
+
+      // El servidor puede devolver perfiles de negocio y/o cliente.
+      // "profiles" es un array de strings como ['admin', 'client'].
       const profiles = result.profiles || [];
+
+      // Intentamos obtener el objeto "user" de negocio (si existe).
+      // El operador "?." (optional chaining) evita errores si "result.business"
+      // es null/undefined: en vez de lanzar un error, retorna undefined.
       const businessUser = result.business?.user || result.user;
+
+      // "result as any" hace un "type cast": le dice a TypeScript que trate
+      // "result" como tipo "any" (sin verificación de tipos). Se usa cuando
+      // el tipo real no está correctamente tipado. Aquí accedemos a
+      // result.client?.user que TypeScript no conoce en el tipo de "result".
       const anyUser = businessUser || (result as any).client?.user || result.user;
 
       // SIEMPRE mostrar el selector despues del login. El usuario quiere
@@ -130,15 +311,22 @@ function LoginPageInner() {
       // ?redirect se aplica DESPUES del selector cuando el usuario hace
       // click en el rol correspondiente.
       if (profiles.length >= 1 && anyUser) {
+        // persistRole guarda el usuario y perfiles tanto en el estado
+        // local como en sessionStorage (para que sobreviva si el usuario
+        // navega a /register y vuelve con el botón "Atrás").
         persistRole(anyUser, profiles);
-        return;
+        return;  // Salimos aquí, el selector se mostrará en el JSX.
       }
 
       // Fallback (no deberia llegar aqui si el login fue exitoso).
       router.push('/');
     } catch (err: any) {
+      // Si login() lanzó un error (credenciales incorrectas, error de red, etc.),
+      // mostramos el mensaje de error en la UI.
+      // "err?.message" usa optional chaining por si "err" no tiene la propiedad "message".
       setApiError(err?.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
+      // Siempre quitamos el loading al terminar (con éxito o error).
       setIsLoading(false);
     }
   }
@@ -747,6 +935,18 @@ function LoginPageInner() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LoginPage: el export default que Next.js usa como la página en la ruta /login.
+//
+// PATRÓN SUSPENSE + INNER COMPONENT:
+// useSearchParams() requiere <Suspense> en Next.js App Router porque durante
+// el build estático (Static Site Generation), los parámetros de búsqueda
+// no se conocen hasta que el usuario navega. <Suspense> le dice a Next.js
+// "espera, hay contenido que se carga dinámicamente aquí".
+//
+// "fallback={null}" significa que mientras el componente interior se carga,
+// no se muestra nada (pantalla en blanco). Podría ser un spinner o un skeleton.
+// ─────────────────────────────────────────────────────────────────────────────
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>

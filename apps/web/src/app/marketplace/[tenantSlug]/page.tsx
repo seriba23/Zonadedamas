@@ -1,26 +1,90 @@
+// ============================================================
+// PÁGINA: Detalle de negocio + Wizard de reserva
+// RUTA:   /marketplace/[tenantSlug]
+//
+// ¿Qué muestra?
+//   - Hero con foto del negocio, nombre, dirección, rating y corazón de favorito.
+//   - Galería de fotos (carrusel horizontal con lightbox).
+//   - Sección de servicios y paquetes con botón "Reservar".
+//   - Sección de reseñas (con formulario para crear/editar la del usuario).
+//   - Sección de cupones canjeables por puntos.
+//   - Tienda de productos (si el negocio tiene shopEnabled).
+//   - Wizard de reserva en modal (multi-paso): ubicación → servicios →
+//     cupones → empleado → fecha/hora → productos → confirmar → éxito.
+//
+// ¿Cómo funciona el wizard?
+//   `bookingStep` es un tipo unión de strings que indica en qué paso está
+//   el usuario: null (cerrado), 'service', 'employee', 'datetime', 'confirm', etc.
+//   Cada paso es una pantalla dentro de un modal a pantalla completa.
+//
+// Parámetros URL opcionales:
+//   ?bookEmployee=ID  → abre el wizard preseleccionando ese empleado
+//   ?service=ID       → abre el wizard preseleccionando ese servicio
+//   ?fromAdmin=1      → modo preview: ve todo pero no puede reservar
+//   ?ref=CODE         → código de referido (se guarda en localStorage)
+//   ?payment=success  → retorno de Stripe (pago de suscripción)
+// ============================================================
 'use client';
+// `'use client'` es una directiva de Next.js 14 App Router.
+// Sin ella, el componente sería un Server Component (sin estado, sin hooks,
+// renderizado en el servidor). Con ella, se convierte en Client Component:
+// puede usar useState, useEffect, eventos del navegador, etc.
 
+// useState: almacena valores reactivos (cuando cambian, React re-renderiza).
+// useRef: referencia a un elemento DOM sin causar re-renderizado (ej: el carrusel).
+// useEffect: ejecuta código como "efecto secundario" (después del render).
 import { useState, useRef, useEffect } from 'react';
+
+// Hooks de navegación del App Router de Next.js 14:
+// - useRouter: para navegar programáticamente (router.push, router.replace).
+// - useParams: lee los segmentos dinámicos de la URL ([tenantSlug]).
+// - useSearchParams: lee los query params (?bookEmployee=..., ?fromAdmin=...).
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+
+// Link: componente de Next.js para navegación sin recarga completa (SPA).
 import Link from 'next/link';
+
+// Hooks de React Query:
+// - useQuery: carga datos del backend con caché automática.
+// - useMutation: envía cambios al backend (POST/PUT/DELETE).
+// - useQueryClient: accede al cliente de caché para invalidar queries manualmente.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// dayjs: librería de fechas. Más ligera que moment.js.
+// 'dayjs/locale/es' y dayjs.locale('es') hacen que los nombres de días/meses
+// salgan en español ("lunes", "enero", etc.).
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 dayjs.locale('es');
+
+// Hook personalizado que expone el estado de autenticación del marketplace.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
+
+// Modales y componentes de UI reutilizables.
 import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
+
+// Cliente HTTP del marketplace (envía token JWT automáticamente).
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+// Utilidades de formato.
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
+
+// Helper para saber si un slot de reserva es futuro (no pasado).
 import { isBookingUpcoming } from '@/lib/booking-time';
 
+// URL del backend. NEXT_PUBLIC_* se expone al navegador (variables del servidor
+// NO empiezan con NEXT_PUBLIC_ y solo existen durante el build).
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Constantes de color para no repetir el valor hexadecimal en todo el archivo.
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+// Diccionario para traducir el día de la semana en inglés (código de BD) al español.
+// `Record<string, string>`: tipo de TypeScript para un objeto clave-valor string.
 const DAY_LABELS: Record<string, string> = {
   MONDAY: 'Lunes',
   TUESDAY: 'Martes',
@@ -31,21 +95,30 @@ const DAY_LABELS: Record<string, string> = {
   SUNDAY: 'Domingo',
 };
 
+// ── Interfaces TypeScript ──────────────────────────────────
+// Las interfaces describen la "forma" de los datos que recibimos del backend.
+// TypeScript las usa solo en tiempo de desarrollo para detectar errores;
+// no generan código JavaScript en producción.
+
+// BizService: un servicio del catálogo del negocio.
 interface BizService {
   id: string;
   name: string;
-  description?: string;
+  description?: string;       // `?` = campo opcional
   durationMinutes: number;
   price: number;
   currency?: string;
   color?: string;
   category?: string;
   subcategory?: string;
-  pointsReward?: number | null;
-  redeemableWithPoints?: boolean;
-  pointsRequired?: number | null;
+  pointsReward?: number | null;         // Puntos que gana el cliente al reservar
+  redeemableWithPoints?: boolean;       // Si se puede pagar con puntos
+  pointsRequired?: number | null;       // Cuántos puntos cuesta canjear
 }
 
+// BizEmployee: un empleado del negocio (profesional).
+// `employeeServices`: lista de IDs de servicios que puede realizar.
+// Se usa para filtrar empleados según los servicios seleccionados.
 interface BizEmployee {
   id: string;
   firstName: string;
@@ -56,14 +129,22 @@ interface BizEmployee {
   employeeServices?: { serviceId: string }[];
 }
 
+// AvailableSlot: un horario disponible devuelto por el endpoint de availability.
+// Las horas vienen como strings ISO (sin zona horaria) desde el backend.
 interface AvailableSlot {
-  startTime: string;
-  endTime: string;
+  startTime: string;  // Ej: "2026-06-24T10:00:00"
+  endTime: string;    // Ej: "2026-06-24T11:00:00"
   employeeId: string;
 }
 
+// BookingStep: tipo unión de todos los posibles pasos del wizard de reserva.
+// `null` = wizard cerrado. Cada string representa una pantalla del modal.
+// El orden del wizard: location → service → promotion → employee → datetime → products → confirm → success.
 type BookingStep = null | 'location' | 'service' | 'promotion' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
 
+// BizPromotion: forma unificada de un reward/cupón del negocio.
+// Los rewards de la BD se mapean a esta interfaz para que el wizard
+// de reserva no tenga que distinguir entre distintos modelos de datos.
 interface BizPromotion {
   id: string;
   name: string;
@@ -86,6 +167,9 @@ interface BizPromotion {
   allowPointPayment?: boolean;
 }
 
+// BookingCartItem: un producto de la tienda del negocio que el cliente
+// agrega al carrito DENTRO del wizard de reserva (paso "products").
+// Distinto del carrito de /shop que es una compra independiente.
 interface BookingCartItem {
   id: string;
   name: string;
@@ -95,22 +179,43 @@ interface BookingCartItem {
   quantity: number;
 }
 
+// DOW_MAP: mapa de número de día (JavaScript: 0=domingo) a código de BD.
+// dayjs().day() devuelve 0-6 (domingo a sábado).
 const DOW_MAP: Record<number, string> = {
   0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY',
   4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY',
 };
 
+// parseTimeToMinutes: convierte "HH:MM" a minutos totales desde medianoche.
+// Ej: "09:30" → 9*60 + 30 = 570 minutos.
+// Sirve para hacer aritmética sencilla con horas sin usar Date.
 function parseTimeToMinutes(timeStr: string): number {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + (m || 0);
 }
 
+// minutesToTimeStr: inverso de parseTimeToMinutes. Convierte minutos a "HH:MM".
+// `padStart(2, '0')` añade un cero inicial si el número tiene solo un dígito.
+// Ej: 570 → "09:30".
 function minutesToTimeStr(minutes: number): string {
   const h = Math.floor(minutes / 60).toString().padStart(2, '0');
   const m = (minutes % 60).toString().padStart(2, '0');
   return `${h}:${m}`;
 }
 
+// ── Componente SlotGrid ────────────────────────────────────
+// Componente auxiliar que muestra la cuadrícula de horarios disponibles
+// para una fecha dada. Recibe props (parámetros) del componente padre.
+//
+// Props:
+//   dateStr        → fecha en formato "YYYY-MM-DD"
+//   availableSlots → slots libres devueltos por el backend
+//   selectedSlot   → slot actualmente seleccionado (o null)
+//   onSelect       → callback que se llama cuando el usuario toca un slot
+//   businessHours  → horarios del negocio (para mostrar slots grises "no disponibles")
+//   durationMinutes → duración total de los servicios elegidos
+//   preferredTime  → hora preferida del usuario (se resalta en celeste)
+//   clientBlocks   → citas existentes del cliente (para mostrar conflictos)
 function SlotGrid({
   dateStr,
   availableSlots,
@@ -239,11 +344,25 @@ function SlotGrid({
   );
 }
 
+// ── Componente principal ───────────────────────────────────
+// `export default` lo marca como el componente de página de esta ruta.
+// Next.js App Router lo renderiza cuando el usuario visita /marketplace/[tenantSlug].
 export default function BusinessDetailPage() {
+  // Estado de autenticación del marketplace (usuario cliente, no el dueño del negocio).
   const { isAuthenticated, user, refreshUser } = useMarketplaceAuth();
+
+  // Controla si se muestra el modal para completar el perfil (teléfono incompleto).
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+
+  // router: para navegar programáticamente (ej: llevar al login si no está autenticado).
   const router = useRouter();
+
+  // queryClient: permite invalidar manualmente el caché de React Query.
+  // Ej: después de crear una reseña, invalidamos el query del negocio para
+  // que React Query vuelva a pedir los datos actualizados.
   const queryClient = useQueryClient();
+
+  // params: lee [tenantSlug] de la URL.
   const params = useParams();
 
   // Scroll a top al montar / al recargar. El browser intenta restaurar la
@@ -254,19 +373,27 @@ export default function BusinessDetailPage() {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
     }
   }, []);
+  // searchParams: acceso a los query params de la URL (?key=value).
   const searchParams = useSearchParams();
+
+  // `as string`: type assertion — le decemos a TypeScript que confiamos en que
+  // siempre será un string (Next.js garantiza que [tenantSlug] existe en la ruta).
   const tenantSlug = params.tenantSlug as string;
-  const bookEmployeeId = searchParams.get('bookEmployee');
-  const preselectedServiceId = searchParams.get('service');
+
+  // Parámetros opcionales de la URL:
+  const bookEmployeeId = searchParams.get('bookEmployee');     // Pre-selecciona empleado
+  const preselectedServiceId = searchParams.get('service');    // Pre-selecciona servicio
   // fromAdmin=1: el dueño vino desde el preview de /settings/business. Mostramos
   // un banner sticky para que pueda volver al panel sin perderse en el portal cliente.
   const fromAdmin = searchParams.get('fromAdmin') === '1';
 
-  // Referral code from shared link
+  // Código de referido desde la URL (?ref=CODIGO).
+  // Si viene en la URL, lo guardamos en localStorage para que persista aunque
+  // el usuario tenga que ir a login antes de reservar.
   const refFromUrl = searchParams.get('ref');
-  const [refModal, setRefModal] = useState<string | null>(null);
-  const [refSenderName, setRefSenderName] = useState<string | null>(null);
-  const [refServiceNames, setRefServiceNames] = useState<string[]>([]);
+  const [refModal, setRefModal] = useState<string | null>(null);        // Modal de bienvenida referido
+  const [refSenderName, setRefSenderName] = useState<string | null>(null); // Nombre de quien compartió
+  const [refServiceNames, setRefServiceNames] = useState<string[]>([]);    // Servicios del cupón 2x1
 
   useEffect(() => {
     if (refFromUrl) {
@@ -303,33 +430,69 @@ export default function BusinessDetailPage() {
     }
   }, [paymentStatus, sessionId]);
 
-  // Booking flow state
+  // ── Estado del wizard de reserva ──────────────────────────
+  // bookingStep: null = cerrado. Un string = modal abierto en ese paso.
+  // Si el usuario regresó de un pago exitoso (?payment=success), abrimos
+  // directamente el paso 'success' (pantalla de confirmación).
   const [bookingStep, setBookingStep] = useState<BookingStep>(
     paymentStatus === 'success' ? 'success' : null,
   );
+
+  // Lista de IDs de servicios seleccionados (puede ser más de uno).
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+
+  // Paquete seleccionado (cuando el usuario elige desde la pestaña "Paquetes").
   const [selectedBundle, setSelectedBundle] = useState<any>(null);
+
+  // Pestaña activa en el paso de selección de servicios.
   const [serviceTab, setServiceTab] = useState<'servicios' | 'paquetes'>('servicios');
   // `selectedPromotion` ya no es state propio: se deriva de `selectedCoupon`
   // (el RewardRedemption aplicado). Mantenemos la variable con el mismo
   // nombre para no tocar todo el render del confirm/success, pero la fuente
   // de verdad es selectedCoupon. Ver bloque que la calcula mas abajo.
+  // Texto del input de código de referido que el usuario escribe manualmente.
   const [referralCodeInput, setReferralCodeInput] = useState('');
+
+  // Código de referido GANADO tras una reserva 2x1 (para compartir con un amigo).
   const [earnedReferralCode, setEarnedReferralCode] = useState<string | null>(null);
+
+  // Empleado seleccionado en el paso 'employee'. null = ninguno elegido aún.
   const [selectedEmployee, setSelectedEmployee] = useState<BizEmployee | null>(null);
+  // true = el usuario eligió "Cualquier profesional" (el sistema asigna).
   const [anyEmployee, setAnyEmployee] = useState(false);
+
+  // Mapa de serviceId → employeeId: cuando hay múltiples servicios y
+  // cada uno lo puede hacer un profesional distinto (modo multi-empleado).
+  // Ej: { "svc-1": "emp-A", "svc-2": "emp-B" }
   const [serviceEmployeeMap, setServiceEmployeeMap] = useState<Record<string, string>>({});
+
+  // Fecha seleccionada en el calendario. `dayjs()` = hoy.
   const [selectedDate, setSelectedDate] = useState(dayjs());
+
+  // Slot de hora seleccionado (hora de inicio y fin + empleado asignado).
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+
+  // Notas adicionales que el cliente escribe para el negocio.
   const [bookingNotes, setBookingNotes] = useState('');
+
+  // Cupón (RewardRedemption) que el cliente seleccionó para aplicar a esta cita.
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
   // Guarda el cupón "en espera" mientras el usuario activa pagar con puntos.
   // Cuando desactiva pagar con puntos, lo restauramos automáticamente.
   const [stashedCoupon, setStashedCoupon] = useState<any>(null);
+  // true = el cliente quiere pagar la cita con sus puntos acumulados.
   const [payWithPoints, setPayWithPoints] = useState(false);
+
+  // Lista de productos de la tienda que el cliente agrega durante la reserva.
   const [bookingCart, setBookingCart] = useState<BookingCartItem[]>([]);
+
+  // ID de la sucursal seleccionada (si el negocio tiene múltiples ubicaciones).
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+
+  // Hora preferida ingresada por el usuario (se resalta en el grid de horarios).
   const [preferredTime, setPreferredTime] = useState('');
+
+  // Controla si se muestra el calendario completo mensual (vs. la vista de 7 días).
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   // Modal explicativo de "Hora preferida" (estado del icono a la izquierda
   // del selector de fecha en el step `datetime`).
@@ -352,11 +515,20 @@ export default function BusinessDetailPage() {
     }
   }, []);
 
+  // ── Carga de datos del negocio ─────────────────────────────
+  // useQuery: pide al backend todos los datos del negocio (perfil, servicios,
+  // empleados, galería, reseñas, etc.) para una sola petición inicial.
+  // - queryKey: ['marketplace-business', tenantSlug] → clave de caché única.
+  //   Si el mismo slug se pide desde otra parte de la app, React Query reutiliza
+  //   el dato cacheado sin hacer otra petición de red.
+  // - isLoading: true mientras espera la primera respuesta del servidor.
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-business', tenantSlug],
     queryFn: () => marketplaceApi.get<{ data: any }>(`/discover/${tenantSlug}`),
   });
 
+  // `?.data`: operador de acceso seguro (optional chaining). Si `data` es undefined,
+  // devuelve undefined en lugar de lanzar un error ("cannot read property of undefined").
   const biz = (data as any)?.data;
 
   // Redirect a la vista del profesional si el tenant es FREELANCER.
@@ -424,7 +596,10 @@ export default function BusinessDetailPage() {
     });
   }, [selectedEmployee, selectedServiceIds]);
 
-  // Availability query
+  // ── Query de disponibilidad (slots de hora) ────────────────
+  // Solo se ejecuta cuando el usuario llega al paso 'datetime' (`enabled`).
+  // El queryKey incluye la fecha, los servicios y el empleado para que React
+  // Query vuelva a pedir datos automáticamente si cualquiera de esos cambia.
   const { data: slotsData, isLoading: slotsLoading } = useQuery({
     queryKey: [
       'marketplace-slots',
@@ -528,8 +703,14 @@ export default function BusinessDetailPage() {
     return result;
   };
 
+  // Transformamos la respuesta anidada del backend en un array plano de slots.
   const slots = flattenSlots(slotsData);
-  // Deduplicate slots by startTime (when anyEmployee, multiple employees can have same slot)
+
+  // Deduplicar slots cuando el modo es "cualquier empleado": varios empleados
+  // pueden tener el mismo horario libre, y el UI solo debe mostrarlo una vez.
+  // `new Map(slots.map(s => [s.startTime, s]))`: crea un mapa con startTime como clave.
+  // Como Map no permite claves duplicadas, automáticamente quedamos con un slot por hora.
+  // `.values()` devuelve los valores del mapa (los slots), y `Array.from(...)` lo convierte a array.
   const deduped = anyEmployee
     ? Array.from(new Map(slots.map((s) => [s.startTime, s])).values())
     : slots;
@@ -628,9 +809,13 @@ export default function BusinessDetailPage() {
     .map((a: any) => ({ start: new Date(a.startTime), end: new Date(a.endTime) }));
   const myPointsHere = ((userStatsData as any)?.data?.pointsByTenant || []).find((t: any) => t.tenantSlug === tenantSlug)?.points || 0;
 
+  // Total del carrito de productos dentro del booking.
+  // `.reduce()` acumula: empieza en 0 y suma precio × cantidad de cada item.
   const bookingCartTotal = bookingCart.reduce((s, c) => s + Number(c.price) * c.quantity, 0);
 
-  // Booking mutation
+  // ── Mutation de reserva ────────────────────────────────────
+  // `bookMutation` envía la reserva confirmada al backend.
+  // Solo se ejecuta cuando el usuario toca "Confirmar" en el paso 'confirm'.
   const bookMutation = useMutation({
     mutationFn: async () => {
       const assignments = Object.keys(serviceEmployeeMap).length > 1
@@ -709,10 +894,14 @@ export default function BusinessDetailPage() {
     },
   });
 
-  // Favorite state
+  // ── Favoritos ──────────────────────────────────────────────
+  // isFavorited: estado local del corazón (optimistic UI: cambia inmediatamente
+  // al tocar, sin esperar la respuesta del servidor).
   const [isFavorited, setIsFavorited] = useState(false);
 
-  // Sync isFavorited from biz data
+  // Sincroniza `isFavorited` cuando llegan los datos del negocio del backend.
+  // `!!biz.isFavorited`: doble negación para convertir cualquier valor a booleano.
+  // Este useEffect se ejecuta cada vez que `biz` cambia (después de cargar datos).
   useEffect(() => {
     if (biz) setIsFavorited(!!biz.isFavorited);
   }, [biz]);
@@ -755,6 +944,11 @@ export default function BusinessDetailPage() {
     });
   }, [selectedServiceIds]);
 
+  // ── Mutation: canjear reward (dentro del wizard) ───────────
+  // Esta mutation crea un RewardRedemption (cupón activo) usando los puntos
+  // del cliente. Se invoca en el paso 'promotion' del wizard.
+  // `onSuccess`: actualiza el cupón seleccionado e invalida el caché de puntos.
+  // `onError`: muestra el mensaje de error del backend (ej: "No tienes puntos suficientes").
   const redeemRewardMutation = useMutation({
     mutationFn: ({ rewardId }: { rewardId: string }) => {
       // Modo preview admin: no se permite canjear nada.
@@ -781,6 +975,10 @@ export default function BusinessDetailPage() {
     },
   });
 
+  // ── Mutation: toggle favorito ──────────────────────────────
+  // `onMutate`: se ejecuta ANTES de la petición al servidor (optimistic UI).
+  // Invierte isFavorited localmente para que el corazón cambie al instante.
+  // `onSettled`: se ejecuta SIEMPRE (éxito o error) para sincronizar el caché.
   const favMutation = useMutation({
     mutationFn: () =>
       marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${tenantSlug}`),
@@ -802,7 +1000,7 @@ export default function BusinessDetailPage() {
     favMutation.mutate();
   };
 
-  // ─── Reseñas del negocio ─────────────────────────────
+  // ── Reseñas del negocio ────────────────────────────────────
   const [reviewForm, setReviewForm] = useState<{ open: boolean; rating: number; comment: string; saving: boolean; error?: string }>(
     { open: false, rating: 0, comment: '', saving: false },
   );
@@ -1026,7 +1224,9 @@ export default function BusinessDetailPage() {
     });
   }
 
-  // Derived data
+  // ── Datos derivados (calculados a partir de `biz`) ──────────
+  // Estas variables se recalculan en cada render. Como son operaciones simples
+  // (acceso a propiedades, filter), no necesitan useMemo.
   const bizCurrency: string = biz?.currency || 'USD';
   const services: BizService[] = biz?.services || [];
   const bizBundles: any[] = biz?.bundles || [];
@@ -1147,10 +1347,18 @@ export default function BusinessDetailPage() {
   // para decidir si mostrar el step "Cupones".
   const userApplicableCoupons = annotatedUserCoupons.filter((r: any) => r.appliesToSelection);
 
+  // Precio base: si hay paquete, se usa su precio especial; si no, se suman
+  // los precios individuales de cada servicio seleccionado.
+  // `.reduce()`: acumula sumando `s.price` para cada servicio del array.
   const basePrice = selectedBundle
     ? Number(selectedBundle.bundlePrice)
     : selectedServices.reduce((sum, s) => sum + Number(s.price), 0);
+
+  // Duración total de todos los servicios seleccionados (en minutos).
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+  // Total de puntos que el cliente ganará al completar la cita.
+  // `s.pointsReward || 0`: si el servicio no tiene puntos configurados, suma 0.
   const totalPointsEarned = selectedServices.reduce((sum, s) => sum + (s.pointsReward || 0), 0);
 
   // Descuento del cupon aplicado. La fuente de verdad ahora es selectedCoupon
@@ -1205,7 +1413,13 @@ export default function BusinessDetailPage() {
     };
   })();
 
-  // Filter employees: show those who can do ALL services, OR at least ONE if multi-employee needed
+  // Filtrado de empleados según los servicios elegidos:
+  // - `employeesWithAll`: pueden hacer TODOS los servicios seleccionados.
+  //   `.every()`: devuelve true solo si TODOS los elementos cumplen la condición.
+  // - `employeesWithAny`: pueden hacer AL MENOS UNO de los servicios.
+  //   `.some()`: devuelve true si al menos un elemento cumple la condición.
+  // - `isMultiEmployee`: flag de modo "un profesional por servicio".
+  //   Se activa cuando ningún empleado puede hacer todos los servicios solo.
   const employeesWithAll = employees.filter((emp) =>
     selectedServiceIds.every((sid) => emp.employeeServices?.some((es) => es.serviceId === sid)),
   );
@@ -1215,17 +1429,30 @@ export default function BusinessDetailPage() {
   const isMultiEmployee = employeesWithAll.length === 0 && employeesWithAny.length > 0 && selectedServiceIds.length > 1;
   const availableEmployees = employeesWithAll.length > 0 ? employeesWithAll : employeesWithAny;
 
-  // Calendar helpers
+  // ── Helpers del calendario mensual ────────────────────────
+  // Cuando el usuario muestra el calendario completo (showFullCalendar),
+  // necesitamos saber el día de la semana del primer día del mes para
+  // alinear correctamente las celdas del calendario (días vacíos al inicio).
   const startOfMonth = selectedDate.startOf('month');
   const daysInMonth = selectedDate.daysInMonth();
-  const firstDayOfWeek = startOfMonth.day();
+  const firstDayOfWeek = startOfMonth.day(); // 0=dom, 1=lun, ...
+
+  // `Array.from({length: N}, callback)`: crea un array de N elementos.
+  // El segundo argumento es una función que recibe el índice `i` y devuelve
+  // el objeto a guardar. Aquí creamos los objetos dayjs de cada día del mes.
   const calendarDays = Array.from({ length: daysInMonth }, (_, i) =>
     startOfMonth.add(i, 'day'),
   );
 
+  // stepIndex: posición del paso actual en el progreso del wizard (0-3).
+  // Se usa para mostrar la barra de progreso en la cabecera del modal.
+  // indexOf devuelve -1 si no está en el array (ej: 'location', 'promotion').
   const stepIndex = ['service', 'employee', 'datetime', 'confirm'].indexOf(
     bookingStep || '',
   );
+
+  // ─── Render ──────────────────────────────────────────────
+  // Primero mostramos estados de carga y error antes del return principal.
 
   if (isLoading) {
     return (
@@ -1246,9 +1473,8 @@ export default function BusinessDetailPage() {
     );
   }
 
-  // Sin safe-top: la imagen de portada debe llegar hasta el borde superior
-  // de la pantalla. El header con el boton de favoritos ya respeta la
-  // safe area en su propio bloque.
+  // La imagen de portada llega hasta el borde superior de la pantalla (sin safe-top).
+  // El header con el botón de favoritos respeta la safe area en su propio bloque.
   return (
     <div className="min-h-screen pb-36">
       {/* Banner cuando se entra desde el preview de /settings/business — permite volver al panel admin */}

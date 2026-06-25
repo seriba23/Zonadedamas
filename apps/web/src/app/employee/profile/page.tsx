@@ -1,75 +1,176 @@
+// ─── profile/page.tsx — Perfil del Empleado ──────────────────────────────
+//
+// Esta página está en /employee/profile y muestra 4 pestañas:
+//
+//   1. "Info Personal" → editar datos básicos (nombre, email, teléfono, bio,
+//      foto de perfil, foto de portada, color de banner, info médica, contacto
+//      de emergencia). Todo en modo vista/edición inline.
+//
+//   2. "Perfil Público" → vista previa de cómo ve el cliente el perfil del
+//      empleado en el marketplace (consume el endpoint público del marketplace).
+//
+//   3. "Portafolio" → galería de fotos de trabajos del empleado (componente
+//      PortfolioGallery compartido con el panel de administración).
+//
+//   4. "Estadísticas" → tarjetas con métricas (citas completadas, ingresos,
+//      valoración, tasa de cancelación) y tabla de servicios más realizados.
+//
+// CARACTERÍSTICAS ESPECIALES:
+// - La foto de avatar y la portada tienen un modal de recorte (crop) antes
+//   de subir, para que el empleado ajuste el encuadre.
+// - El URL puede incluir ?tab=info|public|portfolio|stats para abrir una
+//   pestaña específica directamente (deep-link desde notificaciones).
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+// useState → pestaña activa, modo edición, mensajes de éxito, etc.
+// useRef   → referencias a los <input type="file"> ocultos (para avatar y portada).
+// useEffect → aunque se importa no se usa directamente en este componente raíz
+//             (puede usarse en los sub-componentes).
+
 import { useSearchParams } from 'next/navigation';
+// useSearchParams → leer parámetros de la URL.
+// Ejemplo: /employee/profile?tab=portfolio → abre la pestaña de portafolio.
+
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
+
 import { PortfolioGallery } from '@/components/staff/portfolio-gallery';
+// PortfolioGallery → galería editable de fotos de trabajos del empleado.
+// La misma que usa el admin al ver el detalle de un empleado.
+
 import { EmployeeSettingsContent } from '../settings/settings-content';
+// EmployeeSettingsContent → importado pero usado en otra sección (ajustes).
+
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+// AvatarCropModal → modal que permite recortar la foto de perfil en formato
+// circular antes de subirla al servidor.
+
 import { CoverCropModal } from '@/components/ui/cover-crop-modal';
+// CoverCropModal → similar a AvatarCropModal pero para la imagen de portada
+// (proporción 9:16 vertical, como las fotos de Instagram Stories).
+
 import { AllergiesSelector } from '@/components/ui/allergies-selector';
+// AllergiesSelector → selector múltiple de alergias comunes con chips.
+
 import Link from 'next/link';
 
+// API_URL → base del servidor backend. Se lee de una variable de entorno
+// definida en .env.local. Si no existe, usa localhost:3001 por defecto.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// ─── Interfaz Employee ────────────────────────────────────────────────────
+// Define la forma del objeto empleado que devuelve el backend.
+// El símbolo ? al final del nombre indica que el campo es OPCIONAL (puede
+// no venir en la respuesta). El tipo | null indica que puede ser nulo.
 interface Employee {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  color: string;
-  bio: string;
-  avatarUrl: string | null;
-  coverImageUrl: string | null;
-  jobTitle: string | null;
-  bloodType: string | null;
+  color: string;           // color teal del banner/avatar (#008080 u otro)
+  bio: string;             // presentación / texto de descripción pública
+  avatarUrl: string | null;       // URL relativa de la foto de perfil (null si no tiene)
+  coverImageUrl: string | null;   // URL relativa de la foto de portada (null si no tiene)
+  jobTitle: string | null;        // cargo/título profesional ("Estilista", "Barber", etc.)
+  bloodType: string | null;       // tipo de sangre para emergencias
   emergencyContactName: string | null;
   emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;
   emergencyContactRelation: string | null;
-  allergies: string | null;
+  allergies: string | null;       // alergias separadas por coma
+  // employeeServices? → lista de servicios que ofrece este empleado.
+  // El ? hace el campo opcional: si el endpoint no lo incluye, no falla.
   employeeServices?: { service: { id: string; name: string } }[];
 }
 
+// ─── Interfaz Stats ───────────────────────────────────────────────────────
+// Datos de rendimiento del empleado para la pestaña "Estadísticas".
 interface Stats {
-  completedAllTime: number;
-  completedThisMonth: number;
-  cancellationRate: number;
-  totalRevenue: number;
-  averageRating: number | null;
-  totalReviews: number;
+  completedAllTime: number;    // total de citas completadas (histórico)
+  completedThisMonth: number;  // citas completadas en el mes actual
+  cancellationRate: number;    // % de cancelaciones sobre el total
+  totalRevenue: number;        // ingresos generados (suma de citas completadas)
+  averageRating: number | null; // valoración media; null si no tiene reseñas
+  totalReviews: number;        // número total de reseñas recibidas
+  // topServices → servicios más realizados, ordenados por conteo (mayor primero)
   topServices: { serviceName: string; count: number }[];
 }
 
+// Tab: tipo unión de las 4 pestañas posibles.
+// Solo puede ser uno de estos 4 valores (TypeScript lo garantiza en tiempo de compilación).
 type Tab = 'info' | 'public' | 'portfolio' | 'stats';
 
+// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────
+// EmployeeProfilePage → página raíz en /employee/profile.
+// Orquesta las 4 pestañas y comparte datos comunes (employee, stats, tenantSlug)
+// con los sub-componentes a través de props.
 export default function EmployeeProfilePage() {
+  // user → usuario autenticado del contexto de auth.
+  // Contiene: id, name, email, employeeId, tenantId, avatarUrl, etc.
   const { user } = useAuth();
+
+  // useCurrency → hook personalizado que devuelve la función format()
+  // configurada con la moneda del negocio (MXN, USD, etc.).
+  // Si el hook no está disponible (null), usa rawFormatCurrency como respaldo.
   const currencyHook = useCurrency();
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
+
+  // queryClient → cliente de React Query para invalidar caché manualmente.
+  // Se usa en onSave para refrescar los datos del empleado tras guardar.
   const queryClient = useQueryClient();
+
+  // searchParams → objeto de solo lectura con los ?parámetros de la URL.
+  // Ejemplo: /employee/profile?tab=portfolio → searchParams.get('tab') = 'portfolio'
   const searchParams = useSearchParams();
+
+  // activeTab → pestaña visible actualmente.
+  // Se inicializa desde el parámetro ?tab de la URL, o 'info' por defecto.
+  // La sintaxis (searchParams.get('tab') as Tab) convierte el string a tipo Tab.
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'info');
+
+  // avatarSuccess → mensaje temporal de confirmación tras actualizar el avatar.
+  // Se limpia automáticamente con setTimeout en avatarMutation.onSuccess.
   const [avatarSuccess, setAvatarSuccess] = useState('');
+
+  // cropFile → archivo de imagen seleccionado para recortar (modal crop del avatar).
+  // null = el modal de crop NO está visible.
   const [cropFile, setCropFile] = useState<File | null>(null);
+
+  // fileInputRef → referencia al <input type="file"> oculto en el JSX.
+  // Permite activarlo con código: fileInputRef.current?.click()
+  // (sin mostrar ningún botón nativo del navegador).
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── Petición 1: datos del empleado ─────────────────────────────────────
+  // useQuery lanza automáticamente GET /api/employees/{id} cuando el componente
+  // se monta (o cuando cambia employeeId).
+  // queryKey: ['employee-profile', user?.employeeId] → identifica esta caché.
+  //   Si el mismo componente se monta de nuevo con el mismo id, no hace
+  //   petición HTTP: devuelve los datos del caché.
+  // enabled: !!user?.employeeId → la doble negación (!!) convierte cualquier
+  //   valor truthy a true. Solo ejecuta si hay un employeeId válido.
   const { data: employee, isLoading } = useQuery({
     queryKey: ['employee-profile', user?.employeeId],
     queryFn: async () => {
       const res = await api.get<{ data: Employee }>(
         `/api/employees/${user!.employeeId}`,
+        // user! → aserción de no-nulo: "confío en que user existe aquí"
+        // porque enabled garantiza que esta función solo corre con user válido.
       );
-      return res.data;
+      return res.data; // extrae la propiedad .data del objeto { data: Employee }
     },
     enabled: !!user?.employeeId,
   });
 
+  // ─── Petición 2: estadísticas del empleado ───────────────────────────────
+  // No tiene isLoading propio (se maneja con isLoading del employee arriba).
+  // stats puede ser undefined mientras carga (se maneja con un spinner en JSX).
   const { data: stats } = useQuery({
     queryKey: ['employee-profile-stats', user?.employeeId],
     queryFn: async () => {
@@ -81,6 +182,9 @@ export default function EmployeeProfilePage() {
     enabled: !!user?.employeeId,
   });
 
+  // ─── Petición 3: slug del negocio ────────────────────────────────────────
+  // El slug es el identificador URL-friendly del negocio (ej: "beauty-studio").
+  // Se necesita para construir la URL del perfil público en el marketplace.
   const { data: tenantData } = useQuery({
     queryKey: ['tenant-slug'],
     queryFn: async () => {
@@ -89,6 +193,13 @@ export default function EmployeeProfilePage() {
     },
   });
 
+  // ─── Mutación: subir avatar ───────────────────────────────────────────────
+  // useMutation para operaciones de escritura (POST, PUT, DELETE, upload).
+  // mutationFn → función que se ejecuta al llamar avatarMutation.mutate(file).
+  // api.upload → envía el archivo como multipart/form-data.
+  // onSuccess → cuando el servidor responde OK:
+  //   1. Invalida el caché de 'employee-profile' → fuerza re-fetch.
+  //   2. Muestra mensaje de éxito por 3 segundos.
   const avatarMutation = useMutation({
     mutationFn: async (file: File) => {
       return api.upload<{ data: { avatarUrl: string } }>(
@@ -99,10 +210,16 @@ export default function EmployeeProfilePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
       setAvatarSuccess('Foto actualizada');
+      // setTimeout → ejecuta la función después de 3000ms (3 segundos).
+      // La flecha ()=> setAvatarSuccess('') limpia el mensaje.
       setTimeout(() => setAvatarSuccess(''), 3000);
     },
   });
 
+  // ─── Guard: sin employeeId ────────────────────────────────────────────────
+  // Si el usuario autenticado no tiene employeeId (ej: un administrador puro
+  // que entró a esta ruta), mostramos un mensaje de error y cortamos el render.
+  // El return temprano evita que el resto del código ejecute con datos inválidos.
   if (!user?.employeeId) {
     return (
       <div className="p-6">
@@ -113,6 +230,9 @@ export default function EmployeeProfilePage() {
     );
   }
 
+  // ─── Estado de carga ──────────────────────────────────────────────────────
+  // isLoading es true mientras la primera petición (employee) no ha respondido.
+  // Mostramos un spinner circular animado (animate-spin) hasta que tengamos datos.
   if (isLoading) {
     return (
       <div className="p-6 flex justify-center">
@@ -121,12 +241,26 @@ export default function EmployeeProfilePage() {
     );
   }
 
+  // avatarBg → objeto de estilos en línea para el círculo del avatar.
+  // Usa el color del empleado con transparencia del 13% (sufijo '22' en hex).
+  // employee?.color → encadenamiento opcional: si employee es null/undefined no falla.
+  // Ejemplo: '#00808022' → teal con 13% opacidad de fondo.
   const avatarBg = employee?.color
     ? { backgroundColor: employee.color + '22', color: employee.color }
     : { backgroundColor: '#00808022', color: '#008080' };
 
+  // tenantSlug → identificador URL del negocio (puede ser undefined si aún carga).
   const tenantSlug = tenantData?.slug;
+
+  // profileUrl → URL completa del perfil público de este empleado en el marketplace.
+  // Solo se construye si tenemos tanto el slug como los datos del empleado.
+  // Ejemplo: '/marketplace/beauty-studio/professional/cldkjh123'
   const profileUrl = tenantSlug && employee ? `/marketplace/${tenantSlug}/professional/${employee.id}` : null;
+
+  // specialty → nombre del primer servicio que ofrece el empleado.
+  // Se usa como "especialidad" en algunas vistas.
+  // ?. → encadenamiento opcional: si employeeServices es undefined/null, devuelve undefined.
+  // [0] → primer elemento del arreglo (el más relevante o el primero configurado).
   const specialty = employee?.employeeServices?.[0]?.service?.name || null;
 
   return (
