@@ -154,13 +154,25 @@ export default function MarketplaceAppointmentsPage() {
   // Carga las citas del cliente. Solo cuando está autenticado y en la pestaña 'citas'.
   // `enabled: isAuthenticated && tab === 'citas'`: React Query no pide datos hasta
   // que ambas condiciones sean verdaderas (evita peticiones sin token o innecesarias).
-  // Filtramos por el perfil activo: cada perfil ve solo SUS citas. El profileId
-  // va en la queryKey para que React Query recargue al cambiar de perfil.
+  // ¿El perfil activo es el del tutor (SELF)? Entonces mostramos la vista
+  // FAMILIA: sus citas + las de sus hijos (cada una con un distintivo). Si el
+  // activo es un hijo, solo las de ese hijo.
+  const isSelfActive = activeProfile?.relationship === 'SELF';
+  const apptProfileId = isSelfActive ? undefined : activeProfile?.id;
+
+  // Distintivo: para una cita que NO es del propio tutor, devolvemos el nombre
+  // del perfil (hijo) al que pertenece, para etiquetarla en la lista.
+  const profileLabelFor = (appt: any): string | null =>
+    isSelfActive && appt.client?.profileId && appt.client.profileId !== activeProfile?.id
+      ? appt.client.firstName || 'Otro perfil'
+      : null;
+
+  // El profileId va en la queryKey para que React Query recargue al cambiar de perfil.
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace-my-appointments', activeProfile?.id],
     queryFn: () =>
       marketplaceApi.get<{ data: any[] }>(
-        `/my-appointments?filter=all&perPage=100${activeProfile ? `&profileId=${activeProfile.id}` : ''}`,
+        `/my-appointments?filter=all&perPage=100${apptProfileId ? `&profileId=${apptProfileId}` : ''}`,
       ),
     enabled: isAuthenticated && tab === 'citas',
     ...sharedQueryOpts,
@@ -490,7 +502,7 @@ export default function MarketplaceAppointmentsPage() {
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Próximas</h2>
                   <div className="space-y-3">
                     {upcoming.map((appt) => (
-                      <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      <AppointmentCard key={appt.id} appt={appt} profileLabel={profileLabelFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
                 </section>
@@ -503,7 +515,7 @@ export default function MarketplaceAppointmentsPage() {
                   </div>
                   <div className="space-y-3">
                     {missed.map((appt) => (
-                      <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      <AppointmentCard key={appt.id} appt={appt} profileLabel={profileLabelFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
                 </section>
@@ -513,7 +525,7 @@ export default function MarketplaceAppointmentsPage() {
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Historial</h2>
                   <div className="space-y-3">
                     {past.map((appt) => (
-                      <AppointmentCard key={appt.id} appt={appt} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      <AppointmentCard key={appt.id} appt={appt} profileLabel={profileLabelFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
                 </section>
@@ -823,7 +835,7 @@ function PurchaseCard({ purchase, onPress }: { purchase: any; onPress: () => voi
 }
 
 
-function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) {
+function AppointmentCard({ appt, onPress, profileLabel }: { appt: any; onPress: () => void; profileLabel?: string | null }) {
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
   const totalPrice = (appt.items || []).reduce((s: number, i: any) => s + Number(i.priceSnapshot || 0), 0);
   // Moneda del negocio. Si por alguna razón no viene, default a MXN
@@ -881,10 +893,20 @@ function AppointmentCard({ appt, onPress }: { appt: any; onPress: () => void }) 
           )}
         </div>
 
-        {/* Col 3 row 1: Negocio */}
-        <p className="text-sm md:text-base font-bold text-gray-900 truncate min-w-0">
-          {appt.tenant?.name || '—'}
-        </p>
+        {/* Col 3 row 1: Negocio (+ distintivo del perfil si es de un hijo) */}
+        <div className="min-w-0">
+          <p className="text-sm md:text-base font-bold text-gray-900 truncate">
+            {appt.tenant?.name || '—'}
+          </p>
+          {profileLabel && (
+            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-teal-50 text-teal-700">
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z" />
+              </svg>
+              Para {profileLabel}
+            </span>
+          )}
+        </div>
 
         {/* Col 4 row 1: precio */}
         <p className="text-xs md:text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap text-right">

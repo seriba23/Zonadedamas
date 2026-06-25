@@ -68,6 +68,19 @@ const TEAL = '#008080';                                        // color principa
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'; // URL del backend
 const MAX_PHOTOS_PER_SERVICE = 3;                              // máximo de fotos por servicio
 
+// Calcula si una fecha de nacimiento corresponde a un menor de edad (<18 años).
+// Devuelve false si no hay fecha o es inválida.
+function isMinorFromDob(dob?: string | null): boolean {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
+}
+
 // ─── INTERFACES DE TIPOS ──────────────────────────────────────────────────
 
 interface AppointmentItem {
@@ -86,7 +99,9 @@ interface ProductReservation {
 
 interface Appointment {
   id: string;
-  client: { id: string; firstName: string; lastName: string };
+  // dateOfBirth del cliente: para detectar si es menor de edad y mostrar el
+  // consentimiento de fotos especial (el tutor confirma + recomendación).
+  client: { id: string; firstName: string; lastName: string; dateOfBirth?: string | null };
   items: AppointmentItem[];
   // El total real de la cita = servicios + productos − descuento del cupón.
   // Sin estos campos el cobro tomaba solo los servicios.
@@ -258,6 +273,9 @@ export function CloseAppointmentWizard({
   // Math.max(0, ...) evita que el total sea negativo (si el descuento > subtotal).
   // + tip añade la propina al final.
   const total = Math.max(0, subtotal - discount) + tip;
+
+  // ¿El cliente es menor de edad? Cambia el texto del consentimiento de fotos.
+  const isMinor = isMinorFromDob(appointment.client.dateOfBirth);
 
   // Servicios unicos de la cita (dedup por serviceId, si el mismo servicio
   // aparece 2 veces solo lo contamos una vez para el grid de fotos).
@@ -503,9 +521,29 @@ export function CloseAppointmentWizard({
                 </svg>
               </div>
               <h2 className="text-lg font-bold text-gray-900 text-center mb-1">Fotos del resultado</h2>
-              <p className="text-sm text-gray-500 text-center mb-6">
-                ¿<span className="font-semibold">{appointment.client.firstName}</span> acepta que se tomen fotos del servicio realizado?
-              </p>
+              {isMinor ? (
+                <>
+                  {/* Aviso explícito de menor de edad + recomendación */}
+                  <div className="rounded-xl border border-[#008080] bg-[#e0f2f1] px-4 py-3 mb-4 text-left">
+                    <p className="text-xs font-semibold text-[#006666] mb-1">
+                      {appointment.client.firstName} es menor de edad
+                    </p>
+                    <p className="text-xs text-gray-600 leading-snug">
+                      El padre, madre o tutor debe confirmar que autoriza que se
+                      tomen fotos del trabajo realizado. Se recomienda{' '}
+                      <span className="font-semibold">ocultar la cara del menor</span> en
+                      las fotos.
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-500 text-center mb-6">
+                    ¿El tutor de <span className="font-semibold">{appointment.client.firstName}</span> autoriza las fotos del resultado?
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 text-center mb-6">
+                  ¿<span className="font-semibold">{appointment.client.firstName}</span> acepta que se tomen fotos del servicio realizado?
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => consentMutation.mutate(false)}

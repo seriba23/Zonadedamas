@@ -642,6 +642,9 @@ export class AppointmentsService {
               email: true,
               phone: true,
               avatarUrl: true,
+              // Fecha de nacimiento: el frontend la usa para detectar si el
+              // cliente es menor de edad (consentimiento especial de fotos).
+              dateOfBirth: true,
               // Si el cliente registró su cuenta en el portal, su foto vive
               // en users.avatar_url, no en clients.avatar_url. Tambien las
               // alergias viven solo en User (no en Client local). Traemos

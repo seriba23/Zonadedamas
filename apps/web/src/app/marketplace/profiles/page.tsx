@@ -136,7 +136,7 @@ export default function ProfilesSelectorPage() {
             >
               <div className="relative">
                 <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden text-xl font-bold text-white group-hover:ring-2 group-hover:ring-[#008080] transition-all"
+                  className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden text-xl font-bold text-white group-hover:ring-2 group-hover:ring-[#008080] transition-all"
                   style={{ backgroundColor: TEAL }}
                 >
                   {p.avatarUrl ? (
@@ -171,7 +171,7 @@ export default function ProfilesSelectorPage() {
 
           {/* Añadir perfil */}
           <button onClick={openCreate} className="flex flex-col items-center gap-2 group">
-            <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
+            <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 group-hover:border-[#008080] group-hover:text-[#008080] transition-colors">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>

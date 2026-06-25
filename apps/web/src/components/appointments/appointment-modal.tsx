@@ -93,6 +93,19 @@ interface Client {
   lastName: string;
   email?: string;       // Email (puede no tener)
   phone?: string;       // Teléfono (puede no tener)
+  dateOfBirth?: string | null; // Para detectar si es menor de edad
+}
+
+// Calcula si una fecha de nacimiento corresponde a un menor de edad (<18).
+function isMinorFromDob(dob?: string | null): boolean {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
 }
 
 // Un ítem dentro de una cita — guarda "snapshot" (copia) del precio y duración
@@ -405,6 +418,9 @@ export function AppointmentModal({
   // ?. es "optional chaining": si appointmentData es undefined, devuelve undefined
   // en lugar de lanzar un error tipo "Cannot read property 'data' of undefined".
   const appointment = appointmentData?.data;
+
+  // ¿El cliente de esta cita es menor de edad? Cambia el texto del consentimiento.
+  const isMinorClient = isMinorFromDob((appointment?.client as any)?.dateOfBirth);
 
   // Servicios únicos de la cita (dedup por serviceId) para clasificar las fotos
   // del resultado. effectivePhotoServiceId es el servicio destino de la próxima
@@ -1249,10 +1265,24 @@ export function AppointmentModal({
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-900 leading-tight">Consentimiento del cliente</p>
-                        <p className="text-[11px] text-gray-600 leading-snug mt-0.5">
-                          ¿El cliente autoriza tomar fotos del resultado y usarlas en el portafolio del negocio?
-                        </p>
+                        {isMinorClient ? (
+                          <>
+                            <p className="text-xs font-semibold text-gray-900 leading-tight">
+                              Consentimiento del tutor · {appointment.client?.firstName} es menor de edad
+                            </p>
+                            <p className="text-[11px] text-gray-600 leading-snug mt-0.5">
+                              El padre, madre o tutor debe confirmar que autoriza tomar fotos del trabajo y usarlas en el portafolio.
+                              Se recomienda <span className="font-semibold">ocultar la cara del menor</span>.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs font-semibold text-gray-900 leading-tight">Consentimiento del cliente</p>
+                            <p className="text-[11px] text-gray-600 leading-snug mt-0.5">
+                              ¿El cliente autoriza tomar fotos del resultado y usarlas en el portafolio del negocio?
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">

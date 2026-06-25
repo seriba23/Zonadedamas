@@ -2980,6 +2980,9 @@ export class MarketplaceService {
         review: { select: { id: true, rating: true, businessRating: true } },
         // Si el cliente ya omitió la reseña de esta cita, no volver a pedirla.
         reviewDismissedAt: true,
+        // Datos del cliente/perfil de la cita: para que el tutor distinga en su
+        // lista de qué perfil (hijo) es cada cita.
+        client: { select: { firstName: true, lastName: true, profileId: true } },
       },
     });
 
