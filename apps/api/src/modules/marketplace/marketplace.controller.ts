@@ -44,6 +44,8 @@ import { ChangeMarketplaceContactDto } from './dto/change-marketplace-contact.dt
 import { MarketplaceBookDto } from './dto/marketplace-book.dto';
 import { MarketplaceSocialLoginDto } from './dto/marketplace-social-login.dto';
 import { CreateTenantReviewDto } from './dto/tenant-review.dto';
+import { CreateProfileDto } from './dto/create-profile.dto';
+import { UpdateProfileEntityDto } from './dto/update-profile-entity.dto';
 
 // DTO y servicio de Stripe (pagos) para el checkout.
 import { CreateCheckoutDto } from '../stripe/dto/create-checkout.dto';
@@ -244,6 +246,9 @@ export class MarketplaceController {
     @Query('filter') filter: string = 'all',
     @Query('page') page: string = '1',
     @Query('perPage') perPage: string = '20',
+    // profileId opcional: si viene, solo las citas de ese perfil; si no, todas
+    // (vista "familia").
+    @Query('profileId') profileId?: string,
   ) {
     return this.marketplaceService.getMyAppointments(
       req.user.marketplaceUserId,
@@ -255,6 +260,7 @@ export class MarketplaceController {
       parseInt(page, 10) || 1,
       // Math.min(x, 100) limita el máximo a 100 por página (evita pedir miles).
       Math.min(parseInt(perPage, 10) || 20, 100),
+      profileId || undefined,
     );
   }
 
@@ -308,8 +314,43 @@ export class MarketplaceController {
   // GET /api/marketplace/my-stats => estadísticas personales (gastos, visitas...).
   @UseGuards(MarketplaceJwtGuard)
   @Get('my-stats')
-  async getMyStats(@Req() req: any) {
-    return this.marketplaceService.getMyStats(req.user.marketplaceUserId);
+  async getMyStats(@Req() req: any, @Query('profileId') profileId?: string) {
+    return this.marketplaceService.getMyStats(req.user.marketplaceUserId, profileId || undefined);
+  }
+
+  // ─── PERFILES (multi-perfil estilo Netflix) ─────────────
+  // El tutor gestiona aquí sus perfiles (el suyo + los de sus hijos/menores).
+
+  // GET /api/marketplace/profiles => lista los perfiles del usuario.
+  @UseGuards(MarketplaceJwtGuard)
+  @Get('profiles')
+  async listProfiles(@Req() req: any) {
+    return this.marketplaceService.listProfiles(req.user.marketplaceUserId);
+  }
+
+  // POST /api/marketplace/profiles => crea un perfil hijo/familiar.
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('profiles')
+  async createProfile(@Req() req: any, @Body() dto: CreateProfileDto) {
+    return this.marketplaceService.createProfile(req.user.marketplaceUserId, dto);
+  }
+
+  // PUT /api/marketplace/profiles/:id => edita un perfil propio.
+  @UseGuards(MarketplaceJwtGuard)
+  @Put('profiles/:id')
+  async updateProfileEntity(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateProfileEntityDto,
+  ) {
+    return this.marketplaceService.updateProfileEntity(req.user.marketplaceUserId, id, dto);
+  }
+
+  // DELETE /api/marketplace/profiles/:id => elimina (archiva) un perfil.
+  @UseGuards(MarketplaceJwtGuard)
+  @Delete('profiles/:id')
+  async deleteProfile(@Req() req: any, @Param('id') id: string) {
+    return this.marketplaceService.deleteProfile(req.user.marketplaceUserId, id);
   }
 
   // GET /api/marketplace/my-gallery => galería de fotos de resultados del usuario.
@@ -615,10 +656,13 @@ export class MarketplaceController {
   async enterBusiness(
     @Req() req: any,
     @Param('tenantSlug') tenantSlug: string,
+    // El front puede mandar el perfil activo (tutor o hijo) en el cuerpo.
+    @Body('profileId') profileId?: string,
   ) {
     const result = await this.marketplaceService.enterBusiness(
       req.user.marketplaceUserId,
       tenantSlug,
+      profileId || undefined,
     );
     return { data: result };
   }

@@ -55,6 +55,12 @@ export class MarketplaceBookDto {
   @IsBoolean()
   payWithPoints?: boolean; // ¿pagar con puntos? (opcional)
 
+  // Perfil activo bajo el que se reserva (el tutor o uno de sus hijos). Si no
+  // viene, el backend usa el perfil SELF del usuario (retrocompatible).
+  @IsOptional()
+  @IsUUID('4')
+  profileId?: string;
+
   // Multi-empleado: opcional. Si presente, cada item indica qué empleado
   // realiza qué servicio. Se delega tal cual a AppointmentsService.create.
   @IsOptional()

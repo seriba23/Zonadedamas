@@ -2087,56 +2087,15 @@ export class MarketplaceService {
   // enterBusiness(): "entrar" a un negocio desde el marketplace. Asegura que el
   // usuario tenga una ficha de Client en ese negocio y emite tokens del PORTAL
   // DEL CLIENTE (otro tipo de token, por-negocio) para que pueda usarlo.
-  async enterBusiness(marketplaceUserId: string, tenantSlug: string) {
+  async enterBusiness(marketplaceUserId: string, tenantSlug: string, profileId?: string) {
     // Buscamos el negocio por slug (lanza error si no existe).
     const tenant = await this.tenantsService.findBySlug(tenantSlug);
-    // Y el usuario de marketplace.
-    const mktUser = await this.prisma.user.findUnique({
-      where: { id: marketplaceUserId },
-    });
 
-    if (!mktUser) {
-      throw new NotFoundException('Usuario marketplace no encontrado');
-    }
-
-    // 1) ¿Ya tiene ficha de cliente vinculada a su cuenta en este negocio?
-    // Find existing Client linked to this marketplace user
-    let client = await this.prisma.client.findFirst({
-      where: { tenantId: tenant.id, userId: marketplaceUserId },
-    });
-
-    // 2) Si no, intentamos vincular una ficha existente que tenga su email (p.ej.
-    // un cliente que ya había ido en persona). "&&" exige que tenga email.
-    if (!client && mktUser.email) {
-      // Try matching by email (link pre-existing walk-in clients)
-      client = await this.prisma.client.findFirst({
-        where: { tenantId: tenant.id, email: mktUser.email },
-      });
-      // Si encontramos una, le ponemos el userId para vincularla.
-      if (client) {
-        await this.prisma.client.update({
-          where: { id: client.id },
-          data: { userId: marketplaceUserId },
-        });
-      }
-    }
-
-    // 3) Si aún no hay ficha, creamos una nueva marcada como origen MARKETPLACE.
-    if (!client) {
-      // Create new local Client record
-      client = await this.prisma.client.create({
-        data: {
-          tenantId: tenant.id,
-          userId: marketplaceUserId,
-          firstName: mktUser.firstName,
-          lastName: mktUser.lastName,
-          email: mktUser.email,
-          phone: mktUser.phone,
-          source: 'MARKETPLACE',
-          portalRegisteredAt: new Date(),
-        },
-      });
-    }
+    // Resolvemos el perfil activo (el que mandó el front, o el SELF por defecto)
+    // y obtenemos/creamos su ficha de cliente en este negocio. Así, si el tutor
+    // entra "como" un hijo, el portal del negocio opera dentro del perfil del hijo.
+    const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
+    const client = await this.resolveClientForProfile(tenant.id, activeProfileId);
 
     // Firmamos un JWT de CLIENTE (distinto del de marketplace): lleva el id del
     // cliente, el negocio, type:'client' y un "issuer" que lo identifica.
@@ -2243,6 +2202,230 @@ export class MarketplaceService {
         locationName,
       },
     };
+  }
+
+  // ─── PERFILES (multi-perfil estilo Netflix) ─────────────
+  // Un User (tutor) tiene varios Profile: el suyo (SELF) y los de sus hijos
+  // (CHILD/OTHER). Cada Profile se materializa como un Client por tenant cuando
+  // reserva, de modo que las citas de cada perfil quedan separadas.
+
+  // Calcula si una fecha de nacimiento corresponde a un menor de edad (<18).
+  private computeIsMinor(dateOfBirth?: Date | string | null): boolean {
+    if (!dateOfBirth) return false;
+    const d = new Date(dateOfBirth);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    let age = now.getFullYear() - d.getFullYear();
+    const m = now.getMonth() - d.getMonth();
+    // Si aún no ha cumplido años este año, restamos uno.
+    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+    return age < 18;
+  }
+
+  // Formato de salida de un perfil para el frontend.
+  private mapProfile(p: any) {
+    return {
+      id: p.id,
+      relationship: p.relationship,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      avatarUrl: p.avatarUrl,
+      dateOfBirth: p.dateOfBirth,
+      gender: p.gender,
+      allergies: p.allergies,
+      isMinor: p.isMinor,
+      isDefault: p.isDefault,
+    };
+  }
+
+  // Garantiza que el User tenga su perfil SELF (lo crea si falta, p.ej. cuentas
+  // creadas antes de la migración o por flujos que no lo generaron).
+  private async ensureSelfProfile(userId: string) {
+    let self = await this.prisma.profile.findFirst({
+      where: { userId, relationship: 'SELF' },
+    });
+    if (!self) {
+      const u = await this.prisma.user.findUnique({ where: { id: userId } });
+      self = await this.prisma.profile.create({
+        data: {
+          userId,
+          relationship: 'SELF',
+          firstName: u?.firstName ?? '',
+          lastName: u?.lastName ?? '',
+          avatarUrl: u?.avatarUrl ?? null,
+          dateOfBirth: u?.birthDate ?? null,
+          gender: u?.gender ?? null,
+          allergies: u?.allergies ?? null,
+          isDefault: true,
+        },
+      });
+    }
+    return self;
+  }
+
+  // Devuelve el profileId activo: si el front mandó uno, valida que sea de este
+  // usuario y no esté archivado; si no mandó, usa el perfil SELF (retrocompatible).
+  private async resolveActiveProfileId(userId: string, profileId?: string): Promise<string> {
+    if (profileId) {
+      const p = await this.prisma.profile.findFirst({
+        where: { id: profileId, userId, archivedAt: null },
+      });
+      if (!p) throw new ForbiddenException('Perfil no válido');
+      return p.id;
+    }
+    const self = await this.ensureSelfProfile(userId);
+    return self.id;
+  }
+
+  // Busca o crea la ficha Client de un perfil en un negocio. Centraliza el
+  // find-or-create que antes estaba duplicado en enterBusiness y bookAppointment.
+  private async resolveClientForProfile(tenantId: string, profileId: string) {
+    const profile = await this.prisma.profile.findUnique({ where: { id: profileId } });
+    if (!profile) throw new NotFoundException('Perfil no encontrado');
+
+    // 1) ¿Ya existe ficha para (negocio, perfil)?
+    const existingByProfile = await this.prisma.client.findFirst({
+      where: { tenantId, profileId },
+    });
+    if (existingByProfile) return existingByProfile;
+
+    // Datos del tutor (dueño del perfil) para el contacto de la ficha.
+    const owner = await this.prisma.user.findUnique({ where: { id: profile.userId } });
+
+    // 2) Solo para el perfil SELF: intentar vincular una ficha walk-in previa que
+    // tenga el email del tutor (era un cliente que ya había ido en persona).
+    if (profile.relationship === 'SELF' && owner?.email) {
+      const walkIn = await this.prisma.client.findFirst({
+        where: { tenantId, email: owner.email, profileId: null },
+      });
+      if (walkIn) {
+        return this.prisma.client.update({
+          where: { id: walkIn.id },
+          data: { profileId, userId: profile.userId },
+        });
+      }
+    }
+
+    // 3) Crear ficha nueva. El HIJO hereda el contacto (email/teléfono) del
+    // tutor, pero su propio nombre, fecha de nacimiento y alergias (la cita
+    // queda atribuida al hijo y el negocio contacta al tutor).
+    return this.prisma.client.create({
+      data: {
+        tenantId,
+        profileId,
+        userId: profile.userId,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: owner?.email ?? null,
+        phone: owner?.phone ?? null,
+        dateOfBirth: profile.dateOfBirth,
+        gender: profile.gender,
+        avatarUrl: profile.avatarUrl,
+        source: 'MARKETPLACE',
+        portalRegisteredAt: new Date(),
+      },
+    });
+  }
+
+  // Lista los perfiles del usuario (SELF primero). Auto-crea el SELF si falta.
+  async listProfiles(userId: string) {
+    await this.ensureSelfProfile(userId);
+    const profiles = await this.prisma.profile.findMany({
+      where: { userId, archivedAt: null },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+    return { data: profiles.map((p) => this.mapProfile(p)) };
+  }
+
+  // Crea un perfil nuevo (hijo/familiar). No se permite crear un segundo SELF.
+  async createProfile(
+    userId: string,
+    dto: { firstName: string; lastName: string; relationship?: string; dateOfBirth?: string; gender?: string; allergies?: string },
+  ) {
+    const relationship = dto.relationship === 'OTHER' ? 'OTHER' : 'CHILD';
+    const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
+    const profile = await this.prisma.profile.create({
+      data: {
+        userId,
+        relationship,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        dateOfBirth,
+        gender: dto.gender ?? null,
+        allergies: dto.allergies ?? null,
+        isMinor: this.computeIsMinor(dateOfBirth),
+        isDefault: false,
+      },
+    });
+    return { data: this.mapProfile(profile) };
+  }
+
+  // Edita un perfil. Valida que sea del usuario. Propaga nombre/avatar/alergias
+  // a las fichas Client ya materializadas de ese perfil.
+  async updateProfileEntity(
+    userId: string,
+    profileId: string,
+    dto: { firstName?: string; lastName?: string; dateOfBirth?: string | null; gender?: string; allergies?: string; avatarUrl?: string },
+  ) {
+    const profile = await this.prisma.profile.findFirst({ where: { id: profileId, userId } });
+    if (!profile) throw new NotFoundException('Perfil no encontrado');
+
+    const dateOfBirth =
+      dto.dateOfBirth === undefined
+        ? profile.dateOfBirth
+        : dto.dateOfBirth
+          ? new Date(dto.dateOfBirth)
+          : null;
+
+    const updated = await this.prisma.profile.update({
+      where: { id: profileId },
+      data: {
+        firstName: dto.firstName?.trim() ?? profile.firstName,
+        lastName: dto.lastName?.trim() ?? profile.lastName,
+        dateOfBirth,
+        gender: dto.gender ?? profile.gender,
+        allergies: dto.allergies ?? profile.allergies,
+        avatarUrl: dto.avatarUrl ?? profile.avatarUrl,
+        isMinor: this.computeIsMinor(dateOfBirth),
+      },
+    });
+
+    // Reflejar nombre/avatar en las fichas Client de este perfil (el Client no
+    // guarda alergias; esas viven en el Profile).
+    await this.prisma.client.updateMany({
+      where: { profileId },
+      data: {
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        avatarUrl: updated.avatarUrl,
+      },
+    });
+
+    return { data: this.mapProfile(updated) };
+  }
+
+  // Elimina (archiva) un perfil. No se puede borrar el SELF. Si tiene citas
+  // próximas, se bloquea; si solo tiene pasadas, se archiva (conserva historial).
+  async deleteProfile(userId: string, profileId: string) {
+    const profile = await this.prisma.profile.findFirst({ where: { id: profileId, userId } });
+    if (!profile) throw new NotFoundException('Perfil no encontrado');
+    if (profile.relationship === 'SELF') {
+      throw new BadRequestException('No puedes eliminar tu propio perfil');
+    }
+
+    const clients = await this.prisma.client.findMany({ where: { profileId }, select: { id: true } });
+    const clientIds = clients.map((c) => c.id);
+    if (clientIds.length > 0) {
+      const future = await this.prisma.appointment.count({
+        where: { clientId: { in: clientIds }, status: { in: ['PENDING', 'CONFIRMED', 'RESCHEDULED'] } },
+      });
+      if (future > 0) {
+        throw new BadRequestException('Este perfil tiene citas próximas. Cancélalas o reagéndalas antes de eliminarlo.');
+      }
+    }
+
+    await this.prisma.profile.update({ where: { id: profileId }, data: { archivedAt: new Date() } });
+    return { data: { deleted: true } };
   }
 
   // ─── PROFILE ────────────────────────────────────────
@@ -2723,11 +2906,14 @@ export class MarketplaceService {
     filter: 'upcoming' | 'past' | 'all',
     page: number,
     perPage: number,
+    profileId?: string,
   ) {
     // Un usuario puede tener varias fichas Client (una por negocio). Reunimos
-    // todos sus clientIds. .map extrae solo el id de cada ficha.
+    // todos sus clientIds. .map extrae solo el id de cada ficha. Si viene un
+    // profileId, limitamos a las fichas de ese perfil (citas de ese perfil); si
+    // no, traemos las de todos los perfiles del usuario (vista "familia").
     const clients = await this.prisma.client.findMany({
-      where: { userId: marketplaceUserId },
+      where: { userId: marketplaceUserId, ...(profileId ? { profileId } : {}) },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);
@@ -2900,10 +3086,11 @@ export class MarketplaceService {
 
   // getMyStats(): estadísticas personales del usuario: servicios completados,
   // puntos de fidelidad totales y por negocio, y fotos de resultados.
-  async getMyStats(marketplaceUserId: string) {
-    // Fichas Client del usuario, con sus puntos y el negocio asociado.
+  async getMyStats(marketplaceUserId: string, profileId?: string) {
+    // Fichas Client del usuario (o de un perfil concreto), con sus puntos y el
+    // negocio asociado.
     const clients = await this.prisma.client.findMany({
-      where: { userId: marketplaceUserId },
+      where: { userId: marketplaceUserId, ...(profileId ? { profileId } : {}) },
       select: { id: true, tenantId: true, loyaltyPoints: true, tenant: { select: { name: true, slug: true, logoUrl: true } } },
     });
     const clientIds = clients.map((c) => c.id);
@@ -3511,49 +3698,12 @@ export class MarketplaceService {
     dto: MarketplaceBookDto,
   ) {
     const tenant = await this.tenantsService.findBySlug(tenantSlug);
-    const mktUser = await this.prisma.user.findUnique({
-      where: { id: marketplaceUserId },
-    });
 
-    if (!mktUser) {
-      throw new NotFoundException('Usuario marketplace no encontrado');
-    }
-
-    // Buscar o crear la ficha Client (misma lógica que enterBusiness):
-    // 1) por vínculo directo (userId).
-    // Find or create client linked to marketplace user (same logic as enterBusiness)
-    let client = await this.prisma.client.findFirst({
-      where: { tenantId: tenant.id, userId: marketplaceUserId },
-    });
-
-    // 2) si no, por email (y lo vinculamos).
-    if (!client && mktUser.email) {
-      client = await this.prisma.client.findFirst({
-        where: { tenantId: tenant.id, email: mktUser.email },
-      });
-      if (client) {
-        await this.prisma.client.update({
-          where: { id: client.id },
-          data: { userId: marketplaceUserId },
-        });
-      }
-    }
-
-    // 3) si aún no hay, creamos una nueva ficha (origen MARKETPLACE).
-    if (!client) {
-      client = await this.prisma.client.create({
-        data: {
-          tenantId: tenant.id,
-          userId: marketplaceUserId,
-          firstName: mktUser.firstName,
-          lastName: mktUser.lastName,
-          email: mktUser.email,
-          phone: mktUser.phone,
-          source: 'MARKETPLACE',
-          portalRegisteredAt: new Date(),
-        },
-      });
-    }
+    // Resolvemos el perfil activo (el que mandó el front, o el SELF por defecto)
+    // y obtenemos/creamos su ficha de cliente. La cita se atribuye al Client de
+    // ese perfil, así las citas de un hijo no se mezclan con las del tutor.
+    const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, dto.profileId);
+    const client = await this.resolveClientForProfile(tenant.id, activeProfileId);
 
     // Obtenemos el empleado para saber su sucursal (locationId).
     // Resolve employee's locationId
