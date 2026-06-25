@@ -119,10 +119,12 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
     setIsModalOpen(true);
   }
 
-  // Boton "Nuevo" en el topbar global (izquierda del bell). Solo cuando
-  // la pagina no esta embedded (sino contaminaria otras paginas).
+  // Boton "Nuevo" en el topbar global (izquierda del bell). Se muestra tanto en
+  // la pagina standalone /bundles como embebido en la tab "Paquetes" de
+  // /services. No contamina otras paginas porque cada tab monta solo su propio
+  // componente (igual que la tab "Cupones" con RewardsContent).
   useRegisterTopbarAction(
-    !embedded && hasPermission('services.create') ? (
+    hasPermission('services.create') ? (
       <button
         onClick={openCreate}
         className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
@@ -130,7 +132,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
         Nuevo
       </button>
     ) : null,
-    [embedded, hasPermission('services.create')],
+    [hasPermission('services.create')],
   );
 
   function openEdit(bundle: Bundle) {

@@ -67,14 +67,22 @@ export default function StaffPage() {
   // en cada render del hook usePermissions; lo congelamos a un boolean para
   // que el useEffect interno no haga loop.
   const canCreateEmployee = hasPermission('employees.create');
+  // Menú "+ Nuevo": ofrece dos formas de dar de alta un empleado:
+  //   1) "Agregar sin cuenta": alta directa (nombre + teléfono, correo opcional),
+  //      sin cuenta de acceso. Útil para empleados (p.ej. adultos mayores) que
+  //      no tienen correo y solo necesitan estar en el sistema.
+  //   2) "Invitar con código": flujo existente donde el empleado se registra
+  //      solo con su correo y contraseña (sí tendrá acceso al sistema).
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
   useRegisterTopbarAction(
     activeTab === 'empleados' && canCreateEmployee ? (
-      <Link
-        href="/settings/invite-codes"
+      <button
+        type="button"
+        onClick={() => setNewMenuOpen(true)}
         className="px-2.5 md:px-3.5 py-1.5 text-[12px] md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
       >
         + Nuevo
-      </Link>
+      </button>
     ) : null,
     [activeTab, canCreateEmployee],
   );
@@ -106,6 +114,69 @@ export default function StaffPage() {
       api.put(`/api/employees/${empId}`, { locationId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
   });
+
+  // ── Alta directa de empleado (sin cuenta de acceso) ──────────────────────
+  // Formulario simple: solo nombre y apellido son obligatorios; teléfono y
+  // correo son opcionales. El backend (POST /api/employees) crea el empleado
+  // sin un User vinculado, así que el empleado NO podrá iniciar sesión (es lo
+  // esperado para este flujo).
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const emptyCreateForm = {
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    locationId: '',
+  };
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Abre el formulario de alta directa. Si solo hay una sucursal, la
+  // preseleccionamos para ahorrarle el paso al usuario.
+  function openCreateEmployee() {
+    setNewMenuOpen(false);
+    setCreateError(null);
+    setCreateForm({ ...emptyCreateForm, locationId: locations.length === 1 ? locations[0].id : '' });
+    setShowCreateForm(true);
+  }
+
+  const createEmployeeMutation = useMutation({
+    mutationFn: () =>
+      api.post('/api/employees', {
+        firstName: createForm.firstName.trim(),
+        lastName: createForm.lastName.trim(),
+        // Solo enviamos teléfono/correo si el usuario los escribió. Strings
+        // vacíos se omiten (el correo vacío haría fallar la validación @IsEmail).
+        phone: createForm.phone.trim() || undefined,
+        email: createForm.email.trim() || undefined,
+        locationId: createForm.locationId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setShowCreateForm(false);
+    },
+    onError: (err: any) => setCreateError(err?.message || 'No se pudo crear el empleado'),
+  });
+
+  // Valida en el front antes de enviar: nombre, apellido y sucursal obligatorios.
+  function submitCreateEmployee() {
+    setCreateError(null);
+    if (!createForm.firstName.trim() || !createForm.lastName.trim()) {
+      setCreateError('El nombre y el apellido son obligatorios');
+      return;
+    }
+    if (!createForm.locationId) {
+      setCreateError('Selecciona una sucursal');
+      return;
+    }
+    // Si escribió un correo, validamos un formato básico (debe contener @ y .).
+    const email = createForm.email.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCreateError('El correo no tiene un formato válido (déjalo vacío si no tiene)');
+      return;
+    }
+    createEmployeeMutation.mutate();
+  }
 
   const allEmployees = data?.data || [];
   const employees = allEmployees.filter((e) => {
@@ -459,6 +530,136 @@ export default function StaffPage() {
                       className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
                     >
                       Aplicar
+                    </button>
+                  </div>
+                </div>
+              </Modal>
+            )}
+
+            {/* Menú "+ Nuevo": elegir entre alta directa o invitación */}
+            {newMenuOpen && (
+              <Modal title="Agregar empleado" onClose={() => setNewMenuOpen(false)} size="sm">
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={openCreateEmployee}
+                    className="w-full text-left p-4 rounded-xl border border-[var(--border)] hover:border-[#008080] hover:bg-[#e0f2f1]/40 transition-colors"
+                  >
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Agregar sin cuenta</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                      Solo nombre y teléfono (correo opcional). El empleado no inicia sesión.
+                    </p>
+                  </button>
+                  <Link
+                    href="/settings/invite-codes"
+                    onClick={() => setNewMenuOpen(false)}
+                    className="block p-4 rounded-xl border border-[var(--border)] hover:border-[#008080] hover:bg-[#e0f2f1]/40 transition-colors"
+                  >
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">Invitar con código</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                      El empleado se registra con correo y contraseña (tendrá acceso al sistema).
+                    </p>
+                  </Link>
+                </div>
+              </Modal>
+            )}
+
+            {/* Formulario de alta directa (sin cuenta de acceso) */}
+            {showCreateForm && (
+              <Modal title="Nuevo empleado" onClose={() => setShowCreateForm(false)} size="md">
+                <div className="space-y-4">
+                  {createError && (
+                    <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                      {createError}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                        Nombre *
+                      </label>
+                      <input
+                        type="text"
+                        value={createForm.firstName}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                        Apellido *
+                      </label>
+                      <input
+                        type="text"
+                        value={createForm.lastName}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                      Teléfono
+                    </label>
+                    <input
+                      type="tel"
+                      value={createForm.phone}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+                      placeholder="Ej: 55 1234 5678"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                      Correo (opcional)
+                    </label>
+                    <input
+                      type="email"
+                      value={createForm.email}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                      placeholder="opcional@correo.com"
+                      className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                    />
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                      Sin correo el empleado no podrá iniciar sesión; podrás invitarlo después desde su ficha.
+                    </p>
+                  </div>
+
+                  {locations.length > 1 && (
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                        Sucursal *
+                      </label>
+                      <select
+                        value={createForm.locationId}
+                        onChange={(e) => setCreateForm((f) => ({ ...f, locationId: e.target.value }))}
+                        className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+                      >
+                        <option value="">Selecciona una sucursal</option>
+                        {locations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateForm(false)}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitCreateEmployee}
+                      disabled={createEmployeeMutation.isPending}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] disabled:opacity-50 transition-colors"
+                    >
+                      {createEmployeeMutation.isPending ? 'Creando...' : 'Crear empleado'}
                     </button>
                   </div>
                 </div>
