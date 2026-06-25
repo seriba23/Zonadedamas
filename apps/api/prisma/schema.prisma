@@ -464,6 +464,7 @@ model User {
   auditLogs             AuditLog[]
   uploadedPhotos        AppointmentPhoto[]
   clients               Client[]
+  profiles              Profile[]
   favorites             MarketplaceFavorite[]
   professionalFavorites MarketplaceProfessionalFavorite[]
   productReservations   ProductReservation[]
@@ -474,6 +475,35 @@ model User {
   @@index([tenantId])
   @@index([isClient])
   @@map("users")
+}
+
+// Perfil "estilo Netflix" dentro de una cuenta de marketplace. Un User
+// (padre/madre/tutor) puede tener varios Profile: el suyo (relationship=SELF)
+// y los de sus hijos/menores o familiares a su cargo (CHILD/OTHER). Cada Profile
+// se materializa como un Client por cada negocio donde reserva, de modo que las
+// citas de un hijo quedan atribuidas a ese hijo y no se mezclan con las del
+// tutor. Los menores NO inician sesión por su cuenta; el tutor los administra.
+model Profile {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id") // dueño/tutor de este perfil
+  relationship String    @default("SELF") @db.VarChar(10) // SELF | CHILD | OTHER
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  avatarUrl    String?   @map("avatar_url")
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
+  gender       String?   @db.VarChar(20)
+  allergies    String?   @db.Text
+  isMinor      Boolean   @default(false) @map("is_minor") // derivado de dateOfBirth
+  isDefault    Boolean   @default(false) @map("is_default") // el perfil SELF arranca como default
+  archivedAt   DateTime? @map("archived_at") // soft-archive (conserva historial)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clients Client[]
+
+  @@index([userId])
+  @@map("profiles")
 }
 
 model RefreshToken {
@@ -595,12 +625,17 @@ model Client {
   portalRegisteredAt DateTime? @map("portal_registered_at")
   lastLoginAt        DateTime? @map("last_login_at")
   userId             String?   @map("user_id")
+  // Perfil (estilo Netflix) al que pertenece esta ficha. Un mismo User puede
+  // tener varios Client en el MISMO tenant, uno por cada perfil (él + sus
+  // hijos). Nullable para los walk-in (creados sin cuenta de marketplace).
+  profileId          String?   @map("profile_id")
   loyaltyPoints      Int       @default(0) @map("loyalty_points")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user              User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  profile           Profile?             @relation(fields: [profileId], references: [id], onDelete: SetNull)
   appointments      Appointment[]
   payments          Payment[]
   tags              ClientTagMap[]
@@ -608,16 +643,17 @@ model Client {
   refreshTokens     ClientRefreshToken[]
   rewardRedemptions RewardRedemption[]
 
-  // Un marketplace user solo puede tener UN Client por tenant. Esto bloquea
-  // a nivel DB el caso de race condition donde dos requests del booking
-  // pasan el findFirst y ambos crean (era el bug original al investigar
-  // los 3 "Alfredo Ibarra"). MySQL permite multiples NULLs en un unique,
-  // asi que walk-in clients sin userId siguen funcionando.
-  @@unique([tenantId, userId])
+  // Un PERFIL solo puede tener UN Client por tenant (antes era por userId, pero
+  // ahora un User tiene varios perfiles). Esto bloquea a nivel DB el race
+  // condition donde dos requests del booking pasan el findFirst y ambos crean.
+  // MySQL permite multiples NULLs en un unique, asi que walk-in clients sin
+  // profileId siguen funcionando.
+  @@unique([tenantId, profileId])
   @@index([tenantId])
   @@index([tenantId, email])
   @@index([tenantId, phone])
   @@index([userId])
+  @@index([profileId])
   @@map("clients")
 }
 
