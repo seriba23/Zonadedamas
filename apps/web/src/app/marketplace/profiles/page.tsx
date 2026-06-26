@@ -60,9 +60,14 @@ export default function ProfilesSelectorPage() {
   const [error, setError] = useState<string | null>(null);
   // Aceptación del aviso/términos para perfiles de menores.
   const [termsAccepted, setTermsAccepted] = useState(false);
+  // entering: true mientras navegamos al marketplace tras elegir perfil. Sirve
+  // para cubrir la pantalla con un loader y NO mostrar el marketplace de fondo
+  // por un instante (se veía raro).
+  const [entering, setEntering] = useState(false);
 
   // Elegir un perfil: lo marcamos como activo y volvemos al marketplace.
   function choose(p: MarketplaceProfile) {
+    setEntering(true);
     setActiveProfile(p);
     router.replace(redirect);
   }
@@ -146,13 +151,23 @@ export default function ProfilesSelectorPage() {
   // ¿El perfil que se está editando es el propio (SELF)? No se puede eliminar.
   const editingSelf = modalFor && modalFor !== 'new' && modalFor.relationship === 'SELF';
 
+  // Mientras navegamos al marketplace tras elegir perfil, cubrimos todo con un
+  // loader para no mostrar el marketplace de fondo por un instante.
+  if (entering) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-[#008080] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-10">
       <div className="w-full max-w-md text-center">
         {/* Mensaje explicativo claro sobre el uso de los perfiles */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">¿Quién va a la cita?</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Elige un perfil</h1>
         <p className="text-sm text-gray-500 mb-6">
-          Elige un perfil. Crea perfiles para gestionar las citas de tus hijos o
+          Puedes crear perfiles para gestionar las citas de tus hijos o
           familiares a tu cargo: cada perfil tiene sus propias citas, puntos e
           historial.
         </p>
