@@ -49,6 +49,7 @@ export class StaffEventsListener {
         id: true,
         startTime: true,
         employeeId: true,
+        status: true, // para avisar si la cita nace "por confirmar" (PENDING)
         // De relaciones, traemos solo lo que mostraremos en el texto:
         client: { select: { firstName: true, lastName: true } },
         items: { select: { serviceNameSnapshot: true } },
@@ -78,16 +79,20 @@ export class StaffEventsListener {
       // Unimos los nombres de los servicios en un solo texto separado por comas.
       const services = apt.items.map((i) => i.serviceNameSnapshot).join(', ');
 
+      // Si la cita nace en PENDING (reserva del cliente online), avisamos que
+      // está "por confirmar"; si la agendó el negocio, nace confirmada.
+      const porConfirmar = apt.status === 'PENDING';
+
       // Pedimos crear la notificación. Nótese link (vista empleado) y adminLink
       // (vista admin/calendario): cada destinatario verá el que le corresponde.
       await this.notify.notify({
         tenantId: event.tenantId,
         type: 'appointment.created',
         section: 'appointments',
-        title: 'Nueva cita',
+        title: porConfirmar ? 'Cita por confirmar' : 'Nueva cita',
         // "services || 'una cita'": si no hubiera servicios, usamos un texto
         // genérico para que la frase quede natural.
-        body: `${clientName} reservó ${services || 'una cita'} para el ${this.formatDateTime(apt.startTime)}.`,
+        body: `${clientName} reservó ${services || 'una cita'} para el ${this.formatDateTime(apt.startTime)}.${porConfirmar ? ' Está por confirmar.' : ''}`,
         link: `/employee/appointments?appointmentId=${apt.id}`,
         adminLink: `/calendar?appointmentId=${apt.id}`,
         entityType: 'appointment',

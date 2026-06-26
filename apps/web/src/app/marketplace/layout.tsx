@@ -108,6 +108,11 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   // incompleto porque el admin no necesita completar datos de cliente.
   const fromAdmin = searchParams.get('fromAdmin') === '1';
 
+  // La pantalla de selección de perfiles (estilo Netflix) es un "gate" a
+  // pantalla completa: no lleva barra inferior ni el gate de perfil incompleto,
+  // y trae sus propios botones (cambiar tipo de cuenta / cerrar sesión).
+  const isProfilesPage = pathname.startsWith('/marketplace/profiles');
+
   // JSX: es la sintaxis parecida a HTML que usan los componentes React.
   // En JSX, las llaves {} permiten insertar expresiones JavaScript.
   return (
@@ -121,7 +126,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             (fondo gris muy claro) + pb-20 (padding inferior de 80px para
             que el contenido no quede oculto bajo el BottomNav de 80px).
             Si fromAdmin=true, no añadimos pb-20 porque tampoco habrá BottomNav. */}
-      <div className={isAuthPage ? 'h-screen overflow-hidden bg-gray-50' : `min-h-screen bg-gray-50 ${fromAdmin ? '' : 'pb-20'}`}>
+      <div className={isAuthPage ? 'h-screen overflow-hidden bg-gray-50' : `min-h-screen bg-gray-50 ${fromAdmin || isProfilesPage ? '' : 'pb-20'}`}>
         {/* children: aquí se renderiza la página actual (page.tsx) */}
         {children}
 
@@ -129,14 +134,14 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             En JavaScript/JSX, "a && b" significa "si a es verdadero, muestra b".
             Aquí: si NO es página de auth Y NO es modo admin → mostramos CompleteProfileGate.
             El operador ! niega el valor: !isAuthPage = true cuando NO es página de auth. */}
-        {!isAuthPage && !fromAdmin && <CompleteProfileGate />}
+        {!isAuthPage && !fromAdmin && !isProfilesPage && <CompleteProfileGate />}
       </div>
 
       {/* BottomNav solo se muestra cuando NO estamos en modo admin.
           En modo admin (?fromAdmin=1) ocultamos la barra de navegación
           porque el administrador solo viene a previsualizar la app,
           no a navegar como cliente real. */}
-      {!fromAdmin && <BottomNav />}
+      {!fromAdmin && !isProfilesPage && <BottomNav />}
     </>
   );
 }

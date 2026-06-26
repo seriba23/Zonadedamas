@@ -9,10 +9,11 @@
 // ============================================================
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMarketplaceAuth, MarketplaceProfile } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
+import { signOutAll } from '@/lib/sign-out-all';
 
 const TEAL = '#008080';
 
@@ -43,6 +44,12 @@ export default function ProfilesSelectorPage() {
   const redirect = searchParams.get('redirect') || '/marketplace';
 
   const { profiles, setActiveProfile, reloadProfiles } = useMarketplaceAuth();
+
+  // Recargamos la lista de perfiles al entrar al selector, por si el contexto
+  // quedó vacío o desactualizado (p.ej. al llegar directo tras el login).
+  useEffect(() => {
+    reloadProfiles();
+  }, [reloadProfiles]);
 
   // manage: modo gestión (muestra editar/eliminar en vez de seleccionar).
   const [manage, setManage] = useState(false);
@@ -211,6 +218,23 @@ export default function ProfilesSelectorPage() {
         >
           {manage ? 'Listo' : 'Gestionar perfiles'}
         </button>
+
+        {/* Acciones de cuenta, hasta abajo: cambiar de tipo de cuenta
+            (cliente/empleado/administrador) y cerrar sesión. */}
+        <div className="mt-10 pt-6 border-t border-gray-200 space-y-2">
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Cambiar tipo de cuenta
+          </button>
+          <button
+            onClick={async () => { await signOutAll(); router.push('/login'); }}
+            className="w-full py-2.5 rounded-xl border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </div>
 
       {/* Modal: crear/editar perfil */}

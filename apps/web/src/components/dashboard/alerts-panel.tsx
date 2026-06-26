@@ -43,7 +43,7 @@ export function AlertsPanel() {
   const items = [
     {
       count: alerts.unconfirmedAppointments, // Cuántas citas sin confirmar hay
-      label: 'citas sin confirmar',
+      label: 'citas por confirmar',
       action: 'Ver citas',
       // href: URL del calendario. Si conocemos el rango exacto, pasamos from/to como query params
       // para que el calendario muestre exactamente esas N citas.
