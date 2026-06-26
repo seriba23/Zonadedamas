@@ -189,7 +189,11 @@ function LoginPageInner() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (authLoading) return;
-    if (!isAuthenticated || !user) return;
+    // Restauramos el selector "¿Cómo deseas ingresar?" si hay CUALQUIER sesión
+    // activa: de negocio (useAuth) o de cliente del marketplace
+    // (marketplaceApi). Así, un cliente puede pulsar "Cambiar tipo de cuenta"
+    // desde el marketplace y ver este menú (antes solo valía la sesión de negocio).
+    if (!isAuthenticated && !marketplaceApi.isLoggedIn()) return;
     if (roleChoice) return;
     try {
       const raw = sessionStorage.getItem('login_role_choice');
