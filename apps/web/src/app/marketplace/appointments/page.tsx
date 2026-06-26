@@ -30,6 +30,7 @@ import { formatBookingTime, formatBookingDate, formatBookingDay, formatBookingMo
 import Link from 'next/link';
 // Modal que permite calificar al empleado Y al negocio en un solo flujo.
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
+import { AppointmentsCalendar } from '@/components/marketplace/appointments-calendar';
 
 // URL base del backend.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -117,11 +118,13 @@ export default function MarketplaceAppointmentsPage() {
 
   // isAuthenticated: si el cliente tiene sesión activa.
   // isLoading (renombrado a authLoading): true mientras se verifica el token.
-  const { isAuthenticated, isLoading: authLoading, activeProfile } = useMarketplaceAuth();
+  const { isAuthenticated, isLoading: authLoading, activeProfile, profiles } = useMarketplaceAuth();
 
   // Pestaña activa: 'citas' o 'compras'. El tipo unión `'citas' | 'compras'`
   // limita los valores posibles (TypeScript detecta errores de tipeo).
   const [tab, setTab] = useState<'citas' | 'compras'>('citas');
+  // Vista de las citas: tarjetas (lista) o calendario mensual.
+  const [citasView, setCitasView] = useState<'tarjetas' | 'calendario'>('tarjetas');
 
   // Texto del buscador (filtra por nombre del servicio o negocio).
   const [search, setSearch] = useState('');
@@ -160,12 +163,21 @@ export default function MarketplaceAppointmentsPage() {
   const isSelfActive = activeProfile?.relationship === 'SELF';
   const apptProfileId = isSelfActive ? undefined : activeProfile?.id;
 
-  // Distintivo: para una cita que NO es del propio tutor, devolvemos el nombre
-  // del perfil (hijo) al que pertenece, para etiquetarla en la lista.
-  const profileLabelFor = (appt: any): string | null =>
-    isSelfActive && appt.client?.profileId && appt.client.profileId !== activeProfile?.id
-      ? appt.client.firstName || 'Otro perfil'
+  // Mapa profileId → perfil (nombre, avatar, color) para distinguir de quién es
+  // cada cita en la lista.
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+
+  // Perfil dueño de una cita: lo mostramos (avatar coloreado + nombre) SOLO
+  // cuando el usuario tiene más de un perfil (si solo tiene el suyo, no aporta).
+  const profileFor = (appt: any) =>
+    profiles.length > 1 && appt.client?.profileId
+      ? profileById.get(appt.client.profileId) || null
       : null;
+
+  // Color del punto en el calendario: el del perfil dueño de la cita (teal por
+  // defecto). Siempre devuelve color, aunque solo haya un perfil.
+  const dotColor = (appt: any) =>
+    (appt.client?.profileId && profileById.get(appt.client.profileId)?.color) || TEAL;
 
   // El profileId va en la queryKey para que React Query recargue al cambiar de perfil.
   const { data, isLoading } = useQuery({
@@ -488,7 +500,37 @@ export default function MarketplaceAppointmentsPage() {
                 Explorar negocios
               </Link>
             </div>
-          ) : filteredAppointments.length === 0 ? (
+          ) : (
+            <>
+              {/* Sub-selector: Tarjetas (lista) o Calendario mensual */}
+              <div className="inline-flex items-center gap-1 mb-4 p-0.5 rounded-lg border border-gray-200 bg-gray-50">
+                {([['tarjetas', 'Tarjetas'], ['calendario', 'Calendario']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setCitasView(key)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      citasView === key ? 'bg-[#008080] text-white' : 'text-gray-600 hover:bg-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {citasView === 'calendario' ? (
+                <AppointmentsCalendar
+                  appointments={filteredAppointments}
+                  colorOf={dotColor}
+                  renderList={(list) => (
+                    <div className="space-y-3">
+                      {list.map((appt) => (
+                        <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      ))}
+                    </div>
+                  )}
+                />
+              ) : filteredAppointments.length === 0 ? (
             <div className="text-center py-16 flex flex-col items-center gap-4">
               <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -502,7 +544,7 @@ export default function MarketplaceAppointmentsPage() {
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Próximas</h2>
                   <div className="space-y-3">
                     {upcoming.map((appt) => (
-                      <AppointmentCard key={appt.id} appt={appt} profileLabel={profileLabelFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
                 </section>
@@ -515,7 +557,7 @@ export default function MarketplaceAppointmentsPage() {
                   </div>
                   <div className="space-y-3">
                     {missed.map((appt) => (
-                      <AppointmentCard key={appt.id} appt={appt} profileLabel={profileLabelFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
                 </section>
@@ -525,12 +567,14 @@ export default function MarketplaceAppointmentsPage() {
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Historial</h2>
                   <div className="space-y-3">
                     {past.map((appt) => (
-                      <AppointmentCard key={appt.id} appt={appt} profileLabel={profileLabelFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                      <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
                     ))}
                   </div>
                 </section>
               )}
             </div>
+          )}
+            </>
           )
         ) : (
           // ───── Compras tab ─────
@@ -835,7 +879,7 @@ function PurchaseCard({ purchase, onPress }: { purchase: any; onPress: () => voi
 }
 
 
-function AppointmentCard({ appt, onPress, profileLabel }: { appt: any; onPress: () => void; profileLabel?: string | null }) {
+function AppointmentCard({ appt, onPress, profile }: { appt: any; onPress: () => void; profile?: any }) {
   const services = appt.items?.map((i: any) => i.serviceNameSnapshot).join(', ') || '—';
   const totalPrice = (appt.items || []).reduce((s: number, i: any) => s + Number(i.priceSnapshot || 0), 0);
   // Moneda del negocio. Si por alguna razón no viene, default a MXN
@@ -898,12 +942,22 @@ function AppointmentCard({ appt, onPress, profileLabel }: { appt: any; onPress: 
           <p className="text-sm md:text-base font-bold text-gray-900 truncate">
             {appt.tenant?.name || '—'}
           </p>
-          {profileLabel && (
-            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-teal-50 text-teal-700">
-              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z" />
-              </svg>
-              Para {profileLabel}
+          {profile && (
+            <span className="inline-flex items-center gap-1 mt-0.5">
+              {/* Avatar coloreado del PERFIL (de quién es la cita: mamá/hijo). */}
+              <span
+                className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[7px] font-bold overflow-hidden flex-shrink-0"
+                style={{ backgroundColor: profile.color || '#008080' }}
+              >
+                {profile.avatarUrl ? (
+                  <img src={`${API_URL}${profile.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  (profile.firstName?.[0] || '').toUpperCase()
+                )}
+              </span>
+              <span className="text-[10px] font-semibold" style={{ color: profile.color || '#008080' }}>
+                {profile.firstName}
+              </span>
             </span>
           )}
         </div>

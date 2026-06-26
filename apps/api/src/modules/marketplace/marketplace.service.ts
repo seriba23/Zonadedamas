@@ -2209,6 +2209,13 @@ export class MarketplaceService {
   // (CHILD/OTHER). Cada Profile se materializa como un Client por tenant cuando
   // reserva, de modo que las citas de cada perfil quedan separadas.
 
+  // Paleta de colores para los perfiles (misma que la de empleados). El SELF
+  // arranca en teal (#008080, índice 0); los hijos rotan por la paleta.
+  private readonly PROFILE_COLORS = [
+    '#008080', '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#ef4444',
+    '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316', '#84cc16', '#06b6d4',
+  ];
+
   // Calcula si una fecha de nacimiento corresponde a un menor de edad (<18).
   private computeIsMinor(dateOfBirth?: Date | string | null): boolean {
     if (!dateOfBirth) return false;
@@ -2235,6 +2242,7 @@ export class MarketplaceService {
       allergies: p.allergies,
       isMinor: p.isMinor,
       isDefault: p.isDefault,
+      color: p.color ?? '#008080',
       guardianTermsAcceptedAt: p.guardianTermsAcceptedAt ?? null,
     };
   }
@@ -2258,6 +2266,7 @@ export class MarketplaceService {
           gender: u?.gender ?? null,
           allergies: u?.allergies ?? null,
           isDefault: true,
+          color: this.PROFILE_COLORS[0], // SELF = teal
         },
       });
     }
@@ -2341,7 +2350,7 @@ export class MarketplaceService {
   // Crea un perfil nuevo (hijo/familiar). No se permite crear un segundo SELF.
   async createProfile(
     userId: string,
-    dto: { firstName: string; lastName: string; relationship?: string; dateOfBirth?: string; gender?: string; allergies?: string; guardianTermsAccepted?: boolean },
+    dto: { firstName: string; lastName: string; relationship?: string; dateOfBirth?: string; gender?: string; allergies?: string; guardianTermsAccepted?: boolean; color?: string },
   ) {
     const relationship = dto.relationship === 'OTHER' ? 'OTHER' : 'CHILD';
     const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
@@ -2349,6 +2358,13 @@ export class MarketplaceService {
     // Si el perfil es de un menor, el tutor DEBE aceptar el aviso/términos.
     if (isMinor && dto.guardianTermsAccepted !== true) {
       throw new BadRequestException('Debes aceptar el aviso para perfiles de menores');
+    }
+    // Color: el que mande el front, o uno de la paleta según cuántos perfiles
+    // ya tiene (rota para que cada perfil nuevo tienda a un color distinto).
+    let color = dto.color;
+    if (!color) {
+      const count = await this.prisma.profile.count({ where: { userId } });
+      color = this.PROFILE_COLORS[count % this.PROFILE_COLORS.length];
     }
     const profile = await this.prisma.profile.create({
       data: {
@@ -2361,6 +2377,7 @@ export class MarketplaceService {
         allergies: dto.allergies ?? null,
         isMinor,
         isDefault: false,
+        color,
         // Registro de la aceptación (solo aplica a menores).
         guardianTermsAcceptedAt: isMinor ? new Date() : null,
       },
@@ -2373,7 +2390,7 @@ export class MarketplaceService {
   async updateProfileEntity(
     userId: string,
     profileId: string,
-    dto: { firstName?: string; lastName?: string; dateOfBirth?: string | null; gender?: string; allergies?: string; avatarUrl?: string; guardianTermsAccepted?: boolean },
+    dto: { firstName?: string; lastName?: string; dateOfBirth?: string | null; gender?: string; allergies?: string; avatarUrl?: string; guardianTermsAccepted?: boolean; color?: string },
   ) {
     const profile = await this.prisma.profile.findFirst({ where: { id: profileId, userId } });
     if (!profile) throw new NotFoundException('Perfil no encontrado');
@@ -2401,6 +2418,7 @@ export class MarketplaceService {
         gender: dto.gender ?? profile.gender,
         allergies: dto.allergies ?? profile.allergies,
         avatarUrl: dto.avatarUrl ?? profile.avatarUrl,
+        color: dto.color ?? profile.color,
         isMinor,
         // Sellamos la aceptación si es menor y aún no estaba registrada.
         guardianTermsAcceptedAt:

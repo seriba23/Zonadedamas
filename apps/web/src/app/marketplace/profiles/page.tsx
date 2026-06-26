@@ -35,7 +35,13 @@ function isMinorFromDob(dob?: string | null): boolean {
 }
 
 // Estado vacío del formulario de perfil.
-const emptyForm = { firstName: '', lastName: '', dateOfBirth: '', gender: '', allergies: '' };
+// Paleta de colores para los perfiles (misma que la de empleados).
+const PROFILE_COLORS = [
+  '#008080', '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#ef4444',
+  '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316', '#84cc16', '#06b6d4',
+];
+
+const emptyForm = { firstName: '', lastName: '', dateOfBirth: '', gender: '', allergies: '', color: '' };
 
 export default function ProfilesSelectorPage() {
   const router = useRouter();
@@ -75,7 +81,8 @@ export default function ProfilesSelectorPage() {
   // Abre el modal para crear un perfil nuevo.
   function openCreate() {
     setError(null);
-    setForm(emptyForm);
+    // Color por defecto: el siguiente de la paleta según cuántos perfiles hay.
+    setForm({ ...emptyForm, color: PROFILE_COLORS[profiles.length % PROFILE_COLORS.length] });
     setTermsAccepted(false);
     setModalFor('new');
   }
@@ -90,6 +97,7 @@ export default function ProfilesSelectorPage() {
       dateOfBirth: p.dateOfBirth ? String(p.dateOfBirth).substring(0, 10) : '',
       gender: p.gender || '',
       allergies: p.allergies || '',
+      color: p.color || '',
     });
     // Si ya había aceptado el aviso de menor, no se lo volvemos a exigir.
     setTermsAccepted(!!p.guardianTermsAcceptedAt);
@@ -117,6 +125,7 @@ export default function ProfilesSelectorPage() {
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         allergies: form.allergies || undefined,
+        color: form.color || undefined,
         guardianTermsAccepted: termsAccepted,
       };
       if (modalFor === 'new') {
@@ -183,7 +192,7 @@ export default function ProfilesSelectorPage() {
               <div className="relative">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden text-xl font-bold text-white group-hover:ring-2 group-hover:ring-[#008080] transition-all"
-                  style={{ backgroundColor: TEAL }}
+                  style={{ backgroundColor: p.color || TEAL }}
                 >
                   {p.avatarUrl ? (
                     <img
@@ -305,6 +314,26 @@ export default function ProfilesSelectorPage() {
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
                 />
+              </div>
+
+              {/* Selector de color del perfil */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Color del perfil</label>
+                <div className="flex flex-wrap gap-2">
+                  {PROFILE_COLORS.map((c) => {
+                    const active = (form.color || PROFILE_COLORS[0]) === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, color: c }))}
+                        className={`w-7 h-7 rounded-full transition-transform ${active ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
+                        style={{ backgroundColor: c }}
+                        aria-label={`Color ${c}`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

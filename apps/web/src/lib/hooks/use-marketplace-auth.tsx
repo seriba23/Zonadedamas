@@ -73,6 +73,7 @@ export interface MarketplaceProfile {
   allergies?: string | null;
   isMinor: boolean;
   isDefault: boolean;
+  color?: string;                          // color del perfil (hex)
   guardianTermsAcceptedAt?: string | null; // si ya se aceptó el aviso de menor
 }
 

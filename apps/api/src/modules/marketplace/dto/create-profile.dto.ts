@@ -40,4 +40,10 @@ export class CreateProfileDto {
   @IsOptional()
   @IsBoolean()
   guardianTermsAccepted?: boolean;
+
+  // Color del perfil (hex) para distinguirlo visualmente. Opcional: si no viene,
+  // el backend asigna uno de la paleta.
+  @IsOptional()
+  @IsString()
+  color?: string;
 }

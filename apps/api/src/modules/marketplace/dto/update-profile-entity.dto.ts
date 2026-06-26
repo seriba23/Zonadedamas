@@ -35,4 +35,9 @@ export class UpdateProfileEntityDto {
   @IsOptional()
   @IsBoolean()
   guardianTermsAccepted?: boolean;
+
+  // Color del perfil (hex).
+  @IsOptional()
+  @IsString()
+  color?: string;
 }
