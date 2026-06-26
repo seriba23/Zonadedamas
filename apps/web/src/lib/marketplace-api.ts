@@ -71,6 +71,13 @@ class MarketplaceApiClient {
   setSession(accessToken: string, refreshToken: string) {
     this.accessToken = accessToken;
     this.setRefreshToken(refreshToken);
+    // Sesión NUEVA (login fresco): olvidamos el perfil activo guardado para que
+    // el marketplace muestre SIEMPRE el selector de perfiles tras iniciar sesión.
+    // (No se llama en el refresh automático de token, así que las recargas dentro
+    // de la misma sesión sí conservan el perfil elegido.)
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem('marketplace_active_profile_id'); } catch {}
+    }
   }
 
   // Devuelve el accessToken actual. Puede ser null si no hay sesión activa.
