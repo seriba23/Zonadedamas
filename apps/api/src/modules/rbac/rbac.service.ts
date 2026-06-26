@@ -77,6 +77,30 @@ export class RbacService {
       }
     }
 
+    // ── Capacidad POS por empleado ──────────────────────────────────────────
+    // Además de los permisos heredados de sus roles, un empleado puede tener el
+    // flag `posEnabled` (lo activa el admin desde la consola). Cuando está
+    // activo le inyectamos los permisos mínimos para operar el Punto de Venta,
+    // SIN tener que crearle un rol especial. Como getUserPermissions es el
+    // único origen de verdad de los permisos efectivos (lo usan el
+    // PermissionGuard de cada request y getMe), basta inyectarlos aquí para que
+    // backend y frontend queden coherentes. Para Owner/freelancer es no-op
+    // (ya tienen estos permisos vía su rol).
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId, tenantId },
+      select: { posEnabled: true },
+    });
+    if (employee?.posEnabled) {
+      for (const p of [
+        'payments.create',
+        'payments.read',
+        'inventory.read',
+        'promotions.read',
+      ]) {
+        permissionsSet.add(p);
+      }
+    }
+
     // Array.from(set) convierte el Set en un arreglo normal de strings, que es lo
     // que esperan quienes llaman a esta función (ej. el PermissionGuard).
     return Array.from(permissionsSet);

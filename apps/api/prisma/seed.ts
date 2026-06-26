@@ -266,9 +266,12 @@ const FRONTDESK_PERMISSIONS: PermissionKey[] = [
 // Ve sus citas, completa servicios, ve clientes asignados
 // NO puede: crear citas, cobrar, ver reportes, gestionar nada
 const STAFF_PERMISSIONS: PermissionKey[] = [
-  // Citas: ver las suyas y marcar completadas
+  // Citas: ver las suyas, marcar completadas, reagendar y agregar servicios
+  // (NO cancelar: cancelar queda para admin/recepción)
   permKey('appointments', 'read'),
   permKey('appointments', 'complete'),
+  permKey('appointments', 'reschedule'),
+  permKey('appointments', 'create'),
   // Disponibilidad: ver su horario
   permKey('availability', 'read'),
   // Clientes: ver info del cliente para atenderlo

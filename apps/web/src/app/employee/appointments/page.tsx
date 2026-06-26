@@ -59,12 +59,13 @@ import { DatePicker } from '@/components/ui/date-picker';
 // DatePicker → componente de selector de fechas (importado pero no usado
 // directamente en el JSX visible, puede estar en el wizard).
 
-import { CloseAppointmentWizard } from './close-wizard';
-// CloseAppointmentWizard → wizard de 4-5 pasos para cerrar una cita
-// (consentimiento foto, subir fotos, cobro, QR de confirmación).
-
 import { AppointmentWizard } from '@/components/appointments/appointment-wizard';
 // AppointmentWizard → wizard para CREAR una nueva cita (reutilizado del calendario).
+
+import { AppointmentModal } from '@/components/appointments/appointment-modal';
+// AppointmentModal → MISMO detalle rico de cita que usa el admin (reagendar,
+// recordatorio, consentimiento+fotos, agregar servicios, finalizar, ausente y
+// cobro en POS). El empleado ve solo las acciones permitidas por su rol.
 
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
 // Funciones de formato de fecha para la tarjeta de cada cita:
@@ -230,9 +231,6 @@ export default function EmployeeAppointmentsPage() {
   // null = ninguna cita seleccionada (modal cerrado).
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
 
-  // wizardApt: la cita que se está cerrando con el CloseAppointmentWizard.
-  // null = wizard de cierre cerrado.
-  const [wizardApt, setWizardApt] = useState<Appointment | null>(null);
 
   // Calculamos el rango de fechas según la pestaña activa.
   // La desestructuración { startDate, endDate } extrae ambas propiedades
@@ -283,50 +281,9 @@ export default function EmployeeAppointmentsPage() {
     }
   }, [targetAptId, appointments, deepLinkApt]);
 
-  // completeMutation: marca una cita como COMPLETADA.
-  // useMutation se usa para peticiones que MODIFICAN datos (POST, PUT, DELETE).
-  // mutationFn: la función que hace la petición real. Recibe el id de la cita.
-  // onSuccess: se ejecuta si la petición fue exitosa.
-  //   - invalidateQueries → marca la caché como "obsoleta" para que React Query
-  //     vuelva a pedir los datos actualizados al servidor automáticamente.
-  //   - setSelectedApt(null) → cierra el modal de detalle.
-  const completeMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.post(`/api/appointments/${id}/complete`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
-      setSelectedApt(null);
-    },
-  });
-
-  // handleWizardDone: callback que se pasa al CloseAppointmentWizard.
-  // Se ejecuta cuando el empleado termina todos los pasos del wizard.
-  // opts?.awaitingReception → true si la cita fue enviada a recepción en vez
-  // de completarse directamente (para que el cajero la cobre).
-  const handleWizardDone = (opts?: { awaitingReception?: boolean }) => {
-    queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
-    queryClient.invalidateQueries({ queryKey: ['employee-appointment-detail'] });
-    setWizardApt(null);
-    // Tanto en el caso normal como en "enviado a recepcion" cerramos el
-    // detalle: si quedo pendingPosPayment, el detalle no debe permitir
-    // reabrir el wizard. El proximo refetch del listado mostrara el
-    // nuevo estado de la cita.
-    setSelectedApt(null);
-    // opts.awaitingReception es informacion: si se necesita mostrar un
-    // toast o similar a futuro, viene por aca.
-    void opts; // void suprime la advertencia de TypeScript de "variable no usada"
-  };
-
-  // noShowMutation: marca al cliente como ausente (no se presentó a la cita).
-  // Similar a completeMutation pero llama al endpoint /no-show.
-  const noShowMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.post(`/api/appointments/${id}/no-show`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
-      setSelectedApt(null);
-    },
-  });
+  // Nota: las acciones sobre la cita (finalizar, ausente, reagendar, cobrar,
+  // etc.) ahora viven dentro de AppointmentModal (el mismo detalle del admin),
+  // así que las mutations específicas de esta página se eliminaron.
 
   // ─── FILTRADO Y ORDENAMIENTO ─────────────────────────────────────────────
   // useMemo: memoriza el resultado del cálculo. Solo se recalcula cuando
@@ -583,237 +540,19 @@ export default function EmployeeAppointmentsPage() {
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail Modal — MISMO detalle rico que el admin (AppointmentModal).
+          El empleado ve solo las acciones que su rol permite (sin "Cancelar
+          cita"). "Proceder al pago" lleva a /employee/pos. */}
       {selectedApt && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
-          onClick={() => setSelectedApt(null)}
-        >
-          <div
-            className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-gray-900">Detalle de cita</h3>
-                <button
-                  onClick={() => setSelectedApt(null)}
-                  className="p-1 hover:bg-gray-100 rounded-lg"
-                >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Status */}
-              {(() => {
-                const st = STATUS_LABELS[selectedApt.status] || STATUS_LABELS.PENDING;
-                return (
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 ${st.color}`}>
-                    {st.label}
-                  </span>
-                );
-              })()}
-
-              {/* Date/Time */}
-              <div className="space-y-3 mb-5">
-                <div className="flex items-center gap-3">
-                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {dayjs.utc(selectedApt.startTime).format('dddd, D [de] MMMM YYYY')}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {dayjs.utc(selectedApt.startTime).format('h:mm A')} - {dayjs.utc(selectedApt.endTime).format('h:mm A')}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Client */}
-                <div className="flex items-center gap-3">
-                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {selectedApt.client.firstName} {selectedApt.client.lastName}
-                    </p>
-                    {selectedApt.client.phone && (
-                      <p className="text-xs text-gray-500">{selectedApt.client.phone}</p>
-                    )}
-                    {selectedApt.client.email && (
-                      <p className="text-xs text-gray-500">{selectedApt.client.email}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Alergias del cliente — visible solo si el cliente las
-                  registro en su perfil del marketplace. Importante para el
-                  empleado: evita reacciones alergicas al usar productos
-                  durante el servicio. */}
-              {(() => {
-                const allergies = selectedApt.client.user?.allergies || selectedApt.client.allergies;
-                if (!allergies || !allergies.trim()) return null;
-                return (
-                  <div className="mb-5 p-3 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
-                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                    </svg>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-amber-900 uppercase tracking-wide mb-0.5">
-                        Alergias del cliente
-                      </p>
-                      <p className="text-sm text-amber-900 break-words">{allergies}</p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Services + Products + Discount + Total */}
-              {(() => {
-                const servicesSubtotal = selectedApt.items.reduce(
-                  (s, i) => s + Number(i.priceSnapshot),
-                  0,
-                );
-                const products = selectedApt.productReservations || [];
-                const productsSubtotal = products.reduce(
-                  (s, p) => s + Number(p.unitPrice) * p.quantity,
-                  0,
-                );
-                const discount = Number(selectedApt.discountAmount || 0);
-                const total = Math.max(0, servicesSubtotal + productsSubtotal - discount);
-
-                // Nombre del cupón si lo hay: del redemption o de las notas.
-                const couponLabel = (() => {
-                  if (selectedApt.redemption?.reward?.name) return selectedApt.redemption.reward.name;
-                  const m = (selectedApt.notes || '').match(/\[Cup[oó]n: ([^\]]+)\]/);
-                  if (m) return m[1];
-                  const p = (selectedApt.notes || '').match(/\[Promoci[oó]n: ([^\]]+)\]/);
-                  if (p) return p[1];
-                  const r = (selectedApt.notes || '').match(/\[C[oó]digo 2x1: [^—]+— (?:Cup[oó]n|Promoci[oó]n): ([^\]]+)\]/);
-                  if (r) return r[1];
-                  return discount > 0 ? 'Cupón aplicado' : null;
-                })();
-
-                return (
-                  <div className="border-t border-gray-100 pt-4 mb-4">
-                    {/* Servicios */}
-                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">Servicios</p>
-                    {selectedApt.items.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between py-1.5">
-                        <div>
-                          <p className="text-sm text-gray-700">{item.serviceNameSnapshot}</p>
-                          <p className="text-xs text-gray-400">{item.durationSnapshot} min</p>
-                        </div>
-                        <span className="text-sm font-medium text-gray-900">
-                          {formatCurrency(Number(item.priceSnapshot))}
-                        </span>
-                      </div>
-                    ))}
-
-                    {/* Productos */}
-                    {products.length > 0 && (
-                      <>
-                        <p className="text-xs font-semibold text-gray-500 mt-3 mb-2 uppercase">Productos</p>
-                        {products.map((p) => (
-                          <div key={p.id} className="flex items-center justify-between py-1.5">
-                            <p className="text-sm text-gray-700">
-                              {p.quantity}× {p.product.name}
-                            </p>
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrency(Number(p.unitPrice) * p.quantity)}
-                            </span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-
-                    {/* Desglose */}
-                    <div className="pt-3 mt-2 border-t border-gray-100 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Subtotal servicios</span>
-                        <span className="text-xs text-gray-700">{formatCurrency(servicesSubtotal)}</span>
-                      </div>
-                      {productsSubtotal > 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Subtotal productos</span>
-                          <span className="text-xs text-gray-700">{formatCurrency(productsSubtotal)}</span>
-                        </div>
-                      )}
-                      {discount > 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-green-600 font-medium">
-                            {couponLabel || 'Descuento'}
-                          </span>
-                          <span className="text-xs text-green-600 font-medium">
-                            -{formatCurrency(discount)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <span className="text-sm font-semibold text-gray-900">Total</span>
-                        <span className="text-sm font-bold text-gray-900">
-                          {formatCurrency(total)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Notes */}
-              {selectedApt.notes && (
-                <div className="border-t border-gray-100 pt-4 mb-4">
-                  <p className="text-xs font-semibold text-gray-500 mb-1 uppercase">Notas</p>
-                  <p className="text-sm text-gray-600">{selectedApt.notes}</p>
-                </div>
-              )}
-
-              {/* Actions */}
-              {['CONFIRMED', 'IN_PROGRESS'].includes(selectedApt.status) && (
-                <div className="border-t border-gray-100 pt-4 flex gap-2">
-                  {selectedApt.pendingPosPayment ? (
-                    <div
-                      className="flex-1 py-2.5 text-sm font-semibold rounded-xl text-center border border-teal-200 bg-teal-50 text-[#008080]"
-                      title="La cita ya fue enviada a recepcion. El cajero registrara el pago."
-                    >
-                      Esperando a recepción
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setWizardApt(selectedApt)}
-                      className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors"
-                      style={{ backgroundColor: '#008080' }}
-                    >
-                      Cerrar cita
-                    </button>
-                  )}
-                  <button
-                    onClick={() => noShowMutation.mutate(selectedApt.id)}
-                    disabled={noShowMutation.isPending}
-                    className="py-2.5 px-4 text-sm font-medium border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  >
-                    Ausente
-                  </button>
-                </div>
-              )}
-
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Close Wizard */}
-      {wizardApt && (
-        <CloseAppointmentWizard
-          appointment={wizardApt}
-          onDone={handleWizardDone}
-          onClose={() => setWizardApt(null)}
+        <AppointmentModal
+          appointmentId={selectedApt.id}
+          posBasePath="/employee"
+          onClose={() => setSelectedApt(null)}
+          onSave={() => {
+            queryClient.invalidateQueries({ queryKey: ['employee-appointments'] });
+            queryClient.invalidateQueries({ queryKey: ['employee-appointment-detail'] });
+            setSelectedApt(null);
+          }}
         />
       )}
 

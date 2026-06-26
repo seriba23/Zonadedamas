@@ -341,7 +341,8 @@ export class AppointmentsController {
   // ── POST /api/appointments/:id/no-show ──────────────────────────────────────
   // Marca la cita como NO_SHOW (el cliente no se presentó).
   @Post(':id/no-show')
-  @RequirePermissions('appointments.update')
+  // Mismo nivel que finalizar: marcar el desenlace de la cita (incl. empleado).
+  @RequirePermissions('appointments.complete')
   async noShow(
     @CurrentTenant() tenantId: string,
     @CurrentUser() user: any,

@@ -119,6 +119,12 @@ export class UpdateEmployeeDto {
   @IsString()
   jobTitle?: string;
 
+  // posEnabled: opcional; si viene, booleano. Activa/desactiva el acceso del
+  // empleado al Punto de Venta (lo gestiona el admin desde la consola).
+  @IsOptional()
+  @IsBoolean()
+  posEnabled?: boolean;
+
   // managerId: igual que en crear, se acepta sin validar formato.
   @Allow()
   managerId?: string | null;

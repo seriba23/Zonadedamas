@@ -39,6 +39,7 @@ interface Employee {
   allergies?: string | null;
   userId?: string | null;
   isActive: boolean;
+  posEnabled?: boolean;
   createdAt: string;
   location?: { id: string; name: string };
   employeeServices?: Array<{
@@ -226,6 +227,16 @@ export default function EmployeeProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       setShowDeactivateConfirm(false);
+    },
+  });
+
+  // togglePosMutation: activa/desactiva el acceso del empleado al Punto de Venta.
+  const togglePosMutation = useMutation({
+    mutationFn: (posEnabled: boolean) =>
+      api.put(`/api/employees/${employeeId}`, { posEnabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
     },
   });
 
@@ -936,6 +947,37 @@ export default function EmployeeProfilePage() {
                 <EmployeeTraining employeeId={employeeId} canEdit={canEdit} />
               </div>
             </Section>
+
+            {/* Acceso al Punto de Venta: interruptor por empleado. Cuando está
+                activo, el empleado ve el POS en su menú y puede cobrar/vender. */}
+            {canEdit && (
+              <Section title="Punto de Venta">
+                <div className="p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Acceso al Punto de Venta</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Permite a este empleado cobrar citas y vender productos en el POS.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!!employee.posEnabled}
+                    disabled={togglePosMutation.isPending}
+                    onClick={() => togglePosMutation.mutate(!employee.posEnabled)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                      employee.posEnabled ? 'bg-[#008080]' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
+                        employee.posEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </Section>
+            )}
 
             {/* Botón Desactivar/Reactivar */}
             {canDelete && !isOwnProfile && (

@@ -26,6 +26,7 @@ export interface AuthUser {
   isAdmin?: boolean;          // ¿es administrador del negocio?
   employeeId?: string | null; // id como empleado (si también lo es)
   isEmployeeActive?: boolean; // ¿su ficha de empleado está activa?
+  posEnabled?: boolean;       // ¿tiene acceso al Punto de Venta?
   jobTitle?: string | null;   // puesto/cargo
   tenantName?: string;        // nombre del negocio
   tenantCurrency?: string;    // moneda del negocio (MXN, USD...)

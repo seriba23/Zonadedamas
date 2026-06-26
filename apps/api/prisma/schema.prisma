@@ -785,6 +785,7 @@ model Employee {
   jobTitle            String?  @map("job_title")
   managerId           String?  @map("manager_id")
   isActive            Boolean  @default(true) @map("is_active")
+  posEnabled          Boolean  @default(false) @map("pos_enabled")
   bufferBeforeMinutes Int      @default(0) @map("buffer_before_minutes")
   bufferAfterMinutes  Int      @default(0) @map("buffer_after_minutes")
   sortOrder           Int      @default(0) @map("sort_order")

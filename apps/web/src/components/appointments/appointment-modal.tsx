@@ -60,6 +60,9 @@ import dayjs from 'dayjs';
 import { useCurrency } from '@/lib/hooks/use-currency';
 // useAuth: hook que devuelve el usuario autenticado actual (admin/cajero).
 import { useAuth } from '@/lib/hooks/use-auth';
+// usePermissions: hook con hasPermission() para mostrar/ocultar acciones según
+// el permiso del usuario (un empleado ve menos botones que un admin).
+import { usePermissions } from '@/lib/hooks/use-permissions';
 // buildReminderMessage / buildWhatsAppUrl: arman el mensaje y la URL de WhatsApp
 // para el recordatorio que se envía al cliente.
 import { buildReminderMessage, buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -189,6 +192,9 @@ interface AppointmentModalProps {
   onClose: () => void;          // Función que llama el padre cuando se cierra el modal
   onSave: () => void;           // Función que llama el padre cuando se guarda exitosamente
   onCreateAnother?: (clientId: string, employeeId: string) => void; // Para encadenar "Crear otra cita"
+  // posBasePath: prefijo de ruta para el Punto de Venta. El dashboard lo deja
+  // vacío (→ "/pos"); el portal del empleado pasa "/employee" (→ "/employee/pos").
+  posBasePath?: string;
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -203,6 +209,7 @@ export function AppointmentModal({
   onClose,
   onSave,
   onCreateAnother,
+  posBasePath,
 }: AppointmentModalProps) {
   // useQueryClient() devuelve el objeto global de cache de React Query.
   // Lo usamos para "invalidar" (borrar) entradas del cache cuando cambian datos,
@@ -637,6 +644,9 @@ export function AppointmentModal({
 
   // useAuth devuelve el usuario autenticado actualmente (el cajero/admin).
   const { user: authUser } = useAuth();
+  // hasPermission: para mostrar/ocultar acciones según el permiso del usuario.
+  // Un empleado (rol staff) NO tiene appointments.cancel → no ve "Cancelar cita".
+  const { hasPermission } = usePermissions();
 
   // true mientras se espera la respuesta del servidor (deshabilita el botón).
   const [sendingReminder, setSendingReminder] = useState(false);
@@ -736,6 +746,20 @@ export function AppointmentModal({
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al confirmar la cita');
+    },
+  });
+
+  // noShowMutation: marca al cliente como ausente (no se presentó a la cita).
+  const noShowMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/api/appointments/${appointmentId}/no-show`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      onSave();
+    },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al marcar como ausente');
     },
   });
 
@@ -875,19 +899,25 @@ export function AppointmentModal({
   // canCancel: ¿se puede cancelar la cita? Solo si está en uno de estos estados.
   // appointment && [...].includes(statusLower): evaluación corta — si appointment
   // es null/undefined, la expresión es falsa sin evaluar el .includes().
+  // Cada flag combina el ESTADO de la cita con el PERMISO del usuario, para que
+  // un empleado vea solo las acciones que puede ejecutar. Cancelar requiere
+  // appointments.cancel (el rol staff NO lo tiene → se oculta "Cancelar cita").
   const canCancel =
     appointment &&
-    ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
+    ['pending', 'confirmed', 'rescheduled'].includes(statusLower) &&
+    hasPermission('appointments.cancel');
 
   // canComplete: ¿se puede finalizar? Solo si está en progreso o confirmada.
   const canComplete =
     appointment &&
-    ['confirmed', 'in_progress'].includes(statusLower);
+    ['confirmed', 'in_progress'].includes(statusLower) &&
+    hasPermission('appointments.complete');
 
   // canReschedule: ¿se puede reagendar? Mismos estados que cancelar.
   const canReschedule =
     appointment &&
-    ['pending', 'confirmed', 'rescheduled'].includes(statusLower);
+    ['pending', 'confirmed', 'rescheduled'].includes(statusLower) &&
+    hasPermission('appointments.reschedule');
 
   // canConfirm: siempre false porque las citas se auto-confirman al crearlas.
   const canConfirm = false; // Citas se auto-confirman al crearse
@@ -895,7 +925,14 @@ export function AppointmentModal({
   // canAddServices: ¿se puede agregar más servicios? No si ya está cancelada/completada.
   const canAddServices =
     appointment &&
-    ['confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
+    ['confirmed', 'rescheduled', 'in_progress'].includes(statusLower) &&
+    hasPermission('appointments.create');
+
+  // canNoShow: marcar "Ausente". Mismo permiso que finalizar (es un desenlace).
+  const canNoShow =
+    appointment &&
+    ['pending', 'confirmed', 'rescheduled', 'in_progress'].includes(statusLower) &&
+    hasPermission('appointments.complete');
 
   // ── Cálculos financieros ──────────────────────────────────────────────────
   // Nota: estos valores se calculan en el FRONTEND como resumen para mostrar.
@@ -1782,7 +1819,7 @@ export function AppointmentModal({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
-                      router.push(`/pos?appointmentId=${appointmentId}`);
+                      router.push(`${posBasePath ?? ''}/pos?appointmentId=${appointmentId}`);
                     }}
                     className="px-3 py-2 rounded-lg text-sm font-semibold text-white"
                     style={{ backgroundColor: '#008080' }}
@@ -1868,6 +1905,15 @@ export function AppointmentModal({
                     className="btn-primary flex-1"
                   >
                     {confirmMutation.isPending ? 'Confirmando...' : 'Confirmar cita'}
+                  </button>
+                )}
+                {canNoShow && (
+                  <button
+                    onClick={() => noShowMutation.mutate()}
+                    disabled={noShowMutation.isPending}
+                    className="btn-secondary flex-1"
+                  >
+                    {noShowMutation.isPending ? 'Procesando...' : 'Ausente'}
                   </button>
                 )}
                 {canComplete && (() => {

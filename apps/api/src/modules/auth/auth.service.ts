@@ -1427,7 +1427,14 @@ export class AuthService {
       this.prisma.employee.findFirst({
         where: { userId, tenantId },
         // Incluimos isActive para detectar si el empleado fue desactivado.
-        select: { id: true, avatarUrl: true, isActive: true, jobTitle: true },
+        // posEnabled: indica si tiene acceso al Punto de Venta (para el menú).
+        select: {
+          id: true,
+          avatarUrl: true,
+          isActive: true,
+          jobTitle: true,
+          posEnabled: true,
+        },
       }),
       this.prisma.subscription.findUnique({
         where: { tenantId },
@@ -1459,6 +1466,8 @@ export class AuthService {
       // Ternario: si hay empleado, su estado; si no hay ficha, lo damos por activo.
       isEmployeeActive: employee ? employee.isActive : true,
       jobTitle: employee?.jobTitle || null,
+      // posEnabled: acceso al Punto de Venta (false si no es empleado con ficha).
+      posEnabled: employee?.posEnabled ?? false,
       // Valores por defecto ("||") por si faltara el dato.
       tenantName: tenant?.name || '',
       tenantCurrency: tenant?.currency || 'MXN',
