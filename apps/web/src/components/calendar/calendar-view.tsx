@@ -144,6 +144,26 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
     : null;
 }
 
+// isMinorFromDob: ¿el cliente es menor de edad (< 18) según su fecha de
+// nacimiento? Se usa para marcar visualmente las citas de menores con un
+// fondo distinto (rayado) en las vistas de negocio.
+function isMinorFromDob(dob?: string | null): boolean {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
+}
+
+// MINOR_STRIPES: patrón de rayas diagonales (teal semitransparente) que se
+// superpone al fondo de color del empleado para distinguir, de un vistazo,
+// las citas de menores de edad. No usa ámbar/naranja (regla del proyecto).
+const MINOR_STRIPES =
+  'repeating-linear-gradient(45deg, rgba(0,128,128,0.16) 0, rgba(0,128,128,0.16) 5px, transparent 5px, transparent 11px)';
+
 // timeToMinutes: convierte un timestamp ISO a minutos desde medianoche.
 // IMPORTANTE — patrón UTC raw: las citas se guardan como "hora del negocio"
 // interpretada como UTC. Por eso usamos getUTCHours()/getUTCMinutes() en vez
@@ -1115,6 +1135,8 @@ export function CalendarView({
               const rgb = hexToRgb(employeeColor);
               // rgba con alpha 0.12: fondo muy suave del color del empleado.
               const bgColor = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)` : 'rgba(0, 128, 128, 0.12)';
+              // isMinorClient: ¿la cita es de un menor? → fondo rayado distintivo.
+              const isMinorClient = isMinorFromDob((apt.client as any)?.dateOfBirth);
               const statusLower = apt.status?.toLowerCase() || '';
               const statusExtra = STATUS_DECORATIONS[statusLower] || '';    // Clases extra por estado
               const statusDotColor = STATUS_DOT_COLORS[statusLower] || '#9ca3af'; // Color del punto de estado
@@ -1161,6 +1183,8 @@ export function CalendarView({
                     width: `calc(((100% - ${HORA_COL_WIDTH}px) / ${numDays}) / ${totalCols} - ${GAP * 2}px)`,
                     borderLeftColor: employeeColor,
                     backgroundColor: bgColor,
+                    // Citas de menores: superponemos rayas diagonales al fondo.
+                    backgroundImage: isMinorClient ? MINOR_STRIPES : undefined,
                   }}
                   // onMouseDown: inicia el drag si la cita es arrastrable.
                   onMouseDown={(e) => {
@@ -1195,6 +1219,11 @@ export function CalendarView({
                     <p className="text-xs font-bold truncate text-[var(--text-primary)]">
                       {clientName}
                     </p>
+                    {isMinorClient && (
+                      <span className="flex-shrink-0 text-[8px] font-bold leading-none px-1 py-0.5 rounded bg-[#008080] text-white">
+                        MENOR
+                      </span>
+                    )}
                   </div>
 
                   {/* Empleado y servicio: solo se muestra si el bloque tiene suficiente altura.

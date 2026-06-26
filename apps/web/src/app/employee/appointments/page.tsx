@@ -116,6 +116,7 @@ interface Appointment {
     lastName: string;
     email?: string;
     phone?: string;
+    dateOfBirth?: string | null;  // fecha de nacimiento → para marcar citas de menores
     allergies?: string | null;    // alergias del cliente (IMPORTANTE para el servicio)
     user?: { avatarUrl?: string | null; allergies?: string | null } | null;
     // user → si el cliente tiene cuenta en el portal, aquí están sus datos adicionales
@@ -159,6 +160,19 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: 'Cancelada',
   NO_SHOW: 'Ausente',
 };
+
+// isMinorFromDob: ¿el cliente es menor de edad (< 18)? Se usa para marcar con
+// un fondo distintivo las citas de menores en la vista del empleado.
+function isMinorFromDob(dob?: string | null): boolean {
+  if (!dob) return false;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return false;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age < 18;
+}
 
 // getDateRangeForSection: función utilitaria que, dado el nombre de la pestaña
 // activa, devuelve el rango de fechas a usar para filtrar las citas.
@@ -849,6 +863,10 @@ function AppointmentRow({
   const totalPrice = Math.max(0, servicesSubtotal + productsSubtotal - discount);
   const hasDiscount = discount > 0;
 
+  // isMinor: ¿la cita es de un menor de edad? → tarjeta con fondo distintivo
+  // (tinte teal + borde) y etiqueta "Menor", para que el negocio lo detecte.
+  const isMinor = isMinorFromDob(apt.client.dateOfBirth);
+
   // Avatar del cliente: foto si existe, fallback a iniciales sobre teal.
   // Si el cliente registró cuenta en el portal, su foto está en user.avatarUrl.
   const initials = `${apt.client.firstName?.[0] || ''}${apt.client.lastName?.[0] || ''}`.toUpperCase();
@@ -881,13 +899,22 @@ function AppointmentRow({
   return (
     <button
       onClick={onClick}
-      className="w-full bg-white rounded-xl border border-gray-200 p-4 text-left hover:shadow-md transition-shadow"
+      className={`w-full rounded-xl border p-4 text-left hover:shadow-md transition-shadow ${
+        isMinor ? 'bg-teal-50 border-teal-200' : 'bg-white border-gray-200'
+      }`}
     >
-      {/* Header: nombre del cliente + status badge */}
+      {/* Header: nombre del cliente (+ etiqueta menor) + status badge */}
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-gray-900 truncate">
-          {apt.client.firstName} {apt.client.lastName}
-        </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">
+            {apt.client.firstName} {apt.client.lastName}
+          </p>
+          {isMinor && (
+            <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#008080] text-white">
+              Menor
+            </span>
+          )}
+        </div>
         <span
           className="px-2.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0"
           style={{ backgroundColor: style.bg, color: style.color }}
