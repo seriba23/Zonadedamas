@@ -291,9 +291,17 @@ export class AppointmentsService {
             );
           }
 
+          // Estado inicial según el origen:
+          //  - ONLINE (el cliente reservó solo, desde el marketplace o la reserva
+          //    pública) → nace PENDING ("Sin confirmar"); se confirmará cuando el
+          //    cliente lo haga desde el enlace de recordatorio, o el negocio a mano.
+          //  - Cualquier otro origen (MANUAL/WALK_IN/PHONE = lo agendó el negocio)
+          //    → nace CONFIRMED, porque el propio negocio ya la confirmó al crearla.
+          const initialStatus = dto.source === 'ONLINE' ? 'PENDING' : 'CONFIRMED';
+
           // Crear la cita. "bundleId: dto.bundleId || null" => si no vino bundle,
           // guardamos null. "source: dto.source || 'MANUAL'" => si no se indicó
-          // origen, por defecto MANUAL. Nace ya como CONFIRMED.
+          // origen, por defecto MANUAL.
           const appointment = await tx.appointment.create({
             data: {
               tenantId,
@@ -307,7 +315,7 @@ export class AppointmentsService {
               internalNotes: dto.internalNotes,
               source: dto.source || 'MANUAL',
               createdBy: userId,
-              status: 'CONFIRMED',
+              status: initialStatus,
             },
           });
 
@@ -353,12 +361,12 @@ export class AppointmentsService {
           await tx.appointmentItem.createMany({ data: items });
 
           // Registrar la primera entrada del historial de estados: de "nada"
-          // (fromStatus null) a CONFIRMED.
+          // (fromStatus null) al estado inicial (PENDING o CONFIRMED).
           await tx.appointmentStatusHistory.create({
             data: {
               appointmentId: appointment.id,
               fromStatus: null,
-              toStatus: 'CONFIRMED',
+              toStatus: initialStatus,
               changedBy: userId,
             },
           });
