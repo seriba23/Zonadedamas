@@ -57,8 +57,11 @@ export class MarketplaceBookDto {
 
   // Perfil activo bajo el que se reserva (el tutor o uno de sus hijos). Si no
   // viene, el backend usa el perfil SELF del usuario (retrocompatible).
+  // NOTA: aceptamos cualquier versión de UUID (sin el '4'). Los perfiles SELF
+  // creados por el backfill de migración usan UUID() de MySQL (versión 1),
+  // mientras que los perfiles nuevos de Prisma son versión 4; ambos son válidos.
   @IsOptional()
-  @IsUUID('4')
+  @IsUUID()
   profileId?: string;
 
   // Multi-empleado: opcional. Si presente, cada item indica qué empleado
