@@ -45,7 +45,11 @@ export function CensorEyesModal({ imageFile, onAccept, onSkip, onCancel }: Censo
 
   // Modo de interacción actual y datos del arrastre.
   const modeRef = useRef<'none' | 'move' | 'resize' | 'rotate'>('none');
-  const lastRef = useRef({ x: 0, y: 0 });
+  // grabRef: al empezar a mover, guardamos el desfase (offset) entre el puntero
+  // y el centro del rectángulo. Así en cada movimiento posicionamos el centro
+  // de forma ABSOLUTA (centro = puntero − offset), igual que rotar/redimensionar.
+  // Evita el enfoque por delta incremental, que es frágil.
+  const grabRef = useRef({ x: 0, y: 0 });
 
   // Bloquear scroll del fondo mientras el modal está abierto.
   useEffect(() => {
@@ -148,9 +152,14 @@ export function CensorEyesModal({ imageFile, onAccept, onSkip, onCancel }: Censo
       // ¿El puntero cae DENTRO del rectángulo? Lo transformamos a coordenadas
       // locales del rectángulo (deshaciendo la rotación) y comparamos con w/h.
       const local = rotatePt(p.x - rect.cx, p.y - rect.cy, -rect.angle);
-      modeRef.current = Math.abs(local.x) <= rect.w / 2 && Math.abs(local.y) <= rect.h / 2 ? 'move' : 'none';
+      if (Math.abs(local.x) <= rect.w / 2 && Math.abs(local.y) <= rect.h / 2) {
+        modeRef.current = 'move';
+        // Guardamos el offset puntero→centro para mover de forma absoluta.
+        grabRef.current = { x: p.x - rect.cx, y: p.y - rect.cy };
+      } else {
+        modeRef.current = 'none';
+      }
     }
-    lastRef.current = p;
     canvasRef.current?.setPointerCapture(e.pointerId);
   }
 
@@ -160,7 +169,8 @@ export function CensorEyesModal({ imageFile, onAccept, onSkip, onCancel }: Censo
     const p = pointerPos(e);
     setRect((r) => {
       if (modeRef.current === 'move') {
-        return { ...r, cx: r.cx + (p.x - lastRef.current.x), cy: r.cy + (p.y - lastRef.current.y) };
+        // Posición absoluta: centro = puntero − offset de agarre.
+        return { ...r, cx: p.x - grabRef.current.x, cy: p.y - grabRef.current.y };
       }
       if (modeRef.current === 'resize') {
         // Tamaño = doble de la distancia (local) del puntero al centro.
@@ -171,7 +181,6 @@ export function CensorEyesModal({ imageFile, onAccept, onSkip, onCancel }: Censo
       const ang = Math.atan2(p.y - r.cy, p.x - r.cx) + Math.PI / 2;
       return { ...r, angle: ang };
     });
-    lastRef.current = p;
   }
 
   function onPointerUp(e: React.PointerEvent) {
