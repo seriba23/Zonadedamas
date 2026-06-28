@@ -445,7 +445,7 @@ export default function MarketplaceAppointmentsPage() {
               onClick={() => setShowFiltersSheet(true)}
               title="Filtros"
               className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
-              style={(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default')
+              style={(statusFilter || serviceFilter || employeeFilter || profileFilter || sortBy !== 'default')
                 ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
                 : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
               }
@@ -453,10 +453,35 @@ export default function MarketplaceAppointmentsPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
               </svg>
-              {(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default') && (
+              {(statusFilter || serviceFilter || employeeFilter || profileFilter || sortBy !== 'default') && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
               )}
             </button>
+            {/* Toggle calendario/lista: un solo icono. En lista muestra el icono
+                de calendario (abre el popup); con el calendario abierto muestra
+                el icono de lista (lo cierra y vuelve a las tarjetas). */}
+            {tab === 'citas' && (
+              <button
+                onClick={() => setCitasView((v) => (v === 'calendario' ? 'tarjetas' : 'calendario'))}
+                title={citasView === 'calendario' ? 'Ver lista' : 'Ver calendario'}
+                aria-label={citasView === 'calendario' ? 'Ver lista' : 'Ver calendario'}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                style={citasView === 'calendario'
+                  ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                {citasView === 'calendario' ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                  </svg>
+                )}
+              </button>
+            )}
             {tab === 'citas' && (
               <button
                 onClick={() => router.push('/marketplace')}
@@ -512,73 +537,7 @@ export default function MarketplaceAppointmentsPage() {
             </div>
           ) : (
             <>
-              {/* Filtro por perfil: solo en la vista familia (tutor con varios
-                  perfiles). Pastillas con el color de cada perfil. */}
-              {isSelfActive && profiles.length > 1 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setProfileFilter('')}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
-                      !profileFilter
-                        ? 'bg-[#008080] text-white border-[#008080]'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Todos
-                  </button>
-                  {profiles.map((p) => {
-                    const active = profileFilter === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setProfileFilter(p.id)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors inline-flex items-center gap-1.5 ${
-                          active ? 'text-white border-transparent' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
-                        style={active ? { backgroundColor: p.color || TEAL } : undefined}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: active ? '#fff' : (p.color || TEAL) }}
-                        />
-                        {p.firstName}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Sub-selector: Tarjetas (lista) o Calendario mensual */}
-              <div className="inline-flex items-center gap-1 mb-4 p-0.5 rounded-lg border border-gray-200 bg-gray-50">
-                {([['tarjetas', 'Tarjetas'], ['calendario', 'Calendario']] as const).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setCitasView(key)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      citasView === key ? 'bg-[#008080] text-white' : 'text-gray-600 hover:bg-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {citasView === 'calendario' ? (
-                <AppointmentsCalendar
-                  appointments={filteredAppointments}
-                  colorOf={dotColor}
-                  renderList={(list) => (
-                    <div className="space-y-3">
-                      {list.map((appt) => (
-                        <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
-                      ))}
-                    </div>
-                  )}
-                />
-              ) : filteredAppointments.length === 0 ? (
+              {filteredAppointments.length === 0 ? (
             <div className="text-center py-16 flex flex-col items-center gap-4">
               <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -652,6 +611,35 @@ export default function MarketplaceAppointmentsPage() {
         )}
       </div>
 
+      {/* Popup del calendario mensual. Se abre con el icono de calendario de la
+          barra y se cierra con la X o tocando el fondo (vuelve a la lista). */}
+      {tab === 'citas' && citasView === 'calendario' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ touchAction: 'none' }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setCitasView('tarjetas')} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="text-base font-semibold text-gray-900">Calendario</h3>
+              <button onClick={() => setCitasView('tarjetas')} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-4 py-4 overflow-y-auto">
+              <AppointmentsCalendar
+                appointments={filteredAppointments}
+                colorOf={dotColor}
+                renderList={(list) => (
+                  <div className="space-y-3">
+                    {list.map((appt) => (
+                      <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                    ))}
+                  </div>
+                )}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom sheet de filtros — mismo patron que /marketplace */}
       {showFiltersSheet && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
@@ -665,7 +653,7 @@ export default function MarketplaceAppointmentsPage() {
               </button>
             </div>
             <div className="px-5 py-4">
-              {(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default') && (
+              {(statusFilter || serviceFilter || employeeFilter || profileFilter || sortBy !== 'default') && (
                 <button
                   onClick={() => { setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); }}
                   className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
@@ -675,6 +663,43 @@ export default function MarketplaceAppointmentsPage() {
                   Limpiar filtros
                 </button>
               )}
+              {/* Filtro por perfil (vista familia del tutor): pastillas con el
+                  color de cada perfil. Vive dentro de los filtros. */}
+              {tab === 'citas' && isSelfActive && profiles.length > 1 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Perfil</p>
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    <button
+                      onClick={() => setProfileFilter('')}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                      style={!profileFilter
+                        ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                        : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                      }
+                    >
+                      Todos
+                    </button>
+                    {profiles.map((p) => {
+                      const active = profileFilter === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setProfileFilter(p.id)}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors inline-flex items-center gap-1.5"
+                          style={active
+                            ? { backgroundColor: p.color || TEAL, color: 'white', borderColor: 'transparent' }
+                            : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                          }
+                        >
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: active ? '#fff' : (p.color || TEAL) }} />
+                          {p.firstName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pago</p>
               <div className="flex flex-wrap gap-1.5 mb-5">
                 <button
