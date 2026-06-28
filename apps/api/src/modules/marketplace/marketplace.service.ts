@@ -982,7 +982,10 @@ export class MarketplaceService {
     });
 
     // Si no existe o no está publicado en el marketplace -> 404.
-    if (!tenant || !tenant.isMarketplaceListed) {
+    // "No listado en marketplace" = no aparece en búsquedas/descubrimiento, PERO
+    // sigue accesible por enlace directo (slug). Por eso aquí solo validamos que
+    // exista; el filtro de listado vive en discover()/discoverProfessionals().
+    if (!tenant) {
       throw new NotFoundException('Negocio no encontrado');
     }
 
@@ -1104,7 +1107,10 @@ export class MarketplaceService {
     });
 
     // Si no existe o no está publicado -> 404.
-    if (!tenant || !tenant.isMarketplaceListed) {
+    // "No listado en marketplace" = no aparece en búsquedas/descubrimiento, PERO
+    // sigue accesible por enlace directo (slug). Por eso aquí solo validamos que
+    // exista; el filtro de listado vive en discover()/discoverProfessionals().
+    if (!tenant) {
       throw new NotFoundException('Negocio no encontrado');
     }
 
@@ -1553,7 +1559,10 @@ export class MarketplaceService {
       where: { slug: tenantSlug },
       select: { id: true, isMarketplaceListed: true },
     });
-    if (!tenant || !tenant.isMarketplaceListed) {
+    // "No listado en marketplace" = no aparece en búsquedas/descubrimiento, PERO
+    // sigue accesible por enlace directo (slug). Por eso aquí solo validamos que
+    // exista; el filtro de listado vive en discover()/discoverProfessionals().
+    if (!tenant) {
       throw new NotFoundException('Negocio no encontrado');
     }
 
@@ -1602,7 +1611,10 @@ export class MarketplaceService {
       where: { slug: tenantSlug },
       select: { id: true, isMarketplaceListed: true },
     });
-    if (!tenant || !tenant.isMarketplaceListed) {
+    // "No listado en marketplace" = no aparece en búsquedas/descubrimiento, PERO
+    // sigue accesible por enlace directo (slug). Por eso aquí solo validamos que
+    // exista; el filtro de listado vive en discover()/discoverProfessionals().
+    if (!tenant) {
       throw new NotFoundException('Negocio no encontrado');
     }
 
@@ -1858,7 +1870,10 @@ export class MarketplaceService {
       select: { id: true, name: true, slug: true, isMarketplaceListed: true },
     });
 
-    if (!tenant || !tenant.isMarketplaceListed) {
+    // "No listado en marketplace" = no aparece en búsquedas/descubrimiento, PERO
+    // sigue accesible por enlace directo (slug). Por eso aquí solo validamos que
+    // exista; el filtro de listado vive en discover()/discoverProfessionals().
+    if (!tenant) {
       throw new NotFoundException('Negocio no encontrado');
     }
 

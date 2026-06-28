@@ -146,6 +146,8 @@ export default function BusinessSettingsPage() {
   const [lightboxImage, setLightboxImage] = useState<{ id: string; imageUrl: string; caption?: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Confirmación al ocultar el negocio del marketplace.
+  const [showHideListedConfirm, setShowHideListedConfirm] = useState(false);
 
   async function handleGalleryFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const allFiles = Array.from(e.target.files || []);
@@ -429,7 +431,14 @@ export default function BusinessSettingsPage() {
               <input
                 type="checkbox"
                 checked={form.isMarketplaceListed}
-                onChange={(e) => setForm((f) => ({ ...f, isMarketplaceListed: e.target.checked }))}
+                onChange={(e) => {
+                  // Al DESACTIVAR pedimos confirmación (al activar, directo).
+                  if (!e.target.checked) {
+                    setShowHideListedConfirm(true);
+                  } else {
+                    setForm((f) => ({ ...f, isMarketplaceListed: true }));
+                  }
+                }}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-primary-600 peer-focus:ring-2 peer-focus:ring-primary-300 transition-colors" />
@@ -795,6 +804,42 @@ export default function BusinessSettingsPage() {
           {tenant.coverImageUrl ? 'Usando imagen de portada' : `Fondo color ${form.cardColor}`}
         </p>
       </div>
+
+      {/* Confirmación: ocultar del marketplace */}
+      {showHideListedConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/50" onClick={() => setShowHideListedConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.88 9.88" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-gray-900 mb-1.5">¿Ocultar tu negocio del marketplace?</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Los clientes nuevos no podrán encontrarte en las búsquedas del marketplace. Quienes ya tengan tu <span className="font-medium text-gray-700">enlace directo</span> seguirán pudiendo ver y reservar en tu negocio.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowHideListedConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm((f) => ({ ...f, isMarketplaceListed: false }));
+                  setShowHideListedConfirm(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700"
+              >
+                Sí, ocultar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Logo crop modal */}
       {pendingLogoFile && (
