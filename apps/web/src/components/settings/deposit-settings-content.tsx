@@ -86,15 +86,15 @@ export function DepositSettingsContent() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
         {/* Activar anticipo */}
-        <div className="flex items-center justify-between py-1">
-          <div>
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900">Exigir anticipo</p>
             <p className="text-xs text-gray-500 mt-0.5">Las nuevas citas nacerán pendientes hasta confirmar el anticipo.</p>
           </div>
           <button
             type="button"
             onClick={() => set({ depositEnabled: !settings.depositEnabled })}
-            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+            className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
             style={{ backgroundColor: settings.depositEnabled ? TEAL : '#e5e7eb' }}
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.depositEnabled ? 'translate-x-6' : 'translate-x-1'}`} />

@@ -69,15 +69,15 @@ export function ShopSettingsContent() {
     label: string;
     description?: string;
   }) => (
-    <div className="flex items-center justify-between py-3">
-      <div>
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0">
         <p className="text-sm font-medium text-gray-900">{label}</p>
         {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
           checked ? '' : 'bg-gray-200'
         }`}
         style={checked ? { backgroundColor: TEAL } : undefined}
