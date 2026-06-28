@@ -135,6 +135,8 @@ export default function MarketplaceAppointmentsPage() {
   // Filtros adicionales para citas: '' = todos.
   const [serviceFilter, setServiceFilter] = useState<string>('');
   const [employeeFilter, setEmployeeFilter] = useState<string>('');
+  // Filtro por perfil (solo en la vista familia del tutor): '' = todos.
+  const [profileFilter, setProfileFilter] = useState<string>('');
 
   // Tipo unión para las opciones de ordenamiento. Se declara dentro del componente
   // para que TypeScript la conozca en todo el scope de la función.
@@ -281,6 +283,13 @@ export default function MarketplaceAppointmentsPage() {
     if (!employeeFilter) return true;
     return a.employee?.id === employeeFilter;
   };
+  // Filtro por perfil: solo aplica en la vista familia (tutor/SELF activo),
+  // donde están cargadas las citas de todos los perfiles. Si el activo es un
+  // hijo, el backend ya filtró por él, así que aquí es no-op.
+  const matchesAppointmentProfile = (a: any) => {
+    if (!profileFilter || !isSelfActive) return true;
+    return a.client?.profileId === profileFilter;
+  };
 
   // Opciones para los filtros: extraídas dinámicamente de las citas cargadas.
   // `.flatMap()`: como `.map()` pero aplana un nivel. Cada cita tiene varios
@@ -340,7 +349,8 @@ export default function MarketplaceAppointmentsPage() {
     matchesAppointment(a) &&
     matchesAppointmentStatus(a) &&
     matchesAppointmentService(a) &&
-    matchesAppointmentEmployee(a),
+    matchesAppointmentEmployee(a) &&
+    matchesAppointmentProfile(a),
   );
   const upcomingOrInProgress = filteredAppointments
     .filter((a) => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(a.status));
@@ -465,7 +475,7 @@ export default function MarketplaceAppointmentsPage() {
           {/* Tabs Citas | Compras */}
           <div className="flex rounded-lg border border-gray-300 overflow-hidden">
             <button
-              onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setSortBy('default'); }}
+              onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                 tab === 'citas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
@@ -473,7 +483,7 @@ export default function MarketplaceAppointmentsPage() {
               Citas
             </button>
             <button
-              onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setSortBy('default'); }}
+              onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
                 tab === 'compras' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
@@ -502,6 +512,44 @@ export default function MarketplaceAppointmentsPage() {
             </div>
           ) : (
             <>
+              {/* Filtro por perfil: solo en la vista familia (tutor con varios
+                  perfiles). Pastillas con el color de cada perfil. */}
+              {isSelfActive && profiles.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setProfileFilter('')}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                      !profileFilter
+                        ? 'bg-[#008080] text-white border-[#008080]'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {profiles.map((p) => {
+                    const active = profileFilter === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setProfileFilter(p.id)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors inline-flex items-center gap-1.5 ${
+                          active ? 'text-white border-transparent' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                        style={active ? { backgroundColor: p.color || TEAL } : undefined}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: active ? '#fff' : (p.color || TEAL) }}
+                        />
+                        {p.firstName}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Sub-selector: Tarjetas (lista) o Calendario mensual */}
               <div className="inline-flex items-center gap-1 mb-4 p-0.5 rounded-lg border border-gray-200 bg-gray-50">
                 {([['tarjetas', 'Tarjetas'], ['calendario', 'Calendario']] as const).map(([key, label]) => (
@@ -619,7 +667,7 @@ export default function MarketplaceAppointmentsPage() {
             <div className="px-5 py-4">
               {(statusFilter || serviceFilter || employeeFilter || sortBy !== 'default') && (
                 <button
-                  onClick={() => { setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setSortBy('default'); }}
+                  onClick={() => { setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); }}
                   className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
                   style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
                 >
