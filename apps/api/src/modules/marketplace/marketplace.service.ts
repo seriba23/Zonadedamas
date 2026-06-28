@@ -3000,6 +3000,23 @@ export class MarketplaceService {
         items: {
           select: { id: true, serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true },
         },
+        // Productos apartados con la cita: el cliente los ve igual que el negocio.
+        productReservations: {
+          select: {
+            id: true,
+            quantity: true,
+            unitPrice: true,
+            status: true,
+            product: { select: { name: true, imageUrl: true } },
+          },
+        },
+        // Fotos del resultado subidas por el staff al cerrar la cita.
+        photos: {
+          select: { id: true, imageUrl: true, caption: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        // Consentimiento de fotos (informativo para el cliente).
+        photoConsent: true,
         payments: {
           select: { id: true, status: true, paymentMethod: true, totalAmount: true },
           orderBy: { createdAt: 'desc' },

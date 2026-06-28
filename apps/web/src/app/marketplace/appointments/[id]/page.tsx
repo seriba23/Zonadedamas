@@ -380,6 +380,27 @@ export default function AppointmentDetailPage() {
           <AppointmentCouponCard redemption={appt.redemption} currency={currency} />
         )}
 
+        {/* Fotos del resultado — subidas por el staff al cerrar la cita.
+            Mismas que ve el negocio; el cliente las consulta como recuerdo. */}
+        {appt.photos?.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Fotos del resultado</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {appt.photos.map((ph: any) => (
+                <a
+                  key={ph.id}
+                  href={`${API_URL}${ph.imageUrl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-lg overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors aspect-square bg-gray-100"
+                >
+                  <img src={`${API_URL}${ph.imageUrl}`} alt={ph.caption || ''} className="w-full h-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Payment */}
         {appt.payments?.[0] && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
