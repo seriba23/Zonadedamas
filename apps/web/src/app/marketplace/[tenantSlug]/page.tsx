@@ -4787,6 +4787,20 @@ export default function BusinessDetailPage() {
                     {selectedServices.map((s) => s.name).join(', ')}
                   </span>
                 </div>
+                {/* Productos (apartados) agregados durante la reserva. */}
+                {bookingCart.length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-xs text-gray-500 mb-1">Productos</p>
+                    <div className="space-y-0.5">
+                      {bookingCart.map((item) => (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <span className="text-gray-700">{item.quantity}x {item.name}</span>
+                          <span className="font-medium">{formatCurrency(Number(item.price) * item.quantity, bizCurrency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {selectedSlot && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Fecha y hora:</span>
@@ -4887,13 +4901,20 @@ export default function BusinessDetailPage() {
                     }
                   }
                   const hasAnyDiscount = disc > 0 || promoDiscount > 0;
-                  const finalTotal = Math.max(0, totalPrice - disc);
+                  // El total incluye los productos apartados (igual que el paso de confirmar).
+                  const finalTotal = Math.max(0, totalPrice + bookingCartTotal - disc);
                   return (
                     <>
-                      {hasAnyDiscount && (
+                      {(hasAnyDiscount || bookingCart.length > 0) && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Subtotal:</span>
+                          <span className="text-gray-500">Subtotal servicios:</span>
                           <span className="text-gray-500">{formatCurrency(basePrice, bizCurrency)}</span>
+                        </div>
+                      )}
+                      {bookingCart.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Productos:</span>
+                          <span className="text-gray-500">{formatCurrency(bookingCartTotal, bizCurrency)}</span>
                         </div>
                       )}
                       {disc > 0 && (
