@@ -35,6 +35,7 @@ import { CreateAppointmentDto, UpdateAppointmentDto } from './dto/create-appoint
 import { RescheduleDto, CancelDto } from './dto/reschedule.dto';
 // DTO con los filtros del listado de citas.
 import { FilterAppointmentsDto } from './dto/filter-appointments.dto';
+import { ConfirmDepositDto } from './dto/confirm-deposit.dto';
 // Guardia que exige un token JWT válido (usuario autenticado del negocio).
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // Guardia que verifica que el usuario tenga el permiso requerido.
@@ -157,6 +158,20 @@ export class AppointmentsController {
     @Param('id') id: string,
   ) {
     return this.appointmentsService.confirm(id, tenantId, user.userId);
+  }
+
+  // ── POST /api/appointments/:id/confirm-deposit ──────────────────────────────
+  // El negocio confirma el anticipo: aceptar (confirma la cita), solicitar el
+  // resto (registra parcial, sigue pendiente) u omitir (exonera y confirma).
+  @Post(':id/confirm-deposit')
+  @RequirePermissions('appointments.update')
+  async confirmDeposit(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: ConfirmDepositDto,
+  ) {
+    return this.appointmentsService.confirmDeposit(id, tenantId, dto, user.userId);
   }
 
   // ── POST /api/appointments/:id/complete ─────────────────────────────────────

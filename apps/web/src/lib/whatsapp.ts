@@ -283,6 +283,59 @@ export function buildReminderMessage(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ANTICIPO (depósito) — mensajes de WhatsApp
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Negocio → cliente: solicita el anticipo (por transferencia) para confirmar la
+// cita, con el monto y las instrucciones de transferencia del negocio.
+export function buildDepositRequestMessage(opts: {
+  clientFirstName: string;
+  tenantName: string;
+  amount: number;
+  instructions?: string | null;
+  serviceName?: string;
+  startTime?: string;
+  token?: string;
+}): string {
+  const service = opts.serviceName ? ` de *${opts.serviceName}*` : '';
+  const when = opts.startTime ? ` el ${formatBookingDateLong(opts.startTime)}` : '';
+  const instr = opts.instructions
+    ? `\n\nDatos para la transferencia:\n${opts.instructions}`
+    : '';
+  const link = opts.token ? `\n\nDetalles de tu cita:\n${WEB_BASE}/c/${opts.token}` : '';
+  return (
+    `Hola ${opts.clientFirstName},\n` +
+    `Para confirmar tu cita${service}${when} en *${opts.tenantName}* necesitamos un anticipo de *$${opts.amount}* por transferencia.${instr}\n\n` +
+    `Cuando lo realices, envíanos la captura por aquí.${link}`
+  );
+}
+
+// Negocio → cliente: confirma recepción de un anticipo parcial y pide el resto.
+export function buildDepositRemainderMessage(opts: {
+  clientFirstName: string;
+  tenantName: string;
+  paid: number;
+  remaining: number;
+}): string {
+  return (
+    `Hola ${opts.clientFirstName},\n` +
+    `Recibimos tu anticipo de *$${opts.paid}*. Para completar el anticipo de tu cita en *${opts.tenantName}* falta *$${opts.remaining}*.\n\n` +
+    `Por favor envíanos la captura del resto cuando lo transfieras. ¡Gracias!`
+  );
+}
+
+// Cliente → negocio: adjunta el comprobante del anticipo (desde la página /c).
+export function buildDepositProofMessage(opts: {
+  clientFirstName: string;
+  tenantName: string;
+  amount: number;
+}): string {
+  return (
+    `Hola, soy ${opts.clientFirstName}. Adjunto el comprobante de mi anticipo de *$${opts.amount}* para confirmar mi cita en *${opts.tenantName}*.`
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FUNCIÓN: buildPaymentMessage
 // ─────────────────────────────────────────────────────────────────────────────
 // Función genérica que construye el mensaje de WhatsApp apropiado según

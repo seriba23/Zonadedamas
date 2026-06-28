@@ -201,6 +201,30 @@ export class AppointmentsService {
     // los minutos por 60000 (1 minuto = 60000 ms) para sumarlos correctamente.
     const endTime = new Date(startTime.getTime() + totalDuration * 60000);
 
+    // ── ANTICIPO (depósito) ───────────────────────────────────────────────────
+    // Si el negocio exige anticipo, lo calculamos (monto fijo o % del total de
+    // servicios, con el mismo precio por-empleado que usan los items) y la cita
+    // nace PENDING hasta que el negocio confirme el anticipo. El negocio puede
+    // "Omitir anticipo" para confirmarla al instante.
+    const depositTenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { depositEnabled: true, depositType: true, depositValue: true },
+    });
+    const depositRequired = !!depositTenant?.depositEnabled;
+    let depositAmount: number | null = null;
+    if (depositRequired) {
+      const servicesTotal = services.reduce((sum, service) => {
+        const itemEmployeeId = assignmentMap.get(service.id) || dto.employeeId;
+        const empSvc = empServiceMap.get(`${itemEmployeeId}:${service.id}`);
+        return sum + Number(empSvc?.customPrice ?? service.price);
+      }, 0);
+      const val = Number(depositTenant?.depositValue ?? 0);
+      depositAmount =
+        depositTenant?.depositType === 'FIXED'
+          ? val
+          : Math.round((servicesTotal * val) / 100);
+    }
+
     try {
       // $transaction ejecuta TODO el bloque como una sola operación atómica: o se
       // guarda todo, o nada. "tx" es la conexión transaccional (usar tx, no
@@ -297,7 +321,13 @@ export class AppointmentsService {
           //    cliente lo haga desde el enlace de recordatorio, o el negocio a mano.
           //  - Cualquier otro origen (MANUAL/WALK_IN/PHONE = lo agendó el negocio)
           //    → nace CONFIRMED, porque el propio negocio ya la confirmó al crearla.
-          const initialStatus = dto.source === 'ONLINE' ? 'PENDING' : 'CONFIRMED';
+          // Con anticipo requerido, TODA cita nace PENDING (incluso las que crea
+          // el negocio), hasta que se confirme el anticipo o se omita.
+          const initialStatus = depositRequired
+            ? 'PENDING'
+            : dto.source === 'ONLINE'
+              ? 'PENDING'
+              : 'CONFIRMED';
 
           // Crear la cita. "bundleId: dto.bundleId || null" => si no vino bundle,
           // guardamos null. "source: dto.source || 'MANUAL'" => si no se indicó
@@ -316,6 +346,9 @@ export class AppointmentsService {
               source: dto.source || 'MANUAL',
               createdBy: userId,
               status: initialStatus,
+              depositRequired,
+              depositAmount,
+              depositPaid: 0,
             },
           });
 
@@ -723,6 +756,8 @@ export class AppointmentsService {
             reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
           },
         },
+        // Datos del negocio para el mensaje de anticipo por WhatsApp.
+        tenant: { select: { name: true, depositInstructions: true } },
       },
     });
 
@@ -1352,8 +1387,9 @@ export class AppointmentsService {
       throw new BadRequestException('No se puede registrar pago en una cita cancelada');
     }
 
-    // No se permite un segundo pago (length > 0 significa que ya hay uno).
-    if (appointment.payments.length > 0) {
+    // No se permite un segundo pago. Los pagos de ANTICIPO (isDeposit) NO
+    // cuentan aquí: son prepagos que se descuentan del total, no el cobro final.
+    if (appointment.payments.some((p) => !p.isDeposit)) {
       throw new ConflictException('Esta cita ya tiene un pago registrado');
     }
 
@@ -1381,10 +1417,12 @@ export class AppointmentsService {
       0,
       dto.discountAmount ?? Number(appointment.discountAmount ?? 0),
     );
-    // Total cobrado = subtotal − descuento + propina. Guardamos el desglose
-    // para que el QR del cliente muestre el mismo monto que se cobró.
-    // Math.max(0, ...) evita un total negativo si el descuento superara al subtotal.
-    const totalAmount = Math.max(0, subtotal - discountAmount) + tipAmount;
+    // Anticipo ya pagado: se descuenta del total a cobrar (es un prepago).
+    const depositPaid = Math.max(0, Number(appointment.depositPaid ?? 0));
+    // Total cobrado = subtotal − descuento − anticipo + propina. Guardamos el
+    // desglose para que el QR del cliente muestre el mismo monto que se cobró.
+    // Math.max(0, ...) evita un total negativo si descuento+anticipo superaran al subtotal.
+    const totalAmount = Math.max(0, subtotal - discountAmount - depositPaid) + tipAmount;
 
     // Crear el registro de pago (COMPLETED, moneda MXN).
     const payment = await this.prisma.payment.create({
@@ -1601,6 +1639,117 @@ export class AppointmentsService {
       employeeId: appointment.employeeId,
     });
 
+    return { data: updated };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // confirmDeposit(): el negocio confirma el anticipo (depósito) de una cita.
+  //   - action 'accept'           → registra el monto recibido y CONFIRMA la cita.
+  //   - action 'request_remainder'→ registra un parcial; la cita sigue PENDING.
+  //   - action 'waive'            → exonera el anticipo y CONFIRMA la cita.
+  // El monto recibido se acumula en depositPaid (puede haber varios pagos
+  // parciales). Cada pago se registra como Payment con isDeposit=true para que
+  // NO bloquee el cobro final (que filtra los pagos de anticipo).
+  // ───────────────────────────────────────────────────────────────────────────
+  async confirmDeposit(
+    id: string,
+    tenantId: string,
+    dto: { amount: number; action: 'accept' | 'request_remainder' | 'waive' },
+    userId?: string,
+  ) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, tenantId },
+    });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+    if (!appointment.depositRequired) {
+      throw new BadRequestException('Esta cita no requiere anticipo');
+    }
+    if (!['PENDING', 'RESCHEDULED'].includes(appointment.status)) {
+      throw new BadRequestException('Solo aplica a citas pendientes o reagendadas');
+    }
+
+    const confirmToConfirmed = async (extraData: Record<string, any>) => {
+      const updated = await this.prisma.appointment.update({
+        where: { id },
+        data: { status: 'CONFIRMED', ...extraData },
+      });
+      await this.prisma.appointmentStatusHistory.create({
+        data: {
+          appointmentId: id,
+          fromStatus: appointment.status,
+          toStatus: 'CONFIRMED',
+          changedBy: userId,
+        },
+      });
+      await this.eventsService.emitAppointmentConfirmed(tenantId, id, {
+        locationId: appointment.locationId,
+        employeeId: appointment.employeeId,
+      });
+      return updated;
+    };
+
+    // Omitir anticipo: exonera y confirma, sin registrar pago.
+    if (dto.action === 'waive') {
+      const updated = await confirmToConfirmed({ depositWaived: true });
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'appointment.deposit_waived',
+        entityType: 'appointment',
+        entityId: id,
+        oldValues: { status: appointment.status },
+        newValues: { status: 'CONFIRMED', depositWaived: true },
+      });
+      return { data: updated };
+    }
+
+    // accept | request_remainder: registramos el monto recibido como anticipo.
+    const amount = Math.max(0, Number(dto.amount) || 0);
+    const newPaid = Number(appointment.depositPaid || 0) + amount;
+    if (amount > 0) {
+      await this.prisma.payment.create({
+        data: {
+          tenantId,
+          appointmentId: id,
+          clientId: appointment.clientId,
+          locationId: appointment.locationId,
+          amount,
+          totalAmount: amount,
+          paymentMethod: 'TRANSFER',
+          status: 'COMPLETED',
+          isDeposit: true,
+          notes: 'Anticipo',
+          createdBy: userId,
+        },
+      });
+    }
+
+    if (dto.action === 'accept') {
+      const updated = await confirmToConfirmed({ depositPaid: newPaid });
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'appointment.deposit_confirmed',
+        entityType: 'appointment',
+        entityId: id,
+        newValues: { depositPaid: newPaid, status: 'CONFIRMED' },
+      });
+      return { data: updated };
+    }
+
+    // request_remainder: la cita sigue PENDING; solo acumulamos el parcial.
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { depositPaid: newPaid },
+    });
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'appointment.deposit_partial',
+      entityType: 'appointment',
+      entityId: id,
+      newValues: { depositPaid: newPaid },
+    });
     return { data: updated };
   }
 

@@ -337,7 +337,7 @@ export default function PortalProfilePage() {
           onClick={handleChangeProfile}
           className="w-full border border-gray-200 bg-white text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors mb-2"
         >
-          Cambiar perfil
+          Elige el tipo de acceso
         </button>
         <button
           onClick={handleLogout}

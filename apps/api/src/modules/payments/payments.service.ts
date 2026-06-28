@@ -125,9 +125,19 @@ export class PaymentsService {
     const tipAmount = dto.tipAmount ?? 0;       // propina (se SUMA al total)
     const discountAmount = dto.discountAmount ?? 0; // descuento (se RESTA)
     const taxAmount = dto.taxAmount ?? 0;       // impuesto (se SUMA)
-    // TOTAL = subtotal + propina − descuento + impuesto.
-    // (El descuento es lo único que se resta; todo lo demás suma.)
-    const totalAmount = subtotal + tipAmount - discountAmount + taxAmount;
+    // Anticipo ya pagado en la cita ligada: es un prepago que se descuenta del
+    // total (los pagos de anticipo viven como Payment isDeposit en esa cita).
+    let depositPaid = 0;
+    if (dto.appointmentId) {
+      const appt = await this.prisma.appointment.findFirst({
+        where: { id: dto.appointmentId, tenantId },
+        select: { depositPaid: true },
+      });
+      depositPaid = Math.max(0, Number(appt?.depositPaid ?? 0));
+    }
+    // TOTAL = (subtotal − descuento − anticipo, mínimo 0) + propina + impuesto.
+    const totalAmount =
+      Math.max(0, subtotal - discountAmount - depositPaid) + tipAmount + taxAmount;
 
     // ── GUARDAR EL PAGO EN LA BASE DE DATOS ──
     // create() inserta un nuevo registro. En "data" van los campos del pago.

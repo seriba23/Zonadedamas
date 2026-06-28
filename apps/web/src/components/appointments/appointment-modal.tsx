@@ -65,7 +65,12 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 // buildReminderMessage / buildWhatsAppUrl: arman el mensaje y la URL de WhatsApp
 // para el recordatorio que se envía al cliente.
-import { buildReminderMessage, buildWhatsAppUrl } from '@/lib/whatsapp';
+import {
+  buildReminderMessage,
+  buildWhatsAppUrl,
+  buildDepositRequestMessage,
+  buildDepositRemainderMessage,
+} from '@/lib/whatsapp';
 
 // ── Interfaces de TypeScript ──────────────────────────────────────────────────
 // Una "interface" es como un contrato: describe exactamente qué campos tiene
@@ -171,6 +176,12 @@ interface Appointment {
   productReservations?: ProductReservation[]; // Apartados de productos
   reminderSentAt?: string | null;            // Cuándo se mandó el recordatorio WA (null = nunca)
   photoConsent?: boolean | null;             // null=sin responder, true=autoriza, false=no autoriza
+  // Anticipo (depósito): snapshot del requerimiento + montos + exoneración.
+  depositRequired?: boolean;
+  depositAmount?: string | number | null;
+  depositPaid?: string | number | null;
+  depositWaived?: boolean;
+  tenant?: { name?: string; depositInstructions?: string | null } | null;
 }
 
 // Resultado del endpoint que verifica si hay un slot disponible
@@ -255,6 +266,9 @@ export function AppointmentModal({
 
   // Si true, muestra el bloque de "Motivo de cancelación" en pantalla.
   const [showCancelForm, setShowCancelForm] = useState(false);
+  // Panel de "Confirmar anticipo" + el monto recibido que el negocio captura.
+  const [showDepositForm, setShowDepositForm] = useState(false);
+  const [depositInput, setDepositInput] = useState('');
 
   // Si true, muestra el sub-panel de reagendamiento (AvailabilityPicker de nuevo).
   const [rescheduleMode, setRescheduleMode] = useState(false);
@@ -667,17 +681,29 @@ export function AppointmentModal({
       // (authUser as any)?.tenantName: forzamos el tipo a "any" porque tenantName
       // es un campo extra que el backend añade al JWT pero no está en la interfaz.
       // || 'tu negocio': valor por defecto si el campo no existe.
-      const tenantName = (authUser as any)?.tenantName || 'tu negocio';
+      const tenantName = appointment.tenant?.name || (authUser as any)?.tenantName || 'tu negocio';
 
-      // buildReminderMessage construye el texto del mensaje con toda la info.
-      const msg = buildReminderMessage({
-        clientFirstName: appointment.client.firstName,
-        tenantName,
-        serviceName: appointment.items?.[0]?.serviceNameSnapshot, // Primer servicio
-        employeeFirstName: appointment.employee?.firstName,
-        startTime: appointment.startTime,
-        token: res.data.token, // Para el link de confirmación
-      });
+      // Si la cita tiene anticipo pendiente, mandamos el mensaje de SOLICITUD de
+      // anticipo (monto + instrucciones de transferencia) en vez del recordatorio
+      // normal de confirmación.
+      const msg = depositPending
+        ? buildDepositRequestMessage({
+            clientFirstName: appointment.client.firstName,
+            tenantName,
+            amount: depositRemaining,
+            instructions: appointment.tenant?.depositInstructions,
+            serviceName: appointment.items?.[0]?.serviceNameSnapshot,
+            startTime: appointment.startTime,
+            token: res.data.token,
+          })
+        : buildReminderMessage({
+            clientFirstName: appointment.client.firstName,
+            tenantName,
+            serviceName: appointment.items?.[0]?.serviceNameSnapshot, // Primer servicio
+            employeeFirstName: appointment.employee?.firstName,
+            startTime: appointment.startTime,
+            token: res.data.token, // Para el link de confirmación
+          });
 
       // buildWhatsAppUrl arma la URL wa.me/52XXXXXXXXXX?text=...
       const url = buildWhatsAppUrl(appointment.client.phone, msg);
@@ -746,6 +772,35 @@ export function AppointmentModal({
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al confirmar la cita');
+    },
+  });
+
+  // confirmDepositMutation: el negocio confirma el anticipo (aceptar / solicitar
+  // el resto / omitir). action determina el comportamiento en el backend.
+  const confirmDepositMutation = useMutation({
+    mutationFn: (body: { amount: number; action: 'accept' | 'request_remainder' | 'waive' }) =>
+      api.post(`/api/appointments/${appointmentId}/confirm-deposit`, body),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      setShowDepositForm(false);
+      // "Solicitar el resto" abre WhatsApp pidiendo el restante al cliente.
+      if (vars.action === 'request_remainder') {
+        const phone = (appointment as any)?.client?.phone;
+        const url = phone && buildWhatsAppUrl(phone, buildDepositRemainderMessage({
+          clientFirstName: appointment?.client?.firstName || '',
+          tenantName: appointment?.tenant?.name || (authUser as any)?.tenantName || '',
+          paid: vars.amount,
+          remaining: Math.max(0, depositRemaining - vars.amount),
+        }));
+        if (url) window.open(url, '_blank');
+        onSave();
+      } else {
+        onSave();
+      }
+    },
+    onError: (err: { message?: string }) => {
+      setFormError(err.message || 'Error al confirmar el anticipo');
     },
   });
 
@@ -990,9 +1045,24 @@ export function AppointmentModal({
   //   paga los apartados. Math.max(0, ...) evita totales negativos.
   // - Si no pagó con puntos: subtotal − descuento (con piso en 0).
   // Si pagó con puntos, los servicios cuestan 0; los apartados se mantienen en efectivo.
-  const finalTotal = paidWithPoints
+  const baseTotal = paidWithPoints
     ? Math.max(0, subtotalApartados)
     : Math.max(0, subtotal - discount);
+
+  // Anticipo: monto ya pagado (prepago) y monto solicitado/restante.
+  const depositPaidNum = Math.max(0, Number(appointment?.depositPaid ?? 0));
+  const depositAmountNum = Math.max(0, Number(appointment?.depositAmount ?? 0));
+  // ¿Falta confirmar el anticipo? (lo requiere, no exonerado, no cubierto y la
+  // cita está pendiente). Para mostrar el botón "Confirmar anticipo".
+  const depositPending =
+    !!appointment?.depositRequired &&
+    !appointment?.depositWaived &&
+    ['pending', 'rescheduled'].includes(statusLower) &&
+    depositPaidNum < depositAmountNum;
+  const depositRemaining = Math.max(0, depositAmountNum - depositPaidNum);
+
+  // finalTotal: lo que se cobra al cierre = base − anticipo ya pagado.
+  const finalTotal = Math.max(0, baseTotal - depositPaidNum);
 
   // Devuelve el nombre completo del cliente pre-cargado para mostrarlo en el input.
   // Si se pasó initialClientId (desde el calendario), lo buscamos en los resultados
@@ -1215,6 +1285,13 @@ export function AppointmentModal({
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-teal-700">Pagado con puntos</span>
                       <span className="text-sm font-medium text-teal-700">{pointsSpent} pts</span>
+                    </div>
+                  )}
+                  {/* Anticipo ya pagado: prepago que se descuenta del total. */}
+                  {depositPaidNum > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-600">Anticipo pagado</span>
+                      <span className="text-sm font-medium text-green-600">-{formatCurrency(depositPaidNum)}</span>
                     </div>
                   )}
                   {/* CTA agregar servicios — entre el último concepto y el
@@ -1761,6 +1838,72 @@ export function AppointmentModal({
             {/* Formulario de cancelación: visible cuando showCancelForm = true.
                 El cajero debe escribir el motivo antes de confirmar la cancelación. */}
             {/* Cancel form */}
+            {/* Panel "Confirmar anticipo": el negocio captura el monto recibido
+                por transferencia. Aceptar confirma la cita; Solicitar el resto
+                (si recibió menos) pide el restante por WhatsApp y deja pendiente;
+                Omitir exonera el anticipo y confirma. */}
+            {showDepositForm && (
+              <div className="border-t border-[var(--border)] pt-4">
+                <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                  Confirmar anticipo
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Anticipo solicitado: ${depositAmountNum}
+                  {depositPaidNum > 0 ? ` · Ya recibido: $${depositPaidNum} · Falta: $${depositRemaining}` : ''}.
+                </p>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Monto recibido</label>
+                <div className="relative max-w-[200px] mb-3">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={depositInput}
+                    onChange={(e) => setDepositInput(e.target.value)}
+                    className="input-field pl-7"
+                  />
+                </div>
+                {(() => {
+                  const amt = Math.max(0, Number(depositInput) || 0);
+                  const isLess = amt < depositRemaining;
+                  const busy = confirmDepositMutation.isPending;
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => confirmDepositMutation.mutate({ amount: amt, action: 'accept' })}
+                          disabled={busy}
+                          className="btn-primary flex-1"
+                        >
+                          {busy ? 'Procesando...' : 'Aceptar y confirmar'}
+                        </button>
+                        {isLess && (
+                          <button
+                            onClick={() => confirmDepositMutation.mutate({ amount: amt, action: 'request_remainder' })}
+                            disabled={busy}
+                            className="btn-secondary flex-1"
+                          >
+                            Solicitar el resto
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => confirmDepositMutation.mutate({ amount: 0, action: 'waive' })}
+                          disabled={busy}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Omitir anticipo
+                        </button>
+                        <button onClick={() => setShowDepositForm(false)} className="btn-secondary">
+                          Volver
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {showCancelForm && (
               <div className="border-t border-[var(--border)] pt-4">
                 <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
@@ -1841,7 +1984,7 @@ export function AppointmentModal({
 
             {/* Action buttons — orden: Cancelar / Reagendar / Finalizar
                 (los más destructivos a la izquierda, primario a la derecha) */}
-            {!rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && (
+            {!rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && !showDepositForm && (
               <div className="flex flex-wrap gap-3 pt-2 border-t border-[var(--border)]">
                 {/* Input file oculto que dispara el flow "Finalizar sin foto":
                     click → upload → al éxito, completeMutation.mutate() via
@@ -1857,6 +2000,16 @@ export function AppointmentModal({
                     e.target.value = '';
                   }}
                 />
+                {/* Confirmar anticipo: si la cita lo requiere y aún no se cubre. */}
+                {depositPending && (
+                  <button
+                    type="button"
+                    onClick={() => { setDepositInput(String(depositRemaining)); setShowDepositForm(true); }}
+                    className="btn-primary flex-1"
+                  >
+                    Confirmar anticipo
+                  </button>
+                )}
                 {/* Recordatorio WhatsApp: solo para citas activas con
                     cliente que tiene telefono. Si ya se envio, muestra
                     "Reenviar". */}

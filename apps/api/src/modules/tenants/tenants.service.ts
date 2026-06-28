@@ -431,6 +431,10 @@ export class TenantsService {
         ...(dto.isMarketplaceListed !== undefined && { isMarketplaceListed: dto.isMarketplaceListed }),
         ...(dto.cardColor !== undefined && { cardColor: dto.cardColor }),
         ...(dto.currency !== undefined && { currency: dto.currency }),
+        ...(dto.depositEnabled !== undefined && { depositEnabled: dto.depositEnabled }),
+        ...(dto.depositType !== undefined && { depositType: dto.depositType }),
+        ...(dto.depositValue !== undefined && { depositValue: dto.depositValue }),
+        ...(dto.depositInstructions !== undefined && { depositInstructions: dto.depositInstructions }),
         ...(dto.confettiEnabled !== undefined && { confettiEnabled: dto.confettiEnabled }),
         ...(dto.confettiStyle !== undefined && { confettiStyle: dto.confettiStyle }),
         // "as any" calla el chequeo de tipos de TypeScript (estos campos son

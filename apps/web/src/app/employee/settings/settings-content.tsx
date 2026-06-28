@@ -575,7 +575,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
           onClick={() => router.push('/login')}
           className="w-full py-3 rounded-xl text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors mb-2"
         >
-          Cambiar perfil
+          Elige el tipo de acceso
         </button>
 
         {/* Botón "Cerrar sesión":

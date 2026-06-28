@@ -16,6 +16,8 @@ import {
   IsArray,
   IsBoolean,
   IsHexColor,
+  IsIn,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
@@ -63,6 +65,27 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
+  // ── Anticipo (depósito) para confirmar citas ──
+  // ¿El negocio exige anticipo para confirmar las citas? Opcional.
+  @IsOptional()
+  @IsBoolean()
+  depositEnabled?: boolean;
+
+  // Tipo de anticipo: 'FIXED' (monto fijo) o 'PERCENT' (% del total de servicios).
+  @IsOptional()
+  @IsIn(['FIXED', 'PERCENT'])
+  depositType?: 'FIXED' | 'PERCENT';
+
+  // Valor del anticipo: el monto fijo o el porcentaje, según depositType.
+  @IsOptional()
+  @IsNumber()
+  depositValue?: number;
+
+  // Instrucciones de transferencia (texto libre) que verá el cliente.
+  @IsOptional()
+  @IsString()
+  depositInstructions?: string;
 
   // ¿Está activada la animación de confeti al completar acciones? Opcional.
   @IsOptional()

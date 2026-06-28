@@ -92,6 +92,12 @@ export class AppointmentReminderService {
             logoUrl: true,
             coverImageUrl: true,
             tenantType: true,
+            // Anticipo: para mostrar instrucciones de transferencia y el número
+            // de WhatsApp al que el cliente manda la captura.
+            depositEnabled: true,
+            depositInstructions: true,
+            phone: true,
+            businessPhone: true,
           },
         },
       },
@@ -115,11 +121,33 @@ export class AppointmentReminderService {
     // confirmada). Traer menos campos hace la consulta más rápida.
     const appointment = await this.prisma.appointment.findUnique({
       where: { confirmationToken: token },
-      select: { id: true, tenantId: true, status: true, confirmedAt: true },
+      select: {
+        id: true,
+        tenantId: true,
+        status: true,
+        confirmedAt: true,
+        depositRequired: true,
+        depositAmount: true,
+        depositPaid: true,
+        depositWaived: true,
+      },
     });
     // Si no existe la cita -> error 404.
     if (!appointment) {
       throw new NotFoundException('Enlace invalido o expirado');
+    }
+
+    // ANTICIPO: si la cita requiere anticipo y aún no está cubierto (ni
+    // exonerado), el cliente NO puede autoconfirmar; debe pagar y mandar la
+    // captura. La confirmación la da el negocio al recibir el anticipo.
+    if (
+      appointment.depositRequired &&
+      !appointment.depositWaived &&
+      Number(appointment.depositPaid) < Number(appointment.depositAmount ?? 0)
+    ) {
+      throw new BadRequestException(
+        'Esta cita requiere un anticipo. Realiza la transferencia y envía tu comprobante al negocio para confirmarla.',
+      );
     }
 
     // VALIDACIÓN: no se puede confirmar una cita ya cerrada.

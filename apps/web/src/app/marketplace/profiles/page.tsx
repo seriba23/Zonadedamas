@@ -250,7 +250,7 @@ export default function ProfilesSelectorPage() {
             onClick={() => router.push('/login')}
             className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            Cambiar tipo de cuenta
+            Elige el tipo de acceso
           </button>
           <button
             onClick={async () => { await signOutAll(); router.push('/login'); }}

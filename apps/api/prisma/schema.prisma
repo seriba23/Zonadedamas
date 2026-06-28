@@ -280,6 +280,11 @@ model Tenant {
   shopSpeiBankName     String?   @map("shop_spei_bank_name")
   shopSpeiHolderName   String?   @map("shop_spei_holder_name")
   shopSpeiClabe        String?   @map("shop_spei_clabe") @db.VarChar(18)
+  // Anticipo (depósito) para confirmar citas. depositType: 'FIXED' | 'PERCENT'.
+  depositEnabled       Boolean   @default(false) @map("deposit_enabled")
+  depositType          String?   @map("deposit_type") @db.VarChar(10)
+  depositValue         Decimal?  @map("deposit_value") @db.Decimal(10, 2)
+  depositInstructions  String?   @map("deposit_instructions") @db.Text
   confettiEnabled      Boolean   @default(true) @map("confetti_enabled")
   confettiStyle        String?   @map("confetti_style") @db.VarChar(40)
   confettiStyles       Json?     @map("confetti_styles")
@@ -993,6 +998,12 @@ model Appointment {
   // Captura del comprobante de pago subido por el cliente (típicamente
   // transferencia SPEI). El admin lo verifica para registrar el pago.
   paymentProofUrl    String?           @map("payment_proof_url")
+  // Anticipo (depósito): snapshot del requerimiento + monto solicitado, monto
+  // acumulado recibido, y si el negocio lo exoneró ("Omitir anticipo").
+  depositRequired    Boolean           @default(false) @map("deposit_required")
+  depositAmount      Decimal?          @map("deposit_amount") @db.Decimal(10, 2)
+  depositPaid        Decimal           @default(0) @map("deposit_paid") @db.Decimal(10, 2)
+  depositWaived      Boolean           @default(false) @map("deposit_waived")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -1098,6 +1109,9 @@ model Payment {
   currency       String        @default("MXN")
   paymentMethod  PaymentMethod @map("payment_method")
   status         PaymentStatus @default(PENDING)
+  // true si este pago es un anticipo (depósito). Se excluye del guard de
+  // "doble pago" para no bloquear el cobro final de la cita.
+  isDeposit      Boolean       @default(false) @map("is_deposit")
   reference             String?
   stripeSessionId       String?  @map("stripe_session_id")
   stripePaymentIntentId String?  @map("stripe_payment_intent_id")

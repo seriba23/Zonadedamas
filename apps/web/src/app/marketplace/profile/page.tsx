@@ -866,7 +866,7 @@ export default function MarketplaceProfilePage() {
               onClick={handleChangeProfile}
               className="w-full border border-gray-200 bg-white text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
             >
-              Cambiar perfil
+              Elige el tipo de acceso
             </button>
             {/* Botón "Cerrar sesión": llama a signOutAll y redirige a /login. */}
             <button

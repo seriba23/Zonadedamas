@@ -13,8 +13,12 @@ const ShopContent = dynamic(
   () => import('./shop/shop-content').then((mod) => ({ default: mod.ShopSettingsContent })),
   { ssr: false },
 );
+const DepositContent = dynamic(
+  () => import('@/components/settings/deposit-settings-content').then((mod) => ({ default: mod.DepositSettingsContent })),
+  { ssr: false },
+);
 
-type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'ventas' | 'suscripcion' | 'invitaciones' | 'qr';
+type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'ventas' | 'anticipo' | 'suscripcion' | 'invitaciones' | 'qr';
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'negocio', label: 'Mi Negocio' },
@@ -23,6 +27,7 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'invitaciones', label: 'Invitaciones' },
   { key: 'qr', label: 'Código QR' },
   { key: 'ventas', label: 'Ventas' },
+  { key: 'anticipo', label: 'Anticipo' },
   { key: 'suscripcion', label: 'Suscripción' },
 ];
 
@@ -53,6 +58,7 @@ export default function SettingsPage() {
         {activeTab === 'sucursales' && <LocationsContent />}
         {activeTab === 'horarios' && <HoursContent />}
         {activeTab === 'ventas' && <ShopContent />}
+        {activeTab === 'anticipo' && <DepositContent />}
         {activeTab === 'suscripcion' && <SubscriptionContent />}
         {activeTab === 'invitaciones' && <InviteCodesContent />}
         {activeTab === 'qr' && <QRContent />}

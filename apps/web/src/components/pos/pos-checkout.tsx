@@ -151,6 +151,8 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   // encima del campo discount para que el cajero sepa de dónde viene el
   // descuento precargado y pueda removerlo o sumar más manualmente.
   const [appointmentCoupon, setAppointmentCoupon] = useState<{ amount: number; label: string; code: string | null } | null>(null);
+  // Anticipo ya pagado en la cita cargada (prepago que se descuenta del total).
+  const [appointmentDeposit, setAppointmentDeposit] = useState(0);
   // loadedAppointmentRef: ref para controlar si la cita ya fue pre-cargada.
   // Evita que refetches del query "pos-appointments" sobrescriban lo que el
   // cajero acabe de editar. useRef no dispara re-renders al cambiar.
@@ -322,6 +324,8 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     if (cartItems.length > 0) {
       setItems(cartItems);
     }
+    // Anticipo ya pagado en la cita: se descuenta del total a cobrar.
+    setAppointmentDeposit(Math.max(0, Number(apt.depositPaid ?? 0)));
     // Cupón/descuento aplicado a la cita: lo precargamos en el campo
     // discount para que el cobro respete lo que el cliente ya consiguió.
     // El cajero sigue pudiendo sumar descuento manual encima editando el
@@ -369,6 +373,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     ]);
     setPhone(String(r.customerPhone || '').replace(/\D/g, '').slice(-10));
     setAppointmentCoupon(null);
+    setAppointmentDeposit(0);
     setDiscount('0');
     setStep('details');
   }, [selectedReservationId, payableReservations]);
@@ -459,7 +464,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   // Ejemplo completo:
   //   subtotal=1000, descuento=150, propina=150
   //   total = Math.max(0, 1000-150) + 150 = 850 + 150 = 1000
-  const total = Math.max(0, subtotal - discountAmount) + tipAmount;
+  const total = Math.max(0, subtotal - discountAmount - appointmentDeposit) + tipAmount;
 
   // cashChange: cambio/vuelto a devolver al cliente cuando paga en efectivo.
   // cashGiven: dinero que entregó el cliente (string del input → parseFloat → número).
@@ -587,6 +592,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     setConfirmationToken(null);
     setReviewSkipped(false);
     setAppointmentCoupon(null);
+    setAppointmentDeposit(0);
     setStep('start');
   }
 
@@ -1517,6 +1523,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
             <div className="space-y-2">
               <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
               {discountAmount > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Descuento</span><span className="font-medium text-green-600">-{formatCurrency(discountAmount)}</span></div>}
+              {appointmentDeposit > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Anticipo pagado</span><span className="font-medium text-green-600">-{formatCurrency(appointmentDeposit)}</span></div>}
               {tipAmount > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Propina</span><span className="font-medium">{formatCurrency(tipAmount)}</span></div>}
               <div className="flex justify-between pt-2 border-t border-gray-200"><span className="font-bold text-gray-900">Total</span><span className="font-bold text-xl text-[#008080]">{formatCurrency(total)}</span></div>
             </div>

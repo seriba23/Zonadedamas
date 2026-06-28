@@ -108,6 +108,7 @@ interface Appointment {
   // Sin estos campos el cobro tomaba solo los servicios.
   productReservations?: ProductReservation[];   // productos físicos reservados
   discountAmount?: string | number | null;      // descuento de cupón
+  depositPaid?: string | number | null;         // anticipo ya pagado (prepago)
 }
 
 // UploadedPhoto: representa una foto ya subida al servidor.
@@ -272,14 +273,16 @@ export function CloseAppointmentWizard({
 
   // Descuento del cupón (si hay uno aplicado a la cita).
   const discount = Number(appointment.discountAmount ?? 0);
+  // Anticipo ya pagado: prepago que se descuenta del total a cobrar.
+  const depositPaid = Math.max(0, Number(appointment.depositPaid ?? 0));
 
   // subtotal: servicios + productos (sin descuento ni propina).
   const subtotal = servicesSubtotal + productsSubtotal;
 
   // total: lo que el cliente paga en realidad.
-  // Math.max(0, ...) evita que el total sea negativo (si el descuento > subtotal).
+  // Math.max(0, ...) evita que el total sea negativo (si descuento+anticipo > subtotal).
   // + tip añade la propina al final.
-  const total = Math.max(0, subtotal - discount) + tip;
+  const total = Math.max(0, subtotal - discount - depositPaid) + tip;
 
   // ¿El cliente es menor de edad? Cambia el texto del consentimiento de fotos.
   const isMinor = isMinorFromDob(appointment.client.dateOfBirth);
@@ -796,6 +799,13 @@ export function CloseAppointmentWizard({
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Descuento</span>
                     <span className="font-medium text-gray-700">−{formatCurrency(discount)}</span>
+                  </div>
+                )}
+                {/* Línea de anticipo ya pagado (prepago descontado del total) */}
+                {depositPaid > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Anticipo pagado</span>
+                    <span className="font-medium text-gray-700">−{formatCurrency(depositPaid)}</span>
                   </div>
                 )}
                 {/* Línea de propina: solo si se seleccionó propina > 0 */}
