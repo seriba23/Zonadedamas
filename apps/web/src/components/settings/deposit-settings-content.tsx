@@ -15,14 +15,16 @@ const TEAL = '#008080';
 interface DepositSettings {
   depositEnabled: boolean;
   depositType: 'FIXED' | 'PERCENT';
-  depositValue: number;
+  // Se guarda como texto para que el campo sea borrable (escribir libremente en
+  // celular); se convierte a número al guardar.
+  depositValue: string;
 }
 
 export function DepositSettingsContent() {
   const [settings, setSettings] = useState<DepositSettings>({
     depositEnabled: false,
     depositType: 'PERCENT',
-    depositValue: 0,
+    depositValue: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,7 +38,7 @@ export function DepositSettingsContent() {
         setSettings({
           depositEnabled: !!t.depositEnabled,
           depositType: (t.depositType === 'FIXED' ? 'FIXED' : 'PERCENT'),
-          depositValue: Number(t.depositValue ?? 0),
+          depositValue: t.depositValue == null ? '' : String(Number(t.depositValue)),
         });
       } catch {
       } finally {
@@ -127,10 +129,11 @@ export function DepositSettingsContent() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
           )}
           <input
-            type="number"
-            min={0}
+            type="text"
+            inputMode="decimal"
             value={settings.depositValue}
-            onChange={(e) => set({ depositValue: Number(e.target.value) })}
+            onChange={(e) => set({ depositValue: e.target.value.replace(/[^0-9.]/g, '') })}
+            placeholder="0"
             className={`w-full ${settings.depositType === 'FIXED' ? 'pl-7' : 'pl-3'} pr-8 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]`}
           />
           {settings.depositType === 'PERCENT' && (
