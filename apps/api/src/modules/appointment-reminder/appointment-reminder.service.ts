@@ -92,10 +92,12 @@ export class AppointmentReminderService {
             logoUrl: true,
             coverImageUrl: true,
             tenantType: true,
-            // Anticipo: para mostrar instrucciones de transferencia y el número
-            // de WhatsApp al que el cliente manda la captura.
+            // Anticipo: datos de transferencia (de Ventas/SPEI) y el número de
+            // WhatsApp al que el cliente manda la captura.
             depositEnabled: true,
-            depositInstructions: true,
+            shopSpeiBankName: true,
+            shopSpeiHolderName: true,
+            shopSpeiClabe: true,
             phone: true,
             businessPhone: true,
           },

@@ -756,8 +756,16 @@ export class AppointmentsService {
             reward: { select: { name: true, type: true, discountAmount: true, discountMode: true } },
           },
         },
-        // Datos del negocio para el mensaje de anticipo por WhatsApp.
-        tenant: { select: { name: true, depositInstructions: true } },
+        // Datos del negocio para el mensaje de anticipo por WhatsApp (los datos
+        // de transferencia se toman de la config de Ventas/SPEI).
+        tenant: {
+          select: {
+            name: true,
+            shopSpeiBankName: true,
+            shopSpeiHolderName: true,
+            shopSpeiClabe: true,
+          },
+        },
       },
     });
 

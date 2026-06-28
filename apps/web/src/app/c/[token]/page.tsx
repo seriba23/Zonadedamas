@@ -37,7 +37,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 // Se usa para celebrar cuando el cliente confirma o reagenda su cita.
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 // WhatsApp: para que el cliente mande la captura del anticipo al negocio.
-import { buildWhatsAppUrl, buildDepositProofMessage } from '@/lib/whatsapp';
+import { buildWhatsAppUrl, buildDepositProofMessage, buildTransferInstructions } from '@/lib/whatsapp';
 
 /** Formatea una hora con AM/PM (ej. "3:30 PM").
  *  toLocaleTimeString: método nativo del Date de JS para formatear horas.
@@ -99,7 +99,9 @@ interface Tenant {
   coverImageUrl?: string | null;
   tenantType?: string;     // 'FREELANCER' o 'BUSINESS'
   depositEnabled?: boolean;
-  depositInstructions?: string | null;
+  shopSpeiBankName?: string | null;
+  shopSpeiHolderName?: string | null;
+  shopSpeiClabe?: string | null;
   phone?: string | null;
   businessPhone?: string | null;
 }
@@ -562,12 +564,20 @@ export default function ReminderPage() {
             <p className="text-xs text-gray-600 leading-snug mb-3">
               Para confirmar tu cita realiza el anticipo de <span className="font-bold">${depositRemaining}</span> por transferencia y envía tu comprobante por WhatsApp. El negocio confirmará tu cita al recibirlo.
             </p>
-            {apt.tenant.depositInstructions && (
-              <div className="rounded-lg bg-white border border-teal-200 p-3 mb-3">
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Datos para la transferencia</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{apt.tenant.depositInstructions}</p>
-              </div>
-            )}
+            {(() => {
+              const instr = buildTransferInstructions({
+                bankName: apt.tenant.shopSpeiBankName,
+                holderName: apt.tenant.shopSpeiHolderName,
+                clabe: apt.tenant.shopSpeiClabe,
+              });
+              if (!instr) return null;
+              return (
+                <div className="rounded-lg bg-white border border-teal-200 p-3 mb-3">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Datos para la transferencia</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{instr}</p>
+                </div>
+              );
+            })()}
             {(() => {
               const phone = apt.tenant.businessPhone || apt.tenant.phone;
               const url = phone ? buildWhatsAppUrl(phone, buildDepositProofMessage({

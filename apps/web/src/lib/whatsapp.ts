@@ -286,6 +286,20 @@ export function buildReminderMessage(opts: {
 // ANTICIPO (depósito) — mensajes de WhatsApp
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Arma el texto de instrucciones de transferencia a partir de los datos SPEI
+// del negocio (configurados en Ventas). Devuelve '' si no hay nada configurado.
+export function buildTransferInstructions(opts: {
+  bankName?: string | null;
+  holderName?: string | null;
+  clabe?: string | null;
+}): string {
+  const lines: string[] = [];
+  if (opts.bankName) lines.push(`Banco: ${opts.bankName}`);
+  if (opts.holderName) lines.push(`A nombre de: ${opts.holderName}`);
+  if (opts.clabe) lines.push(`CLABE: ${opts.clabe}`);
+  return lines.join('\n');
+}
+
 // Negocio → cliente: solicita el anticipo (por transferencia) para confirmar la
 // cita, con el monto y las instrucciones de transferencia del negocio.
 export function buildDepositRequestMessage(opts: {

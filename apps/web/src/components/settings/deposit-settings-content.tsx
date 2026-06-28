@@ -16,7 +16,6 @@ interface DepositSettings {
   depositEnabled: boolean;
   depositType: 'FIXED' | 'PERCENT';
   depositValue: number;
-  depositInstructions: string;
 }
 
 export function DepositSettingsContent() {
@@ -24,7 +23,6 @@ export function DepositSettingsContent() {
     depositEnabled: false,
     depositType: 'PERCENT',
     depositValue: 0,
-    depositInstructions: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +37,6 @@ export function DepositSettingsContent() {
           depositEnabled: !!t.depositEnabled,
           depositType: (t.depositType === 'FIXED' ? 'FIXED' : 'PERCENT'),
           depositValue: Number(t.depositValue ?? 0),
-          depositInstructions: t.depositInstructions ?? '',
         });
       } catch {
       } finally {
@@ -57,7 +54,6 @@ export function DepositSettingsContent() {
         depositEnabled: settings.depositEnabled,
         depositType: settings.depositType,
         depositValue: Number(settings.depositValue) || 0,
-        depositInstructions: settings.depositInstructions,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -126,7 +122,7 @@ export function DepositSettingsContent() {
         <label className="block text-xs font-medium text-gray-600 mb-1">
           {settings.depositType === 'PERCENT' ? 'Porcentaje del total de servicios (%)' : 'Monto fijo'}
         </label>
-        <div className="relative max-w-[200px]">
+        <div className="relative w-full">
           {settings.depositType === 'FIXED' && (
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
           )}
@@ -141,18 +137,9 @@ export function DepositSettingsContent() {
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
           )}
         </div>
-      </div>
-
-      <div className={`bg-white rounded-xl border border-gray-200 p-5 mb-6 transition-opacity ${settings.depositEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">Datos para la transferencia</h2>
-        <p className="text-xs text-gray-500 mb-3">Estos datos se le envían al cliente por WhatsApp para que haga el anticipo (banco, CLABE, titular…).</p>
-        <textarea
-          value={settings.depositInstructions}
-          onChange={(e) => set({ depositInstructions: e.target.value })}
-          rows={4}
-          placeholder={'Ej:\nBanco: BBVA\nCLABE: 0123 4567 8901 2345 67\nA nombre de: Salón María'}
-          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080] resize-none"
-        />
+        <p className="text-xs text-gray-400 mt-3">
+          Los datos de la transferencia (banco, CLABE, titular) se toman de la configuración de <span className="font-medium text-gray-500">Ventas</span>.
+        </p>
       </div>
 
       <div className="flex items-center gap-3">

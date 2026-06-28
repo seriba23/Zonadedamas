@@ -70,6 +70,7 @@ import {
   buildWhatsAppUrl,
   buildDepositRequestMessage,
   buildDepositRemainderMessage,
+  buildTransferInstructions,
 } from '@/lib/whatsapp';
 
 // ── Interfaces de TypeScript ──────────────────────────────────────────────────
@@ -181,7 +182,12 @@ interface Appointment {
   depositAmount?: string | number | null;
   depositPaid?: string | number | null;
   depositWaived?: boolean;
-  tenant?: { name?: string; depositInstructions?: string | null } | null;
+  tenant?: {
+    name?: string;
+    shopSpeiBankName?: string | null;
+    shopSpeiHolderName?: string | null;
+    shopSpeiClabe?: string | null;
+  } | null;
 }
 
 // Resultado del endpoint que verifica si hay un slot disponible
@@ -691,7 +697,11 @@ export function AppointmentModal({
             clientFirstName: appointment.client.firstName,
             tenantName,
             amount: depositRemaining,
-            instructions: appointment.tenant?.depositInstructions,
+            instructions: buildTransferInstructions({
+              bankName: appointment.tenant?.shopSpeiBankName,
+              holderName: appointment.tenant?.shopSpeiHolderName,
+              clabe: appointment.tenant?.shopSpeiClabe,
+            }),
             serviceName: appointment.items?.[0]?.serviceNameSnapshot,
             startTime: appointment.startTime,
             token: res.data.token,
