@@ -93,6 +93,12 @@ interface DualReviewModalProps {
    * En ambos casos el primer rating se guarda en `rating` y el segundo en `businessRating`.
    */
   mode?: 'business' | 'freelancer'; // Tipo de contexto: negocio con local o freelancer
+  /** Detalle de la cita a la que se refiere la reseña (para que el cliente la
+   *  reconozca): servicios y fecha/hora ya formateados por quien llama. */
+  appointment?: {
+    services?: string;   // Ej: "Corte de cabello, Tinte"
+    dateText?: string;   // Ej: "Lun 15 de junio, 3:30 PM"
+  };
   onSubmit: (data: {
     rating: number;               // Calificación del profesional (1-5, obligatorio)
     comment?: string;             // Comentario del profesional (opcional)
@@ -109,6 +115,7 @@ export function DualReviewModal({
   employeeName,
   businessName,
   mode = 'business', // Por defecto: modo negocio (hay local + empleado)
+  appointment,
   onSubmit,
   onSkip,
   isLoading,
@@ -172,6 +179,21 @@ export function DualReviewModal({
         {/* ── BODY (con scroll si el contenido es largo) ────────────────── */}
         {/* max-h-[70vh]: el cuerpo no supera el 70% de la pantalla */}
         <div className="px-6 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
+
+          {/* ─── DETALLE DE LA CITA: para que el cliente reconozca a qué cita
+              se refiere la reseña (servicios, fecha/hora y profesional). ─── */}
+          {appointment && (appointment.services || appointment.dateText) && (
+            <div className="rounded-xl border p-3" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
+              {appointment.services && (
+                <p className="text-sm font-semibold text-gray-900 break-words">{appointment.services}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 mt-1">
+                {appointment.dateText && <span>{appointment.dateText}</span>}
+                {appointment.dateText && employeeName && <span className="text-gray-300">·</span>}
+                {employeeName && <span>con {employeeName}</span>}
+              </div>
+            </div>
+          )}
 
           {/* ─── SECCIÓN 1: Rating del PROFESIONAL ─────────────────────── */}
           {/* Rating principal: AL PROFESIONAL que dio el servicio (modo

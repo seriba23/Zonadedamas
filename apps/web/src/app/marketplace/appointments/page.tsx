@@ -847,6 +847,10 @@ export default function MarketplaceAppointmentsPage() {
         employeeName={`${reviewTarget?.employee?.firstName || ''} ${reviewTarget?.employee?.lastName || ''}`.trim()}
         businessName={reviewTarget?.tenant?.name || ''}
         mode={reviewTarget?.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
+        appointment={reviewTarget ? {
+          services: (reviewTarget.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
+          dateText: `${formatBookingDate(reviewTarget.startTime)}, ${formatBookingTime(reviewTarget.startTime)}`,
+        } : undefined}
         onSubmit={(payload) => submitReviewMutation.mutate(payload)}
         onSkip={() => {
           if (reviewTarget?.id) {

@@ -538,6 +538,10 @@ export default function AppointmentDetailPage() {
         // Template literal con optional chaining: si employee es null, usa texto genérico.
         employeeName={appointment?.employee ? `${appointment.employee.firstName} ${appointment.employee.lastName}` : 'el profesional'}
         businessName={appointment?.tenant?.name || 'el negocio'}
+        appointment={appointment ? {
+          services: (appointment.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
+          dateText: `${formatDate(appointment.startTime, 'ddd, D [de] MMMM')}, ${dayjs.utc(appointment.startTime).format('h:mm A')}`,
+        } : undefined}
         // onSubmit: cuando el usuario envía la reseña, llamamos a reviewMutation.mutate()
         // con los datos del formulario del modal.
         onSubmit={(data) => reviewMutation.mutate(data)}

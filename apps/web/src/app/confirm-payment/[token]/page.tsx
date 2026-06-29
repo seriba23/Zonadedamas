@@ -32,6 +32,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 // DualReviewModal: modal de calificación dual (empleado + negocio en el mismo modal).
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
+import { formatBookingDate, formatBookingTime } from '@/lib/booking-time';
 // ConfettiCelebration: confeti animado para celebrar la confirmación.
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 
@@ -498,6 +499,10 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
         employeeName={`${employeeFirst} ${employeeLast}`.trim()}
         businessName={tenantName}
         mode={tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
+        appointment={{
+          services: items.map((i) => i.serviceNameSnapshot).join(', '),
+          dateText: `${formatBookingDate(data.startTime)}, ${formatBookingTime(data.startTime)}`,
+        }}
         onSubmit={handleSubmitReview}
         onSkip={() => setShowReview(false)}
         isLoading={submittingReview}

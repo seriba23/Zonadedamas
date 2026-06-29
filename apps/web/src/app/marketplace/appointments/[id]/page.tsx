@@ -443,6 +443,10 @@ export default function AppointmentDetailPage() {
         employeeName={`${appt.employee?.firstName || ''} ${appt.employee?.lastName || ''}`.trim()}
         businessName={appt.tenant?.name || ''}
         mode={appt.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
+        appointment={{
+          services: (appt.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
+          dateText: `${date}, ${time}`,
+        }}
         onSubmit={(payload) => submitReviewMutation.mutate(payload)}
         onSkip={() => setShowReview(false)}
         isLoading={submitReviewMutation.isPending}
