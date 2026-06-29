@@ -1149,8 +1149,10 @@ export class AppointmentsService {
     // pasar por el wizard del empleado), la cita debe quedar pendiente de
     // cobro en el POS. Sin esto, la cita desaparece del POS y queda sin
     // posibilidad de cobrar. Si ya hay un pago COMPLETED, no hace falta.
+    // OJO: excluimos los pagos de ANTICIPO (isDeposit). Un anticipo NO salda la
+    // cita; si solo hay anticipo, la cita sigue "Por cobrar" (pendingPosPayment).
     const existingPayment = await this.prisma.payment.findFirst({
-      where: { appointmentId: id, tenantId, status: 'COMPLETED' },
+      where: { appointmentId: id, tenantId, status: 'COMPLETED', isDeposit: false },
       select: { id: true },
     });
     // Marcar COMPLETED. pendingPosPayment: si YA hay un pago, false (nada que

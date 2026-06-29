@@ -213,6 +213,15 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     queryKey: ['pos-pending-pos'],
     queryFn: () => api.get<{ data: any[] }>(`/api/appointments?pendingPosPayment=true&perPage=50`),
   });
+  // Cita pre-seleccionada por deep-link ("Cobrar" / "Proceder al pago"): la
+  // traemos directo por id para que SIEMPRE se pueda cargar y cobrar, aunque no
+  // entre en los filtros de la lista (p.ej. completada con solo anticipo, o
+  // fuera del rango de fechas).
+  const { data: initialApptData } = useQuery({
+    queryKey: ['pos-initial-appt', initialAppointmentId],
+    queryFn: () => api.get<{ data: any }>(`/api/appointments/${initialAppointmentId}`),
+    enabled: !!initialAppointmentId,
+  });
   // Apartados cobrables (sin cita o con cita cancelada). El backend ya
   // filtra los que pertenecen a citas activas para evitar doble cobro.
   const { data: payableReservationsData } = useQuery({
@@ -253,6 +262,11 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     const byId = new Map<string, any>();
     for (const a of upcoming) byId.set(a.id, a);
     for (const a of pending) byId.set(a.id, a);
+    // La cita del deep-link siempre disponible (aunque no pase los filtros),
+    // salvo que esté cancelada.
+    if (initialApptData?.data && initialApptData.data.status !== 'CANCELLED') {
+      byId.set(initialApptData.data.id, initialApptData.data);
+    }
     return Array.from(byId.values()).sort((a: any, b: any) => {
       if (a.pendingPosPayment && !b.pendingPosPayment) return -1;
       if (!a.pendingPosPayment && b.pendingPosPayment) return 1;
