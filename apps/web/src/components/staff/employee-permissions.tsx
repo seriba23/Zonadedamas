@@ -476,6 +476,33 @@ export function EmployeePermissions({
         </div>
       )}
 
+      {/* Estado de carga / sin cuenta: cuando el empleado NO tiene usuario
+          vinculado (ej. alta sin correo), la sección de "Convertir en
+          administrador" se oculta; aquí mostramos un mensaje claro en vez de
+          dejar la pestaña totalmente en blanco. */}
+      {canManage && (
+        loadingRoles ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : !employeeRoles?.userId ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <p className="text-gray-600 text-sm font-medium">
+              Este empleado no tiene una cuenta de usuario vinculada.
+            </p>
+            <p className="text-gray-400 text-xs mt-1">
+              Para darle acceso a la consola o asignarle permisos, primero
+              vincúlale un usuario (con su correo) desde la edición del empleado.
+            </p>
+          </div>
+        ) : null
+      )}
+
       {/* Ausencias moved to staff page "Asistencias" tab */}
 
       {/* Roles section hidden — V2 in super admin */}
