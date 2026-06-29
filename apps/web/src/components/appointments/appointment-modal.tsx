@@ -1861,15 +1861,15 @@ export function AppointmentModal({
                   Anticipo solicitado: ${depositAmountNum}
                   {depositPaidNum > 0 ? ` · Ya recibido: $${depositPaidNum} · Falta: $${depositRemaining}` : ''}.
                 </p>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Monto recibido</label>
-                <div className="relative max-w-[200px] mb-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1 text-center">Monto recibido</label>
+                <div className="relative max-w-[200px] mx-auto mb-3">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                   <input
                     type="number"
                     min={0}
                     value={depositInput}
                     onChange={(e) => setDepositInput(e.target.value)}
-                    className="input-field pl-7"
+                    className="input-field pl-7 text-center"
                   />
                 </div>
                 {(() => {
@@ -1904,7 +1904,7 @@ export function AppointmentModal({
                         >
                           Omitir anticipo
                         </button>
-                        <button onClick={() => setShowDepositForm(false)} className="btn-secondary">
+                        <button onClick={() => setShowDepositForm(false)} className="btn-secondary flex-1">
                           Volver
                         </button>
                       </div>
