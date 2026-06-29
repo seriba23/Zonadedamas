@@ -1071,6 +1071,20 @@ export function AppointmentModal({
     depositPaidNum < depositAmountNum;
   const depositRemaining = Math.max(0, depositAmountNum - depositPaidNum);
 
+  // ¿La cita ya tiene un pago final (no anticipo)? Si no, sigue "por cobrar".
+  const apptHasRealPayment = ((appointment as any)?.payments || []).some(
+    (p: any) => !p.isDeposit && p.status === 'COMPLETED',
+  );
+  // canRegisterDeposit: el botón de registrar anticipo se mantiene visible
+  // MIENTRAS la cita no esté totalmente cobrada (incluso si ya está completada),
+  // siempre que el negocio use anticipo y aún falte registrar parte del anticipo.
+  // Así, si en su momento se omitió, se puede registrar después al recibirlo.
+  const canRegisterDeposit =
+    !!appointment?.depositRequired &&
+    !['cancelled', 'no_show'].includes(statusLower) &&
+    !apptHasRealPayment &&
+    depositPaidNum < depositAmountNum;
+
   // finalTotal: lo que se cobra al cierre = base − anticipo ya pagado.
   const finalTotal = Math.max(0, baseTotal - depositPaidNum);
 
@@ -2010,14 +2024,15 @@ export function AppointmentModal({
                     e.target.value = '';
                   }}
                 />
-                {/* Confirmar anticipo: si la cita lo requiere y aún no se cubre. */}
-                {depositPending && (
+                {/* Registrar anticipo: visible mientras la cita no esté totalmente
+                    cobrada y falte registrar anticipo (incluso si ya se completó). */}
+                {canRegisterDeposit && (
                   <button
                     type="button"
                     onClick={() => { setDepositInput(String(depositRemaining)); setShowDepositForm(true); }}
                     className="btn-primary flex-1"
                   >
-                    Confirmar anticipo
+                    {depositPaidNum > 0 ? 'Registrar anticipo' : 'Confirmar anticipo'}
                   </button>
                 )}
                 {/* Recordatorio WhatsApp: solo para citas activas con
@@ -2124,7 +2139,8 @@ export function AppointmentModal({
                 No tiene acciones de gestión activas; ofrecemos opciones útiles:
                 cobrar si quedó pendiente, volver a agendar con el cliente,
                 seguimiento por WhatsApp, y cerrar el detalle. */}
-            {appointment && ['completed', 'cancelled', 'no_show'].includes(statusLower) && (() => {
+            {appointment && ['completed', 'cancelled', 'no_show'].includes(statusLower) &&
+              !rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && !showDepositForm && (() => {
               const realPayments = ((appointment as any).payments || []).filter(
                 (p: any) => !p.isDeposit && p.status === 'COMPLETED',
               );

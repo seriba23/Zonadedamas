@@ -1674,33 +1674,41 @@ export class AppointmentsService {
     if (!appointment.depositRequired) {
       throw new BadRequestException('Esta cita no requiere anticipo');
     }
-    if (!['PENDING', 'RESCHEDULED'].includes(appointment.status)) {
-      throw new BadRequestException('Solo aplica a citas pendientes o reagendadas');
+    // Se puede registrar el anticipo mientras la cita no esté cancelada/ausente
+    // (incluso si ya está completada y solo falta cobrar el resto).
+    if (['CANCELLED', 'NO_SHOW'].includes(appointment.status)) {
+      throw new BadRequestException('No se puede registrar anticipo en una cita cancelada o ausente');
     }
 
-    const confirmToConfirmed = async (extraData: Record<string, any>) => {
+    // Solo confirmamos la cita (cambiamos su estado a CONFIRMED) si venía
+    // PENDIENTE/REAGENDADA. Si ya estaba confirmada/en curso/completada, el
+    // registro del anticipo NO altera su estado (solo descuenta del total).
+    const shouldConfirm = ['PENDING', 'RESCHEDULED'].includes(appointment.status);
+    const applyDeposit = async (extraData: Record<string, any>) => {
       const updated = await this.prisma.appointment.update({
         where: { id },
-        data: { status: 'CONFIRMED', ...extraData },
+        data: { ...(shouldConfirm ? { status: 'CONFIRMED' } : {}), ...extraData },
       });
-      await this.prisma.appointmentStatusHistory.create({
-        data: {
-          appointmentId: id,
-          fromStatus: appointment.status,
-          toStatus: 'CONFIRMED',
-          changedBy: userId,
-        },
-      });
-      await this.eventsService.emitAppointmentConfirmed(tenantId, id, {
-        locationId: appointment.locationId,
-        employeeId: appointment.employeeId,
-      });
+      if (shouldConfirm) {
+        await this.prisma.appointmentStatusHistory.create({
+          data: {
+            appointmentId: id,
+            fromStatus: appointment.status,
+            toStatus: 'CONFIRMED',
+            changedBy: userId,
+          },
+        });
+        await this.eventsService.emitAppointmentConfirmed(tenantId, id, {
+          locationId: appointment.locationId,
+          employeeId: appointment.employeeId,
+        });
+      }
       return updated;
     };
 
-    // Omitir anticipo: exonera y confirma, sin registrar pago.
+    // Omitir anticipo: exonera y confirma (si venía pendiente), sin registrar pago.
     if (dto.action === 'waive') {
-      const updated = await confirmToConfirmed({ depositWaived: true });
+      const updated = await applyDeposit({ depositWaived: true });
       await this.auditService.log({
         tenantId,
         userId,
@@ -1735,22 +1743,23 @@ export class AppointmentsService {
     }
 
     if (dto.action === 'accept') {
-      const updated = await confirmToConfirmed({ depositPaid: newPaid });
+      // Registrar el anticipo recibido. Si estaba exonerado, lo reactivamos.
+      const updated = await applyDeposit({ depositPaid: newPaid, depositWaived: false });
       await this.auditService.log({
         tenantId,
         userId,
         action: 'appointment.deposit_confirmed',
         entityType: 'appointment',
         entityId: id,
-        newValues: { depositPaid: newPaid, status: 'CONFIRMED' },
+        newValues: { depositPaid: newPaid },
       });
       return { data: updated };
     }
 
-    // request_remainder: la cita sigue PENDING; solo acumulamos el parcial.
+    // request_remainder: no cambia el estado; solo acumulamos el parcial.
     const updated = await this.prisma.appointment.update({
       where: { id },
-      data: { depositPaid: newPaid },
+      data: { depositPaid: newPaid, depositWaived: false },
     });
     await this.auditService.log({
       tenantId,
