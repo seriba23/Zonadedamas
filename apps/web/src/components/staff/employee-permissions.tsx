@@ -76,8 +76,10 @@ interface Role {
 //   desc: descripción corta para el usuario
 const ADMIN_MODULES = [
   { key: 'appointments', label: 'Calendario', desc: 'Ver y gestionar citas' },
+  { key: 'reminders', label: 'Recordatorios', desc: 'Enviar recordatorios de citas por WhatsApp' },
   { key: 'clients', label: 'Clientes', desc: 'Gestionar directorio de clientes' },
   { key: 'services', label: 'Servicios', desc: 'Configurar servicios y precios' },
+  { key: 'payments', label: 'Punto de Venta', desc: 'Cobrar citas y vender productos' },
   { key: 'employees', label: 'Personal', desc: 'Gestionar empleados y horarios' },
   { key: 'reports', label: 'Reportes', desc: 'Ver estadisticas e ingresos' },
   { key: 'inventory', label: 'Inventario', desc: 'Productos y proveedores' },
@@ -259,7 +261,22 @@ export function EmployeePermissions({
       // Si el empleado ya tiene el rol Ayudante, inicializamos adminModules
       // con los módulos que ya tiene acceso (para que los toggles aparezcan
       // en el estado correcto al abrir el componente).
-      const mods = new Set(helperRole.permissions.map((p) => p.module));
+      const permKeys = new Set(
+        helperRole.permissions.map((p) => `${p.module}.${p.action}`),
+      );
+      const mods = new Set<string>();
+      for (const p of helperRole.permissions) {
+        // 'appointments' (Calendario) se maneja aparte: comparte el permiso
+        // appointments.read con Recordatorios. Lo activamos solo si hay un
+        // permiso de ESCRITURA de citas (si no, es solo Recordatorios).
+        if (p.module === 'appointments') continue;
+        mods.add(p.module);
+      }
+      const hasApptWrite = ['create', 'update', 'cancel', 'reschedule', 'complete'].some(
+        (a) => permKeys.has(`appointments.${a}`),
+      );
+      if (hasApptWrite) mods.add('appointments');          // Calendario
+      if (permKeys.has('appointments.read')) mods.add('reminders'); // Recordatorios
       setAdminModules(mods);
       setSavedModules(mods);
     }

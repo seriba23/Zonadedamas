@@ -250,11 +250,23 @@ export class EmployeesController {
     // cuenta no se le pueden asignar roles -> error 400.
     if (!employee.userId) throw new BadRequestException('Empleado sin cuenta de usuario');
 
-    // Get all permissions for the selected modules
-    // Trae TODOS los permisos cuyo "module" esté dentro de la lista recibida
-    // (operador "in" de Prisma = "que esté en esta lista").
+    // Get all permissions for the selected modules.
+    // Algunos módulos de la UI son "virtuales": no son un módulo de permisos
+    // real, sino un acceso concreto. 'reminders' (Recordatorios) concede solo
+    // appointments.read (la página /reminders se gobierna con ese permiso).
+    const VIRTUAL_MODULE_PERMS: Record<string, Array<{ module: string; action: string }>> = {
+      reminders: [{ module: 'appointments', action: 'read' }],
+    };
+    const realModules = body.modules.filter((m) => !VIRTUAL_MODULE_PERMS[m]);
+    const virtualPairs = body.modules.flatMap((m) => VIRTUAL_MODULE_PERMS[m] || []);
+    // Trae los permisos de los módulos reales + los pares concretos de los virtuales.
     const permissions = await this.prisma.permission.findMany({
-      where: { module: { in: body.modules } },
+      where: {
+        OR: [
+          ...(realModules.length ? [{ module: { in: realModules } }] : []),
+          ...virtualPairs.map((v) => ({ module: v.module, action: v.action })),
+        ],
+      },
     });
 
     // Find or create "Ayudante" role for this tenant
