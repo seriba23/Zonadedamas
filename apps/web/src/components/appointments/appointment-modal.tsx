@@ -269,6 +269,8 @@ export function AppointmentModal({
 
   // Motivo de cancelación que escribe el cajero en el textarea.
   const [cancelReason, setCancelReason] = useState('');
+  // Qué hacer con el anticipo al cancelar (si la cita tiene anticipo pagado).
+  const [depositChoice, setDepositChoice] = useState<'forfeit' | 'credit'>('forfeit');
 
   // Si true, muestra el bloque de "Motivo de cancelación" en pantalla.
   const [showCancelForm, setShowCancelForm] = useState(false);
@@ -647,6 +649,8 @@ export function AppointmentModal({
     mutationFn: () =>
       api.post(`/api/appointments/${appointmentId}/cancel`, {
         reason: cancelReason, // El texto que escribió el cajero en el textarea
+        // Disposición del anticipo (solo relevante si la cita tiene anticipo).
+        ...(depositPaidNum > 0 ? { depositDisposition: depositChoice } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
@@ -1942,6 +1946,40 @@ export function AppointmentModal({
                   rows={3}
                   placeholder="Razon de la cancelacion..."
                 />
+
+                {/* Si la cita tiene anticipo pagado, el negocio decide qué pasa
+                    con él: el cliente lo pierde o queda como crédito a su favor. */}
+                {depositPaidNum > 0 && (
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                      Anticipo pagado: {formatCurrency(depositPaidNum)}
+                    </p>
+                    <div className="space-y-2">
+                      {([
+                        ['forfeit', 'El cliente lo pierde', 'El negocio se queda con el anticipo.'],
+                        ['credit', 'Dejar como crédito', 'Se suma como saldo a favor del cliente.'],
+                      ] as const).map(([key, title, desc]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setDepositChoice(key)}
+                          className={`w-full text-left rounded-lg border p-2.5 transition-colors ${
+                            depositChoice === key ? 'border-[#008080] bg-teal-50' : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${depositChoice === key ? 'border-[#008080]' : 'border-gray-300'}`}>
+                              {depositChoice === key && <span className="block w-full h-full rounded-full scale-50" style={{ backgroundColor: '#008080' }} />}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">{title}</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5 ml-6">{desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-3 flex gap-3">
                   <button
                     onClick={() => cancelMutation.mutate()}

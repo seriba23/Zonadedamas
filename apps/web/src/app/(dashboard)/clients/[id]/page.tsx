@@ -82,6 +82,7 @@ interface ClientSummary {
     phone?: string | null;
     avatarUrl?: string | null;
     loyaltyPoints: number;
+    creditBalance?: number | string | null;
     tags: Tag[];
     user?: { avatarUrl?: string | null } | null;
   };
@@ -132,6 +133,9 @@ export default function ClientDetailPage() {
   const clientId = params.id;
   const { format: formatCurrency } = useCurrency();
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  // Edición del crédito a favor del cliente: null = no editando; string = valor en edición.
+  const [creditEdit, setCreditEdit] = useState<string | null>(null);
+  const [savingCredit, setSavingCredit] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['client-summary', clientId],
@@ -170,6 +174,21 @@ export default function ClientDetailPage() {
   }
 
   const { client, upcomingAppointments, completedAppointments, payments, purchases, activeCoupons, stats } = summary;
+  const creditBalance = Math.max(0, Number(client.creditBalance || 0));
+
+  // Guarda el nuevo saldo de crédito (el negocio lo ajusta a mano al usarlo).
+  const saveCredit = async () => {
+    setSavingCredit(true);
+    try {
+      await api.put(`/api/clients/${clientId}`, { creditBalance: Math.max(0, Number(creditEdit) || 0) });
+      setCreditEdit(null);
+      refetch();
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo actualizar el crédito');
+    } finally {
+      setSavingCredit(false);
+    }
+  };
   const avatarUrl = client.avatarUrl || client.user?.avatarUrl || null;
   const phoneRaw = client.phone || '';
   const phoneClean = sanitizePhone(phoneRaw);
@@ -272,6 +291,43 @@ export default function ClientDetailPage() {
           <StatCard label="Total gastado" value={formatCurrency(stats.totalSpent)} />
           <StatCard label="Cupones activos" value={String(stats.activeCouponsCount)} />
           <StatCard label="Puntos" value={String(stats.loyaltyPoints)} />
+        </div>
+
+        {/* Crédito a favor del cliente (ej. anticipo de cita cancelada). El
+            negocio lo descuenta a mano al cobrar y aquí ajusta el saldo. */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500">Crédito a favor</p>
+            {creditEdit === null ? (
+              <p className="text-xl font-bold" style={{ color: '#008080' }}>{formatCurrency(creditBalance)}</p>
+            ) : (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={creditEdit}
+                    onChange={(e) => setCreditEdit(e.target.value.replace(/[^0-9.]/g, ''))}
+                    autoFocus
+                    className="w-28 pl-6 pr-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                  />
+                </div>
+                <button onClick={saveCredit} disabled={savingCredit} className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
+                  {savingCredit ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button onClick={() => setCreditEdit(null)} className="text-xs text-gray-500 px-2">Cancelar</button>
+              </div>
+            )}
+          </div>
+          {creditEdit === null && (
+            <button
+              onClick={() => setCreditEdit(creditBalance ? String(creditBalance) : '')}
+              className="text-xs font-medium text-[#008080] hover:underline flex-shrink-0"
+            >
+              Ajustar
+            </button>
+          )}
         </div>
 
         {/* Próximas citas */}

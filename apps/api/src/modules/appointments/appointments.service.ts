@@ -1017,6 +1017,22 @@ export class AppointmentsService {
       );
     }
 
+    // Disposición del ANTICIPO al cancelar: la elección del negocio (dto) o, si
+    // no vino (ej. el cliente cancela), la política por defecto del negocio.
+    const depositPaid = Number(appointment.depositPaid || 0);
+    let depositDisposition: 'forfeit' | 'credit' = 'forfeit';
+    if (depositPaid > 0) {
+      if (dto.depositDisposition) {
+        depositDisposition = dto.depositDisposition;
+      } else {
+        const t = await this.prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { depositCancelPolicy: true },
+        });
+        depositDisposition = t?.depositCancelPolicy === 'CREDIT' ? 'credit' : 'forfeit';
+      }
+    }
+
     // Transacción: cancelar + reembolsos van juntos (todo o nada).
     const updated = await this.prisma.$transaction(async (tx) => {
       // Marcar la cita como CANCELLED, guardando motivo y quién canceló.
@@ -1035,6 +1051,16 @@ export class AppointmentsService {
         await tx.client.update({
           where: { id: appointment.clientId },
           data: { loyaltyPoints: { increment: appointment.pointsSpent } },
+        });
+      }
+
+      // Anticipo: si la disposición es 'credit', el monto pagado queda como
+      // crédito a favor del cliente. Si es 'forfeit', el negocio se queda con él
+      // (no se hace nada: el pago de anticipo permanece como ingreso).
+      if (depositPaid > 0 && depositDisposition === 'credit' && appointment.clientId) {
+        await tx.client.update({
+          where: { id: appointment.clientId },
+          data: { creditBalance: { increment: depositPaid } },
         });
       }
 
@@ -1792,6 +1818,23 @@ export class AppointmentsService {
       where: { id },
       data: { status: 'NO_SHOW' },
     });
+
+    // Anticipo en no-show: aplica la política por defecto del negocio. Por
+    // defecto 'forfeit' (no asistió → pierde la garantía); si el negocio
+    // configuró 'CREDIT', el anticipo queda como crédito del cliente.
+    const depositPaid = Number(appointment.depositPaid || 0);
+    if (depositPaid > 0 && appointment.clientId) {
+      const t = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { depositCancelPolicy: true },
+      });
+      if (t?.depositCancelPolicy === 'CREDIT') {
+        await this.prisma.client.update({
+          where: { id: appointment.clientId },
+          data: { creditBalance: { increment: depositPaid } },
+        });
+      }
+    }
 
     // Historial del cambio.
     await this.prisma.appointmentStatusHistory.create({

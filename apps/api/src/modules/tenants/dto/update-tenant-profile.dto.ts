@@ -87,6 +87,12 @@ export class UpdateTenantProfileDto {
   @IsString()
   depositInstructions?: string;
 
+  // Política por defecto del anticipo al cancelar: 'FORFEIT' (cliente lo pierde)
+  // o 'CREDIT' (queda a su favor). Aplica en cancelación del cliente y no-show.
+  @IsOptional()
+  @IsIn(['FORFEIT', 'CREDIT'])
+  depositCancelPolicy?: 'FORFEIT' | 'CREDIT';
+
   // ¿Está activada la animación de confeti al completar acciones? Opcional.
   @IsOptional()
   @IsBoolean()

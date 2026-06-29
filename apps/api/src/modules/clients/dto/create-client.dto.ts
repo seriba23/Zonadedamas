@@ -17,6 +17,8 @@ import {
   IsString,
   IsDateString,
   IsBoolean,
+  IsNumber,
+  Min,
 } from 'class-validator';
 
 /**
@@ -93,4 +95,11 @@ export class UpdateClientDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // creditBalance: saldo a favor del cliente. El negocio lo ajusta a mano
+  // cuando lo usa (lo descuenta manualmente al cobrar).
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  creditBalance?: number;
 }

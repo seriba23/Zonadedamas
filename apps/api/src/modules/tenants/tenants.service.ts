@@ -435,6 +435,7 @@ export class TenantsService {
         ...(dto.depositType !== undefined && { depositType: dto.depositType }),
         ...(dto.depositValue !== undefined && { depositValue: dto.depositValue }),
         ...(dto.depositInstructions !== undefined && { depositInstructions: dto.depositInstructions }),
+        ...(dto.depositCancelPolicy !== undefined && { depositCancelPolicy: dto.depositCancelPolicy }),
         ...(dto.confettiEnabled !== undefined && { confettiEnabled: dto.confettiEnabled }),
         ...(dto.confettiStyle !== undefined && { confettiStyle: dto.confettiStyle }),
         // "as any" calla el chequeo de tipos de TypeScript (estos campos son

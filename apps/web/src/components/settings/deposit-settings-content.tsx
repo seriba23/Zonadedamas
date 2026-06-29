@@ -18,6 +18,8 @@ interface DepositSettings {
   // Se guarda como texto para que el campo sea borrable (escribir libremente en
   // celular); se convierte a número al guardar.
   depositValue: string;
+  // Política del anticipo al cancelar (cuando cancela el cliente o no-show).
+  depositCancelPolicy: 'FORFEIT' | 'CREDIT';
 }
 
 export function DepositSettingsContent() {
@@ -25,6 +27,7 @@ export function DepositSettingsContent() {
     depositEnabled: false,
     depositType: 'PERCENT',
     depositValue: '',
+    depositCancelPolicy: 'FORFEIT',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,6 +42,7 @@ export function DepositSettingsContent() {
           depositEnabled: !!t.depositEnabled,
           depositType: (t.depositType === 'FIXED' ? 'FIXED' : 'PERCENT'),
           depositValue: t.depositValue == null ? '' : String(Number(t.depositValue)),
+          depositCancelPolicy: t.depositCancelPolicy === 'CREDIT' ? 'CREDIT' : 'FORFEIT',
         });
       } catch {
       } finally {
@@ -56,6 +60,7 @@ export function DepositSettingsContent() {
         depositEnabled: settings.depositEnabled,
         depositType: settings.depositType,
         depositValue: Number(settings.depositValue) || 0,
+        depositCancelPolicy: settings.depositCancelPolicy,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -143,6 +148,34 @@ export function DepositSettingsContent() {
         <p className="text-xs text-gray-400 mt-3">
           Los datos de la transferencia (banco, CLABE, titular) se toman de la configuración de <span className="font-medium text-gray-500">Ventas</span>.
         </p>
+      </div>
+
+      <div className={`bg-white rounded-xl border border-gray-200 p-5 mb-6 transition-opacity ${settings.depositEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Si se cancela la cita</h2>
+        <p className="text-xs text-gray-500 mb-3">Qué pasa con el anticipo cuando el cliente cancela desde su enlace o no se presenta. (Al cancelar tú mismo una cita, podrás elegir caso por caso.)</p>
+        <div className="space-y-2">
+          {([
+            ['FORFEIT', 'El cliente pierde el anticipo', 'El negocio se queda con el dinero (fue la garantía).'],
+            ['CREDIT', 'Queda como crédito del cliente', 'El monto se suma como saldo a favor del cliente para una próxima cita.'],
+          ] as const).map(([key, title, desc]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => set({ depositCancelPolicy: key })}
+              className={`w-full text-left rounded-xl border p-3 transition-colors ${
+                settings.depositCancelPolicy === key ? 'border-[#008080] bg-teal-50' : 'border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${settings.depositCancelPolicy === key ? 'border-[#008080]' : 'border-gray-300'}`}>
+                  {settings.depositCancelPolicy === key && <span className="block w-full h-full rounded-full scale-50" style={{ backgroundColor: TEAL }} />}
+                </span>
+                <span className="text-sm font-medium text-gray-900">{title}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 ml-6">{desc}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

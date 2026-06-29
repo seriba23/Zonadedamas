@@ -193,7 +193,7 @@ export class AppointmentReminderService {
     // (Mismo patrón que confirm): buscar la cita por token con campos mínimos.
     const appointment = await this.prisma.appointment.findUnique({
       where: { confirmationToken: token },
-      select: { id: true, tenantId: true, status: true },
+      select: { id: true, tenantId: true, status: true, depositPaid: true, clientId: true },
     });
     if (!appointment) {
       throw new NotFoundException('Enlace invalido o expirado');
@@ -210,6 +210,23 @@ export class AppointmentReminderService {
       where: { id: appointment.id },
       data: { status: 'CANCELLED' },
     });
+
+    // Anticipo: cuando el CLIENTE cancela desde su enlace, se aplica la política
+    // por defecto del negocio. 'CREDIT' → queda como crédito del cliente;
+    // si no, lo pierde (es garantía).
+    const depositPaid = Number(appointment.depositPaid || 0);
+    if (depositPaid > 0 && appointment.clientId) {
+      const t = await this.prisma.tenant.findUnique({
+        where: { id: appointment.tenantId },
+        select: { depositCancelPolicy: true },
+      });
+      if (t?.depositCancelPolicy === 'CREDIT') {
+        await this.prisma.client.update({
+          where: { id: appointment.clientId },
+          data: { creditBalance: { increment: depositPaid } },
+        });
+      }
+    }
 
     // Registramos el cambio en el historial. Aquí usamos un "operador ternario":
     //   condición ? valorSiVerdadero : valorSiFalso

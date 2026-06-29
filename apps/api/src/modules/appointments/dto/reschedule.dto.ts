@@ -8,7 +8,7 @@
 //   - IsOptional: el campo puede venir o no (si no viene, no se valida).
 //   - IsString: exige que el valor sea texto.
 //   - IsUUID: exige que el valor sea un identificador único con formato UUID.
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 
 // DTO para REAGENDAR una cita (cambiarla de horario, y opcionalmente de empleado).
 export class RescheduleDto {
@@ -31,4 +31,12 @@ export class CancelDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  // Qué pasa con el anticipo ya pagado al cancelar:
+  //   'forfeit' = el cliente lo pierde (el negocio se queda con la garantía).
+  //   'credit'  = queda como crédito a favor del cliente.
+  // Si no viene, se usa la política del negocio (depositCancelPolicy).
+  @IsOptional()
+  @IsIn(['forfeit', 'credit'])
+  depositDisposition?: 'forfeit' | 'credit';
 }

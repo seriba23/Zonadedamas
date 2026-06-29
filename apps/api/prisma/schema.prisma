@@ -285,6 +285,10 @@ model Tenant {
   depositType          String?   @map("deposit_type") @db.VarChar(10)
   depositValue         Decimal?  @map("deposit_value") @db.Decimal(10, 2)
   depositInstructions  String?   @map("deposit_instructions") @db.Text
+  // Política por defecto del anticipo al cancelar: 'FORFEIT' (el cliente lo
+  // pierde) o 'CREDIT' (queda como crédito del cliente). Aplica cuando el
+  // cliente cancela desde su enlace y en no-show. Default: pierde (es garantía).
+  depositCancelPolicy  String?   @map("deposit_cancel_policy") @db.VarChar(10)
   confettiEnabled      Boolean   @default(true) @map("confetti_enabled")
   confettiStyle        String?   @map("confetti_style") @db.VarChar(40)
   confettiStyles       Json?     @map("confetti_styles")
@@ -639,6 +643,9 @@ model Client {
   // hijos). Nullable para los walk-in (creados sin cuenta de marketplace).
   profileId          String?   @map("profile_id")
   loyaltyPoints      Int       @default(0) @map("loyalty_points")
+  // Saldo a favor del cliente (ej. anticipo de una cita cancelada que el negocio
+  // dejó como crédito). El negocio lo aplica manualmente como descuento.
+  creditBalance      Decimal   @default(0) @map("credit_balance") @db.Decimal(10, 2)
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
