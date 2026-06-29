@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
@@ -187,12 +187,15 @@ function DashboardLayoutContent({
   const { notifications, dismissNotification, purchases, dismissPurchase } = useWebSocket();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const topbarAction = useTopbarAction();
+  // Contenedor scrolleable principal: al cambiar de sección lo llevamos al tope.
+  const mainRef = useRef<HTMLElement>(null);
 
   useEnsurePushSubscription();
 
-  // Cerrar drawer al navegar entre paginas (mobile).
+  // Cerrar drawer al navegar entre paginas (mobile) y volver al tope de la sección.
   useEffect(() => {
     setIsSidebarOpen(false);
+    mainRef.current?.scrollTo({ top: 0 });
   }, [pathname]);
 
   useEffect(() => {
@@ -293,7 +296,7 @@ function DashboardLayoutContent({
         </header>
 
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main ref={mainRef} className="flex-1 overflow-y-auto">{children}</main>
       </div>
 
       {/* Real-time notifications */}

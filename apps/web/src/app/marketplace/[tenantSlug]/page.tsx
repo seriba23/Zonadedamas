@@ -438,6 +438,17 @@ export default function BusinessDetailPage() {
     paymentStatus === 'success' ? 'success' : null,
   );
 
+  // Contenedor scrolleable del flujo de reserva. Cada vez que avanza/retrocede
+  // un paso, lo llevamos al tope para que el usuario vea siempre el inicio de la
+  // sección sin tener que hacer scroll manual.
+  const bookingScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!bookingStep) return;
+    bookingScrollRef.current?.scrollTo({ top: 0 });
+    // window por si el contenido desborda el viewport en algún dispositivo.
+    window.scrollTo({ top: 0 });
+  }, [bookingStep]);
+
   // Lista de IDs de servicios seleccionados (puede ser más de uno).
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
@@ -2798,7 +2809,7 @@ export default function BusinessDetailPage() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div ref={bookingScrollRef} className="flex-1 overflow-y-auto">
             <div className="max-w-2xl mx-auto px-4 py-6">
 
               {/* Step 0: Location */}

@@ -25,13 +25,13 @@
 // Es OBLIGATORIO cuando usas hooks de React como useState, useEffect,
 // o cuando accedes a cosas del navegador como window o localStorage.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 // useEffect → hook que ejecuta código cuando el componente se monta o
 //             cuando cambian ciertas variables (efectos secundarios).
 // useState  → hook que crea variables de estado. Cuando cambian, React
 //             vuelve a dibujar (re-renderizar) el componente.
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 // useRouter → hook de Next.js para navegar entre páginas programáticamente
 // (sin que el usuario haga clic en un enlace). Se usa para redirigir.
 
@@ -596,6 +596,12 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
   // router nos permite navegar programáticamente (sin <Link>).
   const router = useRouter();
+  // pathname + mainRef: al cambiar de sección, llevamos el contenido al tope.
+  const pathname = usePathname();
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
 
   // isSidebarOpen: controla si la barra lateral está abierta en móvil.
   // En escritorio siempre es visible; en móvil empieza cerrada (false).
@@ -829,7 +835,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             overflow-y-auto → permite scroll vertical si el contenido es largo.
             {children} → lo que Next.js inyecta aquí es la página actual
             (por ejemplo, /employee/appointments renderiza su page.tsx aquí). */}
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main ref={mainRef} className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
