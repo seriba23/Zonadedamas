@@ -847,10 +847,32 @@ export default function MarketplaceAppointmentsPage() {
         employeeName={`${reviewTarget?.employee?.firstName || ''} ${reviewTarget?.employee?.lastName || ''}`.trim()}
         businessName={reviewTarget?.tenant?.name || ''}
         mode={reviewTarget?.tenant?.tenantType === 'FREELANCER' ? 'freelancer' : 'business'}
-        appointment={reviewTarget ? {
-          services: (reviewTarget.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
-          dateText: `${formatBookingDate(reviewTarget.startTime)}, ${formatBookingTime(reviewTarget.startTime)}`,
-        } : undefined}
+        appointment={reviewTarget ? (() => {
+          const rt = reviewTarget;
+          const cur = rt.tenant?.currency || 'MXN';
+          const map = new Map<string, any>();
+          for (const it of (rt.items || [])) if (it.employee?.id) map.set(it.employee.id, it.employee);
+          if (map.size === 0 && rt.employee?.id) map.set(rt.employee.id, rt.employee);
+          const professionals = Array.from(map.values()).map((e: any) => ({
+            name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+            avatarUrl: e.avatarUrl ? `${API_URL}${e.avatarUrl}` : null,
+            color: e.color,
+          }));
+          const pay = rt.payments?.[0];
+          const lines: { label: string; value: string }[] = [];
+          const disc = Number(pay?.discountAmount || rt.discountAmount || 0);
+          const dep = Number(rt.depositPaid || 0);
+          const tip = Number(pay?.tipAmount || 0);
+          if (disc > 0) lines.push({ label: 'Descuento', value: `-${formatCurrency(disc, cur)}` });
+          if (dep > 0) lines.push({ label: 'Anticipo', value: `-${formatCurrency(dep, cur)}` });
+          if (tip > 0) lines.push({ label: 'Propina', value: formatCurrency(tip, cur) });
+          return {
+            services: (rt.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
+            dateText: `${formatBookingDate(rt.startTime)}, ${formatBookingTime(rt.startTime)}`,
+            professionals,
+            payment: { total: pay ? formatCurrency(Number(pay.totalAmount || 0), cur) : undefined, lines },
+          };
+        })() : undefined}
         onSubmit={(payload) => submitReviewMutation.mutate(payload)}
         onSkip={() => {
           if (reviewTarget?.id) {

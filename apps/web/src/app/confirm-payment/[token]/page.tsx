@@ -502,6 +502,20 @@ export default function ConfirmPaymentPage({ params }: { params: { token: string
         appointment={{
           services: items.map((i) => i.serviceNameSnapshot).join(', '),
           dateText: `${formatBookingDate(data.startTime)}, ${formatBookingTime(data.startTime)}`,
+          professionals: employee ? [{
+            name: `${employeeFirst} ${employeeLast}`.trim(),
+            avatarUrl: employee.avatarUrl ? (employee.avatarUrl.startsWith('http') ? employee.avatarUrl : `${API_URL}${employee.avatarUrl}`) : null,
+            color: employee.color,
+          }] : undefined,
+          payment: (() => {
+            const cur = (data.tenant as any)?.currency || 'MXN';
+            const lines: { label: string; value: string }[] = [];
+            const dep = Number((data as any).depositPaid || 0);
+            if (discount > 0) lines.push({ label: 'Descuento', value: `-${formatCurrency(discount, cur)}` });
+            if (dep > 0) lines.push({ label: 'Anticipo', value: `-${formatCurrency(dep, cur)}` });
+            if (tip > 0) lines.push({ label: 'Propina', value: formatCurrency(tip, cur) });
+            return { total: formatCurrency(total, cur), lines };
+          })(),
         }}
         onSubmit={handleSubmitReview}
         onSkip={() => setShowReview(false)}

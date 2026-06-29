@@ -541,6 +541,19 @@ export default function AppointmentDetailPage() {
         appointment={appointment ? {
           services: (appointment.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
           dateText: `${formatDate(appointment.startTime, 'ddd, D [de] MMMM')}, ${dayjs.utc(appointment.startTime).format('h:mm A')}`,
+          professionals: appointment.employee ? [{
+            name: `${appointment.employee.firstName} ${appointment.employee.lastName}`.trim(),
+            avatarUrl: appointment.employee.avatarUrl ? `${API_URL}${appointment.employee.avatarUrl}` : null,
+            color: (appointment.employee as any).color,
+          }] : undefined,
+          payment: (() => {
+            const lines: { label: string; value: string }[] = [];
+            const dep = Number((appointment as any).depositPaid || 0);
+            if (discountAmount > 0) lines.push({ label: 'Descuento', value: `-${formatCurrency(discountAmount)}` });
+            if (dep > 0) lines.push({ label: 'Anticipo', value: `-${formatCurrency(dep)}` });
+            if (tipAmount > 0) lines.push({ label: 'Propina', value: formatCurrency(tipAmount) });
+            return { total: paidPayment ? formatCurrency(grandTotal) : undefined, lines };
+          })(),
         } : undefined}
         // onSubmit: cuando el usuario envía la reseña, llamamos a reviewMutation.mutate()
         // con los datos del formulario del modal.

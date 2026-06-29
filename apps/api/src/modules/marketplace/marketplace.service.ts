@@ -2997,6 +2997,7 @@ export class MarketplaceService {
         endTime: true,
         notes: true,
         discountAmount: true,
+        depositPaid: true,
         paymentProofUrl: true,
         createdAt: true,
         tenant: {
@@ -3013,7 +3014,12 @@ export class MarketplaceService {
           select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true },
         },
         items: {
-          select: { id: true, serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true },
+          select: {
+            id: true, serviceNameSnapshot: true, priceSnapshot: true, durationSnapshot: true,
+            // Empleado por item: para mostrar TODOS los profesionales cuando la
+            // cita la atienden varios (cada servicio puede tener uno distinto).
+            employee: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
+          },
         },
         // Productos apartados con la cita: el cliente los ve igual que el negocio.
         productReservations: {
@@ -3033,7 +3039,7 @@ export class MarketplaceService {
         // Consentimiento de fotos (informativo para el cliente).
         photoConsent: true,
         payments: {
-          select: { id: true, status: true, paymentMethod: true, totalAmount: true },
+          select: { id: true, status: true, paymentMethod: true, totalAmount: true, amount: true, tipAmount: true, discountAmount: true },
           orderBy: { createdAt: 'desc' },
           take: 1,
         },

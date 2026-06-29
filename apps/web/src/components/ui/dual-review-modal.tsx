@@ -94,10 +94,18 @@ interface DualReviewModalProps {
    */
   mode?: 'business' | 'freelancer'; // Tipo de contexto: negocio con local o freelancer
   /** Detalle de la cita a la que se refiere la reseña (para que el cliente la
-   *  reconozca): servicios y fecha/hora ya formateados por quien llama. */
+   *  reconozca): servicios, fecha/hora, profesional(es) y desglose del pago.
+   *  Quien llama formatea los textos/montos. */
   appointment?: {
     services?: string;   // Ej: "Corte de cabello, Tinte"
     dateText?: string;   // Ej: "Lun 15 de junio, 3:30 PM"
+    // Profesional(es) que atendieron (varios si la cita tuvo más de uno).
+    professionals?: Array<{ name: string; avatarUrl?: string | null; color?: string | null }>;
+    // Desglose del pago (montos ya formateados por quien llama).
+    payment?: {
+      total?: string;    // Total pagado, ej: "$590.00"
+      lines?: Array<{ label: string; value: string }>; // Propina, descuento, anticipo, etc.
+    };
   };
   onSubmit: (data: {
     rating: number;               // Calificación del profesional (1-5, obligatorio)
@@ -181,17 +189,54 @@ export function DualReviewModal({
         <div className="px-6 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
 
           {/* ─── DETALLE DE LA CITA: para que el cliente reconozca a qué cita
-              se refiere la reseña (servicios, fecha/hora y profesional). ─── */}
-          {appointment && (appointment.services || appointment.dateText) && (
-            <div className="rounded-xl border p-3" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
+              se refiere la reseña (servicios, fecha/hora, profesional(es) y el
+              desglose de lo que pagó). ─── */}
+          {appointment && (appointment.services || appointment.dateText || appointment.professionals?.length || appointment.payment) && (
+            <div className="rounded-xl border p-3 space-y-2.5" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
               {appointment.services && (
                 <p className="text-sm font-semibold text-gray-900 break-words">{appointment.services}</p>
               )}
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 mt-1">
-                {appointment.dateText && <span>{appointment.dateText}</span>}
-                {appointment.dateText && employeeName && <span className="text-gray-300">·</span>}
-                {employeeName && <span>con {employeeName}</span>}
-              </div>
+              {appointment.dateText && <p className="text-xs text-gray-500">{appointment.dateText}</p>}
+
+              {/* Profesional(es): avatar (foto o iniciales con su color) + nombre. */}
+              {appointment.professionals && appointment.professionals.length > 0 ? (
+                <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                  {appointment.professionals.map((p, i) => {
+                    const initials = p.name.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('').toUpperCase();
+                    return (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <div
+                          className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                          style={{ backgroundColor: p.color || TEAL }}
+                        >
+                          {p.avatarUrl ? <img src={p.avatarUrl} alt="" className="w-full h-full object-cover" /> : initials}
+                        </div>
+                        <span className="text-xs text-gray-700">{p.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : employeeName ? (
+                <p className="text-xs text-gray-500">con {employeeName}</p>
+              ) : null}
+
+              {/* Desglose del pago: propina, descuentos, anticipo y total. */}
+              {appointment.payment && (appointment.payment.total || (appointment.payment.lines && appointment.payment.lines.length > 0)) && (
+                <div className="border-t border-gray-100 pt-2 space-y-1">
+                  {appointment.payment.lines?.map((l, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span className="text-gray-500">{l.label}</span>
+                      <span className="text-gray-700">{l.value}</span>
+                    </div>
+                  ))}
+                  {appointment.payment.total && (
+                    <div className="flex justify-between text-sm font-semibold pt-1">
+                      <span className="text-gray-900">Total pagado</span>
+                      <span style={{ color: TEAL }}>{appointment.payment.total}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

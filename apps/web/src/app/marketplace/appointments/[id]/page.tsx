@@ -170,6 +170,33 @@ export default function AppointmentDetailPage() {
   const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + Number(i.durationSnapshot || 0), 0) ?? 0;
   const visibleProducts = (appt.productReservations || []).filter((r: any) => r.status !== 'CANCELLED');
 
+  // Profesional(es) que atendieron: empleados DISTINTOS de los items (varios si
+  // cada servicio lo hizo otro); fallback al empleado principal de la cita.
+  const reviewProfessionals = (() => {
+    const map = new Map<string, any>();
+    for (const it of (appt.items || [])) {
+      if (it.employee?.id) map.set(it.employee.id, it.employee);
+    }
+    if (map.size === 0 && appt.employee?.id) map.set(appt.employee.id, appt.employee);
+    return Array.from(map.values()).map((e: any) => ({
+      name: `${e.firstName || ''} ${e.lastName || ''}`.trim(),
+      avatarUrl: e.avatarUrl ? `${API_URL}${e.avatarUrl}` : null,
+      color: e.color,
+    }));
+  })();
+  // Desglose del pago: propina, descuento, anticipo y total pagado.
+  const reviewPayment = (() => {
+    const pay = appt.payments?.[0];
+    const lines: { label: string; value: string }[] = [];
+    const disc = Number(pay?.discountAmount || appt.discountAmount || 0);
+    const dep = Number(appt.depositPaid || 0);
+    const tip = Number(pay?.tipAmount || 0);
+    if (disc > 0) lines.push({ label: 'Descuento', value: `-${formatCurrency(disc, currency)}` });
+    if (dep > 0) lines.push({ label: 'Anticipo', value: `-${formatCurrency(dep, currency)}` });
+    if (tip > 0) lines.push({ label: 'Propina', value: formatCurrency(tip, currency) });
+    return { total: pay ? formatCurrency(Number(pay.totalAmount || 0), currency) : undefined, lines };
+  })();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -446,6 +473,8 @@ export default function AppointmentDetailPage() {
         appointment={{
           services: (appt.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
           dateText: `${date}, ${time}`,
+          professionals: reviewProfessionals,
+          payment: reviewPayment,
         }}
         onSubmit={(payload) => submitReviewMutation.mutate(payload)}
         onSkip={() => setShowReview(false)}
