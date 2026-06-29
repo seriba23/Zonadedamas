@@ -135,6 +135,8 @@ export class ReportsService {
       newClients,     // número de clientes NUEVOS en el rango.
       recentActivity, // últimos 10 eventos del negocio (para "actividad reciente").
       productSales,   // ventas de productos entregados (para ingresos + ganancia).
+      depositAgg,     // suma de ANTICIPOS recibidos en el rango (isDeposit).
+      depositTenant,  // ¿el negocio tiene el anticipo habilitado? (para mostrar la tarjeta).
     ] = await Promise.all([
       // 1) TODAS las citas del rango (sin filtrar por estado: aquí entran
       //    pendientes, completadas, canceladas, etc.; ya las separaremos abajo).
@@ -193,6 +195,22 @@ export class ReportsService {
           // De la tabla relacionada "product" traemos su costo (para la ganancia).
           product: { select: { costPrice: true } },
         },
+      }),
+      // 7) ANTICIPOS recibidos en el rango: suma de los pagos isDeposit COMPLETED
+      //    (los anticipos que el negocio confirmó como recibidos).
+      this.prisma.payment.aggregate({
+        where: {
+          tenantId,
+          isDeposit: true,
+          status: 'COMPLETED',
+          createdAt: { gte: start, lte: end },
+        },
+        _sum: { totalAmount: true },
+      }),
+      // 8) ¿El negocio usa anticipo? Para decidir si mostrar la tarjeta.
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { depositEnabled: true },
       }),
     ]);
 
@@ -478,6 +496,9 @@ export class ReportsService {
         averageTicket,
         newClients,
         totalClients: clients, // "clients" es el conteo total; aquí se renombra.
+        // Anticipos recibidos en el rango + si el negocio usa anticipo (para la tarjeta).
+        depositReceived: Math.round(Number(depositAgg._sum.totalAmount || 0) * 100) / 100,
+        depositEnabled: !!depositTenant?.depositEnabled,
       },
       revenueByDay: revenueByDayArray, // arreglo ordenado por fecha (para gráfico).
       topServices,                     // top 10 servicios por ingreso.

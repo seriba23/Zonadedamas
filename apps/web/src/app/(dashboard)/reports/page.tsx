@@ -112,6 +112,8 @@ interface DashboardData {
     averageTicket: number;
     newClients: number;
     totalClients: number;
+    depositReceived: number;
+    depositEnabled: boolean;
   };
   revenueByDay: Array<{ date: string; revenue: number; count: number }>;
   topServices: Array<{ name: string; count: number; revenue: number }>;
@@ -300,7 +302,7 @@ export default function ReportsPage() {
   }, [detail, bounds.start, bounds.end]);
 
   const emptyData: DashboardData = {
-    kpis: { totalRevenue: 0, productRevenue: 0, productCost: 0, serviceCommissions: 0, totalRevenueAll: 0, totalProfit: 0, totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowCount: 0, noShowRate: 0, averageTicket: 0, newClients: 0, totalClients: 0 },
+    kpis: { totalRevenue: 0, productRevenue: 0, productCost: 0, serviceCommissions: 0, totalRevenueAll: 0, totalProfit: 0, totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowCount: 0, noShowRate: 0, averageTicket: 0, newClients: 0, totalClients: 0, depositReceived: 0, depositEnabled: false },
     revenueByDay: [], topServices: [], topEmployees: [], paymentMethods: {},
     clientMetrics: { totalClients: 0, newClients: 0, returningClients: 0, retentionRate: 0, topClients: [], bySource: {} },
   };
@@ -629,14 +631,23 @@ export default function ReportsPage() {
           />
         </div>
 
-        {/* Ganancia neta del periodo */}
-        <div className="mb-4 md:mb-6">
+        {/* Ganancia neta del periodo + (si aplica) Anticipos recibidos */}
+        <div className={`mb-4 md:mb-6 grid grid-cols-1 gap-3 md:gap-4 ${stats.kpis.depositEnabled ? 'md:grid-cols-2' : ''}`}>
           <KpiCard
             icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>}
             label="Todas las ganancias"
             value={isLoading ? <span className="inline-block h-6 w-32 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.totalProfit)}
             subtitle={`− Comisiones ${formatCurrency(stats.kpis.serviceCommissions)} − Costo prod. ${formatCurrency(stats.kpis.productCost)}`}
           />
+          {/* Tarjeta de Anticipos: SOLO si el negocio usa anticipo. */}
+          {stats.kpis.depositEnabled && (
+            <KpiCard
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>}
+              label="Anticipos recibidos"
+              value={isLoading ? <span className="inline-block h-6 w-32 bg-[var(--border)] rounded animate-pulse" /> : formatCurrency(stats.kpis.depositReceived)}
+              subtitle="Total cobrado como anticipo en el período"
+            />
+          )}
         </div>
 
         {/* Revenue chart + Citas por estado (donut) */}
