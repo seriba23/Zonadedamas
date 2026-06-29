@@ -2119,6 +2119,62 @@ export function AppointmentModal({
                 })()}
               </div>
             )}
+
+            {/* Acciones para una cita YA CERRADA (completada/cancelada/ausente).
+                No tiene acciones de gestión activas; ofrecemos opciones útiles:
+                cobrar si quedó pendiente, volver a agendar con el cliente,
+                seguimiento por WhatsApp, y cerrar el detalle. */}
+            {appointment && ['completed', 'cancelled', 'no_show'].includes(statusLower) && (() => {
+              const realPayments = ((appointment as any).payments || []).filter(
+                (p: any) => !p.isDeposit && p.status === 'COMPLETED',
+              );
+              const isPaid = realPayments.length > 0;
+              const bizName = appointment.tenant?.name || (authUser as any)?.tenantName || 'nuestro negocio';
+              return (
+                <div className="flex flex-wrap gap-3 pt-2 border-t border-[var(--border)]">
+                  {/* Cobrar: solo si la cita se completó pero no quedó pagada. */}
+                  {statusLower === 'completed' && !isPaid && hasPermission('payments.create') && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`${posBasePath ?? ''}/pos?appointmentId=${appointmentId}`)}
+                      className="btn-primary flex-1"
+                    >
+                      Cobrar
+                    </button>
+                  )}
+                  {/* Volver a agendar con el mismo cliente/profesional. */}
+                  {onCreateAnother && (
+                    <button
+                      type="button"
+                      onClick={() => { onClose(); onCreateAnother(appointment.clientId, appointment.employeeId); }}
+                      className="btn-secondary flex-1"
+                    >
+                      Agendar otra cita
+                    </button>
+                  )}
+                  {/* Seguimiento por WhatsApp (agradecer / invitar a volver). */}
+                  {!!appointment.client?.phone && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = buildWhatsAppUrl(
+                          appointment.client!.phone!,
+                          `Hola ${appointment.client!.firstName}, gracias por tu visita a *${bizName}*. ¡Esperamos verte pronto!`,
+                        );
+                        if (url) window.open(url, '_blank');
+                      }}
+                      className="flex-1 px-3 py-2 rounded-[10px] font-medium text-white transition-colors flex items-center justify-center gap-1.5"
+                      style={{ backgroundColor: '#25D366' }}
+                    >
+                      WhatsApp
+                    </button>
+                  )}
+                  <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                    Cerrar
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           // Rama del ternario cuando appointment es null/undefined.
