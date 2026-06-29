@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
@@ -10,7 +10,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -55,7 +55,16 @@ export default function StaffPage() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<StaffTab>('empleados');
+  // Deep-link: ?tab=comisiones&commView=service&serviceId=X (desde el detalle de
+  // un servicio → "Ver comisiones"). Abre la pestaña, la vista por servicio y
+  // expande ese servicio.
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as StaffTab | null;
+  const commViewParam = searchParams.get('commView'); // 'service' | 'employee'
+  const serviceIdParam = searchParams.get('serviceId') || undefined;
+  const [activeTab, setActiveTab] = useState<StaffTab>(
+    tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'empleados',
+  );
   const [search, setSearch] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
   const [filterService, setFilterService] = useState('');
@@ -685,7 +694,10 @@ export default function StaffPage() {
 
         {/* ─── Tab: Comisiones ─── */}
         {activeTab === 'comisiones' && (
-          <StaffCommissionsTab />
+          <StaffCommissionsTab
+            initialView={commViewParam === 'service' ? 'by-service' : commViewParam === 'employee' ? 'by-employee' : undefined}
+            initialServiceId={serviceIdParam}
+          />
         )}
 
       </div>
@@ -1561,8 +1573,8 @@ function AttendanceTab({ employees }: { employees: Employee[] }) {
 /* ─── Staff Commissions Tab — toggle por empleado / por servicio ─── */
 type CommView = 'by-employee' | 'by-service';
 
-function StaffCommissionsTab() {
-  const [view, setView] = useState<CommView>('by-employee');
+function StaffCommissionsTab({ initialView, initialServiceId }: { initialView?: CommView; initialServiceId?: string }) {
+  const [view, setView] = useState<CommView>(initialView || 'by-employee');
   return (
     <div>
       {/* Toggle segmented (full-width) */}
@@ -1591,7 +1603,7 @@ function StaffCommissionsTab() {
         </button>
       </div>
 
-      {view === 'by-employee' ? <ByEmployeeCommissions /> : <ByServiceCommissions />}
+      {view === 'by-employee' ? <ByEmployeeCommissions /> : <ByServiceCommissions initialServiceId={initialServiceId} />}
     </div>
   );
 }
@@ -1904,7 +1916,7 @@ function ByEmployeeCommissions() {
 }
 
 /* ─── Vista por servicio: lista de servicios; expandir muestra empleados asignables ─── */
-function ByServiceCommissions() {
+function ByServiceCommissions({ initialServiceId }: { initialServiceId?: string }) {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
@@ -1925,6 +1937,20 @@ function ByServiceCommissions() {
   const services = servicesData?.data || [];
   const employees = (employeesData?.data || []).filter((e: any) => e.isActive);
   const allEmpIds = new Set(employees.map((e: any) => e.id));
+
+  // Deep-link desde el detalle de un servicio: al cargar, expandimos ese
+  // servicio y hacemos scroll hasta él. didInit evita repetirlo.
+  const didInitRef = useRef(false);
+  useEffect(() => {
+    if (didInitRef.current || !initialServiceId || services.length === 0) return;
+    didInitRef.current = true;
+    setExpandedSvcs((prev) => new Set(prev).add(initialServiceId));
+    setTimeout(() => {
+      document
+        .getElementById(`svc-comm-${initialServiceId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 200);
+  }, [initialServiceId, services.length]);
 
   // Para un servicio, devuelve el Map de empleados asignados a partir de
   // los datos crudos del fetch (sin meter el state local de edicion).
@@ -2056,7 +2082,7 @@ function ByServiceCommissions() {
           const price = Number(svc.price);
 
           return (
-            <div key={svc.id} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+            <div key={svc.id} id={`svc-comm-${svc.id}`} className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
               <button
                 onClick={() => setExpandedSvcs((prev) => { const n = new Set(prev); n.has(svc.id) ? n.delete(svc.id) : n.add(svc.id); return n; })}
                 className="w-full px-5 py-3 flex items-center justify-between hover:bg-[var(--bg-muted)] transition-colors text-left"
