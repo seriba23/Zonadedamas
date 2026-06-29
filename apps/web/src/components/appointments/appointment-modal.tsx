@@ -2158,14 +2158,15 @@ export function AppointmentModal({
                       Cobrar
                     </button>
                   )}
-                  {/* Volver a agendar con el mismo cliente/profesional. */}
-                  {onCreateAnother && (
+                  {/* Reagendar: mover esta misma cita a otra fecha/hora (revive
+                      la cita cerrada con el nuevo horario). */}
+                  {hasPermission('appointments.reschedule') && (
                     <button
                       type="button"
-                      onClick={() => { onClose(); onCreateAnother(appointment.clientId, appointment.employeeId); }}
+                      onClick={() => setRescheduleMode(true)}
                       className="btn-secondary flex-1"
                     >
-                      Agendar otra cita
+                      Reagendar
                     </button>
                   )}
                   {/* Seguimiento por WhatsApp (agradecer / invitar a volver). */}

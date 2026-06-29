@@ -831,13 +831,9 @@ export class AppointmentsService {
       throw new NotFoundException('Cita no encontrada');
     }
 
-    // No se puede reagendar una cita ya cerrada. includes() comprueba si el
-    // estado actual está en la lista de estados finales.
-    if (['CANCELLED', 'COMPLETED', 'NO_SHOW'].includes(appointment.status)) {
-      throw new BadRequestException(
-        `No se puede reagendar una cita con estado: ${appointment.status}`,
-      );
-    }
+    // Reagendar revive y mueve la cita: se permite incluso desde un estado
+    // cerrado (cancelada, ausente o completada) para "solo cambiar la fecha".
+    // El estado pasa a CONFIRMED con el nuevo horario (más abajo).
 
     // Recuperar los servicios originales para conocer su bufferAfterMinutes
     // (el snapshot del item no guarda el buffer, así que lo leemos del servicio).
