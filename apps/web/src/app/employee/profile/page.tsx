@@ -298,7 +298,10 @@ export default function EmployeeProfilePage() {
 
       {/* Tab content */}
       {activeTab === 'info' && employee && (
-        <InfoPersonalTab employee={employee} onSave={() => queryClient.invalidateQueries({ queryKey: ['employee-profile'] })} />
+        <InfoPersonalTab employee={employee} onSave={() => {
+          queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+          queryClient.invalidateQueries({ queryKey: ['public-profile-preview'] });
+        }} />
       )}
 
       {activeTab === 'public' && employee && tenantData?.slug && (
@@ -718,6 +721,10 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  // Override local: la URL nueva que devuelve el servidor tras subir, para
+  // mostrar la imagen AL INSTANTE sin recargar la página (igual que el avatar).
+  const [coverOverride, setCoverOverride] = useState<string | null>(null);
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
   // Cuando el usuario selecciona archivo, lo guardamos aqui para
   // mostrarlo en el crop modal correspondiente antes de subir.
   const [coverCropFile, setCoverCropFile] = useState<File | null>(null);
@@ -745,22 +752,32 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
   async function handleCoverUpload(file: File) {
     setUploadingCover(true);
     try {
-      await api.upload('/api/employees/me/cover', file);
-      window.location.reload();
+      const res = await api.upload<{ data: { coverImageUrl: string } }>('/api/employees/me/cover', file);
+      // Mostramos la portada nueva de inmediato con la URL que devuelve el server.
+      setCoverOverride(res.data.coverImageUrl);
+      onSave(); // refresca el perfil (y el preview público) en segundo plano
     } catch {
-      setUploadingCover(false);
+      alert('No se pudo subir la portada');
     }
+    setUploadingCover(false);
   }
 
   async function handleAvatarUpload(file: File) {
     setUploadingAvatar(true);
     try {
-      await api.upload('/api/employees/me/avatar', file);
-      window.location.reload();
+      const res = await api.upload<{ data: { avatarUrl: string } }>('/api/employees/me/avatar', file);
+      setAvatarOverride(res.data.avatarUrl);
+      onSave();
     } catch {
-      setUploadingAvatar(false);
+      alert('No se pudo subir la foto de perfil');
     }
+    setUploadingAvatar(false);
   }
+
+  // URLs efectivas: el override recién subido tiene prioridad sobre el valor del
+  // employee (que llega del servidor tras el refetch).
+  const effectiveCoverUrl = coverOverride ?? employee.coverImageUrl;
+  const effectiveAvatarUrl = avatarOverride ?? employee.avatarUrl;
 
   return (
     <div className="px-6 py-4 max-w-2xl mx-auto space-y-4">
@@ -774,8 +791,8 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
           style={{
             aspectRatio: '9/16',
             maxHeight: '320px',
-            backgroundImage: employee.coverImageUrl ? `url(${API_URL}${employee.coverImageUrl})` : undefined,
-            backgroundColor: employee.coverImageUrl ? undefined : (form.color || employee.color || '#008080'),
+            backgroundImage: effectiveCoverUrl ? `url(${API_URL}${effectiveCoverUrl})` : undefined,
+            backgroundColor: effectiveCoverUrl ? undefined : (form.color || employee.color || '#008080'),
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -791,7 +808,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
                     <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
                   </svg>
                   <span className="text-xs font-semibold drop-shadow">
-                    {employee.coverImageUrl ? 'Cambiar portada' : 'Agregar portada'}
+                    {effectiveCoverUrl ? 'Cambiar portada' : 'Agregar portada'}
                   </span>
                 </div>
               )}
@@ -811,7 +828,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
         />
 
         {/* Selector de color del banner — solo cuando editing Y sin foto. */}
-        {editing && !employee.coverImageUrl && (
+        {editing && !effectiveCoverUrl && (
           <div className="px-5 py-3 border-b border-gray-100">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Color del banner</p>
             <div className="flex flex-wrap gap-2">
@@ -860,7 +877,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
             style={{ backgroundColor: employee.color || '#008080' }}
             onClick={() => { if (editing && !uploadingAvatar) avatarFileInputRef.current?.click(); }}
           >
-            {employee.avatarUrl ? <img src={`${API_URL}${employee.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{employee.firstName[0]}{employee.lastName[0]}</>}
+            {effectiveAvatarUrl ? <img src={`${API_URL}${effectiveAvatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{employee.firstName[0]}{employee.lastName[0]}</>}
             {editing && (
               <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                 {uploadingAvatar ? (
