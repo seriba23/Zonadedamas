@@ -36,6 +36,9 @@ import { useRouter, usePathname } from 'next/navigation';
 // (sin que el usuario haga clic en un enlace). Se usa para redirigir.
 
 import { useAuth } from '@/lib/hooks/use-auth';
+// Banner de suscripción (prueba / pago pendiente). Solo aplica al freelancer
+// dueño de la cuenta (no a empleados afiliados, que no pagan la suscripción).
+import { SubscriptionBanner } from '@/components/subscription-banner';
 // useAuth → hook personalizado del proyecto que da acceso a:
 //   - user: objeto con los datos del usuario autenticado (nombre, id, etc.)
 //   - isAuthenticated: booleano (true/false) que indica si hay sesión activa
@@ -754,6 +757,13 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
         <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center justify-end px-4 py-2">
           <NotificationBell basePath="/employee" />
         </header>
+
+        {/* ─── Banner de suscripción (solo freelancer dueño de la cuenta) ─────
+            Avisa los días de prueba restantes o el pago pendiente, igual que en
+            el panel del negocio. El banner se auto-oculta si no aplica. */}
+        {user?.tenantType === 'FREELANCER' && (
+          <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
+        )}
 
         {/* ─── Banner "Completa tu perfil" ─────────────────────────────── */}
         {/* Se renderiza SOLO si profileIncomplete es true (operador &&).
