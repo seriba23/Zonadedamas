@@ -528,9 +528,15 @@ export class ReportsService {
 
     // Tres consultas en paralelo: citas de hoy, pagos de hoy y próximas citas.
     const [todayAppointments, todayPayments, upcomingAppointments] = await Promise.all([
-      // 1) Cuántas citas hay HOY (count solo devuelve el número).
+      // 1) Cuántas citas REALES hay HOY. Excluimos canceladas y ausencias para
+      //    que el número coincida con lo que se ve como cita activa (en el
+      //    calendario las canceladas aparecen tachadas, no como cita vigente).
       this.prisma.appointment.count({
-        where: { tenantId, startTime: { gte: startOfDay, lte: endOfDay } },
+        where: {
+          tenantId,
+          startTime: { gte: startOfDay, lte: endOfDay },
+          status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        },
       }),
       // 2) aggregate = "agregar/resumir" varias filas en valores únicos.
       //    Sobre los pagos COMPLETADOS de hoy calculamos:
@@ -566,9 +572,14 @@ export class ReportsService {
     const monthStart = new Date(`${todayStr.substring(0, 7)}-01T00:00:00Z`);
     // Cuatro consultas del mes en paralelo.
     const [monthAppointments, monthRevenue, monthNoShows, monthCompleted] = await Promise.all([
-      // a) Total de citas del mes.
+      // a) Total de citas REALES del mes (sin canceladas ni ausencias, igual que
+      //    el conteo de hoy, para que ambos KPIs sean coherentes).
       this.prisma.appointment.count({
-        where: { tenantId, startTime: { gte: monthStart, lte: endOfDay } },
+        where: {
+          tenantId,
+          startTime: { gte: monthStart, lte: endOfDay },
+          status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        },
       }),
       // b) Suma de ingresos del mes (pagos completados).
       this.prisma.payment.aggregate({
