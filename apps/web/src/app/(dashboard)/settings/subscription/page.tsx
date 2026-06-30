@@ -7,6 +7,7 @@ import { loadStripe, StripePaymentElementOptions } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 dayjs.locale('es');
@@ -276,11 +277,57 @@ function CancelConfirmModal({ onClose, nextBillingDate, daysLeft, onConfirm, isP
   );
 }
 
+// ─── Celebración de suscripción (pantalla completa) ────────────────────────
+// Overlay 100% de la pantalla con fondo verde en gradiente a negro y confeti en
+// tonos plata, dando la bienvenida al plan tras reactivar/activar.
+function SubscriptionCelebration({ planLabel, onClose }: { planLabel?: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-center text-center px-6"
+      style={{ background: 'linear-gradient(to bottom, #10b981 0%, #065f46 42%, #021107 78%, #000000 100%)' }}
+    >
+      {/* Confeti en tonos plata/platino */}
+      <ConfettiCelebration
+        show
+        duration={6000}
+        particlesPerBurst={28}
+        shapes={['star', 'square']}
+        colors={['#F5F5F5', '#E0E0E0', '#C0C0C0', '#A8A9AD']}
+      />
+
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Insignia con check */}
+        <div className="w-24 h-24 rounded-full bg-white/15 ring-4 ring-white/30 flex items-center justify-center mb-6 backdrop-blur-sm">
+          <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </div>
+
+        <h1 className="text-3xl md:text-4xl font-extrabold text-white drop-shadow">¡Felicidades!</h1>
+        <p className="mt-3 text-base md:text-lg text-white/90 max-w-sm">
+          Tu suscripción está activa.{planLabel ? ` Te damos la bienvenida al plan ` : ''}
+          {planLabel && <span className="font-bold text-white">{planLabel}</span>}.
+        </p>
+        <p className="mt-1 text-sm text-white/70">Gracias por seguir creciendo con Siliba.</p>
+
+        <button
+          onClick={onClose}
+          className="mt-9 px-10 py-3 rounded-full bg-white text-green-800 text-sm font-bold shadow-lg hover:bg-gray-100 transition-colors"
+        >
+          Aceptar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
   const [modal, setModal] = useState<ModalType>(null);
+  // Celebración a pantalla completa tras reactivar/activar la suscripción.
+  const [celebrate, setCelebrate] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -369,6 +416,7 @@ export default function SubscriptionPage() {
       if (d?.reactivated) {
         closeModal();
         refetch();
+        setCelebrate(true); // 🎉 celebración a pantalla completa
       } else if (d?.clientSecret) {
         // Need to complete payment — show payment form
         setModal(null);
@@ -1218,6 +1266,13 @@ export default function SubscriptionPage() {
           </div>
         </div>
       )}
+
+      {/* 🎉 Celebración a pantalla completa al reactivar/activar la suscripción */}
+      {celebrate && (() => {
+        const planRaw = (sub as any)?.plan as string | undefined;
+        const planLabel = planRaw ? ({ BASICO: 'Básico', PLUS: 'Plus', PRO: 'Pro' } as Record<string, string>)[planRaw] || planRaw : undefined;
+        return <SubscriptionCelebration planLabel={planLabel} onClose={() => setCelebrate(false)} />;
+      })()}
     </div>
   );
 }
