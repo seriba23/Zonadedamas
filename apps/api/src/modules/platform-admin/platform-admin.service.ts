@@ -212,6 +212,16 @@ export class PlatformAdminService {
           businessType: true,
           tenantType: true,
           createdAt: true,
+          // Fotos del negocio: logo (perfil) y portada.
+          logoUrl: true,
+          coverImageUrl: true,
+          // Respaldo para FREELANCER (sus fotos viven en la ficha de empleado, no
+          // en el tenant): el primer empleado es el propio freelancer.
+          employees: {
+            take: 1,
+            orderBy: { createdAt: 'asc' },
+            select: { avatarUrl: true, coverImageUrl: true },
+          },
           // Datos clave de la suscripción.
           subscription: {
             select: { plan: true, status: true, monthlyAmountUsd: true, nextBillingDate: true, trialEndsAt: true },

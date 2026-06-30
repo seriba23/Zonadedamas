@@ -51,6 +51,9 @@ import { platformApi } from '@/lib/platform-auth';
 // Modal: componente de ventana emergente reutilizable.
 import { Modal } from '@/components/ui/modal';
 
+// resolveImageUrl: convierte una ruta relativa de imagen en URL absoluta del API.
+import { resolveImageUrl } from '@/lib/utils';
+
 // ─── TIPOS ───────────────────────────────────────────────
 
 // Tenant: forma de cada negocio/cuenta que devuelve la API.
@@ -63,6 +66,10 @@ interface Tenant {
   businessType: string | null; // Rubro(s) separados por coma (ej: "SALON,SPA").
   tenantType: 'BUSINESS' | 'FREELANCER'; // Tipo de cuenta.
   createdAt: string;
+  logoUrl: string | null;        // Foto de perfil (logo) del negocio.
+  coverImageUrl: string | null;  // Foto de portada del negocio.
+  // Respaldo para freelancer: las fotos de su ficha de empleado.
+  employees?: { avatarUrl: string | null; coverImageUrl: string | null }[];
   subscription: {
     plan: string;
     status: string;            // TRIAL | ACTIVE | PAST_DUE | SUSPENDED | CANCELLED
@@ -433,6 +440,9 @@ export default function TenantsPage() {
             // "t.users?.[0]": usa "?." para no fallar si users es undefined.
             // Es el propietario (Owner) del negocio.
             const owner = t.users?.[0];
+            // Fotos: logo/portada del negocio; para freelancer, las de su ficha.
+            const profilePhoto = resolveImageUrl(t.logoUrl || t.employees?.[0]?.avatarUrl);
+            const coverPhoto = resolveImageUrl(t.coverImageUrl || t.employees?.[0]?.coverImageUrl);
             return (
               // Div tarjeta: al hacer clic navega al detalle del tenant.
               // "relative": necesario para que el botón de menú con "absolute" se posicione dentro.
@@ -474,14 +484,25 @@ export default function TenantsPage() {
                   )}
                 </button>
 
+                {/* Foto de PORTADA del negocio (edge-to-edge arriba de la tarjeta).
+                    Si no hay portada, usamos el color de acento del tipo de cuenta. */}
+                <div
+                  className="-mx-4 -mt-4 mb-3 h-20 rounded-t-xl bg-cover bg-center"
+                  style={coverPhoto ? { backgroundImage: `url(${coverPhoto})` } : { backgroundColor: accent }}
+                />
+
                 {/* Bloque de identidad: círculo con ícono + nombre del negocio + dueño.
                     "pr-8": padding derecho para no solaparse con el botón de menú. */}
                 <div className="flex items-center gap-3 pr-8">
                   {/* Círculo de ícono: usa el color accent calculado arriba.
                       "style={{ backgroundColor: accent }}": color inline dinámico. */}
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0" style={{ backgroundColor: accent }}>
-                    {/* Ternario: ícono de persona si es freelancer, ícono de edificio si es negocio. */}
-                    {isFreelancer ? (
+                  {/* Foto de PERFIL (logo del negocio o avatar del freelancer);
+                      si no hay foto, mostramos el ícono según el tipo. Sube un
+                      poco (-mt-9) para solaparse con la portada. */}
+                  <div className="w-12 h-12 -mt-9 rounded-full ring-4 ring-white overflow-hidden flex items-center justify-center text-white shrink-0 shadow-sm" style={{ backgroundColor: accent }}>
+                    {profilePhoto ? (
+                      <img src={profilePhoto} alt="" className="w-full h-full object-cover" />
+                    ) : isFreelancer ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
