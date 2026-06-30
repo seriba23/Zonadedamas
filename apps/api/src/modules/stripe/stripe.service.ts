@@ -952,13 +952,24 @@ export class StripeService implements OnModuleInit {
       }).catch(() => {});
     }
 
-    // Crear una nueva suscripción (gestiona de forma robusta el clientSecret).
-    const preview = await this.getSubscriptionPreview(tenantId);
-    const result = await this.createPlatformSubscription(tenantId, preview.activeEmployeeCount);
-
-    // Devolvemos según el resultado: si se reactivó sin cobro, o si hay clientSecret.
-    if (result.reactivated) return { reactivated: true, clientSecret: null };
-    return { reactivated: false, clientSecret: result.clientSecret };
+    // Crear una nueva suscripción en Stripe (gestiona el clientSecret). Si Stripe
+    // NO está disponible (no configurado, o el negocio paga por transferencia),
+    // NO bloqueamos: reactivamos solo en la BD restaurando el acceso. El cobro
+    // real lo gestiona el negocio por transferencia y el super admin lo verifica.
+    try {
+      const preview = await this.getSubscriptionPreview(tenantId);
+      const result = await this.createPlatformSubscription(tenantId, preview.activeEmployeeCount);
+      // Devolvemos según el resultado: reactivado sin cobro, o con clientSecret.
+      if (result.reactivated) return { reactivated: true, clientSecret: null };
+      return { reactivated: false, clientSecret: result.clientSecret };
+    } catch (err: any) {
+      this.logger.warn(`[reactivate] Stripe no disponible; reactivación manual en DB: ${err?.message}`);
+      await this.prisma.subscription.update({
+        where: { tenantId },
+        data: { status: 'ACTIVE', cancelledAt: null },
+      });
+      return { reactivated: true, clientSecret: null };
+    }
   }
 
   // advancePayment(): crea un cobro ÚNICO (PaymentIntent) para pagar un mes por
