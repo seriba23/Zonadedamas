@@ -974,7 +974,7 @@ export class MarketplaceService {
 
   // toggleFavorite(): marca/desmarca un negocio como favorito. Si ya era
   // favorito, lo quita (devuelve favorited:false); si no, lo agrega (true).
-  async toggleFavorite(marketplaceUserId: string, tenantSlug: string) {
+  async toggleFavorite(marketplaceUserId: string, tenantSlug: string, profileId?: string) {
     // Buscamos el negocio por su slug, trayendo solo id y si está listado.
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: tenantSlug },
@@ -989,15 +989,12 @@ export class MarketplaceService {
       throw new NotFoundException('Negocio no encontrado');
     }
 
-    // Buscamos si ya existe el favorito. "userId_tenantId" es el nombre de la
-    // clave única compuesta (usuario + negocio) definida en el esquema Prisma.
-    const existing = await this.prisma.marketplaceFavorite.findUnique({
-      where: {
-        userId_tenantId: {
-          userId: marketplaceUserId,
-          tenantId: tenant.id,
-        },
-      },
+    // El favorito pertenece al PERFIL activo (cada perfil tiene su propia lista).
+    const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
+
+    // Buscamos si ya existe el favorito para (usuario, perfil, negocio).
+    const existing = await this.prisma.marketplaceFavorite.findFirst({
+      where: { userId: marketplaceUserId, profileId: activeProfileId, tenantId: tenant.id },
     });
 
     // Si ya existía, lo borramos -> deja de ser favorito.
@@ -1012,6 +1009,7 @@ export class MarketplaceService {
     await this.prisma.marketplaceFavorite.create({
       data: {
         userId: marketplaceUserId,
+        profileId: activeProfileId,
         tenantId: tenant.id,
       },
     });
@@ -1020,11 +1018,14 @@ export class MarketplaceService {
 
   // getMyFavorites(): devuelve los negocios favoritos del usuario, enriquecidos
   // con su calificación media y total de reseñas.
-  async getMyFavorites(marketplaceUserId: string) {
+  async getMyFavorites(marketplaceUserId: string, profileId?: string) {
+    // Solo los favoritos del PERFIL activo (cada perfil tiene su lista). El
+    // titular (SELF) también ve los favoritos antiguos sin perfil.
+    const profileWhere = await this.buildFavoriteProfileWhere(marketplaceUserId, profileId);
     // Traemos todos los favoritos del usuario, incluyendo datos del negocio,
     // ordenados del más reciente al más antiguo (createdAt desc).
     const favorites = await this.prisma.marketplaceFavorite.findMany({
-      where: { userId: marketplaceUserId },
+      where: { userId: marketplaceUserId, ...profileWhere },
       include: {
         tenant: {
           select: {
@@ -1078,7 +1079,7 @@ export class MarketplaceService {
   // un negocio: datos, servicios, empleados, reseñas (combinadas y sin
   // duplicados) y si el usuario actual lo tiene en favoritos.
   // marketplaceUserId es opcional (el endpoint es público con guard opcional).
-  async getBusinessDetail(tenantSlug: string, marketplaceUserId?: string) {
+  async getBusinessDetail(tenantSlug: string, marketplaceUserId?: string, profileId?: string) {
     // Buscamos el negocio por slug con todos los campos de presentación.
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: tenantSlug },
@@ -1419,13 +1420,10 @@ export class MarketplaceService {
     // Check if favorited
     let isFavorited = false;
     if (marketplaceUserId) {
-      const fav = await this.prisma.marketplaceFavorite.findUnique({
-        where: {
-          userId_tenantId: {
-            userId: marketplaceUserId,
-            tenantId: tenant.id,
-          },
-        },
+      // Favorito del PERFIL activo (cada perfil tiene su propia lista).
+      const profileWhere = await this.buildFavoriteProfileWhere(marketplaceUserId, profileId);
+      const fav = await this.prisma.marketplaceFavorite.findFirst({
+        where: { userId: marketplaceUserId, tenantId: tenant.id, ...profileWhere },
       });
       isFavorited = !!fav;
     }
@@ -1698,9 +1696,12 @@ export class MarketplaceService {
 
   // toggleProfessionalFavorite(): marca/desmarca un profesional como favorito
   // (mismo patrón que toggleFavorite de negocios, pero con empleados).
-  async toggleProfessionalFavorite(marketplaceUserId: string, employeeId: string) {
-    const existing = await this.prisma.marketplaceProfessionalFavorite.findUnique({
-      where: { userId_employeeId: { userId: marketplaceUserId, employeeId } },
+  async toggleProfessionalFavorite(marketplaceUserId: string, employeeId: string, profileId?: string) {
+    // El favorito pertenece al PERFIL activo (cada perfil tiene su propia lista).
+    const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
+
+    const existing = await this.prisma.marketplaceProfessionalFavorite.findFirst({
+      where: { userId: marketplaceUserId, profileId: activeProfileId, employeeId },
     });
 
     if (existing) {
@@ -1709,16 +1710,19 @@ export class MarketplaceService {
     }
 
     await this.prisma.marketplaceProfessionalFavorite.create({
-      data: { userId: marketplaceUserId, employeeId },
+      data: { userId: marketplaceUserId, profileId: activeProfileId, employeeId },
     });
     return { data: { favorited: true } };
   }
 
   // getMyProfessionalFavorites(): profesionales favoritos del usuario, con su
   // negocio y su calificación.
-  async getMyProfessionalFavorites(marketplaceUserId: string) {
+  async getMyProfessionalFavorites(marketplaceUserId: string, profileId?: string) {
+    // Solo los profesionales favoritos del PERFIL activo (el titular hereda los
+    // antiguos sin perfil).
+    const profileWhere = await this.buildFavoriteProfileWhere(marketplaceUserId, profileId);
     const favorites = await this.prisma.marketplaceProfessionalFavorite.findMany({
-      where: { userId: marketplaceUserId },
+      where: { userId: marketplaceUserId, ...profileWhere },
       include: {
         employee: {
           select: {
@@ -2300,6 +2304,26 @@ export class MarketplaceService {
     }
     const self = await this.ensureSelfProfile(userId);
     return self.id;
+  }
+
+  // Construye el filtro `where` por perfil para favoritos/cupones: si no llega
+  // perfil, no filtra; si llega, solo ese perfil — salvo el TITULAR (SELF/
+  // default), que además hereda los registros antiguos sin perfil (profileId
+  // null) creados antes de este sistema.
+  private async buildFavoriteProfileWhere(
+    marketplaceUserId: string,
+    profileId?: string,
+  ): Promise<any> {
+    if (!profileId) return {};
+    const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
+    const prof = await this.prisma.profile.findUnique({
+      where: { id: activeProfileId },
+      select: { relationship: true, isDefault: true },
+    });
+    const isOwner = prof?.relationship === 'SELF' || prof?.isDefault;
+    return isOwner
+      ? { OR: [{ profileId: activeProfileId }, { profileId: null }] }
+      : { profileId: activeProfileId };
   }
 
   // Busca o crea la ficha Client de un perfil en un negocio. Centraliza el
@@ -3500,21 +3524,8 @@ export class MarketplaceService {
     }
 
     // Si llega un perfil activo, mostramos SOLO los cupones de ese perfil (no se
-    // comparten entre el tutor y sus hijos). Sin perfil, todos los del usuario.
-    let profileWhere: any = {};
-    if (profileId) {
-      const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
-      const prof = await this.prisma.profile.findUnique({
-        where: { id: activeProfileId },
-        select: { relationship: true, isDefault: true },
-      });
-      // El perfil TITULAR (SELF/default) también hereda los cupones antiguos sin
-      // perfil (canjes previos a este sistema). Los hijos solo ven los suyos.
-      const isOwner = prof?.relationship === 'SELF' || prof?.isDefault;
-      profileWhere = isOwner
-        ? { OR: [{ profileId: activeProfileId }, { profileId: null }] }
-        : { profileId: activeProfileId };
-    }
+    // comparten entre el tutor y sus hijos). El titular hereda los antiguos.
+    const profileWhere = await this.buildFavoriteProfileWhere(marketplaceUserId, profileId);
 
     const redemptions = await this.prisma.rewardRedemption.findMany({
       where: {

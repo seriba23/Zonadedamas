@@ -417,10 +417,12 @@ export class MarketplaceController {
   async toggleFavorite(
     @Req() req: any,
     @Param('tenantSlug') tenantSlug: string,
+    @Body('profileId') profileId?: string,
   ) {
     const result = await this.marketplaceService.toggleFavorite(
       req.user.marketplaceUserId,
       tenantSlug,
+      profileId,
     );
     return { data: result };
   }
@@ -428,8 +430,8 @@ export class MarketplaceController {
   // GET /api/marketplace/my-favorites => negocios favoritos del usuario.
   @UseGuards(MarketplaceJwtGuard)
   @Get('my-favorites')
-  async getMyFavorites(@Req() req: any) {
-    return this.marketplaceService.getMyFavorites(req.user.marketplaceUserId);
+  async getMyFavorites(@Req() req: any, @Query('profileId') profileId?: string) {
+    return this.marketplaceService.getMyFavorites(req.user.marketplaceUserId, profileId);
   }
 
   // ─── DISCOVERY (public) ──────────────────────────────
@@ -449,11 +451,12 @@ export class MarketplaceController {
   async getBusinessDetail(
     @Req() req: any,
     @Param('tenantSlug') tenantSlug: string,
+    @Query('profileId') profileId?: string,
   ) {
     // "req.user?.marketplaceUserId": el "?." (optional chaining) evita un error si
     // req.user es null (usuario no logueado): en ese caso da undefined.
     const marketplaceUserId = req.user?.marketplaceUserId;
-    return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId);
+    return this.marketplaceService.getBusinessDetail(tenantSlug, marketplaceUserId, profileId || undefined);
   }
 
   // GET /api/marketplace/discover/:tenantSlug/reviews => reseñas del negocio.
@@ -497,15 +500,16 @@ export class MarketplaceController {
   async toggleProfessionalFavorite(
     @Req() req: any,
     @Param('employeeId') employeeId: string,
+    @Body('profileId') profileId?: string,
   ) {
-    return this.marketplaceService.toggleProfessionalFavorite(req.user.marketplaceUserId, employeeId);
+    return this.marketplaceService.toggleProfessionalFavorite(req.user.marketplaceUserId, employeeId, profileId);
   }
 
   // GET /api/marketplace/professionals/my-favorites => profesionales favoritos.
   @UseGuards(MarketplaceJwtGuard)
   @Get('professionals/my-favorites')
-  async getMyProfessionalFavorites(@Req() req: any) {
-    return this.marketplaceService.getMyProfessionalFavorites(req.user.marketplaceUserId);
+  async getMyProfessionalFavorites(@Req() req: any, @Query('profileId') profileId?: string) {
+    return this.marketplaceService.getMyProfessionalFavorites(req.user.marketplaceUserId, profileId);
   }
 
   // GET /api/marketplace/business-types => catálogo de tipos de negocio (público).

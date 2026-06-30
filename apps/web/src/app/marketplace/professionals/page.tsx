@@ -58,7 +58,7 @@ interface Professional {
 // ── Componente principal ───────────────────────────────────
 export default function ProfessionalsPage() {
   const router = useRouter();
-  const { isAuthenticated } = useMarketplaceAuth();
+  const { isAuthenticated, activeProfile } = useMarketplaceAuth();
   const queryClient = useQueryClient();
 
   // Texto del buscador (lo que el usuario escribe en tiempo real).
@@ -145,8 +145,11 @@ export default function ProfessionalsPage() {
   });
 
   const { data: favData } = useQuery({
-    queryKey: ['pro-favorites'],
-    queryFn: () => marketplaceApi.get<{ data: Professional[] }>('/professionals/my-favorites'),
+    queryKey: ['pro-favorites', activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: Professional[] }>(
+        activeProfile?.id ? `/professionals/my-favorites?profileId=${activeProfile.id}` : '/professionals/my-favorites',
+      ),
     enabled: isAuthenticated,
   });
 
@@ -157,7 +160,7 @@ export default function ProfessionalsPage() {
 
   const toggleFavMutation = useMutation({
     mutationFn: (employeeId: string) =>
-      marketplaceApi.post<{ data: { favorited: boolean } }>(`/professionals/favorites/${employeeId}`),
+      marketplaceApi.post<{ data: { favorited: boolean } }>(`/professionals/favorites/${employeeId}`, { profileId: activeProfile?.id }),
     onMutate: (employeeId) => {
       setFavIds((prev) => {
         const next = new Set(prev);

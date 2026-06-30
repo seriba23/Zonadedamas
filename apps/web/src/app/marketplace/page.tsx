@@ -117,7 +117,7 @@ export default function MarketplacePage() {
   const queryClient = useQueryClient();
 
   // isAuthenticated: ¿tiene el usuario sesión? Si no, ocultamos el botón de favoritos.
-  const { isAuthenticated } = useMarketplaceAuth();
+  const { isAuthenticated, activeProfile } = useMarketplaceAuth();
 
   // ─── Estado del filtro de vista ─────────────────────────────────────
   // viewTab: controla qué tab está seleccionado ('negocios' o 'profesionales').
@@ -240,8 +240,11 @@ export default function MarketplacePage() {
   // Solo se ejecuta si isAuthenticated es true (enabled: isAuthenticated).
   // Si el usuario no está autenticado, no pedimos sus favoritos.
   const { data: favData } = useQuery({
-    queryKey: ['marketplace-my-favorites'],
-    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-favorites'),
+    queryKey: ['marketplace-my-favorites', activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any[] }>(
+        activeProfile?.id ? `/my-favorites?profileId=${activeProfile.id}` : '/my-favorites',
+      ),
     enabled: isAuthenticated, // Solo cuando el usuario está logueado.
   });
 
@@ -265,7 +268,7 @@ export default function MarketplacePage() {
     // mutationFn: función que hace la petición HTTP.
     // Recibe el slug del negocio que queremos marcar/desmarcar.
     mutationFn: (slug: string) =>
-      marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${slug}`),
+      marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${slug}`, { profileId: activeProfile?.id }),
 
     // onMutate: se ejecuta ANTES de que la petición HTTP salga.
     // Es el "optimistic update": actualizamos la UI inmediatamente

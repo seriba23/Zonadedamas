@@ -594,8 +594,11 @@ export default function MarketplaceProfilePage() {
   // ─── Query: Favoritos (solo el conteo) ──────────────────────────────
   // Favoritos — solo el conteo, el listado vive en /marketplace?favorites=1
   const { data: favoritesData } = useQuery({
-    queryKey: ['marketplace-my-favorites'],
-    queryFn: () => marketplaceApi.get<{ data: FavoriteBusiness[] }>('/my-favorites'),
+    queryKey: ['marketplace-my-favorites', activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: FavoriteBusiness[] }>(
+        activeProfile?.id ? `/my-favorites?profileId=${activeProfile.id}` : '/my-favorites',
+      ),
     enabled: isAuthenticated,
   });
   const favorites: FavoriteBusiness[] = (favoritesData as any)?.data || [];

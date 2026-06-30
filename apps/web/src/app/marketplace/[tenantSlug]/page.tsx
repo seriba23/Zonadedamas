@@ -534,8 +534,11 @@ export default function BusinessDetailPage() {
   //   el dato cacheado sin hacer otra petición de red.
   // - isLoading: true mientras espera la primera respuesta del servidor.
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-business', tenantSlug],
-    queryFn: () => marketplaceApi.get<{ data: any }>(`/discover/${tenantSlug}`),
+    queryKey: ['marketplace-business', tenantSlug, activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any }>(
+        activeProfile?.id ? `/discover/${tenantSlug}?profileId=${activeProfile.id}` : `/discover/${tenantSlug}`,
+      ),
   });
 
   // `?.data`: operador de acceso seguro (optional chaining). Si `data` es undefined,
@@ -999,7 +1002,7 @@ export default function BusinessDetailPage() {
   // `onSettled`: se ejecuta SIEMPRE (éxito o error) para sincronizar el caché.
   const favMutation = useMutation({
     mutationFn: () =>
-      marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${tenantSlug}`),
+      marketplaceApi.post<{ data: { favorited: boolean } }>(`/favorites/${tenantSlug}`, { profileId: activeProfile?.id }),
     onMutate: () => {
       setIsFavorited((prev) => !prev);
     },

@@ -515,6 +515,8 @@ model Profile {
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   clients Client[]
   rewardRedemptions RewardRedemption[]
+  favorites MarketplaceFavorite[]
+  professionalFavorites MarketplaceProfessionalFavorite[]
 
   @@index([userId])
   @@map("profiles")
@@ -1563,28 +1565,36 @@ model RewardReferral {
 model MarketplaceFavorite {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
+  // Perfil (estilo Netflix) dueño del favorito. Cada perfil tiene su propia
+  // lista; nullable para favoritos antiguos (backfill al perfil titular).
+  profileId String?  @map("profile_id")
   tenantId  String   @map("tenant_id")
   createdAt DateTime @default(now()) @map("created_at")
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, tenantId])
+  @@unique([userId, profileId, tenantId])
   @@index([userId])
+  @@index([profileId])
   @@map("marketplace_favorites")
 }
 
 model MarketplaceProfessionalFavorite {
   id         String   @id @default(cuid())
   userId     String   @map("user_id")
+  profileId  String?  @map("profile_id")
   employeeId String   @map("employee_id")
   createdAt  DateTime @default(now()) @map("created_at")
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile  Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, employeeId])
+  @@unique([userId, profileId, employeeId], map: "mp_prof_fav_user_profile_emp_key")
   @@index([userId])
+  @@index([profileId])
   @@map("marketplace_professional_favorites")
 }
 
