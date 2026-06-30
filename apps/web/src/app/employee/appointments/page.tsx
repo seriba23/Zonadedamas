@@ -210,16 +210,33 @@ export default function EmployeeAppointmentsPage() {
   // una cita, invalidamos la lista para que se refresque).
   const queryClient = useQueryClient();
 
+  // searchParams: parámetros de la URL. Se usan para pre-filtrar la vista cuando
+  // se llega desde las tarjetas del inicio del empleado (deep-link).
+  const searchParams = useSearchParams();
+  // Valores iniciales desde la URL:
+  //   ?section=today|upcoming|past  → pestaña inicial
+  //   ?range=month                  → muestra SOLO el mes corriente (pestaña Pasadas)
+  //   ?status=COMPLETED             → filtro de estado inicial
+  const urlRange = searchParams.get('range');
+  const urlSection = searchParams.get('section') as SectionTab | null;
+  const urlStatus = searchParams.get('status') || '';
+
   // section: pestaña activa. Empieza en 'upcoming' (citas próximas).
   // <SectionTab> es la anotación de tipo TypeScript: solo puede ser
   // 'upcoming', 'past' o 'today'.
-  const [section, setSection] = useState<SectionTab>('upcoming');
+  const [section, setSection] = useState<SectionTab>(
+    urlSection || (urlRange === 'month' ? 'past' : 'upcoming'),
+  );
+
+  // monthMode: cuando true, el rango de fechas es el MES corriente (no los 90
+  // días de "Pasadas"). Se activa con ?range=month desde la tarjeta "Este mes".
+  const [monthMode, setMonthMode] = useState<boolean>(urlRange === 'month');
 
   // search: texto que el usuario escribe en el buscador.
   const [search, setSearch] = useState('');
 
   // statusFilter: estado seleccionado en el dropdown. '' = todos los estados.
-  const [statusFilter, setStatusFilter] = useState<string>(''); // '' = todos
+  const [statusFilter, setStatusFilter] = useState<string>(urlStatus); // '' = todos
 
   // serviceFilter: nombre del servicio seleccionado. '' = todos los servicios.
   const [serviceFilter, setServiceFilter] = useState<string>('');
@@ -232,10 +249,11 @@ export default function EmployeeAppointmentsPage() {
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
 
 
-  // Calculamos el rango de fechas según la pestaña activa.
-  // La desestructuración { startDate, endDate } extrae ambas propiedades
-  // del objeto devuelto por getDateRangeForSection().
-  const { startDate, endDate } = getDateRangeForSection(section);
+  // Calculamos el rango de fechas. En modo mes, el rango es el mes corriente;
+  // si no, depende de la pestaña activa (getDateRangeForSection).
+  const { startDate, endDate } = monthMode
+    ? { startDate: dayjs().startOf('month').format('YYYY-MM-DD'), endDate: dayjs().endOf('month').format('YYYY-MM-DD') }
+    : getDateRangeForSection(section);
 
   const { data: appointments, isLoading } = useQuery({
     queryKey: ['employee-appointments', user?.employeeId, startDate, endDate],
@@ -253,7 +271,6 @@ export default function EmployeeAppointmentsPage() {
   // en la URL y la cita ya esta cargada, abre el detalle automaticamente.
   // Si la cita esta fuera del rango de la pestana actual (upcoming/today/
   // past), la traemos individual para abrir el modal igual.
-  const searchParams = useSearchParams();
   const targetAptId = searchParams.get('appointmentId');
   const { data: deepLinkApt } = useQuery({
     queryKey: ['employee-appointment-detail', targetAptId],
@@ -419,7 +436,7 @@ export default function EmployeeAppointmentsPage() {
           ]).map((tab, idx) => (
             <button
               key={tab.key}
-              onClick={() => setSection(tab.key)}
+              onClick={() => { setSection(tab.key); setMonthMode(false); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${idx > 0 ? 'border-l border-gray-300' : ''} ${
                 section === tab.key
                   ? 'bg-[#008080] text-white'

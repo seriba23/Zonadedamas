@@ -25,6 +25,9 @@ import { useState, useMemo } from 'react';
 // useState → para el período seleccionado y las fechas personalizadas.
 // useMemo  → para calcular las filas y los totales de forma eficiente.
 
+import { useSearchParams } from 'next/navigation';
+// useSearchParams → para leer ?period= del deep-link desde el inicio del empleado.
+
 import { useAuth } from '@/lib/hooks/use-auth';
 // useAuth → para obtener el employeeId del usuario autenticado.
 
@@ -70,8 +73,13 @@ export default function EmployeeCommissionsPage() {
   const currencyHook = useCurrency();
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
 
-  // period: período actualmente seleccionado. Empieza en 'this_month'.
-  const [period, setPeriod] = useState<PeriodType>('this_month');
+  // period: período actualmente seleccionado. Empieza en 'this_month', salvo
+  // que llegue ?period= en la URL (deep-link desde la tarjeta de ingresos).
+  const searchParams = useSearchParams();
+  const urlPeriod = searchParams.get('period');
+  const [period, setPeriod] = useState<PeriodType>(
+    urlPeriod === 'last_month' || urlPeriod === 'custom' ? urlPeriod : 'this_month',
+  );
 
   // customStart y customEnd: fechas del período personalizado.
   // Solo se usan cuando period === 'custom'.

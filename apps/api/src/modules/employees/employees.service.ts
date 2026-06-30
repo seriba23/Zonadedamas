@@ -555,6 +555,7 @@ export class EmployeesService {
       upcomingAppointments,  // próximas citas
       ratingResult,          // promedio y nº de reseñas
       topClients,            // clientes que más vienen
+      revenueThisMonthResult, // ingresos generados este mes
     ] = await Promise.all([
       // 1) Citas COMPLETED (todas).
       this.prisma.appointment.count({
@@ -655,6 +656,15 @@ export class EmployeesService {
         orderBy: { _count: { clientId: 'desc' } },
         take: 5,
       }),
+      // 13) Ingresos de ESTE MES: suma del precio snapshot de items de citas
+      //     completadas con startTime >= inicio de mes.
+      this.prisma.appointmentItem.aggregate({
+        where: {
+          employeeId,
+          appointment: { tenantId, status: 'COMPLETED', startTime: { gte: startOfMonth } },
+        },
+        _sum: { priceSnapshot: true },
+      }),
     ]);
 
     // Fetch top client names
@@ -672,6 +682,7 @@ export class EmployeesService {
     // Convertimos los sumatorios a número. "?? 0" cubre el caso de que la suma
     // sea null (cuando no hay filas). Number(...) por si vienen como Decimal.
     const revenue = Number(revenueResult._sum.priceSnapshot ?? 0);
+    const revenueThisMonth = Number(revenueThisMonthResult._sum.priceSnapshot ?? 0);
     const totalCommissions = Number(commissionsResult._sum.commissionSnapshot ?? 0);
     const monthCommissions = Number(commissionsThisMonth._sum.commissionSnapshot ?? 0);
     // Tasa de cancelación (%): (canceladas + no-shows) / total * 100, redondeada.
@@ -689,6 +700,7 @@ export class EmployeesService {
       noShowCount,
       cancellationRate,
       totalRevenue: revenue,
+      revenueThisMonth,
       // Promedio de rating a 1 decimal; null si no hay reseñas.
       averageRating: ratingResult._avg.rating
         ? Math.round(ratingResult._avg.rating * 10) / 10
@@ -982,7 +994,7 @@ export class EmployeesService {
         where: { employeeId, tenantId, isVisible: true },
         orderBy: { createdAt: 'desc' }, // más recientes primero
         include: {
-          client: { select: { id: true, firstName: true, lastName: true } },
+          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
           appointment: {
             select: {
               id: true,

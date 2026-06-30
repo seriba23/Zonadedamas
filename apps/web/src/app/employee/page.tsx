@@ -85,6 +85,7 @@ interface Stats {
   noShowCount: number;               // total de ausencias (no-shows)
   cancellationRate: number;          // tasa de cancelación (porcentaje)
   totalRevenue: number;              // ingresos generados en total
+  revenueThisMonth: number;          // ingresos generados este mes
   totalCommissions: number;          // comisiones acumuladas totales
   commissionsThisMonth: number;      // comisiones del mes actual
   averageRating: number | null;      // valoración promedio (null si no hay reseñas)
@@ -220,18 +221,24 @@ export default function EmployeeDashboard() {
           lg:grid-cols-4 → 4 columnas en pantallas grandes (>= 1024px). */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
 
-        {/* Tarjeta 1: Citas de hoy */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        {/* Tarjeta 1: Citas de hoy → lleva a Mis citas (pestaña Hoy). */}
+        <Link
+          href="/employee/appointments?section=today"
+          className="bg-white rounded-xl border border-gray-200 p-4 hover:border-[#008080]/30 hover:shadow-sm transition-all"
+        >
           <p className="text-xs font-medium text-gray-500 mb-1">Citas hoy</p>
           <p className="text-2xl font-bold text-gray-900">
             {/* Ternario: si isLoading es true muestra "...", si no muestra
                 el número de citas (sortedAppointments.length = cantidad). */}
             {isLoading ? '...' : sortedAppointments.length}
           </p>
-        </div>
+        </Link>
 
-        {/* Tarjeta 2: Citas completadas este mes */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        {/* Tarjeta 2: Completadas este mes → Mis citas (mes corriente, completadas). */}
+        <Link
+          href="/employee/appointments?range=month&status=COMPLETED"
+          className="bg-white rounded-xl border border-gray-200 p-4 hover:border-[#008080]/30 hover:shadow-sm transition-all"
+        >
           <p className="text-xs font-medium text-gray-500 mb-1">Este mes</p>
           <p className="text-2xl font-bold text-gray-900">
             {/* stats?.completedThisMonth → acceso seguro: si stats es undefined
@@ -240,21 +247,26 @@ export default function EmployeeDashboard() {
             {stats?.completedThisMonth ?? '...'}
           </p>
           <p className="text-xs text-gray-400">completadas</p>
-        </div>
+        </Link>
 
-        {/* Tarjeta 3: Ingresos generados */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        {/* Tarjeta 3: Ingresos generados ESTE MES → atajo a Comisiones. */}
+        <Link
+          href="/employee/commissions?period=this_month"
+          className="bg-white rounded-xl border border-gray-200 p-4 hover:border-[#008080]/30 hover:shadow-sm transition-all"
+        >
           <p className="text-xs font-medium text-gray-500 mb-1">Ingresos generados</p>
           <p className="text-2xl font-bold text-[#008080]">
-            {/* Si stats existe, formateamos el número con la moneda del usuario.
-                Si no, mostramos "..." como placeholder de carga. */}
-            {stats ? formatCurrency(stats.totalRevenue) : '...'}
+            {/* Ingresos del mes corriente (mismo filtro que se lleva a Comisiones). */}
+            {stats ? formatCurrency(stats.revenueThisMonth) : '...'}
           </p>
-          <p className="text-xs text-gray-400">total</p>
-        </div>
+          <p className="text-xs text-gray-400">este mes</p>
+        </Link>
 
-        {/* Tarjeta 4: Valoración promedio */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        {/* Tarjeta 4: Valoración promedio → Mis reseñas. */}
+        <Link
+          href="/employee/reviews"
+          className="bg-white rounded-xl border border-gray-200 p-4 hover:border-[#008080]/30 hover:shadow-sm transition-all"
+        >
           <p className="text-xs font-medium text-gray-500 mb-1">Valoración</p>
           <div className="flex items-center gap-1.5">
             <p className="text-2xl font-bold text-amber-500">
@@ -270,7 +282,7 @@ export default function EmployeeDashboard() {
           </div>
           {/* ?? 0 → si totalReviews es undefined/null, usa 0 */}
           <p className="text-xs text-gray-400">{stats?.totalReviews ?? 0} reseñas</p>
-        </div>
+        </Link>
       </div>
 
       {/* ─── ACCIONES RÁPIDAS ────────────────────────────────────────────── */}
@@ -287,7 +299,7 @@ export default function EmployeeDashboard() {
           {[
             { label: 'Mis Citas', href: '/employee/appointments', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5' },
             { label: 'Comisiones', href: '/employee/commissions', icon: 'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-            { label: 'Galería', href: '/employee/gallery', icon: 'M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z' },
+            { label: 'Galería', href: '/employee/profile?tab=portfolio', icon: 'M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z' },
             { label: 'Mi Horario', href: '/employee/schedule', icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z' },
             { label: 'Reseñas', href: '/employee/reviews', icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z' },
             { label: 'Mi Perfil', href: '/employee/profile', icon: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z' },

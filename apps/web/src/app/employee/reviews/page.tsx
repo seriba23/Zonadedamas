@@ -14,6 +14,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import dayjs from 'dayjs';
 // dayjs → para formatear la fecha de la reseña en español.
+import { Avatar } from '@/components/ui/avatar';
+// Avatar → foto del cliente o iniciales coloreadas (estilo de toda la plataforma).
 
 // Review: objeto de una reseña individual.
 interface Review {
@@ -21,7 +23,7 @@ interface Review {
   rating: number;             // valoración de 1 a 5 estrellas
   comment: string | null;     // comentario del cliente (opcional)
   createdAt: string;          // cuándo se dejó la reseña (ISO 8601)
-  client: { id: string; firstName: string; lastName: string };
+  client: { id: string; firstName: string; lastName: string; avatarUrl?: string | null };
   appointment: {              // cita asociada (puede ser null en algunos casos)
     id: string;
     startTime: string;
@@ -202,11 +204,15 @@ export default function EmployeeReviewsPage() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="flex items-center gap-3">
-                        {/* Avatar del cliente: círculo con iniciales.
-                            [0] accede al primer carácter del string. */}
-                        <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-bold">
-                          {review.client.firstName[0]}{review.client.lastName[0]}
-                        </div>
+                        {/* Avatar del cliente: foto si la tiene, si no iniciales
+                            coloreadas (mismo estilo que ve un cliente las reseñas). */}
+                        <Avatar
+                          avatarUrl={review.client.avatarUrl}
+                          firstName={review.client.firstName}
+                          lastName={review.client.lastName}
+                          className="w-9 h-9"
+                          textClassName="text-xs"
+                        />
                         <div>
                           <p className="text-sm font-medium text-gray-900">
                             {review.client.firstName} {review.client.lastName}
