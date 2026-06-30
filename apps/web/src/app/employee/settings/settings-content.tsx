@@ -60,6 +60,7 @@ import { api } from '@/lib/api';
 // Modal para recortar la foto de perfil antes de subirla.
 // Muestra una interfaz de crop circular para que el avatar quede bien.
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
+import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 
 // Selector de alergias: un componente con chips/píldoras seleccionables
 // (Látex, Polen, Mariscos, etc.).
@@ -123,6 +124,9 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   // Archivo de imagen seleccionado para recortar (antes de subir el avatar).
   // null = no hay archivo pendiente de recortar.
   const [cropFile, setCropFile] = useState<File | null>(null);
+  // Archivo de portada seleccionado, para recortarlo en el CoverCropModal antes
+  // de subir (igual que el avatar). Así se redimensiona y no supera el límite.
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null);
 
   // Controla si el formulario de edición está visible.
   // Se inicia como "true" (abierto) si:
@@ -237,6 +241,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
     // Mismo motivo que saveMutation: el banner vive en employee/layout.tsx
     // y solo refresca su estado cuando la pagina se vuelve a montar.
     onSuccess: () => { window.location.reload(); },
+    onError: () => alert('No se pudo subir la foto de perfil'),
   });
 
   // ─── MUTATION: subir foto de portada ─────────────────────────────────────
@@ -245,6 +250,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
     // Mismo motivo que saveMutation: el banner vive en employee/layout.tsx
     // y solo refresca su estado cuando la pagina se vuelve a montar.
     onSuccess: () => { window.location.reload(); },
+    onError: () => alert('No se pudo subir la portada'),
   });
 
   // ─── MUTATION: cambiar contraseña ─────────────────────────────────────────
@@ -349,8 +355,9 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
                 // creando el efecto de carga circular.
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
               ) : (
-                // Botón "Cambiar portada" visible sólo en hover (opacity-0 → group-hover:opacity-100).
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-gray-700 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                // Botón "Cambiar/Agregar portada" SIEMPRE visible (antes solo en
+                // hover, lo que ocultaba para qué servía el rectángulo).
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-gray-700 text-xs font-semibold shadow-sm">
                   {/* Icono cámara SVG */}
                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-2a3 3 0 100-6 3 3 0 000 6z"/>
@@ -375,7 +382,10 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
                 // e.target.files es un FileList (como un array). [0] = primer archivo.
                 // "?." = optional chaining: si files es null, devuelve undefined.
                 const f = e.target.files?.[0];
-                if (f) coverMutation.mutate(f);
+                // En vez de subir el archivo RAW (que puede pasar de 5MB y fallar
+                // en silencio), lo pasamos por el modal de recorte, que genera un
+                // JPEG redimensionado — igual que el avatar.
+                if (f) setCoverCropFile(f);
                 // Limpiamos el input para que el onChange se dispare aunque el
                 // usuario seleccione el mismo archivo dos veces.
                 e.target.value = '';
@@ -606,6 +616,18 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
           - onAccept: recibe el archivo recortado y lo sube con avatarMutation. */}
       {cropFile && (
         <AvatarCropModal imageFile={cropFile} onCancel={() => setCropFile(null)} onChooseAnother={() => { setCropFile(null); fileInputRef.current?.click(); }} onAccept={(f) => { avatarMutation.mutate(f); setCropFile(null); }} />
+      )}
+
+      {/* Modal de recorte de la PORTADA (vertical 9:16). Al aceptar, sube el
+          archivo recortado/redimensionado con coverMutation. */}
+      {coverCropFile && (
+        <CoverCropModal
+          imageFile={coverCropFile}
+          aspect="portrait"
+          onCancel={() => setCoverCropFile(null)}
+          onChooseAnother={() => { setCoverCropFile(null); coverFileInputRef.current?.click(); }}
+          onAccept={(f) => { coverMutation.mutate(f); setCoverCropFile(null); }}
+        />
       )}
     </div>
   );
