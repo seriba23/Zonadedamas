@@ -25,6 +25,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 // Módulo propio de HTTP con autenticación JWT.
 
+import { showSaveSuccess } from '@/lib/save-toast';
+// Modal estándar de confirmación de guardado.
+
 import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 // Hook personalizado que indica si el tenant (negocio) es "freelancer".
 // Los freelancers no tienen "negocio" como tal, por lo que no tienen
@@ -209,6 +212,7 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-schedules', employeeId] });
       setHasChanges(false);  // ya no hay cambios pendientes
+      showSaveSuccess();
     },
   });
 
@@ -440,12 +444,6 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
       </div>
 
       {/* Mensajes de resultado de la operación de guardar. */}
-      {/* "saveMutation.isSuccess" es true si la última mutación tuvo éxito. */}
-      {saveMutation.isSuccess && (
-        <p className="text-sm text-green-600 text-right">
-          Horario guardado correctamente
-        </p>
-      )}
       {/* "saveMutation.isError" es true si la última mutación falló. */}
       {saveMutation.isError && (
         <p className="text-sm text-red-600 text-right">

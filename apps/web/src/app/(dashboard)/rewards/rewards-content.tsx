@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
@@ -341,6 +342,7 @@ export function RewardsContent({ embedded }: { embedded?: boolean } = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rewards'] });
       closeModal();
+      showSaveSuccess();
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al guardar el cupón');

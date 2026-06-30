@@ -57,6 +57,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 // Métodos: api.get(), api.post(), api.put(), api.upload() (multipart).
 import { api } from '@/lib/api';
 
+// Modal estándar de confirmación de guardado (único para toda la app).
+import { showSaveSuccess } from '@/lib/save-toast';
+
 // Modal para recortar la foto de perfil antes de subirla.
 // Muestra una interfaz de crop circular para que el avatar quede bien.
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
@@ -149,8 +152,6 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   // Mensaje de error al intentar cambiar la contraseña (null = sin error).
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // Flag de éxito para mostrar mensaje verde después de cambiar la contraseña.
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   // ─── QUERY: carga de datos del empleado ──────────────────────────────────
   // CONCEPTO — useQuery (TanStack Query):
@@ -258,13 +259,10 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
     // Envía la contraseña actual y la nueva al backend para verificar y cambiar.
     mutationFn: () => api.put('/api/auth/change-password', { currentPassword: passwordForm.current, newPassword: passwordForm.new }),
     onSuccess: () => {
-      // Mostramos el mensaje de éxito.
-      setPasswordSuccess(true);
       // Limpiamos el formulario de contraseña.
       setPasswordForm({ current: '', new: '', confirm: '' });
-      // Ocultamos el mensaje de éxito después de 3 segundos (3000 ms).
-      // setTimeout es una función de JavaScript que ejecuta algo tras un retraso.
-      setTimeout(() => setPasswordSuccess(false), 3000);
+      // Modal estándar de confirmación de guardado.
+      showSaveSuccess({ title: 'Contraseña actualizada' });
     },
     // Si el backend devuelve error (contraseña actual incorrecta, etc.),
     // guardamos el mensaje de error en el estado para mostrarlo.
@@ -552,8 +550,6 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
                 CONCEPTO — && para renderizado condicional:
                 "passwordError && <p>..." → si hay error, muestra el párrafo. */}
             {passwordError && <p className="text-xs text-red-600">{passwordError}</p>}
-            {/* Mensaje de éxito (sólo si passwordSuccess es true) */}
-            {passwordSuccess && <p className="text-xs text-green-600">Contraseña actualizada</p>}
 
             {/* Botón Cambiar contraseña:
                 onClick hace 3 cosas:

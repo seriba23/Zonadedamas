@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
@@ -132,6 +133,7 @@ export function ServicesContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       closeModal();
+      showSaveSuccess();
       // If opened from invite-codes, close this tab
       const returnTo = searchParams.get('returnTo');
       if (returnTo === 'invite-codes') {
@@ -1010,7 +1012,6 @@ function ServiceCommissionsView({ services, allEmployees, autoExpandServiceId, o
   const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
   const [editingComm, setEditingComm] = useState<Map<string, Map<string, string>>>(new Map()); // svcId -> empId -> commission
   const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
-  const [savedSvcId, setSavedSvcId] = useState<string | null>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const svcRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -1100,8 +1101,7 @@ function ServiceCommissionsView({ services, allEmployees, autoExpandServiceId, o
     queryClient.invalidateQueries({ queryKey: ['employees-for-commissions'] });
     setEditingComm((prev) => { const n = new Map(prev); n.delete(svcId); return n; });
     setSavingSvcId(null);
-    setSavedSvcId(svcId);
-    setTimeout(() => setSavedSvcId(null), 2000);
+    showSaveSuccess();
   }
 
   // Group by category
@@ -1145,7 +1145,6 @@ function ServiceCommissionsView({ services, allEmployees, autoExpandServiceId, o
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-gray-900">{formatCurrency(svc.price, svc.currency)}</span>
-                {savedSvcId === svc.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
                 {changed && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />}
                 <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1275,7 +1274,6 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
   const queryClient = useQueryClient();
   const [configMaps, setConfigMaps] = useState<Map<string, Map<string, { commission: number | null }>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
-  const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -1352,8 +1350,7 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
       });
       queryClient.invalidateQueries({ queryKey: ['employees-for-commissions'] });
       setConfigMaps((prev) => { const n = new Map(prev); n.delete(empId); return n; });
-      setSavedEmpId(empId);
-      setTimeout(() => setSavedEmpId(null), 2000);
+      showSaveSuccess();
     } catch (err) {
       console.error('Error saving:', err);
     }
@@ -1389,7 +1386,6 @@ function EmployeeServicesView({ employees, allServices }: { employees: any[]; al
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
                 {changed && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />}
                 <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

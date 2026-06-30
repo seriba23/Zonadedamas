@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 
 const TEAL = '#008080';
 const TEAL_DARK = '#006666';
@@ -33,7 +34,6 @@ export function ShopSettingsContent() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -50,12 +50,10 @@ export function ShopSettingsContent() {
 
   const handleSave = async () => {
     setSaving(true);
-    setSaved(false);
     try {
       const res = await api.put<{ data: ShopSettings }>('/api/tenants/shop-settings', settings);
       setSettings(res.data);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      showSaveSuccess();
     } catch (err: any) {
       alert(err.message || 'Error al guardar');
     } finally {
@@ -234,12 +232,6 @@ export function ShopSettingsContent() {
       >
         {saving ? 'Guardando...' : 'Guardar cambios'}
       </button>
-
-      {saved && (
-        <p className="text-center text-sm mt-3" style={{ color: TEAL }}>
-          Configuración guardada correctamente
-        </p>
-      )}
     </div>
   );
 }

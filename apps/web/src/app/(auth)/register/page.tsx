@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { SocialLoginButtons } from '@/components/ui/social-login-buttons';
+import { SuccessPopup } from '@/components/ui/success-popup';
 // PasswordRules: muestra una lista de requisitos de la contraseña (longitud,
 // mayúsculas, números, símbolos) que se marcan en verde conforme se cumplen.
 import { PasswordRules } from '@/components/ui/password-rules';
@@ -298,6 +299,9 @@ function RegisterPageInner() {
 
   const [mode, setMode] = useState<RegisterMode>(initialMode);
   const [step, setStep] = useState(1);
+  // Al terminar de crear la cuenta (profesional/freelancer/admin) mostramos un
+  // modal de bienvenida y luego redirigimos a su inicio correspondiente.
+  const [welcomeTo, setWelcomeTo] = useState<string | null>(null);
   // Modal de aviso de privacidad / términos: legal obliga a mostrar el
   // contenido sin perder el progreso del registro. Lo abrimos en overlay
   // y el usuario puede cerrarlo y volver al form intacto.
@@ -580,7 +584,7 @@ function RegisterPageInner() {
         businessPhone: form.businessPhone.trim() || undefined,
         acceptContract: form.acceptContract,
       });
-      router.push('/home');
+      setWelcomeTo('/home');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -611,7 +615,7 @@ function RegisterPageInner() {
         acceptContract: form.acceptContract,
         acceptPrivacy: form.acceptPrivacy,
       });
-      router.push('/employee');
+      setWelcomeTo('/employee');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -654,7 +658,7 @@ function RegisterPageInner() {
         inviteCode: code,
         personalAddress: personalAddrStr || undefined,
       });
-      router.push('/employee');
+      setWelcomeTo('/employee');
     } catch (err: unknown) {
       const error = err as { message?: string };
       setApiError(error?.message || 'Error al crear la cuenta. Intenta de nuevo.');
@@ -746,6 +750,21 @@ function RegisterPageInner() {
     } finally {
       setPreviewLoading(false);
     }
+  }
+
+  // ─── BIENVENIDA (tras crear cuenta profesional/freelancer/admin) ──────────
+  // Cierra el formulario de creación y muestra un modal de bienvenida; al
+  // aceptarlo (o tras unos segundos) lleva al usuario a su inicio.
+  if (welcomeTo) {
+    return (
+      <SuccessPopup
+        show
+        title="¡Te damos la bienvenida a Siliba!"
+        message="Tu cuenta se creó correctamente. Vamos a tu inicio…"
+        autoClose={2600}
+        onClose={() => router.push(welcomeTo)}
+      />
+    );
   }
 
   // ─── SELECT MODE ──────────────────────────────────

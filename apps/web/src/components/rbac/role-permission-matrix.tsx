@@ -10,6 +10,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 // api: cliente HTTP del proyecto.
 import { api } from '@/lib/api';
+// showSaveSuccess: modal estándar de confirmación de guardado.
+import { showSaveSuccess } from '@/lib/save-toast';
 
 // Permission: un permiso del sistema (p.ej. appointments.create).
 // module: módulo al que pertenece (p.ej. "appointments", "clients").
@@ -145,6 +147,7 @@ export function RolePermissionMatrix({
       queryClient.invalidateQueries({ queryKey: ['role-permissions', roleId] });
       setHasChanges(false);
       onSave?.();
+      showSaveSuccess();
     },
   });
 

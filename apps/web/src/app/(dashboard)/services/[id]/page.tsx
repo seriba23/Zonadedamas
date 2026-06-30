@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import Link from 'next/link';
+import { showSaveSuccess } from '@/lib/save-toast';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -20,7 +21,6 @@ export default function ServiceDetailPage() {
   const [editingCommissions, setEditingCommissions] = useState<Map<string, { commission: string; customPrice: string }>>(new Map());
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [savedMsg, setSavedMsg] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['service-detail', serviceId],
@@ -38,8 +38,7 @@ export default function ServiceDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       setEditingPrice(false);
       setEditingDuration(false);
-      setSavedMsg('Guardado');
-      setTimeout(() => setSavedMsg(''), 2000);
+      showSaveSuccess();
     },
   });
 
@@ -127,9 +126,6 @@ export default function ServiceDetailPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-bold text-gray-900">{service.name}</h1>
-                  {savedMsg && (
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full animate-pulse">{savedMsg}</span>
-                  )}
                 </div>
                 {service.subcategory && (
                   <span className="inline-block mt-1 px-2.5 py-0.5 text-xs font-medium rounded-full text-white" style={{ backgroundColor: '#008080' }}>
@@ -172,7 +168,6 @@ export default function ServiceDetailPage() {
             {/* Save button */}
             {(priceValue !== null || durationValue !== null || currencyValue !== null) && (
               <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
-                {savedMsg && <span className="text-xs font-medium text-green-600">{savedMsg}</span>}
                 <button
                   onClick={() => { setPriceValue(null); setDurationValue(null); setCurrencyValue(null); }}
                   className="text-sm text-gray-500 hover:text-gray-700"

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
@@ -122,6 +123,7 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['suppliers-for-products'] });
       closeModal();
+      showSaveSuccess();
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al guardar el proveedor');

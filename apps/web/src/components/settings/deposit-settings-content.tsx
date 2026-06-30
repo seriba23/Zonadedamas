@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 
 const TEAL = '#008080';
 
@@ -31,7 +32,6 @@ export function DepositSettingsContent() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -54,7 +54,6 @@ export function DepositSettingsContent() {
 
   const handleSave = async () => {
     setSaving(true);
-    setSaved(false);
     try {
       await api.put('/api/tenants/profile', {
         depositEnabled: settings.depositEnabled,
@@ -62,8 +61,7 @@ export function DepositSettingsContent() {
         depositValue: Number(settings.depositValue) || 0,
         depositCancelPolicy: settings.depositCancelPolicy,
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      showSaveSuccess();
     } catch (err: any) {
       alert(err.message || 'Error al guardar');
     } finally {
@@ -188,7 +186,6 @@ export function DepositSettingsContent() {
         >
           {saving ? 'Guardando...' : 'Guardar'}
         </button>
-        {saved && <span className="text-sm text-green-600 font-medium">Guardado ✓</span>}
       </div>
     </div>
   );

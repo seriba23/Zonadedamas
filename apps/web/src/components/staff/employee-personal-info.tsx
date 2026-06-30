@@ -32,6 +32,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 // Módulo propio que encapsula las peticiones HTTP con autenticación.
 
+import { showSaveSuccess } from '@/lib/save-toast';
+// Modal estándar de confirmación de guardado (un único modal para toda la app).
+
 // ─── TIPOS ──────────────────────────────────────────────────
 
 interface PersonalInfoForm {
@@ -156,9 +159,6 @@ export function EmployeePersonalInfo({
     allergies: initialData?.allergies || '',
   });
 
-  // Estado: true durante 4 segundos después de guardar exitosamente.
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
   // Estado: mensaje de error al subir un documento (o null si no hay error).
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -262,10 +262,8 @@ export function EmployeePersonalInfo({
         savePersonalMutation.mutateAsync(form),
       ]);
       // Si ambas tuvieron éxito:
-      setSaveSuccess(true);    // mostrar banner de éxito
       setIsEditing(false);     // volver al modo visualización
-      // Ocultar el banner de éxito después de 4 segundos.
-      setTimeout(() => setSaveSuccess(false), 4000);
+      showSaveSuccess();       // modal estándar de confirmación de guardado
     } catch {
       // errors handled by mutation onError
       // Los errores ya los maneja React Query internamente.
@@ -346,16 +344,6 @@ export function EmployeePersonalInfo({
   if (!isEditing) {
     return (
       <div className="space-y-8">
-        {/* Banner de éxito: solo visible justo después de guardar. */}
-        {saveSuccess && (
-          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
-            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            Información guardada correctamente
-          </div>
-        )}
-
         {/* Basic Data */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">

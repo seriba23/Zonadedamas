@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 
 interface BusinessHour {
   id: string | null;
@@ -108,6 +109,7 @@ export default function BusinessHoursPage() {
       queryClient.invalidateQueries({ queryKey: ['business-hours'] });
       queryClient.invalidateQueries({ queryKey: ['business-hours-check'] });
       setHasChanges(false);
+      showSaveSuccess();
     },
   });
 
@@ -282,11 +284,6 @@ export default function BusinessHoursPage() {
             </button>
           </div>
 
-          {saveMutation.isSuccess && (
-            <p className="mt-3 text-sm text-green-600 text-right">
-              Horarios guardados correctamente
-            </p>
-          )}
           {saveMutation.isError && (
             <p className="mt-3 text-sm text-red-600 text-right">
               Error al guardar los horarios

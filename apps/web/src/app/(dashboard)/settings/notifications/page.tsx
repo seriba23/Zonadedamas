@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { Modal } from '@/components/ui/modal';
 
 interface NotificationTemplate {
@@ -132,6 +133,7 @@ export default function NotificationsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
       setEditTemplate(null);
+      showSaveSuccess();
     },
     onError: (err: any) => {
       alert(err?.message || 'No se pudo guardar la plantilla');

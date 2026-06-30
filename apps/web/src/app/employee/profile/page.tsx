@@ -36,6 +36,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { formatCurrency as rawFormatCurrency } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
 
@@ -134,10 +135,6 @@ export default function EmployeeProfilePage() {
   // La sintaxis (searchParams.get('tab') as Tab) convierte el string a tipo Tab.
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'info');
 
-  // avatarSuccess → mensaje temporal de confirmación tras actualizar el avatar.
-  // Se limpia automáticamente con setTimeout en avatarMutation.onSuccess.
-  const [avatarSuccess, setAvatarSuccess] = useState('');
-
   // cropFile → archivo de imagen seleccionado para recortar (modal crop del avatar).
   // null = el modal de crop NO está visible.
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -209,10 +206,7 @@ export default function EmployeeProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
-      setAvatarSuccess('Foto actualizada');
-      // setTimeout → ejecuta la función después de 3000ms (3 segundos).
-      // La flecha ()=> setAvatarSuccess('') limpia el mensaje.
-      setTimeout(() => setAvatarSuccess(''), 3000);
+      showSaveSuccess({ title: 'Foto actualizada' });
     },
   });
 
@@ -267,10 +261,6 @@ export default function EmployeeProfilePage() {
     <div className="max-w-4xl mx-auto pb-24 lg:pb-6">
       <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
         onChange={(e) => { const file = e.target.files?.[0]; if (file) setCropFile(file); e.target.value = ''; }} />
-
-      {avatarSuccess && (
-        <div className="mx-6 mt-4 mb-0 p-2 rounded-lg bg-green-50 text-green-700 text-xs text-center">{avatarSuccess}</div>
-      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200 px-6 mb-6">
@@ -733,6 +723,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
       await api.put('/api/employees/me/personal-info', { bloodType: form.bloodType, allergies: form.allergies, emergencyContactName: form.emergencyContactName, emergencyContactLastName: form.emergencyContactLastName, emergencyContactPhone: form.emergencyContactPhone, emergencyContactRelation: form.emergencyContactRelation });
       onSave();
       setEditing(false);
+      showSaveSuccess();
     } catch {}
     setSaving(false);
   }
@@ -744,6 +735,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
       // Mostramos la portada nueva de inmediato con la URL que devuelve el server.
       setCoverOverride(res.data.coverImageUrl);
       onSave(); // refresca el perfil (y el preview público) en segundo plano
+      showSaveSuccess({ title: 'Portada actualizada' });
     } catch {
       alert('No se pudo subir la portada');
     }
@@ -756,6 +748,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
       const res = await api.upload<{ data: { avatarUrl: string } }>('/api/employees/me/avatar', file);
       setAvatarOverride(res.data.avatarUrl);
       onSave();
+      showSaveSuccess({ title: 'Foto actualizada' });
     } catch {
       alert('No se pudo subir la foto de perfil');
     }

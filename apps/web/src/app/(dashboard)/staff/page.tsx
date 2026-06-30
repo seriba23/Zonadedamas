@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
@@ -1626,7 +1627,6 @@ function ByEmployeeCommissions() {
   const [expandedEmps, setExpandedEmps] = useState<Set<string>>(new Set());
   const [configMaps, setConfigMaps] = useState<Map<string, Map<string, CommCfg>>>(new Map());
   const [savingEmpId, setSavingEmpId] = useState<string | null>(null);
-  const [savedEmpId, setSavedEmpId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const { data: employeesData } = useQuery({
@@ -1727,8 +1727,7 @@ function ByEmployeeCommissions() {
       queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees'] });
       queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees-bs'] });
       setConfigMaps((prev) => { const n = new Map(prev); n.delete(empId); return n; });
-      setSavedEmpId(empId);
-      setTimeout(() => setSavedEmpId(null), 2000);
+      showSaveSuccess();
     } catch (err) { console.error(err); }
     setSavingEmpId(null);
   }
@@ -1781,7 +1780,6 @@ function ByEmployeeCommissions() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {savedEmpId === emp.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
                   {changed && <span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />}
                   <svg className={`w-5 h-5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1922,7 +1920,6 @@ function ByServiceCommissions({ initialServiceId }: { initialServiceId?: string 
   const [expandedSvcs, setExpandedSvcs] = useState<Set<string>>(new Set());
   const [configMaps, setConfigMaps] = useState<Map<string, Map<string, CommCfg>>>(new Map());
   const [savingSvcId, setSavingSvcId] = useState<string | null>(null);
-  const [savedSvcId, setSavedSvcId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const { data: servicesData } = useQuery({
@@ -2038,8 +2035,7 @@ function ByServiceCommissions({ initialServiceId }: { initialServiceId?: string 
       queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees-bs'] });
       queryClient.invalidateQueries({ queryKey: ['staff-commissions-employees'] });
       setConfigMaps((prev) => { const n = new Map(prev); n.delete(svcId); return n; });
-      setSavedSvcId(svcId);
-      setTimeout(() => setSavedSvcId(null), 2000);
+      showSaveSuccess();
     } catch (err) {
       console.error(err);
     }
@@ -2101,7 +2097,6 @@ function ByServiceCommissions({ initialServiceId }: { initialServiceId?: string 
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {savedSvcId === svc.id && <span className="text-xs text-green-600 font-medium">Guardado</span>}
                   {changed && <span className="w-2 h-2 rounded-full bg-teal-400 flex-shrink-0" />}
                   <svg className={`w-5 h-5 text-[var(--text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -99,6 +100,7 @@ export function BundlesContent({ embedded }: { embedded?: boolean } = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['service-bundles'] });
       closeModal();
+      showSaveSuccess();
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al guardar el paquete');

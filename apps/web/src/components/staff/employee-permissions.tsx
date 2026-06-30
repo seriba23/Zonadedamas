@@ -26,6 +26,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 // useQueryClient: permite invalidar (refrescar) caché de otras queries.
 
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 // Módulo propio que encapsula fetch() con autenticación JWT y manejo
 // de errores. "@/" es un alias que apunta a "src/".
 
@@ -124,9 +125,6 @@ export function EmployeePermissions({
 
   // Estado: true mientras se está enviando la petición de guardar acceso admin.
   const [savingAdmin, setSavingAdmin] = useState(false);
-
-  // Estado: mensaje de éxito temporal después de guardar (vacío = no mostrar).
-  const [adminSuccess, setAdminSuccess] = useState('');
 
   // ─── QUERY: roles actuales del empleado ─────────────────
   // useQuery devuelve { data, isLoading, isError, ... }.
@@ -320,7 +318,6 @@ export function EmployeePermissions({
     // Si el empleado no tiene usuario vinculado, no se puede hacer nada.
 
     setSavingAdmin(true);    // mostrar estado de carga
-    setAdminSuccess('');     // limpiar mensaje anterior
     try {
       if (enable && adminModules.size > 0) {
         // Enviar al backend los módulos que el empleado debe tener acceso.
@@ -328,26 +325,19 @@ export function EmployeePermissions({
         await api.post(`/api/employees/${employeeId}/admin-access`, {
           modules: Array.from(adminModules),
         });
-        // Construimos el mensaje de éxito con los nombres de los módulos.
-        // .filter() selecciona solo los módulos de ADMIN_MODULES que están activos.
-        // .map() extrae solo el label (nombre legible) de cada uno.
-        // .join(', ') une el array en un string separado por comas.
-        const names = ADMIN_MODULES.filter((m) => adminModules.has(m.key)).map((m) => m.label);
-        setAdminSuccess(`Acceso a: ${names.join(', ')} agregado con exito`);
         // Sincronizamos savedModules con lo que acabamos de guardar.
         setSavedModules(new Set(adminModules));
+        showSaveSuccess();
       } else {
         // Si enable es false, eliminamos todo el acceso de administrador.
         await api.delete(`/api/employees/${employeeId}/admin-access`);
         setAdminModules(new Set());
         setSavedModules(new Set());
-        setAdminSuccess('Acceso de administrador revocado');
+        showSaveSuccess({ title: 'Acceso de administrador revocado' });
       }
       // Forzamos el refetch de los roles del empleado para mostrar
       // el estado actualizado sin que el usuario recargue la página.
       queryClient.invalidateQueries({ queryKey: ['employee-roles', employeeId] });
-      // Limpiamos el mensaje de éxito después de 5 segundos.
-      setTimeout(() => setAdminSuccess(''), 5000);
     } catch (err) {
       console.error(err);
     } finally {
@@ -422,18 +412,6 @@ export function EmployeePermissions({
                 );
               })}
             </div>
-
-            {/* Mensaje de éxito (solo visible si adminSuccess no está vacío).
-                La condición && hace que se renderice solo cuando hay texto. */}
-            {adminSuccess && (
-              <div className="mt-4 flex items-center gap-2 text-sm text-[#008080] bg-teal-50 border border-teal-100 rounded-xl px-4 py-2.5">
-                {/* Ícono de checkmark (palomita) SVG */}
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                {adminSuccess}
-              </div>
-            )}
 
             {/* Botones de acción: Guardar / Actualizar / Quitar acceso */}
             <div className="flex gap-3 mt-4">

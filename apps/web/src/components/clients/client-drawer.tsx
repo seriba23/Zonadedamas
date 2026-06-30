@@ -22,6 +22,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 // `api`: cliente HTTP propio (api.get, api.post, api.put...).
 import { api } from '@/lib/api';
+// Modal estándar de "guardado" (un único modal centrado para toda la app).
+import { showSaveSuccess } from '@/lib/save-toast';
 // Drawer: el contenedor visual del panel lateral.
 import { Drawer } from '@/components/ui/drawer';
 // Insignia de color según el estado de la cita (pendiente, confirmada...).
@@ -174,6 +176,7 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
       queryClient.invalidateQueries({ queryKey: ['client', clientId] });
       setIsEditing(false); // Salimos del modo edición.
       setSaveError(null);  // Limpiamos cualquier error previo.
+      showSaveSuccess();   // Modal estándar de confirmación de guardado.
       if (!clientId) onClose(); // Si era un cliente nuevo, cerramos el drawer.
     },
     // onError corre si la API devolvió error: mostramos su mensaje.

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { Modal } from '@/components/ui/modal';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
@@ -211,6 +212,7 @@ export function InventoryContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       closeModal();
+      showSaveSuccess();
     },
     onError: (err: { message?: string }) => {
       setFormError(err.message || 'Error al guardar el producto');

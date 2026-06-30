@@ -32,6 +32,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 // Módulo propio de peticiones HTTP.
 
+import { showSaveSuccess } from '@/lib/save-toast';
+// Modal estándar de confirmación de guardado.
+
 // ─── TIPOS ──────────────────────────────────────────────────
 
 interface Service {
@@ -219,6 +222,7 @@ export function EmployeeServicesEditor({ employeeId }: EmployeeServicesEditorPro
       setSelectedMap(map);
       queryClient.invalidateQueries({ queryKey: ['employee-services', employeeId] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      showSaveSuccess();
     },
   });
 
@@ -509,9 +513,6 @@ export function EmployeeServicesEditor({ employeeId }: EmployeeServicesEditorPro
       </div>
 
       {/* Mensajes de resultado */}
-      {saveMutation.isSuccess && (
-        <p className="text-sm text-green-600 text-center">Servicios actualizados correctamente</p>
-      )}
       {saveMutation.isError && (
         <p className="text-sm text-red-600 text-center">Error al guardar los servicios</p>
       )}

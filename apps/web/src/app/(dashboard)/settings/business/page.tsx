@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { CoverCropModal } from '@/components/ui/cover-crop-modal';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
@@ -110,6 +111,7 @@ export default function BusinessSettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-current'] });
       queryClient.invalidateQueries({ queryKey: ['tenant-setup-check'] });
+      showSaveSuccess();
     },
   });
 
@@ -758,9 +760,6 @@ export default function BusinessSettingsPage() {
           {profileMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
         </button>
 
-        {profileMutation.isSuccess && (
-          <p className="text-sm text-green-600 text-center">Cambios guardados correctamente</p>
-        )}
         {profileMutation.isError && (
           <p className="text-sm text-red-600 text-center">
             {(profileMutation.error as any)?.message || 'Error al guardar los cambios'}

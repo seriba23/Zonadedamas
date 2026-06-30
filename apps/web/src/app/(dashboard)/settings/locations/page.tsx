@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { useAuth } from '@/lib/hooks/use-auth';
 import {
   AddressFields,
@@ -117,11 +118,11 @@ export default function LocationsPage() {
 
   const createMutation = useMutation({
     mutationFn: (body: any) => api.post('/api/locations', body),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); showSaveSuccess(); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => api.put(`/api/locations/${id}`, body),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['locations'] }); closeModal(); showSaveSuccess(); },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/locations/${id}`),

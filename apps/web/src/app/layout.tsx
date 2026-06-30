@@ -41,6 +41,9 @@ import '@/lib/dayjs-setup';
 // (React Query, AuthProvider). Lo veremos en providers.tsx.
 import { Providers } from './providers';
 
+// Modal global ESTÁNDAR de "guardado": se monta una vez y escucha showSaveSuccess().
+import { SaveSuccessProvider } from '@/components/ui/save-success-provider';
+
 // ─── METADATA ────────────────────────────────────────────────────────────────
 // "metadata" es un export especial que Next.js lee automáticamente para
 // inyectar etiquetas <meta> en el <head> de las páginas. No necesitas
@@ -148,6 +151,8 @@ export default function RootLayout({
             "{children}" aquí representa el contenido de la ruta actual
             (el page.tsx correspondiente a la URL que el usuario visita). */}
         <Providers>{children}</Providers>
+        {/* Modal estándar de guardado, disponible en toda la app. */}
+        <SaveSuccessProvider />
       </body>
     </html>
   );
