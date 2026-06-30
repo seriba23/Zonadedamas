@@ -959,9 +959,19 @@ export class StripeService implements OnModuleInit {
     try {
       const preview = await this.getSubscriptionPreview(tenantId);
       const result = await this.createPlatformSubscription(tenantId, preview.activeEmployeeCount);
-      // Devolvemos según el resultado: reactivado sin cobro, o con clientSecret.
+      // Reactivado sin necesidad de cobro (Stripe reusó una sub vigente).
       if (result.reactivated) return { reactivated: true, clientSecret: null };
-      return { reactivated: false, clientSecret: result.clientSecret };
+      // Hay un pago de Stripe que completar en el frontend.
+      if (result.clientSecret) return { reactivated: false, clientSecret: result.clientSecret };
+      // Stripe no produjo un pago utilizable (p.ej. sin publishable key, o pago
+      // por transferencia): NO bloqueamos — reactivamos en la BD. El cobro real
+      // se gestiona por transferencia y el super admin lo verifica.
+      this.logger.warn(`[reactivate] sin clientSecret de Stripe; reactivación manual en DB (tenant=${tenantId})`);
+      await this.prisma.subscription.update({
+        where: { tenantId },
+        data: { status: 'ACTIVE', cancelledAt: null },
+      });
+      return { reactivated: true, clientSecret: null };
     } catch (err: any) {
       this.logger.warn(`[reactivate] Stripe no disponible; reactivación manual en DB: ${err?.message}`);
       await this.prisma.subscription.update({
