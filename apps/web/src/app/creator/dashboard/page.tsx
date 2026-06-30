@@ -65,6 +65,10 @@ export default function CreatorDashboardPage() {
   const [tab, setTab] = useState<'dashboard' | 'clientes'>('dashboard');
   const [clientFilter, setClientFilter] = useState('TODOS');
   const [menuOpen, setMenuOpen] = useState(false);
+  // Feedback del botón "Copiar" del código.
+  const [copied, setCopied] = useState(false);
+  // Error inline al configurar cobros (en vez de un alert seco del navegador).
+  const [cobrosError, setCobrosError] = useState('');
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [showClientsInfo, setShowClientsInfo] = useState(false);
 
@@ -82,13 +86,15 @@ export default function CreatorDashboardPage() {
 
   async function configurarCobros() {
     setStripeBusy(true);
+    setCobrosError('');
     try {
       const res = await creatorApi.post<{ data: { url: string } }>('/api/creator/stripe/onboarding-link');
-      if (res?.data?.url) window.location.href = res.data.url;
+      if (res?.data?.url) { window.location.href = res.data.url; return; }
+      setCobrosError('No se pudo generar el enlace de configuración. Intenta de nuevo.');
     } catch (e: any) {
-      alert(e?.message || 'No se pudo iniciar la configuración de cobros');
-      setStripeBusy(false);
+      setCobrosError(e?.message || 'No se pudo iniciar la configuración de cobros.');
     }
+    setStripeBusy(false);
   }
 
   const inf = data?.influencer;
@@ -192,10 +198,25 @@ export default function CreatorDashboardPage() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-xl font-black" style={{ color: TEAL }}>{code}</span>
                   <button
-                    onClick={() => navigator.clipboard?.writeText(code).catch(() => {})}
-                    className="text-xs font-medium text-white px-3 py-1.5 rounded-lg" style={{ backgroundColor: TEAL }}
+                    onClick={() => {
+                      navigator.clipboard?.writeText(code)
+                        .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); })
+                        .catch(() => {});
+                    }}
+                    className="text-xs font-medium text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+                    style={{ backgroundColor: copied ? '#059669' : TEAL }}
                   >
-                    Copiar
+                    {copied ? (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        ¡Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg>
+                        Copiar
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -215,6 +236,11 @@ export default function CreatorDashboardPage() {
                     className="w-full py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: TEAL }}>
                     {stripeBusy ? 'Abriendo...' : 'Configurar cobros'}
                   </button>
+                  {cobrosError && (
+                    <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                      <p className="text-xs text-red-700">{cobrosError}</p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
