@@ -551,8 +551,11 @@ export default function MarketplaceProfilePage() {
 
   // ─── Query: Estadísticas del usuario ────────────────────────────────
   const { data: statsData } = useQuery({
-    queryKey: ['marketplace-my-stats'],
-    queryFn: () => marketplaceApi.get<{ data: Stats }>('/my-stats'),
+    queryKey: ['marketplace-my-stats', activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: Stats }>(
+        activeProfile?.id ? `/my-stats?profileId=${activeProfile.id}` : '/my-stats',
+      ),
     enabled: isAuthenticated, // Solo si está autenticado.
   });
   // Extraemos los datos o usamos defaults seguros.
@@ -560,8 +563,11 @@ export default function MarketplaceProfilePage() {
 
   // ─── Query: Galería de fotos de resultados ───────────────────────────
   const { data: galleryData } = useQuery({
-    queryKey: ['marketplace-my-gallery'],
-    queryFn: () => marketplaceApi.get<{ data: GalleryCategory[] }>('/my-gallery'),
+    queryKey: ['marketplace-my-gallery', activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: GalleryCategory[] }>(
+        activeProfile?.id ? `/my-gallery?profileId=${activeProfile.id}` : '/my-gallery',
+      ),
     enabled: isAuthenticated,
   });
   const galleryCategories: GalleryCategory[] = (galleryData as any)?.data || [];
@@ -646,8 +652,15 @@ export default function MarketplaceProfilePage() {
   // cuenta. El email siempre es el de la cuenta (no es por perfil).
   const heroFirstName = activeProfile?.firstName || user.firstName;
   const heroLastName = activeProfile?.lastName || user.lastName;
-  const heroAvatarUrl = activeProfile?.avatarUrl || user.avatarUrl;
   const heroColor = activeProfile?.color || undefined;
+  // ¿El perfil activo es el TITULAR (SELF/default)? Solo ese comparte identidad
+  // con la cuenta y, por tanto, hereda su foto si el perfil no tiene una propia.
+  const isOwnerProfile = !activeProfile || activeProfile.relationship === 'SELF' || activeProfile.isDefault;
+  // La foto SIEMPRE corresponde al perfil activo. Si un perfil secundario (hijo)
+  // no tiene foto, se muestran SUS iniciales — nunca la foto de la cuenta.
+  const heroAvatarUrl = activeProfile
+    ? activeProfile.avatarUrl || (isOwnerProfile ? user.avatarUrl : undefined)
+    : user.avatarUrl;
 
   return (
     <div className="min-h-screen bg-gray-50 safe-top">
@@ -709,6 +722,10 @@ export default function MarketplaceProfilePage() {
             <div className="mt-4 flex items-end justify-center gap-3 flex-wrap">
               {profiles.map((p) => {
                 const isActive = activeProfile?.id === p.id;
+                // El chip del titular (SELF/default) hereda la foto de la cuenta
+                // si no tiene una propia; los hijos muestran solo sus iniciales.
+                const isOwnerChip = p.relationship === 'SELF' || p.isDefault;
+                const chipAvatarUrl = p.avatarUrl || (isOwnerChip ? user.avatarUrl : undefined);
                 return (
                   <button
                     key={p.id}
@@ -722,7 +739,7 @@ export default function MarketplaceProfilePage() {
                       style={{ boxShadow: isActive ? `0 0 0 2px ${TEAL}` : '0 0 0 2px transparent' }}
                     >
                       <Avatar
-                        avatarUrl={p.avatarUrl}
+                        avatarUrl={chipAvatarUrl}
                         firstName={p.firstName}
                         lastName={p.lastName}
                         color={p.color || undefined}

@@ -3211,9 +3211,10 @@ export class MarketplaceService {
   }
 
   // getMyGallery(): galería con las fotos de resultados de las citas del usuario.
-  async getMyGallery(marketplaceUserId: string) {
+  // Si llega profileId, solo las fotos de ESE perfil (sus propias citas).
+  async getMyGallery(marketplaceUserId: string, profileId?: string) {
     const clients = await this.prisma.client.findMany({
-      where: { userId: marketplaceUserId },
+      where: { userId: marketplaceUserId, ...(profileId ? { profileId } : {}) },
       select: { id: true },
     });
     const clientIds = clients.map((c) => c.id);

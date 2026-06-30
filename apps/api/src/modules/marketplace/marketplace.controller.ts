@@ -356,8 +356,8 @@ export class MarketplaceController {
   // GET /api/marketplace/my-gallery => galería de fotos de resultados del usuario.
   @UseGuards(MarketplaceJwtGuard)
   @Get('my-gallery')
-  async getMyGallery(@Req() req: any) {
-    return this.marketplaceService.getMyGallery(req.user.marketplaceUserId);
+  async getMyGallery(@Req() req: any, @Query('profileId') profileId?: string) {
+    return this.marketplaceService.getMyGallery(req.user.marketplaceUserId, profileId || undefined);
   }
 
   // ─── PAYMENTS (auth required) ────────────────────────
