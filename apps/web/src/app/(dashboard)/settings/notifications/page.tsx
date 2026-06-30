@@ -120,15 +120,21 @@ export default function NotificationsPage() {
   });
 
   // Update template mutation
+  // OJO: el `id` va SOLO en la URL, no en el body. El backend valida el body con
+  // UpdateTemplateDto y rechaza (forbidNonWhitelisted) cualquier campo extra como
+  // `id`, lo que hacía que el guardado fallara silenciosamente.
   const updateMutation = useMutation({
-    mutationFn: (payload: {
+    mutationFn: ({ id, ...body }: {
       id: string;
       subject?: string;
       bodyTemplate?: string;
-    }) => api.put(`/api/notifications/templates/${payload.id}`, payload),
+    }) => api.put(`/api/notifications/templates/${id}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
       setEditTemplate(null);
+    },
+    onError: (err: any) => {
+      alert(err?.message || 'No se pudo guardar la plantilla');
     },
   });
 
