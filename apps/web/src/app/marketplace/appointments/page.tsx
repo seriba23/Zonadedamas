@@ -491,6 +491,31 @@ export default function MarketplaceAppointmentsPage() {
                 )}
               </button>
             )}
+            {/* Toggle Próximas/Registros: un icono. En Próximas muestra el icono
+                de registros (lleva al historial); en Registros muestra el icono
+                de próximas (regresa). */}
+            {tab === 'citas' && (
+              <button
+                onClick={() => setCitasMode((m) => (m === 'registros' ? 'proximas' : 'registros'))}
+                title={citasMode === 'registros' ? 'Ver próximas' : 'Ver registros'}
+                aria-label={citasMode === 'registros' ? 'Ver próximas' : 'Ver registros'}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                style={citasMode === 'registros'
+                  ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                }
+              >
+                {citasMode === 'registros' ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                  </svg>
+                )}
+              </button>
+            )}
             {tab === 'citas' && (
               <button
                 onClick={() => router.push('/marketplace')}
@@ -546,26 +571,10 @@ export default function MarketplaceAppointmentsPage() {
             </div>
           ) : (
             <>
-              {/* Selector Próximas | Registros (segmento, estilo del proyecto).
-                  Próximas = futuras; Registros = historial (pasadas/canceladas). */}
-              <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4 max-w-xs">
-                {([
-                  ['proximas', 'Próximas', 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5'],
-                  ['registros', 'Registros', 'M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z'],
-                ] as const).map(([key, label, icon], idx) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setCitasMode(key)}
-                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors inline-flex items-center justify-center gap-1.5 ${idx > 0 ? 'border-l border-gray-300' : ''} ${
-                      citasMode === key ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d={icon} /></svg>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {/* Encabezado del modo activo (el toggle es el icono de la barra). */}
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                {citasMode === 'registros' ? 'Registros' : 'Próximas'}
+              </h2>
 
               {currentSet.length === 0 ? (
                 <div className="text-center py-16 flex flex-col items-center gap-4">
