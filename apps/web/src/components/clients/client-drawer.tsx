@@ -42,6 +42,11 @@ interface Client {
   email?: string;             // Correo (opcional).
   phone?: string;             // Teléfono (opcional).
   notes?: string;             // Notas libres (opcional).
+  allergies?: string | null;  // Alergias / notas médicas (se ven en sus citas).
+  emergencyContactName?: string | null;
+  emergencyContactLastName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelation?: string | null;
   avatarUrl?: string | null;  // Ruta de su foto (puede no tener: null/undefined).
   // tags = etiquetas de colores. Array<{...}> describe una lista de objetos.
   tags?: Array<{ id: string; name: string; color: string }>;
@@ -90,6 +95,11 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
     email: '',
     phone: '',
     notes: '',
+    allergies: '',
+    emergencyContactName: '',
+    emergencyContactLastName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelation: '',
   });
   // Mensaje de error al guardar (null = sin error).
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -117,6 +127,11 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
         email: c.email || '',
         phone: c.phone || '',
         notes: c.notes || '',
+        allergies: c.allergies || '',
+        emergencyContactName: c.emergencyContactName || '',
+        emergencyContactLastName: c.emergencyContactLastName || '',
+        emergencyContactPhone: c.emergencyContactPhone || '',
+        emergencyContactRelation: c.emergencyContactRelation || '',
       });
     }
   }, [clientData]); // <- "lista de dependencias": re-ejecuta si esto cambia.
@@ -332,6 +347,40 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                     rows={3}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Alergias <span className="text-[10px] text-gray-400 font-normal">(se muestran en sus citas)</span>
+                  </label>
+                  <textarea
+                    value={form.allergies}
+                    onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))}
+                    className="input-field resize-none"
+                    rows={2}
+                    placeholder="Ej: Penicilina, látex…"
+                  />
+                </div>
+                {/* Contacto de emergencia */}
+                <div className="pt-1 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-3 mb-2">Contacto de emergencia</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                      <input type="text" value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+                      <input type="text" value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                      <input type="tel" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} className="input-field" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Relación</label>
+                      <input type="text" value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field" placeholder="Ej: Madre, Esposo/a" />
+                    </div>
+                  </div>
+                </div>
                 <div className="flex gap-3">
                   {/* Botón "Cancelar" solo al EDITAR uno existente (no al crear). */}
                   {clientId && (
@@ -443,6 +492,32 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                       <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
                         {client.notes}
                       </p>
+                    </div>
+                  )}
+
+                  {client.allergies && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Alergias
+                      </p>
+                      <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg p-3">
+                        {client.allergies}
+                      </p>
+                    </div>
+                  )}
+
+                  {(client.emergencyContactName || client.emergencyContactPhone) && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Contacto de emergencia
+                      </p>
+                      <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 space-y-0.5">
+                        {(client.emergencyContactName || client.emergencyContactLastName) && (
+                          <p className="font-medium text-gray-900">{[client.emergencyContactName, client.emergencyContactLastName].filter(Boolean).join(' ')}</p>
+                        )}
+                        {client.emergencyContactRelation && <p className="text-xs text-gray-500">{client.emergencyContactRelation}</p>}
+                        {client.emergencyContactPhone && <p>{client.emergencyContactPhone}</p>}
+                      </div>
                     </div>
                   )}
                 </div>

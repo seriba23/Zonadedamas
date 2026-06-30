@@ -686,10 +686,12 @@ export class AppointmentsService {
               // Fecha de nacimiento: el frontend la usa para detectar si el
               // cliente es menor de edad (consentimiento especial de fotos).
               dateOfBirth: true,
+              // Alergias del cliente (se muestran en todas sus citas).
+              allergies: true,
               // Si el cliente registró su cuenta en el portal, su foto vive
-              // en users.avatar_url, no en clients.avatar_url. Tambien las
-              // alergias viven solo en User (no en Client local). Traemos
-              // ambas y el frontend hace fallback.
+              // en users.avatar_url, no en clients.avatar_url. Las alergias
+              // pueden vivir en Client (walk-in) o en User (marketplace);
+              // traemos ambas y el frontend hace fallback.
               user: { select: { avatarUrl: true, allergies: true } },
             },
           },

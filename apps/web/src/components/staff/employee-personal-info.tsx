@@ -404,8 +404,7 @@ export function EmployeePersonalInfo({
         {/* Personal Info */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Información Personal</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ViewField label="Tipo de sangre" value={form.bloodType} placeholder="Sin especificar" />
+          <div className="grid grid-cols-1 gap-4">
             <ViewField label="Alergias" value={form.allergies} placeholder="Ninguna conocida" />
           </div>
 
@@ -594,24 +593,7 @@ export function EmployeePersonalInfo({
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h3 className="font-semibold text-gray-900 mb-4">Información Personal</h3>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de sangre <span className="text-xs text-gray-400 font-normal">(opcional)</span>
-              </label>
-              {/* <select> controlado: su valor siempre refleja form.bloodType. */}
-              <select
-                value={form.bloodType}
-                onChange={(e) => setForm((f) => ({ ...f, bloodType: e.target.value }))}
-                className="input-field"
-              >
-                <option value="">Sin especificar</option>
-                {/* .map() genera un <option> por cada tipo de sangre. */}
-                {BLOOD_TYPES.map((bt) => (
-                  <option key={bt} value={bt}>{bt}</option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Alergias <span className="text-xs text-gray-400 font-normal">(opcional)</span>

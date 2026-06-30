@@ -455,8 +455,7 @@ function PersonalInfoEditor({ employee, onSave }: { employee: Employee; onSave: 
             Editar
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <InfoField label="Tipo de sangre" value={employee.bloodType} placeholder="Sin especificar" />
+        <div className="grid grid-cols-1 gap-4">
           <InfoField label="Alergias" value={employee.allergies} placeholder="Ninguna conocida" />
         </div>
         <div className="pt-4 mt-4 border-t border-gray-100">
@@ -475,17 +474,6 @@ function PersonalInfoEditor({ employee, onSave }: { employee: Employee; onSave: 
   return (
     <div className="bg-white rounded-xl border border-[#008080] p-5">
       <h3 className="font-semibold text-gray-900 mb-4">Información Personal</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Tipo de sangre <span className="text-[10px] text-gray-400 font-normal">(opcional)</span>
-          </label>
-          <select value={form.bloodType} onChange={(e) => setForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field">
-            <option value="">Sin especificar</option>
-            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-600 mb-1">
           Alergias <span className="text-[10px] text-gray-400 font-normal">(opcional)</span>
@@ -943,15 +931,9 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
       <div className={`bg-white rounded-xl border p-5 ${editing ? 'border-[#008080]' : 'border-gray-200'}`}>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Información médica</h3>
         {!editing ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><p className="text-xs text-gray-400 mb-0.5">Tipo de sangre</p><p className="text-sm text-gray-700">{employee.bloodType || 'Sin especificar'}</p></div>
-            <div><p className="text-xs text-gray-400 mb-0.5">Alergias</p><p className="text-sm text-gray-700">{employee.allergies || 'Ninguna conocida'}</p></div>
-          </div>
+          <div><p className="text-xs text-gray-400 mb-0.5">Alergias</p><p className="text-sm text-gray-700">{employee.allergies || 'Ninguna conocida'}</p></div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-gray-600 mb-1">Tipo de sangre <span className="text-[10px] text-gray-400 font-normal">(opcional)</span></label><select value={form.bloodType} onChange={(e) => setForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field"><option value="">—</option>{BLOOD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div><label className="block text-xs font-medium text-gray-600 mb-1">Alergias <span className="text-[10px] text-gray-400 font-normal">(opcional)</span></label><input type="text" value={form.allergies} onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))} className="input-field" /></div>
-          </div>
+          <div><label className="block text-xs font-medium text-gray-600 mb-1">Alergias <span className="text-[10px] text-gray-400 font-normal">(opcional)</span></label><input type="text" value={form.allergies} onChange={(e) => setForm((f) => ({ ...f, allergies: e.target.value }))} className="input-field" /></div>
         )}
       </div>
 

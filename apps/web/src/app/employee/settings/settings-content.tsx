@@ -486,19 +486,6 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
 
               {/* ── Sección: Información médica ───────────────────────────── */}
               <h4 className="text-xs font-semibold text-gray-500 uppercase pt-2">Información médica</h4>
-              {/* Selector de tipo de sangre */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Tipo de sangre <span className="text-[10px] text-gray-400 font-normal">(opcional)</span>
-                </label>
-                <select value={personalForm.bloodType} onChange={(e) => setPersonalForm((f) => ({ ...f, bloodType: e.target.value }))} className="input-field">
-                  {/* Opción vacía: "—" significa "no seleccionado" */}
-                  <option value="">—</option>
-                  {/* .map() genera una <option> por cada tipo de sangre en BLOOD_TYPES.
-                      key={t}: clave única requerida por React para listas. */}
-                  {BLOOD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
               {/* Selector de alergias: componente especializado con chips seleccionables.
                   "value": el string actual de alergias seleccionadas.
                   "onChange": callback que recibe el nuevo valor cuando el usuario

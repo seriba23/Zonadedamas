@@ -283,6 +283,27 @@ export function buildReminderMessage(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CONTACTO DE EMERGENCIA — mensaje de WhatsApp
+// ─────────────────────────────────────────────────────────────────────────────
+// Negocio/profesional → contacto de emergencia de un cliente. Mensaje preescrito
+// que aclara que el contacto se hace a través de Siliba y de parte del negocio
+// que atiende al cliente; deja "Motivo: " al final para que quien escribe
+// complete el motivo textualmente antes de enviar.
+export function buildEmergencyContactMessage(opts: {
+  contactName?: string; // nombre del contacto de emergencia (opcional)
+  clientName: string;   // nombre del cliente que lo registró
+  tenantName: string;   // negocio/profesional que atiende
+}): string {
+  const greeting = opts.contactName ? `Hola ${opts.contactName},` : 'Hola,';
+  return (
+    `${greeting}\n` +
+    `Le contactamos a través de *Siliba* de parte de *${opts.tenantName}*, ` +
+    `donde ${opts.clientName} está siendo atendido/a y le registró como su contacto de emergencia.\n\n` +
+    `Motivo: `
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ANTICIPO (depósito) — mensajes de WhatsApp
 // ─────────────────────────────────────────────────────────────────────────────
 

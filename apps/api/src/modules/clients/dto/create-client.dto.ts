@@ -57,6 +57,28 @@ export class CreateClientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // allergies (alergias / notas médicas): se muestran en todas las citas.
+  @IsOptional()
+  @IsString()
+  allergies?: string;
+
+  // Contacto de emergencia del cliente.
+  @IsOptional()
+  @IsString()
+  emergencyContactName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactLastName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactRelation?: string;
 }
 
 /**
@@ -89,6 +111,27 @@ export class UpdateClientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // allergies + contacto de emergencia (mismos que en creación).
+  @IsOptional()
+  @IsString()
+  allergies?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactLastName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactRelation?: string;
 
   // isActive: opcional, verdadero/falso. Controla si el cliente está activo.
   // (El "borrado" del sistema es lógico: pone isActive en false, no borra fila.)

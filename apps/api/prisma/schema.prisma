@@ -634,6 +634,15 @@ model Client {
   gender             String?
   dateOfBirth        DateTime? @map("date_of_birth") @db.Date
   notes              String?   @db.Text
+  // Alergias / notas médicas del cliente. Se muestran en TODAS sus citas para
+  // que el profesional las tenga presentes. Vive en Client (no solo en User)
+  // para cubrir también a los clientes walk-in sin cuenta de marketplace.
+  allergies                 String? @db.Text
+  // Contacto de emergencia del cliente (para avisar a un familiar/allegado).
+  emergencyContactName      String? @map("emergency_contact_name")
+  emergencyContactLastName  String? @map("emergency_contact_last_name")
+  emergencyContactPhone     String? @map("emergency_contact_phone")
+  emergencyContactRelation  String? @map("emergency_contact_relation") @db.VarChar(50)
   avatarUrl          String?   @map("avatar_url")
   isActive           Boolean   @default(true) @map("is_active")
   source             String?
