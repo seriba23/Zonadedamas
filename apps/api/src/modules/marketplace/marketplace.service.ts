@@ -3320,6 +3320,23 @@ export class MarketplaceService {
     };
   }
 
+  // deleteGalleryPhoto(): el cliente elimina una foto de SU galería. Verificamos
+  // que la foto pertenezca a una cita de una ficha del usuario (no de otro), y
+  // luego borramos el archivo del disco y el registro.
+  async deleteGalleryPhoto(marketplaceUserId: string, photoId: string) {
+    const photo = await this.prisma.appointmentPhoto.findFirst({
+      where: { id: photoId, appointment: { client: { userId: marketplaceUserId } } },
+      select: { id: true, imageUrl: true },
+    });
+    if (!photo) throw new NotFoundException('Foto no encontrada');
+
+    // Borramos primero el archivo físico (si falla, no bloquea el borrado del
+    // registro) y luego la fila.
+    await this.uploads.deleteFile(photo.imageUrl).catch(() => {});
+    await this.prisma.appointmentPhoto.delete({ where: { id: photo.id } });
+    return { data: { deleted: true } };
+  }
+
   // ─── PAYMENTS ──────────────────────────────────────────
 
   // getMyPayments(): historial paginado de pagos del usuario, con filtro opcional

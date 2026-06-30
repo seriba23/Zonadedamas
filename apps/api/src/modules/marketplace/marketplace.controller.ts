@@ -360,6 +360,14 @@ export class MarketplaceController {
     return this.marketplaceService.getMyGallery(req.user.marketplaceUserId, profileId || undefined);
   }
 
+  // DELETE /api/marketplace/my-gallery/:photoId => el cliente elimina una foto
+  // de su galería (solo las suyas).
+  @UseGuards(MarketplaceJwtGuard)
+  @Delete('my-gallery/:photoId')
+  async deleteGalleryPhoto(@Req() req: any, @Param('photoId') photoId: string) {
+    return this.marketplaceService.deleteGalleryPhoto(req.user.marketplaceUserId, photoId);
+  }
+
   // ─── PAYMENTS (auth required) ────────────────────────
 
   // GET /api/marketplace/my-payments => historial de pagos. status es opcional

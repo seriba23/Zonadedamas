@@ -434,9 +434,13 @@ function AppointmentCard({
 function GalleryLightbox({
   photo,
   onClose,
+  onDelete,
+  onBroken,
 }: {
   photo: GalleryCategory['photos'][0]; // Tipo derivado: un elemento del array photos.
   onClose: () => void;
+  onDelete?: () => void;   // eliminar la foto (si se permite)
+  onBroken?: () => void;   // el archivo no carga (enlace roto)
 }) {
   return (
     // Overlay a pantalla completa con fondo negro semi-opaco (bg-black/80).
@@ -462,16 +466,31 @@ function GalleryLightbox({
             src={`${API_URL}${photo.imageUrl}`}
             alt={photo.serviceName}
             className="w-full max-h-[60vh] object-contain bg-gray-50"
+            onError={() => { onBroken?.(); onClose(); }}
           />
-          {/* Botón de cierre superpuesto sobre la imagen (esquina superior derecha). */}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {/* Acciones superpuestas (esquina superior derecha): eliminar + cerrar. */}
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                title="Eliminar foto"
+                aria-label="Eliminar foto"
+                className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+              >
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
         {/* Metadatos de la foto: nombre del servicio y negocio + fecha. */}
         <div className="p-4">
@@ -516,6 +535,13 @@ export default function MarketplaceProfilePage() {
   // lightboxPhoto: foto seleccionada para ver en el lightbox.
   // null = lightbox cerrado.
   const [lightboxPhoto, setLightboxPhoto] = useState<GalleryCategory['photos'][0] | null>(null);
+
+  // brokenPhotoIds: ids de fotos cuyo archivo no carga (enlace roto / borrado).
+  // Las ocultamos para no mostrar el icono de imagen rota.
+  const [brokenPhotoIds, setBrokenPhotoIds] = useState<Set<string>>(new Set());
+  // galleryEditMode: en modo edición se muestran botones para eliminar fotos.
+  const [galleryEditMode, setGalleryEditMode] = useState(false);
+  const markPhotoBroken = (id: string) => setBrokenPhotoIds((prev) => new Set(prev).add(id));
 
   // userGps: coordenadas GPS del usuario para calcular distancias.
   // null = sin GPS disponible.
@@ -572,6 +598,23 @@ export default function MarketplaceProfilePage() {
   });
   const galleryCategories: GalleryCategory[] = (galleryData as any)?.data || [];
 
+  // ─── Mutation: eliminar foto de la galería ───────────────────────────
+  const deletePhotoMutation = useMutation({
+    mutationFn: (photoId: string) => marketplaceApi.del(`/my-gallery/${photoId}`),
+    onSuccess: () => {
+      // Refrescamos galería y stats (el total de fotos baja).
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-gallery'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-my-stats'] });
+      setLightboxPhoto(null);
+    },
+    onError: (err: any) => alert(err?.message || 'No se pudo eliminar la foto'),
+  });
+  // Pide confirmación antes de eliminar (acción destructiva).
+  const handleDeletePhoto = (photoId: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('¿Eliminar esta foto de tu galería?')) return;
+    deletePhotoMutation.mutate(photoId);
+  };
+
   // ─── Query: Recompensas canjeadas (cupones activos) ──────────────────
   const { data: rewardsData } = useQuery({
     queryKey: ['marketplace-my-rewards', activeProfile?.id || 'self'],
@@ -609,9 +652,10 @@ export default function MarketplaceProfilePage() {
   // galleryCategories.flatMap((c) => c.photos): aplana el array de arrays en uno solo.
   //   flatMap es equivalente a .map(...).flat() → transforma y aplana en un paso.
   // Si selectedCategory tiene valor → filtramos la categoría y mostramos sus fotos.
-  const filteredPhotos = selectedCategory
+  const filteredPhotos = (selectedCategory
     ? galleryCategories.find((c) => c.name === selectedCategory)?.photos || []
-    : galleryCategories.flatMap((c) => c.photos);
+    : galleryCategories.flatMap((c) => c.photos)
+  ).filter((p) => !brokenPhotoIds.has(p.id)); // ocultamos las de enlace roto
 
   // ─── Función: cerrar sesión global ──────────────────────────────────
   const handleLogout = async () => {
@@ -864,6 +908,22 @@ export default function MarketplaceProfilePage() {
               </div>
             ) : (
               <>
+                {/* Encabezado: título + botón Editar/Listo para gestionar fotos. */}
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Mi galería</h2>
+                  <button
+                    type="button"
+                    onClick={() => setGalleryEditMode((v) => !v)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                    style={galleryEditMode
+                      ? { backgroundColor: TEAL, color: 'white', borderColor: TEAL }
+                      : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }
+                    }
+                  >
+                    {galleryEditMode ? 'Listo' : 'Editar'}
+                  </button>
+                </div>
+
                 {/* Filtros de categoría en fila horizontal con scroll. */}
                 <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
                   {/* Botón "Todas": desactiva el filtro de categoría. */}
@@ -901,19 +961,37 @@ export default function MarketplaceProfilePage() {
                     .map((photo) => ...): renderiza cada foto como un botón clicable. */}
                 <div className="grid grid-cols-3 gap-2">
                   {filteredPhotos.map((photo) => (
-                    <button
-                      key={photo.id}
-                      onClick={() => setLightboxPhoto(photo)}
-                      className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:opacity-90 transition-opacity"
-                    >
-                      {/* aspect-square: mantiene la foto cuadrada sin importar su tamaño real.
-                          object-cover: recorta la foto para llenar el cuadrado. */}
-                      <img
-                        src={`${API_URL}${photo.imageUrl}`}
-                        alt={photo.serviceName}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
+                    <div key={photo.id} className="relative aspect-square">
+                      <button
+                        onClick={() => setLightboxPhoto(photo)}
+                        className="w-full h-full rounded-lg overflow-hidden bg-gray-100 hover:opacity-90 transition-opacity"
+                      >
+                        {/* aspect-square: mantiene la foto cuadrada sin importar su tamaño real.
+                            object-cover: recorta la foto para llenar el cuadrado.
+                            onError: si el archivo no carga (enlace roto), la ocultamos. */}
+                        <img
+                          src={`${API_URL}${photo.imageUrl}`}
+                          alt={photo.serviceName}
+                          className="w-full h-full object-cover"
+                          onError={() => markPhotoBroken(photo.id)}
+                        />
+                      </button>
+                      {/* Botón eliminar (solo en modo edición). */}
+                      {galleryEditMode && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          disabled={deletePhotoMutation.isPending}
+                          title="Eliminar foto"
+                          aria-label="Eliminar foto"
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               </>
@@ -957,6 +1035,8 @@ export default function MarketplaceProfilePage() {
         <GalleryLightbox
           photo={lightboxPhoto}
           onClose={() => setLightboxPhoto(null)} // Al cerrar, borramos la foto seleccionada.
+          onDelete={() => handleDeletePhoto(lightboxPhoto.id)}
+          onBroken={() => markPhotoBroken(lightboxPhoto.id)}
         />
       )}
     </div>
