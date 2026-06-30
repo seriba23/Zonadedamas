@@ -491,6 +491,8 @@ export class RewardsService {
         tenantId,
         rewardId,
         clientId,
+        // El cupón regalado pertenece al mismo perfil que el client (si tiene).
+        profileId: client.profileId,
         pointsSpent: 0, // 0 porque es un REGALO (no consumió puntos).
         code,           // el código generado arriba.
         expiresAt,      // caduca en 30 días.

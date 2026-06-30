@@ -602,8 +602,8 @@ export class MarketplaceController {
   // GET /api/marketplace/my-rewards => cupones/recompensas canjeados del usuario.
   @UseGuards(MarketplaceJwtGuard)
   @Get('my-rewards')
-  async getMyRewards(@Req() req: any) {
-    return this.marketplaceService.getMyRewards(req.user.marketplaceUserId);
+  async getMyRewards(@Req() req: any, @Query('profileId') profileId?: string) {
+    return this.marketplaceService.getMyRewards(req.user.marketplaceUserId, profileId);
   }
 
   // GET /api/marketplace/my-referrals => referidos del usuario.
@@ -637,12 +637,13 @@ export class MarketplaceController {
   @Post('rewards/redeem')
   async redeemReward(
     @Req() req: any,
-    @Body() body: { rewardId: string; tenantSlug: string },
+    @Body() body: { rewardId: string; tenantSlug: string; profileId?: string },
   ) {
     const result = await this.marketplaceService.redeemReward(
       req.user.marketplaceUserId,
       body.tenantSlug,
       body.rewardId,
+      body.profileId,
     );
     return { data: result };
   }

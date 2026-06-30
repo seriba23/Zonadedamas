@@ -514,6 +514,7 @@ model Profile {
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   clients Client[]
+  rewardRedemptions RewardRedemption[]
 
   @@index([userId])
   @@map("profiles")
@@ -1505,6 +1506,10 @@ model RewardRedemption {
   tenantId    String    @map("tenant_id")
   rewardId    String    @map("reward_id")
   clientId    String    @map("client_id")
+  // Perfil (estilo Netflix) que canjeó el cupón. Un cupón pertenece SOLO al
+  // perfil que lo adquirió: así no se comparte entre el tutor y sus hijos.
+  // Nullable para redemptions antiguas (se rellena con backfill desde Client).
+  profileId   String?   @map("profile_id")
   pointsSpent Int       @map("points_spent")
   status      String    @default("ACTIVE") // ACTIVE | USED | EXPIRED
   code        String    @unique @db.VarChar(12)
@@ -1515,10 +1520,12 @@ model RewardRedemption {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reward      Reward       @relation(fields: [rewardId], references: [id], onDelete: Cascade)
   client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  profile     Profile?     @relation(fields: [profileId], references: [id], onDelete: SetNull)
   appointment Appointment?
 
   @@index([tenantId])
   @@index([clientId])
+  @@index([profileId])
   @@index([code])
   @@map("reward_redemptions")
 }

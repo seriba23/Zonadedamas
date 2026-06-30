@@ -786,10 +786,14 @@ export default function BusinessDetailPage() {
   });
   const shopProducts: any[] = shopProductsData?.data || [];
 
-  // User's active coupons for this business
+  // User's active coupons for this business (filtrados por el perfil activo:
+  // cada cupón pertenece solo al perfil que lo canjeó).
   const { data: userCouponsData } = useQuery({
-    queryKey: ['user-coupons', tenantSlug],
-    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-rewards'),
+    queryKey: ['user-coupons', tenantSlug, activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any[] }>(
+        activeProfile?.id ? `/my-rewards?profileId=${activeProfile.id}` : '/my-rewards',
+      ),
     enabled: !!user,
   });
   const userCoupons = (userCouponsData?.data || []).filter(
@@ -966,7 +970,8 @@ export default function BusinessDetailPage() {
     mutationFn: ({ rewardId }: { rewardId: string }) => {
       // Modo preview admin: no se permite canjear nada.
       if (fromAdmin) return Promise.reject(new Error('preview-readonly'));
-      return marketplaceApi.post<{ data: any }>('/rewards/redeem', { rewardId, tenantSlug });
+      // El cupón se canjea para el PERFIL activo (no se comparte entre perfiles).
+      return marketplaceApi.post<{ data: any }>('/rewards/redeem', { rewardId, tenantSlug, profileId: activeProfile?.id });
     },
     onSuccess: (res: any) => {
       const redemption = res?.data?.data || res?.data || res;
@@ -1088,6 +1093,7 @@ export default function BusinessDetailPage() {
       return marketplaceApi.post('/rewards/redeem', {
         rewardId,
         tenantSlug,
+        profileId: activeProfile?.id,
       });
     },
     onSuccess: (res: any) => {

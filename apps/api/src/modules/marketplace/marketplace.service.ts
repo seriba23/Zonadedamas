@@ -3487,7 +3487,7 @@ export class MarketplaceService {
   }
 
   // getMyRewards(): recompensas/cupones que el usuario ha canjeado.
-  async getMyRewards(marketplaceUserId: string) {
+  async getMyRewards(marketplaceUserId: string, profileId?: string) {
     const clients = await this.prisma.client.findMany({
       where: { userId: marketplaceUserId },
       select: { id: true },
@@ -3498,8 +3498,28 @@ export class MarketplaceService {
       return { data: [] };
     }
 
+    // Si llega un perfil activo, mostramos SOLO los cupones de ese perfil (no se
+    // comparten entre el tutor y sus hijos). Sin perfil, todos los del usuario.
+    let profileWhere: any = {};
+    if (profileId) {
+      const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
+      const prof = await this.prisma.profile.findUnique({
+        where: { id: activeProfileId },
+        select: { relationship: true, isDefault: true },
+      });
+      // El perfil TITULAR (SELF/default) también hereda los cupones antiguos sin
+      // perfil (canjes previos a este sistema). Los hijos solo ven los suyos.
+      const isOwner = prof?.relationship === 'SELF' || prof?.isDefault;
+      profileWhere = isOwner
+        ? { OR: [{ profileId: activeProfileId }, { profileId: null }] }
+        : { profileId: activeProfileId };
+    }
+
     const redemptions = await this.prisma.rewardRedemption.findMany({
-      where: { clientId: { in: clientIds } },
+      where: {
+        clientId: { in: clientIds },
+        ...profileWhere,
+      },
       include: {
         reward: {
           select: {
@@ -3622,16 +3642,16 @@ export class MarketplaceService {
     marketplaceUserId: string,
     tenantSlug: string,
     rewardId: string,
+    profileId?: string,
   ) {
     const tenant = await this.tenantsService.findBySlug(tenantSlug);
 
-    // Find client for this tenant. Si el usuario nunca ha hecho una cita
-    // aqui, no hay Client → no tiene puntos. El error original sonaba a
-    // "tu cuenta no existe" lo cual confunde al cliente del marketplace.
-    // Reframe del mensaje en terminos de puntos para ser util.
-    const client = await this.prisma.client.findFirst({
-      where: { tenantId: tenant.id, userId: marketplaceUserId },
-    });
+    // El cupón pertenece al PERFIL activo (estilo Netflix), no a la cuenta. Los
+    // puntos también son por perfil: cada perfil materializa su propio Client por
+    // negocio. Resolvemos el client de ESE perfil (find-or-create; vincula la
+    // ficha walk-in del SELF si existía).
+    const activeProfileId = await this.resolveActiveProfileId(marketplaceUserId, profileId);
+    const client = await this.resolveClientForProfile(tenant.id, activeProfileId);
     if (!client) {
       throw new BadRequestException(
         `No cuentas con puntos suficientes. Agenda servicios con ${tenant.name} para ganar puntos y canjearlos por recompensas.`,
@@ -3725,6 +3745,7 @@ export class MarketplaceService {
             tenantId: tenant.id,
             rewardId: reward.id,
             clientId: client.id,
+            profileId: activeProfileId,
             pointsSpent: pointsRequired,
             code,
             expiresAt,

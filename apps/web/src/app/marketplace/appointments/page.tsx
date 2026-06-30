@@ -31,6 +31,8 @@ import Link from 'next/link';
 // Modal que permite calificar al empleado Y al negocio en un solo flujo.
 import { DualReviewModal } from '@/components/ui/dual-review-modal';
 import { AppointmentsCalendar } from '@/components/marketplace/appointments-calendar';
+// Paginación por scroll (bloques de 30, sin botón "ver más").
+import { useInfiniteScroll } from '@/lib/hooks/use-infinite-scroll';
 
 // URL base del backend.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -129,6 +131,9 @@ export default function MarketplaceAppointmentsPage() {
   // pase su fecha) o 'registros' (todo lo que ya pasó: completadas, canceladas,
   // ausentes, perdidas).
   const [citasMode, setCitasMode] = useState<'proximas' | 'registros'>('proximas');
+  // Modo de la pestaña Compras: 'mes' (solo las del mes corriente) o 'registros'
+  // (todas las compras históricas).
+  const [comprasMode, setComprasMode] = useState<'mes' | 'registros'>('mes');
 
   // Texto del buscador (filtra por nombre del servicio o negocio).
   const [search, setSearch] = useState('');
@@ -378,6 +383,29 @@ export default function MarketplaceAppointmentsPage() {
   const currentSet = citasMode === 'registros' ? registros : proximas;
   const filteredPurchases = purchases.filter((p) => matchesPurchase(p) && matchesPurchaseStatus(p));
 
+  // ── Compras: mes corriente vs. registros (todas) ───────────
+  // Por defecto la pestaña Compras solo muestra las del mes en curso; el toggle
+  // "Registros" revela todo el historial. Comparamos año+mes en hora local.
+  const _now = new Date();
+  const _curYM = _now.getFullYear() * 12 + _now.getMonth();
+  const isCurrentMonthPurchase = (p: any) => {
+    const d = new Date(p.createdAt);
+    return d.getFullYear() * 12 + d.getMonth() === _curYM;
+  };
+  const currentPurchases =
+    comprasMode === 'registros' ? filteredPurchases : filteredPurchases.filter(isCurrentMonthPurchase);
+
+  // ── Scroll infinito (bloques de 30) ────────────────────────
+  // Se llaman SIEMPRE (regla de hooks) antes de cualquier return temprano.
+  const citasInfinite = useInfiniteScroll(
+    currentSet,
+    `citas-${citasMode}-${q}-${statusFilter}-${serviceFilter}-${employeeFilter}-${profileFilter}-${sortBy}`,
+  );
+  const comprasInfinite = useInfiniteScroll(
+    currentPurchases,
+    `compras-${comprasMode}-${q}-${statusFilter}`,
+  );
+
   // Reseteamos filtro de status cuando cambias de tab (los sets son distintos)
   // Opciones por sección: la primera sección "Pago" usa valores virtuales
   // ('PAID' / 'UNPAID') basados en paymentProofUrl. La segunda sección
@@ -509,7 +537,7 @@ export default function MarketplaceAppointmentsPage() {
           {/* Tabs Citas | Compras */}
           <div className="flex rounded-lg border border-gray-300 overflow-hidden">
             <button
-              onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); }}
+              onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
                 tab === 'citas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
@@ -517,7 +545,7 @@ export default function MarketplaceAppointmentsPage() {
               Citas
             </button>
             <button
-              onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); }}
+              onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
                 tab === 'compras' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
@@ -580,11 +608,15 @@ export default function MarketplaceAppointmentsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {currentSet.map((appt) => (
-                    <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
-                  ))}
-                </div>
+                <>
+                  <div className="space-y-3">
+                    {citasInfinite.visibleItems.map((appt) => (
+                      <AppointmentCard key={appt.id} appt={appt} profile={profileFor(appt)} onPress={() => router.push(`/marketplace/appointments/${appt.id}`)} />
+                    ))}
+                  </div>
+                  {/* Sentinel: al asomarse al final del scroll, revela 30 más. */}
+                  {citasInfinite.hasMore && <div ref={citasInfinite.sentinelRef} className="h-10" />}
+                </>
               )}
             </>
           )
@@ -594,24 +626,63 @@ export default function MarketplaceAppointmentsPage() {
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderBottomColor: TEAL }} />
             </div>
-          ) : filteredPurchases.length === 0 ? (
+          ) : purchases.length === 0 ? (
             <div className="text-center py-16 flex flex-col items-center gap-4">
               <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
-              <p className="text-gray-500">{purchases.length === 0 ? 'No has apartado productos todavía' : 'Sin resultados para tu búsqueda'}</p>
-              {purchases.length === 0 && (
-                <Link href="/marketplace?shop=1" className="px-6 py-2.5 text-white rounded-full text-sm font-medium" style={{ backgroundColor: TEAL }}>
-                  Explorar tiendas
-                </Link>
-              )}
+              <p className="text-gray-500">No has apartado productos todavía</p>
+              <Link href="/marketplace?shop=1" className="px-6 py-2.5 text-white rounded-full text-sm font-medium" style={{ backgroundColor: TEAL }}>
+                Explorar tiendas
+              </Link>
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredPurchases.map((p) => (
-                <PurchaseCard key={p.id} purchase={p} onPress={() => router.push(`/marketplace/purchases/${p.id}`)} />
-              ))}
-            </div>
+            <>
+              {/* Encabezado del modo activo + icono toggle (mismo patrón que Citas).
+                  El icono es siempre el de registros; solo cambia de color. */}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                  {comprasMode === 'registros' ? 'Registros' : 'Este mes'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setComprasMode((m) => (m === 'registros' ? 'mes' : 'registros'))}
+                  title={comprasMode === 'registros' ? 'Ver este mes' : 'Ver registros'}
+                  aria-label={comprasMode === 'registros' ? 'Ver este mes' : 'Ver registros'}
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                  style={comprasMode === 'registros'
+                    ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                    : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                  }
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                  </svg>
+                </button>
+              </div>
+
+              {currentPurchases.length === 0 ? (
+                <div className="text-center py-16 flex flex-col items-center gap-4">
+                  <svg className="w-16 h-16 text-gray-200" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <p className="text-gray-500">
+                    {filteredPurchases.length === 0
+                      ? 'Sin resultados para tu búsqueda'
+                      : 'No tienes compras este mes'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {comprasInfinite.visibleItems.map((p) => (
+                      <PurchaseCard key={p.id} purchase={p} onPress={() => router.push(`/marketplace/purchases/${p.id}`)} />
+                    ))}
+                  </div>
+                  {comprasInfinite.hasMore && <div ref={comprasInfinite.sentinelRef} className="h-10" />}
+                </>
+              )}
+            </>
           )
         )}
       </div>
@@ -660,7 +731,7 @@ export default function MarketplaceAppointmentsPage() {
             <div className="px-5 py-4">
               {(statusFilter || serviceFilter || employeeFilter || profileFilter || sortBy !== 'default') && (
                 <button
-                  onClick={() => { setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); }}
+                  onClick={() => { setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
                   className="w-full flex items-center justify-center gap-1.5 mb-4 py-2 rounded-xl text-xs font-medium border transition-colors"
                   style={{ color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
                 >

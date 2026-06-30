@@ -73,10 +73,13 @@ function normalize(s: string | null | undefined): string {
 
 // ── Componente principal ───────────────────────────────────
 export default function MarketplaceCouponsPage() {
-  const { isAuthenticated, isLoading: authLoading } = useMarketplaceAuth();
+  const { isAuthenticated, isLoading: authLoading, activeProfile } = useMarketplaceAuth();
 
   // Pestaña activa: 'cupones' o 'puntos'.
   const [tab, setTab] = useState<'cupones' | 'puntos'>('cupones');
+  // Modo de la pestaña Cupones: 'disponibles' (los que se pueden usar) o
+  // 'registros' (historial: usados/expirados). Mismo patrón que citas/compras.
+  const [cuponesMode, setCuponesMode] = useState<'disponibles' | 'registros'>('disponibles');
 
   // Búsqueda y filtros — el buscador se comparte entre pestañas para que el
   // usuario no pierda su texto al cambiar entre "Cupones" y "Mis puntos".
@@ -136,9 +139,14 @@ export default function MarketplaceCouponsPage() {
     }
   };
 
+  // Los cupones se piden filtrados por el PERFIL activo: cada cupón pertenece
+  // solo al perfil que lo canjeó (no se comparten entre el tutor y sus hijos).
   const { data, isLoading } = useQuery({
-    queryKey: ['marketplace-my-rewards'],
-    queryFn: () => marketplaceApi.get<{ data: any[] }>('/my-rewards'),
+    queryKey: ['marketplace-my-rewards', activeProfile?.id || 'self'],
+    queryFn: () =>
+      marketplaceApi.get<{ data: any[] }>(
+        activeProfile?.id ? `/my-rewards?profileId=${activeProfile.id}` : '/my-rewards',
+      ),
     enabled: isAuthenticated,
   });
 
@@ -230,10 +238,10 @@ export default function MarketplaceCouponsPage() {
   const filteredUsedRef = usedReferrals.filter(matchesReferralSearch);
   const filteredReceived = receivedReferrals.filter(matchesReferralSearch);
 
-  // En "Historial" solo mostramos lo usado/expirado; en "Activos" solo
-  // los disponibles; en "Todos" ambos.
-  const showActiveSection = couponFilter !== 'history';
-  const showHistorySection = couponFilter === 'all' || couponFilter === 'history';
+  // El modo controla qué sección se ve: 'disponibles' muestra los cupones
+  // usables; 'registros' muestra el historial (usados/expirados).
+  const showActiveSection = cuponesMode === 'disponibles';
+  const showHistorySection = cuponesMode === 'registros';
 
   // ── Filtrado de puntos con useMemo ─────────────────────────
   // `useMemo`: memoriza el resultado del cálculo para que no se recalcule
@@ -300,23 +308,41 @@ export default function MarketplaceCouponsPage() {
             </div>
 
             {tab === 'cupones' && (
-              <button
-                onClick={() => setShowFiltersSheet(true)}
-                title="Filtros"
-                aria-label="Filtros"
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
-                style={couponFilter !== 'all'
-                  ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
-                  : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
-                }
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-                </svg>
-                {couponFilter !== 'all' && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
-                )}
-              </button>
+              <>
+                {/* Toggle Disponibles ↔ Registros. Icono fijo (registros), solo
+                    cambia de color cuando está activo. */}
+                <button
+                  onClick={() => setCuponesMode((m) => (m === 'registros' ? 'disponibles' : 'registros'))}
+                  title={cuponesMode === 'registros' ? 'Ver disponibles' : 'Ver registros'}
+                  aria-label={cuponesMode === 'registros' ? 'Ver disponibles' : 'Ver registros'}
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                  style={cuponesMode === 'registros'
+                    ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                    : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                  }
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowFiltersSheet(true)}
+                  title="Filtros"
+                  aria-label="Filtros"
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                  style={couponFilter !== 'all'
+                    ? { backgroundColor: TEAL, color: 'white', border: '1.5px solid ' + TEAL }
+                    : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+                  }
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                  </svg>
+                  {couponFilter !== 'all' && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-50" />
+                  )}
+                </button>
+              </>
             )}
 
             {tab === 'puntos' && (
@@ -415,11 +441,9 @@ export default function MarketplaceCouponsPage() {
               <div className="flex flex-wrap gap-1.5">
                 {([
                   { value: 'all', label: 'Todos' },
-                  { value: 'active', label: 'Adquiridos' },
                   { value: 'discount', label: 'Descuentos' },
                   { value: 'gratis', label: 'Servicio gratis' },
                   { value: 'expiring', label: 'Por vencer (7 días)' },
-                  { value: 'history', label: 'Historial' },
                 ] as { value: CouponFilter; label: string }[]).map((opt) => (
                   <button
                     key={opt.value}
