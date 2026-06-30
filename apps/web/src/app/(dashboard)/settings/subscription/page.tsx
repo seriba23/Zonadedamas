@@ -27,9 +27,9 @@ const SILIBA_WHATSAPP = process.env.NEXT_PUBLIC_SILIBA_WHATSAPP || '523334405600
 // por variables de entorno (NEXT_PUBLIC_SILIBA_*) o dejar aquí los valores fijos.
 // Cada renglón se muestra solo si tiene valor.
 const SILIBA_BANK = {
-  bank:   process.env.NEXT_PUBLIC_SILIBA_BANK   || '',
-  clabe:  process.env.NEXT_PUBLIC_SILIBA_CLABE  || '',
-  holder: process.env.NEXT_PUBLIC_SILIBA_HOLDER || '',
+  bank:   process.env.NEXT_PUBLIC_SILIBA_BANK   || 'BBVA',
+  clabe:  process.env.NEXT_PUBLIC_SILIBA_CLABE  || '012180015393011405',
+  holder: process.env.NEXT_PUBLIC_SILIBA_HOLDER || 'Sergio Alfredo Ibarra Aldrete',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
