@@ -32,6 +32,19 @@ export default function ClientsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const perPage = 20;
 
+  // ── Búsqueda avanzada (panel de filtros) ──
+  // filters: filtros APLICADOS (alimentan la query). draft: lo que se edita en
+  // el panel antes de pulsar "Aplicar".
+  const emptyFilters = { email: '', phone: '', createdAfter: '', createdBefore: '' };
+  const [filters, setFilters] = useState(emptyFilters);
+  const [draft, setDraft] = useState(emptyFilters);
+  const [showFilters, setShowFilters] = useState(false);
+  // Nº de filtros activos (para el punto rojo del icono).
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  function openFilters() { setDraft(filters); setShowFilters(true); }
+  function applyFilters() { setFilters(draft); setPage(1); setShowFilters(false); }
+  function clearFilters() { setFilters(emptyFilters); setDraft(emptyFilters); setPage(1); setShowFilters(false); }
+
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -58,10 +71,14 @@ export default function ClientsPage() {
     page: String(page),
     perPage: String(perPage),
     ...(debouncedSearch && { search: debouncedSearch }),
+    ...(filters.email && { email: filters.email }),
+    ...(filters.phone && { phone: filters.phone }),
+    ...(filters.createdAfter && { createdAfter: filters.createdAfter }),
+    ...(filters.createdBefore && { createdBefore: filters.createdBefore }),
   });
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['clients', page, debouncedSearch],
+    queryKey: ['clients', page, debouncedSearch, filters.email, filters.phone, filters.createdAfter, filters.createdBefore],
     queryFn: () =>
       api.get<{
         data: Client[];
@@ -80,38 +97,59 @@ export default function ClientsPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-3 md:p-6">
-        {/* Buscador estilo marketplace */}
+        {/* Buscador estilo marketplace + icono de filtros (búsqueda avanzada) */}
         <div className="mb-4 md:mb-6 max-w-2xl">
-          <div className="relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Buscar cliente por nombre, email o teléfono..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ ['--tw-ring-color' as any]: '#008080' }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#008080';
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = '#e5e7eb';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Buscar cliente por nombre, email o teléfono..."
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ ['--tw-ring-color' as any]: '#008080' }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#008080';
-                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(0,128,128,0.25)';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            />
+            </div>
+            {/* Icono de filtros: abre el panel de búsqueda avanzada. */}
+            <button
+              type="button"
+              onClick={openFilters}
+              title="Búsqueda avanzada"
+              aria-label="Búsqueda avanzada"
+              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+              style={activeFilterCount > 0
+                ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+                : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+              }
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+              </svg>
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -271,6 +309,78 @@ export default function ClientsPage() {
       {/* Drawer solo para crear nuevo cliente desde la lista */}
       {isCreateOpen && (
         <ClientDrawer clientId={null} onClose={closeCreate} />
+      )}
+
+      {/* Panel de búsqueda avanzada (bottom-sheet, mismo patrón que el marketplace) */}
+      {showFilters && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
+            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900">Búsqueda avanzada</h3>
+              <button onClick={() => setShowFilters(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+                <input
+                  type="text"
+                  value={draft.email}
+                  onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+                  placeholder="Contiene…"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Teléfono</label>
+                <input
+                  type="text"
+                  value={draft.phone}
+                  onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
+                  placeholder="Contiene…"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Cliente desde</label>
+                  <input
+                    type="date"
+                    value={draft.createdAfter}
+                    onChange={(e) => setDraft((d) => ({ ...d, createdAfter: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Cliente hasta</label>
+                  <input
+                    type="date"
+                    value={draft.createdBefore}
+                    onChange={(e) => setDraft((d) => ({ ...d, createdBefore: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex items-center gap-2">
+              <button
+                onClick={clearFilters}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Limpiar
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

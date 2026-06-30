@@ -182,24 +182,29 @@ export default function CalendarPage() {
     };
   }, [serviceDropdownOpen]);
 
-  // Rangos en ISO con timezone local para que el backend pueda incluir citas
-  // que estan en el "dia local" del usuario aunque su startTime UTC caiga en
-  // un dia UTC distinto. Antes mandabamos YYYY-MM-DD y el backend lo
-  // interpretaba como UTC midnight, perdiendo las horas nocturnas locales.
+  // Rangos por DÍA UTC, coherentes con cómo se posicionan/agrupan las citas en
+  // la vista (siempre con dayjs.utc(startTime)) y con el conteo del inicio
+  // (/api/reports/today, que usa límites UTC del día). Antes se usaba el offset
+  // local del navegador, lo que desplazaba la ventana y hacía que el inicio
+  // contara una cita de madrugada-UTC que la vista de día no mostraba.
+  // utcDayStart/End: toma la fecha (YYYY-MM-DD) de un dayjs y la fija a 00:00:00Z
+  // / 23:59:59Z de ese mismo día calendario.
+  const utcDayStart = (d: dayjs.Dayjs) => dayjs.utc(d.format('YYYY-MM-DD')).startOf('day').toISOString();
+  const utcDayEnd = (d: dayjs.Dayjs) => dayjs.utc(d.format('YYYY-MM-DD')).endOf('day').toISOString();
   const startDate = viewMode === 'custom'
-    ? dayjs(customStart).startOf('day').toISOString()
+    ? utcDayStart(dayjs(customStart))
     : viewMode === 'month'
-      ? currentDate.startOf('month').startOf('isoWeek').toISOString()
+      ? utcDayStart(currentDate.startOf('month').startOf('isoWeek'))
       : viewMode === 'week'
-        ? currentDate.startOf('week').toISOString()
-        : currentDate.startOf('day').toISOString();
+        ? utcDayStart(currentDate.startOf('week'))
+        : utcDayStart(currentDate);
   const endDate = viewMode === 'custom'
-    ? dayjs(customEnd).endOf('day').toISOString()
+    ? utcDayEnd(dayjs(customEnd))
     : viewMode === 'month'
-      ? currentDate.endOf('month').endOf('isoWeek').toISOString()
+      ? utcDayEnd(currentDate.endOf('month').endOf('isoWeek'))
       : viewMode === 'week'
-        ? currentDate.endOf('week').toISOString()
-        : currentDate.endOf('day').toISOString();
+        ? utcDayEnd(currentDate.endOf('week'))
+        : utcDayEnd(currentDate);
 
   // Build query params - month view needs more results
   const queryParams = new URLSearchParams({

@@ -355,92 +355,48 @@ export default function ReportsPage() {
           <span className="text-sm font-medium text-[var(--text-secondary)]">{apts.length} cita{apts.length !== 1 ? 's' : ''}</span>
           <span className="text-sm font-bold text-green-700">Total: {formatCurrency(totalRevenue)}</span>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto">
-          {/* Mobile: card list */}
-          <div className="md:hidden divide-y divide-gray-100">
-            {apts.map((apt) => {
-              const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
-              const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
-              return (
-                <div
-                  key={apt.id}
-                  className="p-3 hover:bg-[var(--bg-muted)] cursor-pointer"
-                  onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}
-                >
-                  <div className="flex items-start justify-between mb-1.5">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{dayjs.utc(apt.startTime).format('DD/MM/YYYY')} · {dayjs.utc(apt.startTime).format('HH:mm')}</p>
-                    <span className="text-sm font-semibold text-[var(--text-primary)] flex-shrink-0 ml-2">{formatCurrency(total)}</span>
+        {/* Lista de citas con el MISMO estilo de tarjetas que usamos en el
+            calendario/citas: borde izquierdo con el color del empleado, cliente,
+            servicios, horario, estado y monto. */}
+        <div className="max-h-[70vh] overflow-y-auto p-3 space-y-2">
+          {apts.map((apt) => {
+            const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
+            const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
+            const color = apt.employee?.color || '#008080';
+            return (
+              <div
+                key={apt.id}
+                onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-3 cursor-pointer hover:shadow-sm transition-shadow"
+                style={{ borderLeft: `3px solid ${color}` }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{apt.client.firstName} {apt.client.lastName}</p>
+                    <p className="text-xs text-[var(--text-secondary)] truncate">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</p>
                   </div>
-                  <dl className="space-y-1 text-xs">
-                    <div className="flex">
-                      <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Cliente</dt>
-                      <dd className="text-[var(--text-primary)] font-medium flex-1 min-w-0 truncate">{apt.client.firstName} {apt.client.lastName}</dd>
-                    </div>
-                    <div className="flex items-center">
-                      <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Empleado</dt>
-                      <dd className="text-[var(--text-secondary)] flex-1 min-w-0 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
-                        <span className="truncate">{apt.employee.firstName} {apt.employee.lastName}</span>
-                      </dd>
-                    </div>
-                    <div className="flex">
-                      <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Servicios</dt>
-                      <dd className="text-[var(--text-secondary)] flex-1 min-w-0">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</dd>
-                    </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{formatCurrency(total)}</p>
                     {!revenueOnly && (
-                      <div className="flex items-center pt-0.5">
-                        <dt className="w-20 text-[var(--text-secondary)] flex-shrink-0">Estado</dt>
-                        <dd>
-                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${status.color}`}>{status.label}</span>
-                        </dd>
-                      </div>
+                      <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${status.color}`}>{status.label}</span>
                     )}
-                  </dl>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Desktop: tabla */}
-          <table className="hidden md:table w-full">
-            <thead className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border)]">
-              <tr>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Fecha</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Horario</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Cliente</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Empleado</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Servicios</th>
-                {!revenueOnly && <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Estado</th>}
-                <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)] uppercase">Monto</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {apts.map((apt) => {
-                const status = STATUS_LABELS[apt.status] || STATUS_LABELS.PENDING;
-                const total = apt.items.reduce((s, i) => s + Number(i.priceSnapshot), 0);
-                return (
-                  <tr key={apt.id} className="hover:bg-[var(--bg-muted)] cursor-pointer" onClick={() => { setDetail(null); window.location.href = `/calendar?appointmentId=${apt.id}`; }}>
-                    <td className="px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap">{dayjs.utc(apt.startTime).format('DD/MM/YYYY')}</td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{dayjs.utc(apt.startTime).format('HH:mm')} - {dayjs.utc(apt.endTime).format('HH:mm')}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{apt.client.firstName} {apt.client.lastName}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: apt.employee?.color || '#008080' }} />
-                        <span className="text-sm text-[var(--text-secondary)]">{apt.employee.firstName} {apt.employee.lastName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] max-w-[200px] truncate">{apt.items.map((i) => i.serviceNameSnapshot).join(', ')}</td>
-                    {!revenueOnly && (
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>{status.label}</span>
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)] text-right whitespace-nowrap">{formatCurrency(total)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-[var(--text-secondary)]">
+                  <span className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                    </svg>
+                    {dayjs.utc(apt.startTime).format('DD/MM/YYYY')} · {dayjs.utc(apt.startTime).format('HH:mm')}
+                  </span>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="truncate">{apt.employee.firstName} {apt.employee.lastName}</span>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -1149,7 +1105,7 @@ function AttendanceReportCard({ startDate, endDate }: { startDate: string; endDa
   return (
     <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
       <div className="flex items-center justify-between mb-3 md:mb-4">
-        <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)]">Asistencias del periodo</h3>
+        <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)]">Asistencias de mi equipo</h3>
         <Link
           href="/staff?tab=asistencias"
           className="text-xs font-medium text-[#008080] hover:underline whitespace-nowrap"
