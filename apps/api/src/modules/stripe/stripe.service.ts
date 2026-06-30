@@ -767,7 +767,11 @@ export class StripeService implements OnModuleInit {
         stripePriceId: priceId,
         billedEmployeeCount: employeeCount,
         monthlyAmountUsd: monthlyAmount, // monto PLANO del plan (300 PRO / 500 PLUS)
-        status: 'ACTIVE', // optimista; el webhook confirmará el estado real.
+        // NO marcamos ACTIVE aquí: la sub nace 'default_incomplete' (sin pago).
+        // El estado se mantiene (TRIAL) y solo pasa a ACTIVE cuando llega el
+        // webhook invoice.paid. Marcarlo optimista hacía que, si el usuario
+        // cerraba el modal sin pagar, la cuenta pareciera ya pagada (mostraba
+        // "Cancelar suscripción"), lo cual es peligroso/confuso.
         cancelledAt: null,
       },
     });

@@ -283,6 +283,31 @@ export function buildReminderMessage(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RECORDATORIO DE PAGO DE SUSCRIPCIÓN (Siliba → dueño del negocio)
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo usa el Super Admin para recordar a un negocio que su suscripción vence.
+// Incluye monto, fecha y un enlace a su sección de suscripción para pagar.
+export function buildSubscriptionPaymentReminder(opts: {
+  ownerName?: string;       // nombre del dueño (opcional)
+  tenantName: string;       // nombre del negocio
+  amount: number | string;  // monto a pagar (MXN)
+  dueDate: string;          // fecha de vencimiento (ISO)
+  daysLeft: number;         // días que faltan (puede ser <= 0 si ya venció)
+  link: string;             // URL a la sección de suscripción del negocio
+}): string {
+  const greeting = opts.ownerName ? `Hola ${opts.ownerName},` : 'Hola,';
+  const when =
+    opts.daysLeft <= 0 ? 'hoy' : opts.daysLeft === 1 ? 'mañana' : `en ${opts.daysLeft} días`;
+  return (
+    `${greeting}\n` +
+    `Te recordamos que la suscripción de *${opts.tenantName}* en *Siliba* vence ${when} ` +
+    `(${formatBookingDateLong(opts.dueDate)}). Monto: *$${opts.amount} MXN*.\n\n` +
+    `Puedes pagar aquí:\n${opts.link}\n\n` +
+    `Aceptamos tarjeta (Stripe) o transferencia enviando el comprobante por WhatsApp. ¡Gracias!`
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CONTACTO DE EMERGENCIA — mensaje de WhatsApp
 // ─────────────────────────────────────────────────────────────────────────────
 // Negocio/profesional → contacto de emergencia de un cliente. Mensaje preescrito
