@@ -229,6 +229,14 @@ export class StripeService implements OnModuleInit {
         type: 'express',
         email: influencer.email,
         business_type: 'individual',
+        // Pre-cargamos el perfil de negocio para que el creador (afiliado que
+        // solo promociona la app y cobra comisión) no tenga que inventar un
+        // sitio/actividad: promociona Siliba y recibe comisiones por referidos.
+        business_profile: {
+          url: process.env.WEB_URL || 'https://app.siliba.com',
+          product_description:
+            'Marketing de afiliados: promoción de la aplicación Siliba (plataforma de reservas de citas) y comisiones por clientes/negocios referidos.',
+        },
         capabilities: { transfers: { requested: true } },
         metadata: { influencerId: influencer.id },
       });
