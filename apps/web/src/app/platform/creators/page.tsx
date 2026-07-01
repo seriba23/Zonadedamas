@@ -496,7 +496,7 @@ function CreatorDetailModal({
       .then((r: any) => {
         const url = r?.data?.url || '';
         const msg =
-          `¡Hola ${inf.firstName}! 🎉\n` +
+          `¡Hola ${inf.firstName}!\n` +
           `Te damos la bienvenida a *Siliba Creadores*.\n\n` +
           `Ya estás dado de alta. Crea tu contraseña y entra a tu panel aquí:\n${url}` +
           (code ? `\n\nTu código para compartir es: *${code}*` : '') +
