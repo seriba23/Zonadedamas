@@ -723,6 +723,123 @@ export class EmployeesService {
     };
   }
 
+  // ─── COMISIONES: pago del negocio al empleado + confirmación ────────────────
+
+  // Suma de comisiones DEVENGADAS (histórico): commissionSnapshot de items de
+  // citas completadas del empleado.
+  private async earnedCommissions(employeeId: string, tenantId: string): Promise<number> {
+    const agg = await this.prisma.appointmentItem.aggregate({
+      where: { employeeId, appointment: { tenantId, status: 'COMPLETED' } },
+      _sum: { commissionSnapshot: true },
+    });
+    return Number(agg._sum.commissionSnapshot ?? 0);
+  }
+
+  // getMyCommissionSummary(): para el empleado. Devuelve devengado, cobrado
+  // (pagos CONFIRMED), por cobrar, y los pagos PENDING que debe confirmar/rechazar.
+  async getMyCommissionSummary(employeeId: string, tenantId: string) {
+    await this.findOne(employeeId, tenantId);
+    const [earned, paidAgg, pendingPayments, recentPayments] = await Promise.all([
+      this.earnedCommissions(employeeId, tenantId),
+      this.prisma.commissionPayment.aggregate({
+        where: { employeeId, tenantId, status: 'CONFIRMED' },
+        _sum: { amount: true },
+      }),
+      this.prisma.commissionPayment.findMany({
+        where: { employeeId, tenantId, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.commissionPayment.findMany({
+        where: { employeeId, tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+    ]);
+    const collected = Number(paidAgg._sum.amount ?? 0);
+    return {
+      data: {
+        earned,                             // comisiones devengadas (histórico)
+        collected,                          // cobradas (pagos confirmados)
+        pending: Math.max(0, earned - collected), // por cobrar
+        pendingPayments,                    // pagos por confirmar (modal)
+        recentPayments,                     // historial de pagos
+      },
+    };
+  }
+
+  // Confirma que el empleado recibió un pago de comisión.
+  async confirmCommissionPayment(paymentId: string, employeeId: string, tenantId: string) {
+    const payment = await this.prisma.commissionPayment.findFirst({
+      where: { id: paymentId, employeeId, tenantId },
+    });
+    if (!payment) throw new NotFoundException('Pago no encontrado');
+    const updated = await this.prisma.commissionPayment.update({
+      where: { id: paymentId },
+      data: { status: 'CONFIRMED', confirmedAt: new Date(), disputedAt: null },
+    });
+    return { data: updated };
+  }
+
+  // El empleado indica que NO recibió el pago (queda en disputa; el admin no lo
+  // puede cerrar).
+  async disputeCommissionPayment(paymentId: string, employeeId: string, tenantId: string) {
+    const payment = await this.prisma.commissionPayment.findFirst({
+      where: { id: paymentId, employeeId, tenantId },
+    });
+    if (!payment) throw new NotFoundException('Pago no encontrado');
+    const updated = await this.prisma.commissionPayment.update({
+      where: { id: paymentId },
+      data: { status: 'DISPUTED', disputedAt: new Date() },
+    });
+    return { data: updated };
+  }
+
+  // ── Lado admin ──
+  // Registra que el negocio pagó una comisión a un empleado (queda PENDING de
+  // confirmación por el empleado).
+  async createCommissionPayment(
+    employeeId: string,
+    tenantId: string,
+    dto: { amount: number; note?: string },
+    paidByUserId?: string,
+  ) {
+    await this.findOne(employeeId, tenantId);
+    if (!dto.amount || dto.amount <= 0) {
+      throw new BadRequestException('El monto debe ser mayor a 0');
+    }
+    const created = await this.prisma.commissionPayment.create({
+      data: {
+        tenantId,
+        employeeId,
+        amount: dto.amount,
+        note: dto.note || null,
+        paidByUserId: paidByUserId || null,
+        status: 'PENDING',
+      },
+    });
+    return { data: created };
+  }
+
+  // Lista los pagos de comisión de un empleado (para el admin), con el resumen.
+  async listCommissionPayments(employeeId: string, tenantId: string) {
+    await this.findOne(employeeId, tenantId);
+    const [earned, paidAgg, payments] = await Promise.all([
+      this.earnedCommissions(employeeId, tenantId),
+      this.prisma.commissionPayment.aggregate({
+        where: { employeeId, tenantId, status: 'CONFIRMED' },
+        _sum: { amount: true },
+      }),
+      this.prisma.commissionPayment.findMany({
+        where: { employeeId, tenantId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+    const collected = Number(paidAgg._sum.amount ?? 0);
+    return {
+      data: { earned, collected, pending: Math.max(0, earned - collected), payments },
+    };
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // getServices(): lista los servicios asignados al empleado (con su detalle).
   // ───────────────────────────────────────────────────────────────────────────

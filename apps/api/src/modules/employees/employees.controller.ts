@@ -372,6 +372,60 @@ export class EmployeesController {
     return { data: employee };
   }
 
+  // ── COMISIONES (empleado) ──────────────────────────────────────────────────
+  // GET /api/employees/me/commission-summary → devengado, cobrado, por cobrar y
+  // los pagos pendientes de confirmar.
+  @Get('me/commission-summary')
+  async myCommissionSummary(@CurrentUser() user: JwtPayload, @CurrentTenant() tenantId: string) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    return this.employeesService.getMyCommissionSummary(emp.id, tenantId);
+  }
+
+  // POST /api/employees/me/commission-payments/:paymentId/confirm → el empleado
+  // confirma que recibió el pago.
+  @Post('me/commission-payments/:paymentId/confirm')
+  async confirmMyCommissionPayment(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    return this.employeesService.confirmCommissionPayment(paymentId, emp.id, tenantId);
+  }
+
+  // POST /api/employees/me/commission-payments/:paymentId/dispute → el empleado
+  // indica que NO recibió el pago (queda en disputa).
+  @Post('me/commission-payments/:paymentId/dispute')
+  async disputeMyCommissionPayment(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    return this.employeesService.disputeCommissionPayment(paymentId, emp.id, tenantId);
+  }
+
+  // ── COMISIONES (admin) ─────────────────────────────────────────────────────
+  // POST /api/employees/:id/commission-payments → el admin registra un pago de
+  // comisión a un empleado (queda pendiente de confirmación del empleado).
+  @Post(':id/commission-payments')
+  @RequirePermissions('employees.update')
+  async createCommissionPayment(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: { amount: number; note?: string },
+  ) {
+    return this.employeesService.createCommissionPayment(id, tenantId, dto, user.userId);
+  }
+
+  // GET /api/employees/:id/commission-payments → historial + resumen (admin).
+  @Get(':id/commission-payments')
+  @RequirePermissions('employees.read')
+  async listCommissionPayments(@Param('id') id: string, @CurrentTenant() tenantId: string) {
+    return this.employeesService.listCommissionPayments(id, tenantId);
+  }
+
   // Self-service: employee requests their own time off
   // ── GET /api/employees/me/time-off ────────────────────────────────────────
   // El empleado consulta sus propias solicitudes de tiempo libre.

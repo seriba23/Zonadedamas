@@ -333,6 +333,7 @@ model Tenant {
   attendances           Attendance[]
   tenantReviews         TenantReview[]
   staffNotifications    StaffNotification[]
+  commissionPayments    CommissionPayment[]
 
   @@map("tenants")
 }
@@ -832,10 +833,35 @@ model Employee {
   trainings              EmployeeTraining[]
   professionalFavorites  MarketplaceProfessionalFavorite[]
   attendances            Attendance[]
+  commissionPayments     CommissionPayment[]
 
   @@index([tenantId])
   @@index([tenantId, locationId])
   @@map("employees")
+}
+
+// Pago de COMISIONES del negocio a un empleado. El admin registra que pagó cierto
+// monto a un empleado; queda PENDING hasta que el empleado confirme que lo recibió
+// (CONFIRMED) o lo rechace (DISPUTED). Mientras esté DISPUTED/PENDING, el admin no
+// puede darlo por cerrado. Mismo patrón de confirmación que citas/reseñas.
+model CommissionPayment {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  employeeId   String    @map("employee_id")
+  amount       Decimal   @db.Decimal(10, 2)
+  status       String    @default("PENDING") // PENDING | CONFIRMED | DISPUTED
+  paidByUserId String?   @map("paid_by_user_id") // admin que registró el pago
+  note         String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  confirmedAt  DateTime? @map("confirmed_at")
+  disputedAt   DateTime? @map("disputed_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([employeeId, status])
+  @@map("commission_payments")
 }
 
 model Attendance {
