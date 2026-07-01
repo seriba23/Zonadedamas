@@ -32,6 +32,7 @@ import { useSearchParams } from 'next/navigation';
 // Ejemplo: en /employee/appointments?appointmentId=xyz, podemos leer "xyz".
 
 import { useAuth } from '@/lib/hooks/use-auth';
+import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
 // useAuth → hook para acceder al usuario autenticado (y su employeeId).
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -244,6 +245,26 @@ export default function EmployeeAppointmentsPage() {
   // showNewWizard: controla si el wizard de "Nueva cita" está abierto.
   const [showNewWizard, setShowNewWizard] = useState(false);
 
+  // ── Búsqueda avanzada (panel de filtros junto al buscador) ──
+  const [showFilters, setShowFilters] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
+  const [draftService, setDraftService] = useState('');
+  const activeFilterCount = (statusFilter ? 1 : 0) + (serviceFilter ? 1 : 0);
+  function openFilters() { setDraftStatus(statusFilter); setDraftService(serviceFilter); setShowFilters(true); }
+  function applyFilters() { setStatusFilter(draftStatus); setServiceFilter(draftService); setShowFilters(false); }
+  function clearFilters() { setStatusFilter(''); setServiceFilter(''); setDraftStatus(''); setDraftService(''); setShowFilters(false); }
+
+  // Botón "Nueva" en el header (topbar), igual que en la consola de admin.
+  useRegisterTopbarAction(
+    <button
+      onClick={() => setShowNewWizard(true)}
+      className="px-3 md:px-3.5 py-1.5 text-xs md:text-sm font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors whitespace-nowrap"
+    >
+      Nueva
+    </button>,
+    [],
+  );
+
   // selectedApt: la cita seleccionada para ver su detalle en el modal.
   // null = ninguna cita seleccionada (modal cerrado).
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
@@ -411,20 +432,8 @@ export default function EmployeeAppointmentsPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-5">
-        {/* Header: titulo + CTA Nueva cita */}
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Mis Citas</h1>
-          <button
-            onClick={() => setShowNewWizard(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{ backgroundColor: '#008080' }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.4} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Nueva cita
-          </button>
-        </div>
+        {/* Título (el botón "Nueva" vive en el header/topbar). */}
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Mis Citas</h1>
 
         {/* Tabs sección: Próximas / Hoy / Pasadas — mismo estilo segmentado
             que /marketplace/appointments (rounded-lg + border, activo teal). */}
@@ -448,9 +457,9 @@ export default function EmployeeAppointmentsPage() {
           ))}
         </div>
 
-        {/* Buscador + filtros */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
+        {/* Buscador + icono de filtros (estado / servicio) */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -462,36 +471,25 @@ export default function EmployeeAppointmentsPage() {
               className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-sm rounded-xl border border-gray-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+          {/* Icono de filtros */}
+          <button
+            type="button"
+            onClick={openFilters}
+            title="Filtros"
+            aria-label="Filtros"
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+            style={activeFilterCount > 0
+              ? { backgroundColor: '#008080', color: 'white', border: '1.5px solid #008080' }
+              : { backgroundColor: 'white', color: '#6b7280', border: '1.5px solid #e5e7eb' }
+            }
           >
-            <option value="">Todos los estados</option>
-            {Object.entries(STATUS_LABEL).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-          {serviceOptions.length > 0 && (
-            <select
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
-              className="text-sm rounded-xl border border-gray-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
-            >
-              <option value="">Todos los servicios</option>
-              {serviceOptions.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          )}
-          {(search || statusFilter || serviceFilter) && (
-            <button
-              onClick={() => { setSearch(''); setStatusFilter(''); setServiceFilter(''); }}
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
-            >
-              Limpiar
-            </button>
-          )}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -584,6 +582,56 @@ export default function EmployeeAppointmentsPage() {
             }}
             initialEmployeeId={user?.employeeId}
           />
+        </div>
+      )}
+
+      {/* Panel de filtros (bottom-sheet): estado + servicio */}
+      {showFilters && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ touchAction: 'none' }}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-t-2xl shadow-xl pb-safe">
+            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900">Filtros</h3>
+              <button onClick={() => setShowFilters(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Estado</label>
+                <select
+                  value={draftStatus}
+                  onChange={(e) => setDraftStatus(e.target.value)}
+                  className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                >
+                  <option value="">Todos los estados</option>
+                  {Object.entries(STATUS_LABEL).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              {serviceOptions.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Servicio</label>
+                  <select
+                    value={draftService}
+                    onChange={(e) => setDraftService(e.target.value)}
+                    className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#008080]/30 focus:border-[#008080]"
+                  >
+                    <option value="">Todos los servicios</option>
+                    {serviceOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex items-center gap-2">
+              <button onClick={clearFilters} className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">Limpiar</button>
+              <button onClick={applyFilters} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#008080] text-white hover:bg-[#006666] transition-colors">Aplicar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

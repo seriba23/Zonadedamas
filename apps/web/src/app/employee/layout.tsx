@@ -36,6 +36,9 @@ import { useRouter, usePathname } from 'next/navigation';
 // (sin que el usuario haga clic en un enlace). Se usa para redirigir.
 
 import { useAuth } from '@/lib/hooks/use-auth';
+// Permite que las páginas del empleado pongan un botón en el header (topbar),
+// igual que en la consola de administrador.
+import { TopbarActionProvider, useTopbarAction } from '@/lib/hooks/use-topbar-action';
 // Banner de suscripción (prueba / pago pendiente). Solo aplica al freelancer
 // dueño de la cuenta (no a empleados afiliados, que no pagan la suscripción).
 import { SubscriptionBanner } from '@/components/subscription-banner';
@@ -593,6 +596,13 @@ function DeactivatedScreen({ user, onLogout, onSuccess }: {
 // PROP children: React.ReactNode → representa todo el contenido que va
 // DENTRO del layout. En la práctica son las páginas hijas (page.tsx de
 // /employee/appointments, /employee/profile, etc.).
+// Renderiza la acción registrada por la página actual en el header del empleado.
+// Debe estar DENTRO del TopbarActionProvider para leer el contexto.
+function EmployeeTopbarSlot() {
+  const action = useTopbarAction();
+  return action ? <>{action}</> : null;
+}
+
 export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
   // Obtenemos los datos de autenticación del contexto global.
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -711,7 +721,8 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const profileIncomplete = empData && doneCount < totalCount;
 
   return (
-    // Contenedor principal: ocupa toda la pantalla, los hijos se colocan en fila.
+    <TopbarActionProvider>
+    {/* Contenedor principal: ocupa toda la pantalla, los hijos se colocan en fila. */}
     <div className="flex h-screen bg-gray-50">
       {/* ForceLightTheme: evita que el sistema operativo aplique modo oscuro */}
       <ForceLightTheme />
@@ -744,8 +755,10 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             </svg>
           </button>
           <span className="ml-2 text-base font-bold" style={{ color: '#008080' }}>Siliba</span>
-          {/* ml-auto → empuja la campana al extremo derecho del header */}
-          <div className="ml-auto">
+          {/* ml-auto → empuja las acciones al extremo derecho del header.
+              EmployeeTopbarSlot muestra el botón que registre la página (ej. "Nueva"). */}
+          <div className="ml-auto flex items-center gap-2">
+            <EmployeeTopbarSlot />
             {/* basePath="/employee" le dice a la campana dónde están las
                 páginas del portal del empleado (para construir deep-links). */}
             <NotificationBell basePath="/employee" />
@@ -754,7 +767,8 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
         {/* ─── Barra superior en DESKTOP (oculta en móvil con hidden lg:flex) ─── */}
         {/* Solo contiene la campana de notificaciones, alineada a la derecha. */}
-        <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center justify-end px-4 py-2">
+        <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center justify-end gap-2 px-4 py-2">
+          <EmployeeTopbarSlot />
           <NotificationBell basePath="/employee" />
         </header>
 
@@ -848,5 +862,6 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
         <main ref={mainRef} className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
+    </TopbarActionProvider>
   );
 }
