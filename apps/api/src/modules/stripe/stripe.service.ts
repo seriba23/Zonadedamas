@@ -219,37 +219,55 @@ export class StripeService implements OnModuleInit {
     });
     if (!influencer) throw new NotFoundException('Influencer no encontrado');
 
-    let accountId = influencer.stripeAccountId;
-
-    if (!accountId) {
+    // Crea una cuenta Connect nueva con la config correcta y la guarda.
+    // Usamos `controller` (en vez de `type: 'express'`) para declarar que la
+    // RESPONSABILIDAD DE PÉRDIDAS recae en la cuenta conectada
+    // (losses.payments: 'stripe'), NO en la plataforma. Como el creador solo
+    // RECIBE transferencias (nunca procesa cobros de clientes), no hay pérdidas
+    // reales; y así Stripe no exige completar el "perfil de plataforma /
+    // managing losses" que bloqueaba el alta (el panel sigue siendo Express).
+    const createAccount = async (): Promise<string> => {
       const account = await this.stripe.accounts.create({
-        type: 'express', // onboarding simplificado gestionado por Stripe.
-        email: influencer.email,
-        business_type: 'individual', // persona física (no empresa).
-        capabilities: {
-          // Pedimos habilitar transfers para poder enviarle pagos más adelante.
-          transfers: { requested: true },
+        controller: {
+          losses: { payments: 'stripe' },
+          fees: { payer: 'account' },
+          stripe_dashboard: { type: 'express' },
         },
-        // metadata = datos propios que adjuntamos a la cuenta para reconocerla
-        // después (aquí, a qué influencer pertenece).
+        email: influencer.email,
+        business_type: 'individual',
+        capabilities: { transfers: { requested: true } },
         metadata: { influencerId: influencer.id },
       });
-      accountId = account.id;
-
       await this.prisma.influencer.update({
         where: { id: influencerId },
-        data: { stripeAccountId: accountId },
+        data: { stripeAccountId: account.id },
       });
+      return account.id;
+    };
+
+    let accountId = influencer.stripeAccountId || (await createAccount());
+
+    try {
+      const accountLink = await this.stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: returnUrl,
+        return_url: returnUrl,
+        type: 'account_onboarding',
+      });
+      return { url: accountLink.url };
+    } catch (err: any) {
+      // La cuenta guardada puede ser de una config antigua (platform-liable) que
+      // Stripe bloquea. La recreamos con la config nueva y reintentamos una vez.
+      this.logger.warn(`[connect] accountLink falló (${err?.message}); recreando cuenta del creador con nueva config`);
+      accountId = await createAccount();
+      const accountLink = await this.stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: returnUrl,
+        return_url: returnUrl,
+        type: 'account_onboarding',
+      });
+      return { url: accountLink.url };
     }
-
-    const accountLink = await this.stripe.accountLinks.create({
-      account: accountId,
-      refresh_url: returnUrl,
-      return_url: returnUrl,
-      type: 'account_onboarding',
-    });
-
-    return { url: accountLink.url };
   }
 
   /**
