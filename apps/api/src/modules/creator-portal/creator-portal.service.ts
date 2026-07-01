@@ -251,7 +251,14 @@ export class CreatorPortalService {
   async stripeOnboardingLink(influencerId: string) {
     // URL base del frontend. "|| 'http://localhost:3000'" da un valor por defecto
     // para desarrollo si la variable de entorno WEB_URL no está definida.
-    const base = process.env.WEB_URL || 'http://localhost:3000';
+    let base = process.env.WEB_URL || 'http://localhost:3000';
+    // Stripe en modo LIVE exige que las URLs de retorno sean HTTPS. Si WEB_URL
+    // quedó como http:// para un dominio real (no localhost), la forzamos a
+    // https para no romper el onboarding ("Livemode requests must always be
+    // redirected via HTTPS"). El arreglo definitivo es poner WEB_URL correcta.
+    if (base.startsWith('http://') && !/localhost|127\.0\.0\.1/.test(base)) {
+      base = base.replace(/^http:\/\//, 'https://');
+    }
     // Delegamos en creator-codes la creación del enlace, indicándole a qué página
     // (de retorno) debe volver el creador tras terminar el alta en Stripe.
     // "`${base}/creator/dashboard`" es una plantilla de texto que inserta "base".
