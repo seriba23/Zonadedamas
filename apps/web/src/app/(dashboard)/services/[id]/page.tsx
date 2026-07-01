@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { usePermissions } from '@/lib/hooks/use-permissions';
 import Link from 'next/link';
 import { showSaveSuccess } from '@/lib/save-toast';
 
@@ -15,6 +16,10 @@ export default function ServiceDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const serviceId = params.id as string;
+  // canEdit: solo quien tenga el permiso "services.update" (módulo Servicios en
+  // sus accesos de administrador) puede EDITAR; los demás solo VEN (read-only).
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('services.update');
   const [priceValue, setPriceValue] = useState<string | null>(null);
   const [durationValue, setDurationValue] = useState<string | null>(null);
   const [currencyValue, setCurrencyValue] = useState<string | null>(null);
@@ -36,8 +41,6 @@ export default function ServiceDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['service-detail', serviceId] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
-      setEditingPrice(false);
-      setEditingDuration(false);
       showSaveSuccess();
     },
   });
@@ -139,14 +142,18 @@ export default function ServiceDetailPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Precio</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={priceValue ?? service.price}
-                  onChange={(e) => setPriceValue(e.target.value)}
-                  className="input-field text-lg font-bold"
-                />
+                {canEdit ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={priceValue ?? service.price}
+                    onChange={(e) => setPriceValue(e.target.value)}
+                    className="input-field text-lg font-bold"
+                  />
+                ) : (
+                  <div className="input-field text-lg font-bold bg-gray-50 text-gray-600">{fmt(Number(service.price))}</div>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Moneda</label>
@@ -154,14 +161,18 @@ export default function ServiceDetailPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Duración (min)</label>
-                <input
-                  type="number"
-                  min="5"
-                  step="5"
-                  value={durationValue ?? service.durationMinutes}
-                  onChange={(e) => setDurationValue(e.target.value)}
-                  className="input-field text-lg font-bold"
-                />
+                {canEdit ? (
+                  <input
+                    type="number"
+                    min="5"
+                    step="5"
+                    value={durationValue ?? service.durationMinutes}
+                    onChange={(e) => setDurationValue(e.target.value)}
+                    className="input-field text-lg font-bold"
+                  />
+                ) : (
+                  <div className="input-field text-lg font-bold bg-gray-50 text-gray-600">{service.durationMinutes} min</div>
+                )}
               </div>
             </div>
 
@@ -241,15 +252,19 @@ export default function ServiceDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">{fmt(price)}</td>
                         <td className="px-4 py-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={getEditValue(emp.id, 'commission', es.commission)}
-                            onChange={(e) => handleCommChange(emp.id, e.target.value)}
-                            placeholder="0"
-                            className="w-24 text-center text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
-                          />
+                          {canEdit ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={getEditValue(emp.id, 'commission', es.commission)}
+                              onChange={(e) => handleCommChange(emp.id, e.target.value)}
+                              placeholder="0"
+                              className="w-24 text-center text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080]"
+                            />
+                          ) : (
+                            <span className="text-sm font-medium text-gray-900">{es.commission != null ? fmt(Number(es.commission)) : '—'}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>

@@ -173,6 +173,12 @@ export function ServicesContent() {
   );
 
   function openEdit(service: Service) {
+    // Sin permiso "services.update" el usuario solo puede VER: lo mandamos al
+    // detalle (que es de solo lectura) en vez de abrir el editor.
+    if (!hasPermission('services.update')) {
+      router.push(`/services/${service.id}`);
+      return;
+    }
     setEditingService(service);
     const hasPoints = (service.pointsReward ?? 0) > 0;
     // Find catalog category: try by name match, then fall back to service's subcategory/category
