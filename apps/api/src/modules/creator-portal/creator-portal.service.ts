@@ -233,6 +233,17 @@ export class CreatorPortalService {
 
   /** Dashboard del creador: reutiliza la agregación del panel admin, sin notas internas. */
   async dashboard(influencerId: string) {
+    // Si el creador ya tiene cuenta de Stripe pero aún NO figura como completa,
+    // consultamos el estado real a Stripe (getStripeStatus actualiza la BD). Así
+    // el dashboard refleja "Cobros activos" en cuanto termina el onboarding, sin
+    // depender de que el webhook account.updated esté configurado/haya llegado.
+    const inf = await this.prisma.influencer.findUnique({
+      where: { id: influencerId },
+      select: { stripeAccountId: true, stripeOnboardingComplete: true },
+    });
+    if (inf?.stripeAccountId && !inf.stripeOnboardingComplete) {
+      await this.creatorCodes.getStripeStatus(influencerId).catch(() => {});
+    }
     // Reutilizamos el servicio de creator-codes para obtener el detalle completo
     // (estadísticas, códigos, etc.) sin reescribir esa lógica aquí.
     const detail = await this.creatorCodes.getInfluencerDetail(influencerId);
