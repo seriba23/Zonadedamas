@@ -220,22 +220,13 @@ export class StripeService implements OnModuleInit {
     if (!influencer) throw new NotFoundException('Influencer no encontrado');
 
     // Crea una cuenta Connect nueva con la config correcta y la guarda.
-    // El creador SOLO RECIBE transferencias (nunca procesa cobros de clientes),
-    // así que usamos una cuenta tipo "recipient": la cuenta conectada asume las
-    // pérdidas (losses.payments: 'stripe') y SIN dashboard de Stripe
-    // (stripe_dashboard.type: 'none'). Stripe hospeda el onboarding
-    // (requirement_collection: 'stripe'). Con esta combinación la plataforma NO
-    // es responsable de pérdidas, por lo que Stripe NO exige completar el
-    // "perfil de plataforma / managing losses" (regla: con dashboard 'express'
-    // la plataforma DEBE asumir pérdidas; con 'none' puede asumirlas la cuenta).
+    // Cuenta EXPRESS: coincide con el perfil de plataforma confirmado en Stripe
+    // (onboarding alojado en Stripe + Dashboard Express para el vendedor +
+    // plataforma responsable de reembolsos/contracargos). El creador solo recibe
+    // comisiones vía "transfers", por eso pedimos esa capacidad.
     const createAccount = async (): Promise<string> => {
       const account = await this.stripe.accounts.create({
-        controller: {
-          losses: { payments: 'stripe' },
-          fees: { payer: 'account' },
-          requirement_collection: 'stripe',
-          stripe_dashboard: { type: 'none' },
-        },
+        type: 'express',
         email: influencer.email,
         business_type: 'individual',
         capabilities: { transfers: { requested: true } },
