@@ -1621,6 +1621,109 @@ function calcProfit(price: number, cfg: CommCfg | undefined): number {
   return price - cfg.commission;
 }
 
+// Pagos de comisión a un empleado: resumen (devengado/cobrado/por cobrar),
+// botón para registrar un pago (queda pendiente de confirmación del empleado) e
+// historial con estado. Si el empleado marca "no recibido" (DISPUTED), queda a la
+// vista y el admin no lo puede dar por cerrado.
+function EmployeeCommissionPayments({ empId }: { empId: string }) {
+  const { format: formatCurrency } = useCurrency();
+  const queryClient = useQueryClient();
+  const [showPay, setShowPay] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+
+  const { data } = useQuery({
+    queryKey: ['emp-commission-payments', empId],
+    queryFn: () => api.get<{ data: { earned: number; collected: number; pending: number; payments: any[] } }>(`/api/employees/${empId}/commission-payments`),
+  });
+  const d = data?.data;
+
+  const pay = useMutation({
+    mutationFn: () => api.post(`/api/employees/${empId}/commission-payments`, { amount: parseFloat(amount), note: note.trim() || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emp-commission-payments', empId] });
+      setShowPay(false); setAmount(''); setNote('');
+      showSaveSuccess({ title: 'Pago registrado', message: 'El empleado deberá confirmar que lo recibió.' });
+    },
+    onError: (e: any) => alert(e?.message || 'No se pudo registrar el pago'),
+  });
+
+  const STATUS: Record<string, { label: string; cls: string }> = {
+    PENDING:   { label: 'Por confirmar', cls: 'bg-gray-100 text-gray-600' },
+    CONFIRMED: { label: 'Confirmado',    cls: 'bg-green-100 text-green-700' },
+    DISPUTED:  { label: 'No recibido',   cls: 'bg-red-100 text-red-700' },
+  };
+
+  return (
+    <div className="p-3 border-b border-[var(--border)] bg-[var(--bg-surface)]">
+      {/* Resumen */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="rounded-lg border border-[var(--border)] p-2.5 text-center">
+          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Devengado</p>
+          <p className="text-sm font-bold text-[var(--text-primary)]">{d ? formatCurrency(d.earned) : '...'}</p>
+        </div>
+        <div className="rounded-lg border border-teal-200 bg-teal-50 p-2.5 text-center">
+          <p className="text-[10px] text-teal-700 uppercase tracking-wide">Por cobrar</p>
+          <p className="text-sm font-bold text-teal-800">{d ? formatCurrency(d.pending) : '...'}</p>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] p-2.5 text-center">
+          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Cobradas</p>
+          <p className="text-sm font-bold text-[var(--text-primary)]">{d ? formatCurrency(d.collected) : '...'}</p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => setShowPay((v) => !v)}
+        className="w-full mb-2 py-2 rounded-lg text-xs font-semibold text-white"
+        style={{ backgroundColor: '#008080' }}
+      >
+        {showPay ? 'Cancelar' : 'Registrar pago de comisión'}
+      </button>
+
+      {showPay && (
+        <div className="rounded-lg border border-[var(--border)] p-3 mb-2 space-y-2 bg-[var(--bg-subtle)]/40">
+          <div>
+            <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">Monto pagado</label>
+            <input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">Nota (opcional)</label>
+            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: comisiones de junio"
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]" />
+          </div>
+          <button
+            onClick={() => pay.mutate()}
+            disabled={pay.isPending || !amount || parseFloat(amount) <= 0}
+            className="w-full py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: '#008080' }}
+          >
+            {pay.isPending ? 'Registrando…' : 'Confirmar pago'}
+          </button>
+        </div>
+      )}
+
+      {/* Historial */}
+      {d && d.payments.length > 0 && (
+        <div className="space-y-1.5">
+          {d.payments.map((p: any) => (
+            <div key={p.id} className="flex items-center justify-between gap-2 text-xs px-2.5 py-2 rounded-lg border border-[var(--border)]">
+              <div className="min-w-0">
+                <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(Number(p.amount))}</span>
+                <span className="text-[var(--text-muted)]"> · {new Date(p.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                {p.note && <span className="text-[var(--text-muted)] block truncate">{p.note}</span>}
+              </div>
+              <span className={`flex-shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS[p.status]?.cls || 'bg-gray-100 text-gray-600'}`}>
+                {STATUS[p.status]?.label || p.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ByEmployeeCommissions() {
   const { format: formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
@@ -1789,6 +1892,8 @@ function ByEmployeeCommissions() {
 
               {isExpanded && (
                 <>
+                  {/* Pagos de comisión al empleado (registrar + estado). */}
+                  <EmployeeCommissionPayments empId={emp.id} />
                   <div className="max-h-[60vh] overflow-y-auto bg-[var(--bg-subtle)]/40 p-3 space-y-2">
                     {allServices.map((svc: any) => {
                       const isSelected = map.has(svc.id);
