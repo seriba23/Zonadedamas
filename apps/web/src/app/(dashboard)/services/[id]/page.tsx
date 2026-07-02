@@ -20,6 +20,9 @@ export default function ServiceDetailPage() {
   // sus accesos de administrador) puede EDITAR; los demás solo VEN (read-only).
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('services.update');
+  // useCurrency DEBE llamarse aqui arriba, antes de cualquier return condicional
+  // (isLoading / !service), o el conteo de hooks cambia entre renders => React #310.
+  const { format: formatCurrency } = useCurrency();
   const [priceValue, setPriceValue] = useState<string | null>(null);
   const [durationValue, setDurationValue] = useState<string | null>(null);
   const [currencyValue, setCurrencyValue] = useState<string | null>(null);
@@ -93,7 +96,6 @@ export default function ServiceDetailPage() {
 
   const employees = (service.employeeServices || []).filter((es: any) => es.employee.isActive);
   const currency = currencyValue ?? service.currency ?? 'MXN';
-  const { format: formatCurrency } = useCurrency();
   const fmt = (n: number) => formatCurrency(n, currency);
 
   function getEditValue(empId: string, field: 'commission' | 'customPrice', original: number | null) {
