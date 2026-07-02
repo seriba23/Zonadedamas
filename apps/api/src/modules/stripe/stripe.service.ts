@@ -1018,7 +1018,8 @@ export class StripeService implements OnModuleInit {
     // PaymentIntent = la intención/representación de un cobro único en Stripe.
     const pi = await this.stripe.paymentIntents.create({
       amount,
-      currency: 'usd',
+      // Los montos de suscripción son MXN (el campo se llama *Usd por legado).
+      currency: 'mxn',
       customer: customerId,
       metadata: { tenantId, type: 'advance_payment' },
       description: 'Pago adelantado mensualidad Siliba',
@@ -1170,7 +1171,8 @@ export class StripeService implements OnModuleInit {
     // texto porque metadata solo admite valores de tipo string.
     const pi = await this.stripe.paymentIntents.create({
       amount: totalAmount,
-      currency: 'usd',
+      // Montos en MXN (el campo se llama *Usd por legado).
+      currency: 'mxn',
       customer: customerId,
       metadata: { tenantId, type: 'add_licenses', count: String(toCharge), freeFromPool: String(freeFromPool) },
       description: `${toCharge} licencia(s) adicional(es) — ${monthsLeft} mes(es) restantes`,

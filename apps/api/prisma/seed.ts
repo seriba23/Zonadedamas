@@ -425,7 +425,10 @@ async function main() {
       email: 'contact@demo-salon.com',
       phone: '+1-555-0100',
       timezone: 'America/New_York',
-      currency: 'USD',
+      currency: 'MXN',
+      // Negocio con equipo => tier PLUS ($500 MXN/mes). tenantType gobierna el
+      // precio real (FREELANCER→Pro 300 / BUSINESS→Plus 500).
+      tenantType: 'BUSINESS',
       subscriptionPlan: 'professional',
       subscriptionStatus: 'active',
       coverImageUrl: '/api/uploads/avatars/cover-1772686771095-c33kej.jpg',
@@ -1279,49 +1282,38 @@ async function main() {
   });
   console.log('  Platform admin: super@siliba.com / Super123!');
 
-  // 13. Create Subscription for demo tenant
-  console.log('Seeding demo subscription...');
-  const existingSub = await prisma.subscription.findUnique({
+  // 13. Subscription for demo tenant — plan PLUS ($500 MXN) en estado "por pagar"
+  // (TRIAL vencido) para que el demo muestre las opciones de pago (tarjeta +
+  // transferencia) y el aviso de vencimiento. Se hace UPSERT para reconciliar el
+  // registro aunque ya exista de un seed anterior (que lo dejaba en BASICO/ACTIVE).
+  console.log('Seeding demo subscription (PLUS, por pagar)...');
+  const now = new Date();
+  const oneYearLater = new Date(now);
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+  // Prueba vencida hace 3 días → banner "prueba vencida" + opciones de pago.
+  const trialEnded = new Date(now);
+  trialEnded.setDate(trialEnded.getDate() - 3);
+
+  const demoSubData = {
+    plan: 'PLUS' as const,
+    status: 'TRIAL' as const,
+    monthlyAmountUsd: 500,
+    baseMonthlyUsd: 500,
+    perEmployeeUsd: 0,
+    trialEndsAt: trialEnded,
+    contractStartDate: now,
+    contractEndDate: oneYearLater,
+    nextBillingDate: now,
+    // Sin suscripción de Stripe todavía: así aparece el activar + código de creador.
+    stripeSubscriptionId: null,
+    advancePaid: false,
+  };
+  await prisma.subscription.upsert({
     where: { tenantId: tenant.id },
+    update: demoSubData,
+    create: { tenantId: tenant.id, ...demoSubData },
   });
-  if (!existingSub) {
-    const now = new Date();
-    const oneYearLater = new Date(now);
-    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-    const oneMonthLater = new Date(now);
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-
-    const subscription = await prisma.subscription.create({
-      data: {
-        tenantId: tenant.id,
-        plan: 'BASICO',
-        status: 'ACTIVE',
-        monthlyAmountUsd: 29.99,
-        contractStartDate: now,
-        contractEndDate: oneYearLater,
-        nextBillingDate: oneMonthLater,
-        lastPaymentDate: now,
-      },
-    });
-
-    // Create first invoice (paid)
-    await prisma.invoice.create({
-      data: {
-        subscriptionId: subscription.id,
-        tenantId: tenant.id,
-        invoiceNumber: 'INV-2026-0001',
-        amountUsd: 29.99,
-        status: 'PAID',
-        periodStart: now,
-        periodEnd: oneMonthLater,
-        dueDate: oneMonthLater,
-        paidAt: now,
-      },
-    });
-    console.log('  Subscription BASICO + first invoice created.');
-  } else {
-    console.log('  Subscription already exists, skipping.');
-  }
+  console.log('  Subscription PLUS ($500 MXN) en estado por pagar.');
 
   // ─── NOTIFICATION TEMPLATES ───────────────────────────────────────────────
   console.log('Seeding notification templates...');
