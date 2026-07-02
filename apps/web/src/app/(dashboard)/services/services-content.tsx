@@ -353,16 +353,18 @@ export function ServicesContent() {
                             <p className="text-xs leading-relaxed" style={{ color: '#9a3412' }}>
                               Este servicio aun no cuenta con empleados asignados. Es necesario asignar un empleado para poder mostrar este servicio en tu perfil.
                             </p>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setAssignTarget(service); }}
-                              className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm transition-colors"
-                              style={{ backgroundColor: '#f97316' }}
-                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
-                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f97316')}
-                            >
-                              Asignar empleados
-                            </button>
+                            {hasPermission('services.update') && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setAssignTarget(service); }}
+                                className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm transition-colors"
+                                style={{ backgroundColor: '#f97316' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ea580c')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f97316')}
+                              >
+                                Asignar empleados
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
