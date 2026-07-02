@@ -7,6 +7,7 @@ import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { EmployeeScheduleEditor } from '@/components/staff/employee-schedule-editor';
+import { TimeOffApprovals } from '@/components/staff/time-off-approvals';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { Modal } from '@/components/ui/modal';
@@ -43,8 +44,12 @@ interface Location {
 
 type StaffTab = 'empleados' | 'permisos' | 'asistencias' | 'organigrama' | 'comisiones' | 'horarios';
 
-const TABS: { key: StaffTab; label: string }[] = [
+// requiredPermission: si está presente, la pestaña solo se muestra a quien tenga
+// ese permiso. La pestaña "Permisos" (aprobar ausencias) es solo para admins que
+// puedan gestionar empleados (employees.update).
+const TABS: { key: StaffTab; label: string; requiredPermission?: string }[] = [
   { key: 'empleados', label: 'Empleados' },
+  { key: 'permisos', label: 'Permisos', requiredPermission: 'employees.update' },
   // 'organigrama' deshabilitado hasta V2: necesita pulido visual.
   { key: 'asistencias', label: 'Asistencias' },
   { key: 'horarios', label: 'Horarios' },
@@ -64,7 +69,12 @@ export default function StaffPage() {
   const commViewParam = searchParams.get('commView'); // 'service' | 'employee'
   const serviceIdParam = searchParams.get('serviceId') || undefined;
   const [activeTab, setActiveTab] = useState<StaffTab>(
-    tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'empleados',
+    // Solo respetamos el ?tab= si existe y (de tener permiso requerido) el usuario
+    // lo cumple; si no, caemos a "empleados".
+    tabParam &&
+      TABS.some((t) => t.key === tabParam && (!t.requiredPermission || hasPermission(t.requiredPermission)))
+      ? tabParam
+      : 'empleados',
   );
   const [search, setSearch] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
@@ -207,7 +217,7 @@ export default function StaffPage() {
       {/* Tabs */}
       <div className="border-b border-[var(--border)] px-3 md:px-6 overflow-x-auto" style={{ backgroundColor: 'var(--bg-surface)' }}>
         <nav className="flex gap-1 -mb-px">
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => !tab.requiredPermission || hasPermission(tab.requiredPermission)).map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -681,6 +691,11 @@ export default function StaffPage() {
         {/* ─── Tab: Organigrama ─── */}
         {activeTab === 'organigrama' && (
           <OrgChart employees={data?.data || []} onUpdate={() => queryClient.invalidateQueries({ queryKey: ['employees'] })} />
+        )}
+
+        {/* ─── Tab: Permisos (aprobar/rechazar ausencias) ─── */}
+        {activeTab === 'permisos' && hasPermission('employees.update') && (
+          <TimeOffApprovals />
         )}
 
         {/* ─── Tab: Asistencias ─── */}

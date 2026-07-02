@@ -165,6 +165,19 @@ export class EmployeesController {
     return { data: timeOffs };
   }
 
+  // ── GET /api/employees/time-off-requests ───────────────────────────────────
+  // Solicitudes de permiso del negocio para la pantalla de aprobación del admin
+  // (sin rango de fechas; opcionalmente filtradas por ?status=PENDING).
+  @Get('time-off-requests')
+  @RequirePermissions('employees.read')
+  async getTimeOffRequests(
+    @CurrentTenant() tenantId: string,
+    @Query('status') status?: string,
+  ) {
+    const requests = await this.employeesService.getTimeOffRequests(tenantId, status);
+    return { data: requests };
+  }
+
   // ── POST /api/employees ───────────────────────────────────────────────────
   // Crea un nuevo empleado.
   @Post()

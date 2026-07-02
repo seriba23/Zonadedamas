@@ -422,8 +422,8 @@ export class EmployeesService {
     tenantId: string,
     dto: CreateTimeOffDto,
   ) {
-    await this.findOne(employeeId, tenantId);
-    return this.prisma.employeeTimeOff.create({
+    const emp = await this.findOne(employeeId, tenantId);
+    const timeOff = await this.prisma.employeeTimeOff.create({
       data: {
         employeeId,
         // parseWallClock: time-off datetimes son wall-clock de la sucursal,
@@ -437,6 +437,21 @@ export class EmployeesService {
         status: dto.status || 'APPROVED',
       },
     });
+
+    // Si la solicitud nace PENDIENTE (la pidió el propio empleado), emitimos un
+    // evento para que el listener notifique a los admins y puedan aprobar/rechazar.
+    if (timeOff.status === 'PENDING') {
+      this.eventEmitter.emit('timeoff.requested', {
+        tenantId,
+        timeOffId: timeOff.id,
+        employeeId,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        startDatetime: timeOff.startDatetime,
+        endDatetime: timeOff.endDatetime,
+        reason: timeOff.reason,
+      });
+    }
+    return timeOff;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -462,7 +477,7 @@ export class EmployeesService {
   // approveTimeOff(): aprueba una solicitud pendiente. Guarda quién y cuándo.
   // ───────────────────────────────────────────────────────────────────────────
   async approveTimeOff(tenantId: string, employeeId: string, timeOffId: string, userId: string) {
-    await this.findOne(employeeId, tenantId);
+    const emp = await this.findOne(employeeId, tenantId);
     const timeOff = await this.prisma.employeeTimeOff.findFirst({
       where: { id: timeOffId, employeeId },
     });
@@ -471,7 +486,7 @@ export class EmployeesService {
     if (timeOff.status !== 'PENDING') {
       throw new BadRequestException('Solo se pueden aprobar solicitudes pendientes');
     }
-    return this.prisma.employeeTimeOff.update({
+    const updated = await this.prisma.employeeTimeOff.update({
       where: { id: timeOffId },
       data: {
         status: 'APPROVED',
@@ -479,13 +494,23 @@ export class EmployeesService {
         approvedAt: new Date(),    // cuándo (ahora)
       },
     });
+    // Avisamos al empleado de que su permiso quedó aprobado.
+    this.eventEmitter.emit('timeoff.approved', {
+      tenantId,
+      timeOffId,
+      employeeId,
+      employeeName: `${emp.firstName} ${emp.lastName}`,
+      startDatetime: updated.startDatetime,
+      endDatetime: updated.endDatetime,
+    });
+    return updated;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
   // rejectTimeOff(): rechaza una solicitud pendiente, guardando el motivo.
   // ───────────────────────────────────────────────────────────────────────────
   async rejectTimeOff(tenantId: string, employeeId: string, timeOffId: string, userId: string, rejectionReason: string) {
-    await this.findOne(employeeId, tenantId);
+    const emp = await this.findOne(employeeId, tenantId);
     const timeOff = await this.prisma.employeeTimeOff.findFirst({
       where: { id: timeOffId, employeeId },
     });
@@ -493,7 +518,7 @@ export class EmployeesService {
     if (timeOff.status !== 'PENDING') {
       throw new BadRequestException('Solo se pueden rechazar solicitudes pendientes');
     }
-    return this.prisma.employeeTimeOff.update({
+    const updated = await this.prisma.employeeTimeOff.update({
       where: { id: timeOffId },
       data: {
         status: 'REJECTED',
@@ -502,6 +527,17 @@ export class EmployeesService {
         rejectionReason,           // motivo del rechazo
       },
     });
+    // Avisamos al empleado de que su permiso fue rechazado (con el motivo).
+    this.eventEmitter.emit('timeoff.rejected', {
+      tenantId,
+      timeOffId,
+      employeeId,
+      employeeName: `${emp.firstName} ${emp.lastName}`,
+      startDatetime: updated.startDatetime,
+      endDatetime: updated.endDatetime,
+      rejectionReason,
+    });
+    return updated;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -526,6 +562,32 @@ export class EmployeesService {
         },
       },
       orderBy: { startDatetime: 'asc' },
+    });
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // getTimeOffRequests(): lista de SOLICITUDES de permiso del negocio para la
+  // pantalla de aprobación del admin. A diferencia de getAllTimeOffs (que filtra
+  // por rango para el calendario), aquí NO hay rango: devolvemos todas (o las de
+  // un status) con datos del empleado, las pendientes primero y luego por fecha.
+  // ───────────────────────────────────────────────────────────────────────────
+  async getTimeOffRequests(tenantId: string, status?: string) {
+    const where: any = { employee: { tenantId } };
+    if (status) where.status = status;
+    const requests = await this.prisma.employeeTimeOff.findMany({
+      where,
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true, jobTitle: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    // Pendientes primero (para que salten a la vista), el resto tras ellas.
+    return requests.sort((a, b) => {
+      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+      return 0;
     });
   }
 

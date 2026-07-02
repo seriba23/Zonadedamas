@@ -383,4 +383,102 @@ export class StaffEventsListener {
       );
     }
   }
+
+  // ─── Time-off / Permisos de ausencia ───────────────────
+
+  // @OnEvent('timeoff.requested'): el empleado solicitó un permiso de ausencia.
+  // Notificamos a los admins con un enlace directo a la pestaña de aprobación.
+  @OnEvent('timeoff.requested')
+  async handleTimeOffRequested(payload: {
+    tenantId: string;
+    timeOffId: string;
+    employeeId: string;
+    employeeName: string;
+    startDatetime: Date;
+    endDatetime: Date;
+    reason?: string | null;
+  }) {
+    try {
+      await this.notify.notify({
+        tenantId: payload.tenantId,
+        type: 'timeoff.requested',
+        section: 'staff',
+        title: 'Nueva solicitud de permiso',
+        body: `${payload.employeeName} solicitó un permiso del ${this.formatDateTime(payload.startDatetime)} al ${this.formatDateTime(payload.endDatetime)}.`,
+        // adminLink: abre la pestaña "Permisos" de Personal para aprobar/rechazar.
+        adminLink: `/staff?tab=permisos`,
+        entityType: 'timeoff',
+        entityId: payload.timeOffId,
+        // Solo admins: son quienes aprueban/rechazan.
+        audience: { kind: 'admins' },
+      });
+    } catch (err: any) {
+      this.logger.warn(`timeoff.requested notify failed: ${err?.message}`);
+    }
+  }
+
+  // @OnEvent('timeoff.approved'): el admin aprobó el permiso. Avisamos al empleado.
+  @OnEvent('timeoff.approved')
+  async handleTimeOffApproved(payload: {
+    tenantId: string;
+    timeOffId: string;
+    employeeId: string;
+    employeeName: string;
+    startDatetime: Date;
+    endDatetime: Date;
+  }) {
+    await this.notifyEmployeeTimeOffDecision(payload, 'APPROVED');
+  }
+
+  // @OnEvent('timeoff.rejected'): el admin rechazó el permiso. Avisamos al empleado
+  // incluyendo el motivo del rechazo.
+  @OnEvent('timeoff.rejected')
+  async handleTimeOffRejected(payload: {
+    tenantId: string;
+    timeOffId: string;
+    employeeId: string;
+    employeeName: string;
+    startDatetime: Date;
+    endDatetime: Date;
+    rejectionReason?: string | null;
+  }) {
+    await this.notifyEmployeeTimeOffDecision(payload, 'REJECTED', payload.rejectionReason);
+  }
+
+  // Helper común para las notificaciones de decisión (aprobado/rechazado): la
+  // notificación va SOLO al empleado dueño de la solicitud, resolviendo su
+  // userId (un empleado puede no tener cuenta de login: en ese caso se omite).
+  private async notifyEmployeeTimeOffDecision(
+    payload: { tenantId: string; timeOffId: string; employeeId: string; startDatetime: Date; endDatetime: Date },
+    decision: 'APPROVED' | 'REJECTED',
+    rejectionReason?: string | null,
+  ) {
+    try {
+      const emp = await this.prisma.employee.findFirst({
+        where: { id: payload.employeeId, tenantId: payload.tenantId },
+        select: { userId: true },
+      });
+      // Sin cuenta de usuario no hay a quién notificar in-app.
+      if (!emp?.userId) return;
+
+      const rango = `${this.formatDateTime(payload.startDatetime)} al ${this.formatDateTime(payload.endDatetime)}`;
+      const aprobado = decision === 'APPROVED';
+      await this.notify.notify({
+        tenantId: payload.tenantId,
+        type: aprobado ? 'timeoff.approved' : 'timeoff.rejected',
+        section: 'staff',
+        title: aprobado ? 'Permiso aprobado' : 'Permiso rechazado',
+        body: aprobado
+          ? `Tu permiso del ${rango} fue aprobado.`
+          : `Tu permiso del ${rango} fue rechazado.${rejectionReason ? ` Motivo: ${rejectionReason}` : ''}`,
+        link: `/employee/time-off`,
+        entityType: 'timeoff',
+        entityId: payload.timeOffId,
+        // Solo al empleado dueño de la solicitud.
+        audience: { kind: 'users', userIds: [emp.userId] },
+      });
+    } catch (err: any) {
+      this.logger.warn(`timeoff.${decision.toLowerCase()} notify failed: ${err?.message}`);
+    }
+  }
 }
