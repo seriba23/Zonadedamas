@@ -185,7 +185,13 @@ export class ServicesService {
   // ───────────────────────────────────────────────────────────────────────────
   // findOne(): devuelve UN servicio del tenant por su id, con todo su detalle.
   // ───────────────────────────────────────────────────────────────────────────
-  async findOne(id: string, tenantId: string) {
+  async findOne(
+    id: string,
+    tenantId: string,
+    // Usuario que hace la petición. Sirve para decidir cuánta info de comisiones
+    // devolvemos. Opcional para llamadas internas (que ven todo por defecto).
+    user?: { userId: string; permissions?: string[] },
+  ) {
     // findFirst busca el PRIMER servicio que cumpla ambas condiciones: ese id Y
     // que pertenezca a este tenant (seguridad multi-tenant: no ver lo ajeno).
     const service = await this.prisma.service.findFirst({
@@ -205,7 +211,25 @@ export class ServicesService {
 
     // Si no se encontró (service es null), lanzamos 404.
     if (!service) throw new NotFoundException('Servicio no encontrado');
-    // Si existe, lo devolvemos con todo su detalle.
+
+    // PRIVACIDAD DE COMISIONES: solo quien puede GESTIONAR servicios
+    // (permiso 'services.update' = perfil admin/manager) ve las comisiones de
+    // TODOS los empleados y, con ello, la ganancia del negocio. Un empleado sin
+    // ese permiso solo debe ver SU PROPIA comisión, nunca la de los demás.
+    const canSeeAll = !user || (user.permissions || []).includes('services.update');
+    if (!canSeeAll) {
+      // Ubicamos al empleado ligado a este usuario dentro del tenant.
+      const me = await this.prisma.employee.findFirst({
+        where: { tenantId, userId: user!.userId },
+        select: { id: true },
+      });
+      // Dejamos únicamente su fila (si no es empleado, queda vacío).
+      service.employeeServices = (service.employeeServices || []).filter(
+        (es) => es.employee.id === me?.id,
+      );
+    }
+
+    // Devolvemos el servicio (con las comisiones ya filtradas si procede).
     return service;
   }
 

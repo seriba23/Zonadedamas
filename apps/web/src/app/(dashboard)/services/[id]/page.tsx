@@ -211,8 +211,15 @@ export default function ServiceDetailPage() {
           {/* Employees & Commissions */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-bold text-gray-900">Empleados y comisiones</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{employees.length} empleado{employees.length !== 1 ? 's' : ''} asignados a este servicio</p>
+              {/* Admin/manager: ve la tabla de todos los empleados y comisiones.
+                  Empleado sin permiso: solo ve SU propia comision (el backend ya
+                  filtra las filas ajenas), asi que ajustamos los titulos. */}
+              <h2 className="text-sm font-bold text-gray-900">{canEdit ? 'Empleados y comisiones' : 'Tu comisión'}</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {canEdit
+                  ? `${employees.length} empleado${employees.length !== 1 ? 's' : ''} asignados a este servicio`
+                  : 'Comisión que recibes por este servicio'}
+              </p>
             </div>
 
             {employees.length === 0 ? (
@@ -224,7 +231,10 @@ export default function ServiceDetailPage() {
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Empleado</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Precio</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Comisión</th>
-                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Ganancia negocio</th>
+                    {/* La ganancia del negocio solo la ve admin/manager, nunca el empleado. */}
+                    {canEdit && (
+                      <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Ganancia negocio</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -268,11 +278,13 @@ export default function ServiceDetailPage() {
                             <span className="text-sm font-medium text-gray-900">{es.commission != null ? fmt(Number(es.commission)) : '—'}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {fmt(profit)}
-                          </span>
-                        </td>
+                        {canEdit && (
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {fmt(profit)}
+                            </span>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

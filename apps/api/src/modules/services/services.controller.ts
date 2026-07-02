@@ -50,6 +50,9 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 // desde el token JWT y lo inyecta como parámetro. Así cada consulta se filtra
 // por su negocio (multi-tenant: cada negocio solo ve lo suyo).
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+// CurrentUser: decorador propio que extrae el usuario logueado (userId, permisos)
+// del JWT. Lo usamos para decidir cuánta info de comisiones se devuelve.
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 // PaginationDto: clase que valida los parámetros de paginación de la query
 // (page, perPage) y les pone valores por defecto y límites.
@@ -123,8 +126,11 @@ export class ServicesController {
     // @Param('id') => toma el valor que venga en la posición :id de la URL.
     @Param('id') id: string,
     @CurrentTenant() tenantId: string,
+    // Usuario actual: el service decide con sus permisos si devolver TODAS las
+    // comisiones (admin/manager) o solo la del propio empleado.
+    @CurrentUser() user: { userId: string; permissions?: string[] },
   ) {
-    const service = await this.servicesService.findOne(id, tenantId);
+    const service = await this.servicesService.findOne(id, tenantId, user);
     return { data: service };
   }
 
