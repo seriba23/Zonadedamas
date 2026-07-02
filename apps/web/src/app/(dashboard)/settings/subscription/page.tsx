@@ -81,7 +81,8 @@ type ModalType =
   | 'payment-success'
   | 'domiciliar'
   | 'advance-payment'
-  | 'switch-annual';
+  | 'switch-annual'
+  | 'renew';
 
 function daysUntil(date: string) {
   return Math.max(0, dayjs(date).diff(dayjs(), 'day'));
@@ -331,6 +332,9 @@ export default function SubscriptionPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  // Paso interno del modal "Renovar suscripción": elegir método o ver los datos
+  // de transferencia. El código de creador se conserva en creatorCode/Result.
+  const [renewStep, setRenewStep] = useState<'methods' | 'transfer'>('methods');
   const [creatorCode, setCreatorCode] = useState('');
   const [creatorCodeResult, setCreatorCodeResult] = useState<{
     valid: boolean;
@@ -642,6 +646,160 @@ export default function SubscriptionPage() {
         </Modal>
       )}
 
+      {/* ─── Renovar suscripción (proceso de pago) ─────────────────────────
+          Un solo punto de entrada: código de creador → elegir método (tarjeta
+          Stripe o transferencia). El código aplicado se conserva en creatorCode/
+          creatorCodeResult, así que si ya lo pusiste, aparece aplicado. */}
+      {modal === 'renew' && (
+        <Modal onClose={() => { closeModal(); setRenewStep('methods'); }}>
+          <div className="px-6 py-5 space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Renovar suscripción</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Plan {(user as any)?.tenantType === 'FREELANCER' ? 'Pro' : 'Plus'} ·{' '}
+                <span className="font-semibold text-gray-900">${payAmount} MXN</span> / mes
+              </p>
+            </div>
+
+            {/* Paso 1 — Código de creador (opcional; se conserva si ya lo aplicaste) */}
+            <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-800">¿Tienes un código de creador?</p>
+              <p className="text-xs text-gray-500 mt-0.5 mb-3">
+                Aplícalo y obtén un descuento tus primeros 2 meses. Es opcional.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={creatorCode}
+                  onChange={(e) => {
+                    setCreatorCode(e.target.value.toUpperCase());
+                    if (creatorCodeResult) setCreatorCodeResult(null);
+                  }}
+                  placeholder="Ej: LUNA8X3K"
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2"
+                  style={{ ['--tw-ring-color' as any]: TEAL }}
+                />
+                <button
+                  type="button"
+                  onClick={() => creatorCode.trim() && validateCodeMutation.mutate(creatorCode.trim())}
+                  disabled={!creatorCode.trim() || validateCodeMutation.isPending}
+                  className="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg border disabled:opacity-50"
+                  style={{ borderColor: TEAL, color: TEAL }}
+                >
+                  {validateCodeMutation.isPending ? '...' : 'Aplicar'}
+                </button>
+              </div>
+              {creatorCodeResult && (
+                <div className="mt-3">
+                  {creatorCodeResult.valid ? (
+                    <div className="flex items-start gap-2 text-sm rounded-lg px-3 py-2" style={{ backgroundColor: TEAL_LIGHT, color: '#005555' }}>
+                      <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} style={{ color: TEAL }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>
+                        Código válido. Obtendrás <strong>${creatorCodeResult.discount} de descuento</strong> cada
+                        uno de tus primeros {creatorCodeResult.months} meses
+                        {creatorCodeResult.influencerName ? `, cortesía de ${creatorCodeResult.influencerName}` : ''}.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-red-600 rounded-lg px-3 py-2 bg-red-50">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      {creatorCodeResult.reason || 'Código inválido'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Paso 2 — Método de pago */}
+            {renewStep === 'methods' ? (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-800">Elige tu método de pago</p>
+
+                {STRIPE_ENABLED && (
+                  <button
+                    onClick={() => activateMutation.mutate()}
+                    disabled={activateMutation.isPending}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left disabled:opacity-50"
+                    style={{ borderColor: TEAL }}
+                  >
+                    <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} style={{ color: TEAL }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                    </svg>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold text-gray-900">
+                        {activateMutation.isPending ? 'Preparando...' : 'Pagar con tarjeta'}
+                      </span>
+                      <span className="block text-xs text-gray-500">Pago seguro e inmediato vía Stripe</span>
+                    </span>
+                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setRenewStep('transfer')}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 text-left hover:bg-gray-50"
+                >
+                  <svg className="w-6 h-6 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+                  </svg>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-gray-900">Pagar por transferencia</span>
+                    <span className="block text-xs text-gray-500">Transfiere y envía el comprobante por WhatsApp</span>
+                  </span>
+                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <button onClick={() => setRenewStep('methods')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Volver a métodos
+                </button>
+                <div className="rounded-xl border p-4" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: TEAL }}>Datos para transferencia</p>
+                  <div className="space-y-1.5 text-sm">
+                    {payAmount > 0 && (
+                      <div className="flex justify-between gap-3"><span className="text-gray-600">Monto</span><span className="font-semibold text-gray-900">${payAmount} MXN</span></div>
+                    )}
+                    {SILIBA_BANK.bank && (
+                      <div className="flex justify-between gap-3"><span className="text-gray-600">Banco</span><span className="font-semibold text-gray-900 text-right">{SILIBA_BANK.bank}</span></div>
+                    )}
+                    {SILIBA_BANK.clabe && (
+                      <div className="flex justify-between gap-3 items-center">
+                        <span className="text-gray-600">CLABE</span>
+                        <span className="font-semibold text-gray-900 text-right tabular-nums select-all">{SILIBA_BANK.clabe}</span>
+                      </div>
+                    )}
+                    {SILIBA_BANK.holder && (
+                      <div className="flex justify-between gap-3"><span className="text-gray-600">Titular</span><span className="font-semibold text-gray-900 text-right">{SILIBA_BANK.holder}</span></div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Realiza la transferencia y envía tu comprobante por WhatsApp; activamos tu suscripción al confirmarlo.
+                </p>
+                <a href={transferWaUrl} target="_blank" rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+                  style={{ backgroundColor: '#25D366' }}>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
+                  Enviar comprobante
+                </a>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {/* ─── Error global ────────────────────────── */}
       {error && (
         <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center justify-between gap-2">
@@ -739,64 +897,8 @@ export default function SubscriptionPage() {
             </div>
           )}
 
-          {/* Botones — uniformes en mobile: flex-1 min-w[140px] hace que
-              cada uno ocupe el mismo ancho y wrappee a 2 por fila en
-              pantallas chicas, manteniendo proporcion visual. */}
-          {/* ─── Código de creador (solo al activar por primera vez) ─── */}
-          {!sub.stripeSubscriptionId && !isCancelled && (
-            <div className="mx-6 mb-4 p-4 rounded-xl border border-gray-200 bg-gray-50">
-              <p className="text-sm font-semibold text-gray-800">¿Tienes un código de creador?</p>
-              <p className="text-xs text-gray-500 mt-0.5 mb-3">
-                Aplica el código de quien te recomendó Siliba y obtén un descuento tus primeros 2 meses.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={creatorCode}
-                  onChange={(e) => {
-                    setCreatorCode(e.target.value.toUpperCase());
-                    if (creatorCodeResult) setCreatorCodeResult(null);
-                  }}
-                  placeholder="Ej: LUNA8X3K"
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2"
-                  style={{ ['--tw-ring-color' as any]: TEAL }}
-                />
-                <button
-                  type="button"
-                  onClick={() => creatorCode.trim() && validateCodeMutation.mutate(creatorCode.trim())}
-                  disabled={!creatorCode.trim() || validateCodeMutation.isPending}
-                  className="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg border disabled:opacity-50"
-                  style={{ borderColor: TEAL, color: TEAL }}
-                >
-                  {validateCodeMutation.isPending ? '...' : 'Aplicar'}
-                </button>
-              </div>
-              {creatorCodeResult && (
-                <div className="mt-3">
-                  {creatorCodeResult.valid ? (
-                    <div className="flex items-start gap-2 text-sm rounded-lg px-3 py-2" style={{ backgroundColor: TEAL_LIGHT, color: '#005555' }}>
-                      <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} style={{ color: TEAL }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>
-                        Código válido. Obtendrás <strong>${creatorCodeResult.discount} de descuento</strong> cada
-                        uno de tus primeros {creatorCodeResult.months} meses
-                        {creatorCodeResult.influencerName ? `, cortesía de ${creatorCodeResult.influencerName}` : ''}.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-red-600 rounded-lg px-3 py-2 bg-red-50">
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      {creatorCodeResult.reason || 'Código inválido'}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
+          {/* Botones de acción. El pago (con código de creador + elección de
+              método) vive ahora en el modal "Renovar suscripción". */}
           <div className="px-6 pb-5 flex gap-2 flex-wrap">
             {/* Cancelada → reactivar */}
             {isCancelled && (
@@ -807,30 +909,16 @@ export default function SubscriptionPage() {
               </button>
             )}
 
-            {/* Activar / pagar con tarjeta (Stripe). Se muestra mientras la
-                suscripción NO esté activa y no esté cancelada (TRIAL, sin pagar,
-                pago pendiente o suspendida). En TRIAL con sub incompleta también
-                aparece para reanudar el pago. Solo si Stripe está habilitado. */}
-            {STRIPE_ENABLED && !isActive && !isCancelled && (
-              <button onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}
-                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 text-center"
-                style={{ backgroundColor: TEAL }}>
-                {activateMutation.isPending
-                  ? 'Preparando...'
-                  : (sub.status === 'PAST_DUE' || sub.status === 'SUSPENDED') ? 'Pagar con tarjeta' : 'Pagar con tarjeta'}
-              </button>
-            )}
-
-            {/* Pago por transferencia + comprobante por WhatsApp a Siliba. Es la
-                alternativa a Stripe (y el único método si Stripe no está
-                disponible). Visible cuando hay un pago pendiente. */}
+            {/* Renovar suscripción → abre el proceso de pago (código de creador +
+                elección de método: tarjeta Stripe o transferencia). Visible mientras
+                la suscripción NO esté activa ni cancelada (TRIAL, pago pendiente,
+                suspendida). Reemplaza los antiguos botones sueltos y duplicados. */}
             {!isActive && !isCancelled && (
-              <a href={transferWaUrl} target="_blank" rel="noopener noreferrer"
-                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold border text-center flex items-center justify-center gap-1.5"
-                style={{ borderColor: TEAL, color: TEAL }}>
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
-                Pagar por transferencia
-              </a>
+              <button onClick={() => { setRenewStep('methods'); setError(null); setModal('renew'); }}
+                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl text-sm font-semibold text-white text-center"
+                style={{ backgroundColor: TEAL }}>
+                Renovar suscripción
+              </button>
             )}
 
             {/* Activo mensual: adelantar (requiere Stripe para el cobro) */}
@@ -861,37 +949,6 @@ export default function SubscriptionPage() {
             )}
           </div>
 
-          {/* ── Datos para transferencia (cuando hay un pago pendiente) ──────
-              Banco/CLABE/Titular + a dónde mandar el comprobante por WhatsApp. */}
-          {!isActive && !isCancelled && (
-            <div className="mx-6 mb-5 rounded-xl border p-4" style={{ borderColor: TEAL, backgroundColor: TEAL_LIGHT }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: TEAL }}>Datos para transferencia</p>
-              <div className="space-y-1.5 text-sm">
-                {payAmount > 0 && (
-                  <div className="flex justify-between gap-3"><span className="text-gray-600">Monto</span><span className="font-semibold text-gray-900">${payAmount} MXN</span></div>
-                )}
-                {SILIBA_BANK.bank && (
-                  <div className="flex justify-between gap-3"><span className="text-gray-600">Banco</span><span className="font-semibold text-gray-900 text-right">{SILIBA_BANK.bank}</span></div>
-                )}
-                {SILIBA_BANK.clabe && (
-                  <div className="flex justify-between gap-3 items-center">
-                    <span className="text-gray-600">CLABE</span>
-                    <span className="font-semibold text-gray-900 text-right tabular-nums select-all">{SILIBA_BANK.clabe}</span>
-                  </div>
-                )}
-                {SILIBA_BANK.holder && (
-                  <div className="flex justify-between gap-3"><span className="text-gray-600">Titular</span><span className="font-semibold text-gray-900 text-right">{SILIBA_BANK.holder}</span></div>
-                )}
-                <div className="flex justify-between gap-3"><span className="text-gray-600">Enviar comprobante a</span><span className="font-semibold text-gray-900 text-right">WhatsApp +52 333 440 5600</span></div>
-              </div>
-              <a href={transferWaUrl} target="_blank" rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white"
-                style={{ backgroundColor: '#25D366' }}>
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
-                Enviar comprobante
-              </a>
-            </div>
-          )}
         </div>
       )}
 
