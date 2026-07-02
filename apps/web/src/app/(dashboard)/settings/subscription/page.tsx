@@ -758,14 +758,14 @@ export default function SubscriptionPage() {
                     if (creatorCodeResult) setCreatorCodeResult(null);
                   }}
                   placeholder="Ej: LUNA8X3K"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2"
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2"
                   style={{ ['--tw-ring-color' as any]: TEAL }}
                 />
                 <button
                   type="button"
                   onClick={() => creatorCode.trim() && validateCodeMutation.mutate(creatorCode.trim())}
                   disabled={!creatorCode.trim() || validateCodeMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border disabled:opacity-50"
+                  className="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg border disabled:opacity-50"
                   style={{ borderColor: TEAL, color: TEAL }}
                 >
                   {validateCodeMutation.isPending ? '...' : 'Aplicar'}

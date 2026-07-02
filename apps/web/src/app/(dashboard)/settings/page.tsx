@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 const BusinessContent = dynamic(() => import('./business/page'), { ssr: false });
@@ -32,7 +33,13 @@ const TABS: { key: SettingsTab; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('negocio');
+  // Deep-link ?tab=suscripcion (desde el banner de prueba/suscripción u otros
+  // atajos): abre esa pestaña directamente. Si no viene o no es válida, "negocio".
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as SettingsTab | null;
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'negocio',
+  );
 
   return (
     <div className="flex flex-col h-full">
