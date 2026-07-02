@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
@@ -142,6 +142,7 @@ interface SlotInfo {
 export default function EmployeeProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
   const { user: authUser } = useAuth();
@@ -153,6 +154,16 @@ export default function EmployeeProfilePage() {
 
   // ─── UI state ──────────────────────────────────────────
   const [showEditDrawer, setShowEditDrawer] = useState(false);
+  // Deep-link ?edit=1 (desde el botón "Editar" de la tarjeta en /staff): abrimos
+  // el drawer de edición directamente y limpiamos el parámetro de la URL para que
+  // al recargar o volver no se reabra solo.
+  useEffect(() => {
+    if (searchParams.get('edit') === '1' && canEdit) {
+      setShowEditDrawer(true);
+      router.replace(`/staff/${employeeId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, canEdit]);
   const [coverPendingFile, setCoverPendingFile] = useState<File | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   // Menu/lightbox de foto de perfil: icono camara sobre avatar abre menu

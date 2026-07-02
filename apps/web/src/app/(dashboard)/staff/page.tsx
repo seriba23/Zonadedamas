@@ -446,7 +446,7 @@ export default function StaffPage() {
                             Ver agenda
                           </a>
                           <a
-                            href={`/staff/${emp.id}`}
+                            href={`/staff/${emp.id}?edit=1`}
                             className="flex-1 text-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#008080] text-white hover:bg-[#006666] transition-colors"
                           >
                             Editar
