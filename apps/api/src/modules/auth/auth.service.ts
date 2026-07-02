@@ -39,6 +39,8 @@ import { RbacService } from '../rbac/rbac.service';
 // DTOs de entrada para registro y login social.
 import { RegisterDto } from './dto/register.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
+// Set mínimo de permisos del rol staff base (fuente única de verdad).
+import { STAFF_MINIMAL_PERMISSIONS } from './staff-permissions';
 // EmailChannel: canal de envío de correos (recuperación de contraseña).
 import { EmailChannel } from '../notifications/channels/email.channel';
 // UploadsService: descarga/guarda imágenes (avatares de login social).
@@ -370,10 +372,12 @@ export class AuthService {
       where: { tenantId_slug: { tenantId: invite.tenantId, slug: 'staff' } },
     });
     if (!staffRole) {
-      // Permisos básicos para staff: solo los de acción 'read' (lectura).
-      // "in: ['read']" = la acción está dentro de esa lista.
+      // Permisos MÍNIMOS del rol staff: solo lo que el portal de empleado
+      // necesita (ver STAFF_MINIMAL_PERMISSIONS). NO todos los ".read": eso hacía
+      // que el empleado viera secciones admin no concedidas. El acceso admin se
+      // otorga aparte con el rol "Ayudante" (helper) en grantAdminAccess.
       const basicPerms = await this.prisma.permission.findMany({
-        where: { action: { in: ['read'] } },
+        where: { OR: STAFF_MINIMAL_PERMISSIONS },
       });
       staffRole = await this.prisma.role.create({
         data: {
@@ -1451,6 +1455,10 @@ export class AuthService {
     const isAdmin = (user.userRoles || []).some((ur) =>
       ADMIN_ROLE_SLUGS.includes(ur.role.slug),
     );
+    // ¿Es DUEÑO? (rol slug 'owner'). Solo el dueño conserva el portal admin
+    // completo y el botón de cambio de perfil; los admins parciales (helper)
+    // acceden a sus secciones desde el propio perfil de empleado.
+    const isOwner = (user.userRoles || []).some((ur) => ur.role.slug === 'owner');
     // Desestructuración con "rest": sacamos userRoles (renombrado _ur, no se usa) y
     // dejamos el RESTO de campos en userClean. Así no exponemos userRoles crudo.
     const { userRoles: _ur, ...userClean } = user;
@@ -1462,6 +1470,7 @@ export class AuthService {
       avatarUrl: employee?.avatarUrl || user.avatarUrl || null,
       permissions,
       isAdmin,
+      isOwner,
       employeeId: employee?.id || null,
       // Ternario: si hay empleado, su estado; si no hay ficha, lo damos por activo.
       isEmployeeActive: employee ? employee.isActive : true,

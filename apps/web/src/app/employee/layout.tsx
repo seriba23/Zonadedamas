@@ -636,7 +636,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const { data: empData } = useQuery({
     queryKey: ['employee-profile-check', user?.employeeId],
     queryFn: async () => {
-      const res = await api.get<{ data: any }>(`/api/employees/${user!.employeeId}`);
+      const res = await api.get<{ data: any }>(`/api/employees/me`);
       return res.data;
     },
     enabled: !!user?.employeeId && isAuthenticated,

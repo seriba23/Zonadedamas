@@ -156,7 +156,7 @@ export default function EmployeeProfilePage() {
     queryKey: ['employee-profile', user?.employeeId],
     queryFn: async () => {
       const res = await api.get<{ data: Employee }>(
-        `/api/employees/${user!.employeeId}`,
+        `/api/employees/me`,
         // user! → aserción de no-nulo: "confío en que user existe aquí"
         // porque enabled garantiza que esta función solo corre con user válido.
       );
@@ -172,7 +172,7 @@ export default function EmployeeProfilePage() {
     queryKey: ['employee-profile-stats', user?.employeeId],
     queryFn: async () => {
       const res = await api.get<{ data: Stats }>(
-        `/api/employees/${user!.employeeId}/stats`,
+        `/api/employees/me/stats`,
       );
       return res.data;
     },

@@ -60,6 +60,9 @@ export class AttendanceController {
   // Lista los registros de asistencia dentro de un rango de fechas. Pensado para
   // el panel del administrador (ver quién asistió, a qué hora, etc.).
   @Get()
+  // Solo quien gestiona personal puede ver la asistencia de TODO el negocio.
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('employees.read')
   async findByDateRange(
     // @CurrentTenant() => inyecta el id del negocio del usuario logueado.
     @CurrentTenant() tenantId: string,
@@ -87,6 +90,8 @@ export class AttendanceController {
   // Devuelve cuántos registros están "PENDING_REVIEW" (pendientes de que el
   // admin los apruebe o rechace). Útil para mostrar un badge con el número.
   @Get('pending-count')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('employees.read')
   async pendingCount(@CurrentTenant() tenantId: string) {
     // @CurrentTenant() inyecta el id del negocio. Delegamos al servicio.
     return this.attendanceService.getPendingCount(tenantId);
@@ -98,6 +103,8 @@ export class AttendanceController {
   // ── GET /api/attendance/stats?startDate=...&endDate=... ───────────────────
   // Estadísticas agregadas del rango para el panel de reportes.
   @Get('stats')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('employees.read')
   async stats(
     @CurrentTenant() tenantId: string,
     @Query('startDate') startDate: string,

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
+import { isDashboardPathAllowedForNonOwner } from '@/lib/admin-access';
 import { Sidebar } from '@/components/layout/sidebar';
+import { EmployeeSidebar } from '@/components/layout/employee-sidebar';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 import { useWebSocket, EmployeeJoinedEvent, PurchaseCreatedEvent } from '@/lib/hooks/use-websocket';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -213,6 +215,20 @@ function DashboardLayoutContent({
     }
   }, [isLoading, isAuthenticated, isFreelancer, router]);
 
+  // GUARDIA DE RUTA (no-dueños): un empleado con acceso admin PARCIAL solo puede
+  // estar en las secciones (dashboard) que se le concedieron. Si navega por URL a
+  // una sección sin permiso (o a /home, /settings, etc.), lo devolvemos a su
+  // portal de empleado. El dueño tiene acceso total y no se evalúa.
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || isFreelancer || !user) return;
+    if (user.isOwner) return;
+    if (pathname === '/suspended') return;
+    const can = (p: string) => (user.permissions || []).includes(p);
+    if (!isDashboardPathAllowedForNonOwner(pathname, can)) {
+      router.replace('/employee');
+    }
+  }, [isLoading, isAuthenticated, isFreelancer, user, pathname, router]);
+
   // Redirect to suspended page if subscription is suspended
   useEffect(() => {
     if (
@@ -266,7 +282,13 @@ function DashboardLayoutContent({
 
   return (
     <div className="flex h-[100dvh]" style={{ backgroundColor: 'var(--bg-canvas)' }}>
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      {/* El dueño ve el portal admin completo; un admin parcial (no-dueño) navega
+          estas páginas con la barra lateral de empleado (chrome de su perfil). */}
+      {user?.isOwner ? (
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      ) : (
+        <EmployeeSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      )}
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
         {/* Topbar (mobile + desktop) — titulo centrado a TODO el viewport en mobile. */}
         <header

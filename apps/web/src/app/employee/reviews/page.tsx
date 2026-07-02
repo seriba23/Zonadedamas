@@ -129,7 +129,7 @@ export default function EmployeeReviewsPage() {
     queryKey: ['employee-reviews', user?.employeeId],
     queryFn: async () => {
       const res = await api.get<{ data: ReviewsData }>(
-        `/api/employees/${user!.employeeId}/reviews`,
+        `/api/employees/me/reviews`,
       );
       return res.data; // ReviewsData: { reviews, averageRating, totalReviews }
     },

@@ -31,7 +31,8 @@
     "db:set-tenant-type": "ts-node prisma/set-tenant-type.ts",
     "db:fix-subscription-amounts": "ts-node prisma/fix-subscription-amounts.ts",
     "db:backfill-freelancer-services": "ts-node prisma/backfill-freelancer-services.ts",
-    "db:fix-tenant-timezone": "ts-node prisma/fix-tenant-timezone.ts"
+    "db:fix-tenant-timezone": "ts-node prisma/fix-tenant-timezone.ts",
+    "db:reset-staff-perms": "ts-node prisma/reset-staff-permissions.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",

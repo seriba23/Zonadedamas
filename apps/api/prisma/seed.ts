@@ -52,6 +52,7 @@ const PERMISSIONS = [
   { module: 'appointments', action: 'cancel', description: 'Cancel appointments' },
   { module: 'appointments', action: 'reschedule', description: 'Reschedule appointments' },
   { module: 'appointments', action: 'complete', description: 'Mark appointments as complete' },
+  { module: 'appointments', action: 'remind', description: 'Send appointment reminders' },
   // availability
   { module: 'availability', action: 'read', description: 'View availability' },
   { module: 'availability', action: 'manage', description: 'Manage availability settings' },
@@ -169,6 +170,7 @@ const MANAGER_PERMISSIONS: PermissionKey[] = [
   permKey('appointments', 'cancel'),
   permKey('appointments', 'reschedule'),
   permKey('appointments', 'complete'),
+  permKey('appointments', 'remind'),
   // Disponibilidad
   permKey('availability', 'read'),
   permKey('availability', 'manage'),
@@ -239,6 +241,7 @@ const FRONTDESK_PERMISSIONS: PermissionKey[] = [
   permKey('appointments', 'cancel'),
   permKey('appointments', 'reschedule'),
   permKey('appointments', 'complete'),
+  permKey('appointments', 'remind'),
   // Disponibilidad: consultar
   permKey('availability', 'read'),
   // Clientes: crear y editar (llegan clientes nuevos)

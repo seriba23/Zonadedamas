@@ -9,6 +9,10 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 // useTenantTier: hook que indica el plan del tenant (isFreelancer, isPro, etc.).
 import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
+// usePermissions: para decidir qué secciones admin concedidas mostrar.
+import { usePermissions } from '@/lib/hooks/use-permissions';
+// ADMIN_SECTIONS: fuente única de las secciones admin (ruta + permiso + icono).
+import { ADMIN_SECTIONS } from '@/lib/admin-access';
 // useUnreadCounts: hook que obtiene los contadores de notificaciones no leídas
 // por sección (appointments, reviews, payments) y el total global.
 import { useUnreadCounts } from '@/lib/hooks/use-staff-notifications';
@@ -80,11 +84,19 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
   // isFreelancer: true si el tenant está en el plan freelancer (muestra el botón "Mejora a PLUS").
   const { isFreelancer } = useTenantTier();
 
-  // isAdmin: true si el usuario es administrador o tiene permiso de crear empleados.
-  // ||: si cualquiera de las condiciones es verdadera → isAdmin = true.
-  // ?.: acceso seguro a permissions (puede ser undefined).
-  // || false: fallback final para evitar undefined (siempre booleano).
-  const isAdmin = user?.isAdmin === true || user?.permissions?.includes('employees.create') || false;
+  // isOwner: solo el DUEÑO (rol owner) conserva el portal admin completo y el
+  // botón de cambio de perfil. Los admins parciales (helper) acceden a sus
+  // secciones desde este mismo sidebar (grupo "Administración" más abajo).
+  const isOwner = user?.isOwner === true;
+
+  // hasPermission: para filtrar qué secciones admin concedidas mostrar.
+  const { hasPermission } = usePermissions();
+  // adminSections: secciones admin que este usuario tiene permiso de usar. El
+  // dueño NO las ve aquí (usa el portal admin completo); solo los no-dueños con
+  // acceso parcial concedido.
+  const adminSections = isOwner
+    ? []
+    : ADMIN_SECTIONS.filter((s) => hasPermission(s.permission));
 
   // unread: contadores de notificaciones no leídas por sección.
   // data se desestructura como "unread" para mayor claridad.
@@ -243,6 +255,40 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
                 </Link>
               </li>
             )}
+
+            {/* Grupo "Administración": secciones admin concedidas al empleado
+                (vía "Convertir en administrador"). Se muestran aquí mismo, dentro
+                del perfil de empleado, en color ÍNDIGO para distinguirlas de las
+                secciones propias. El dueño no las ve (usa el portal admin completo). */}
+            {adminSections.length > 0 && (
+              <li className="mt-3 pt-3 border-t border-gray-200">
+                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-400">
+                  Administración
+                </p>
+                <ul className="space-y-1">
+                  {adminSections.map((section) => {
+                    const isActive = pathname === section.href || pathname.startsWith(section.href + '/');
+                    return (
+                      <li key={section.href}>
+                        <Link
+                          href={section.href}
+                          onClick={onClose}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                            isActive
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700',
+                          )}
+                        >
+                          <NavIcon d={section.icon} className="w-5 h-5 flex-shrink-0 text-indigo-500" />
+                          <span className="flex-1">{section.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            )}
           </ul>
         </nav>
 
@@ -256,9 +302,9 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
                 window.location.href: navegación completa (recarga la página — necesario para
                 cambiar de portal de empleado a portal de admin). */}
             <div
-              className={`flex items-center gap-3 mb-3 ${isAdmin ? 'cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-gray-100 transition-colors' : ''}`}
-              onClick={() => { if (isAdmin) window.location.href = '/home'; }}
-              title={isAdmin ? 'Cambiar a Administrador' : undefined}
+              className={`flex items-center gap-3 mb-3 ${isOwner ? 'cursor-pointer rounded-lg p-1.5 -m-1.5 hover:bg-gray-100 transition-colors' : ''}`}
+              onClick={() => { if (isOwner) window.location.href = '/home'; }}
+              title={isOwner ? 'Cambiar a Administrador' : undefined}
             >
               {/* Avatar: muestra foto si existe, o iniciales de lo contrario.
                   overflow-hidden: la imagen no se desborda del círculo.
@@ -275,8 +321,8 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
                 <p className="text-sm font-medium text-gray-900 truncate">{user.firstName} {user.lastName}</p>
                 <p className="text-xs text-gray-500 truncate">{user.email}</p>
               </div>
-              {/* Ícono de flechas de intercambio: solo si isAdmin (indica que puede cambiar de rol). */}
-              {isAdmin && (
+              {/* Ícono de flechas de intercambio: solo el dueño puede cambiar de portal. */}
+              {isOwner && (
                 <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>

@@ -233,6 +233,42 @@ export class EmployeesController {
     return { data: result };
   }
 
+  // ── GET /api/employees/me ─────────────────────────────────────────────────
+  // Versiones SELF (el propio empleado logueado) de findOne/getStats/getReviews.
+  // No exigen 'employees.read': un empleado siempre puede ver SUS propios datos.
+  // Deben declararse ANTES de @Get(':id') para que Nest no capture 'me' como :id.
+  @Get('me')
+  async findMe(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const employee = await this.employeesService.findOne(emp.id, tenantId);
+    return { data: employee };
+  }
+
+  // ── GET /api/employees/me/stats ───────────────────────────────────────────
+  @Get('me/stats')
+  async getMyStats(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const stats = await this.employeesService.getStats(emp.id, tenantId);
+    return { data: stats };
+  }
+
+  // ── GET /api/employees/me/reviews ─────────────────────────────────────────
+  @Get('me/reviews')
+  async getMyReviews(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const result = await this.employeesService.getReviews(emp.id, tenantId);
+    return { data: result };
+  }
+
   // ── GET /api/employees/:id ────────────────────────────────────────────────
   // Devuelve el detalle de UN empleado.
   @Get(':id')
@@ -265,10 +301,15 @@ export class EmployeesController {
 
     // Get all permissions for the selected modules.
     // Algunos módulos de la UI son "virtuales": no son un módulo de permisos
-    // real, sino un acceso concreto. 'reminders' (Recordatorios) concede solo
-    // appointments.read (la página /reminders se gobierna con ese permiso).
+    // real, sino un acceso concreto. 'reminders' (Recordatorios) concede
+    // appointments.read (para ver la agenda de recordatorios) + appointments.remind
+    // (el permiso propio que gobierna /reminders y sus endpoints, separado de
+    // Calendario para no acoplar ambas secciones).
     const VIRTUAL_MODULE_PERMS: Record<string, Array<{ module: string; action: string }>> = {
-      reminders: [{ module: 'appointments', action: 'read' }],
+      reminders: [
+        { module: 'appointments', action: 'read' },
+        { module: 'appointments', action: 'remind' },
+      ],
     };
     const realModules = body.modules.filter((m) => !VIRTUAL_MODULE_PERMS[m]);
     const virtualPairs = body.modules.flatMap((m) => VIRTUAL_MODULE_PERMS[m] || []);

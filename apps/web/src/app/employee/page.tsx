@@ -162,7 +162,7 @@ export default function EmployeeDashboard() {
     queryKey: ['employee-stats', user?.employeeId],
     queryFn: async () => {
       const res = await api.get<{ data: Stats }>(
-        `/api/employees/${user!.employeeId}/stats`,
+        `/api/employees/me/stats`,
         // user! → el "!" es el operador "non-null assertion" de TypeScript.
         // Le dice al compilador "confía en mí, user no es null aquí"
         // (porque enabled ya lo verifica antes).

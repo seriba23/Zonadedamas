@@ -274,8 +274,10 @@ export class AppointmentsController {
    * reminderSentAt null (a menos que sentToday=true para ver enviados hoy).
    */
   // ── GET /api/appointments/reminders/pending ─────────────────────────────────
+  // 'appointments.remind' (no 'read'): separa Recordatorios de Calendario; el rol
+  // base staff no lo tiene, así que no ve ni accede a los recordatorios.
   @Get('reminders/pending')
-  @RequirePermissions('appointments.read')
+  @RequirePermissions('appointments.remind')
   async pendingReminders(
     @CurrentTenant() tenantId: string,
     // @Query('hoursAhead') lee ?hoursAhead=N (texto). Es opcional ("?").
@@ -301,7 +303,7 @@ export class AppointmentsController {
    */
   // ── POST /api/appointments/:id/mark-reminder-sent ───────────────────────────
   @Post(':id/mark-reminder-sent')
-  @RequirePermissions('appointments.read')
+  @RequirePermissions('appointments.remind')
   async markReminderSent(
     @CurrentTenant() tenantId: string,
     @Param('id') id: string,

@@ -48,12 +48,12 @@ type StaffTab = 'empleados' | 'permisos' | 'asistencias' | 'organigrama' | 'comi
 // ese permiso. La pestaña "Permisos" (aprobar ausencias) es solo para admins que
 // puedan gestionar empleados (employees.update).
 const TABS: { key: StaffTab; label: string; requiredPermission?: string }[] = [
-  { key: 'empleados', label: 'Empleados' },
+  { key: 'empleados', label: 'Empleados', requiredPermission: 'employees.read' },
   { key: 'permisos', label: 'Permisos', requiredPermission: 'employees.update' },
   // 'organigrama' deshabilitado hasta V2: necesita pulido visual.
-  { key: 'asistencias', label: 'Asistencias' },
-  { key: 'horarios', label: 'Horarios' },
-  { key: 'comisiones', label: 'Comisiones' },
+  { key: 'asistencias', label: 'Asistencias', requiredPermission: 'employees.read' },
+  { key: 'horarios', label: 'Horarios', requiredPermission: 'employees.read' },
+  { key: 'comisiones', label: 'Comisiones', requiredPermission: 'employees.read' },
 ];
 
 export default function StaffPage() {

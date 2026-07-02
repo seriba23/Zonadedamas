@@ -177,7 +177,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   //   Si user es null, !!null = false → la query no se lanza.
   const { data: empData } = useQuery({
     queryKey: ['employee-settings', user?.employeeId],
-    queryFn: () => api.get<{ data: any }>(`/api/employees/${user!.employeeId}`).then((r) => r.data),
+    queryFn: () => api.get<{ data: any }>(`/api/employees/me`).then((r) => r.data),
     enabled: !!user?.employeeId,
   });
 

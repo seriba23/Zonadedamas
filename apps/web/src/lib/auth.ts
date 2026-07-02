@@ -24,6 +24,7 @@ export interface AuthUser {
   avatarUrl?: string | null;  // foto de perfil (o null si no tiene)
   permissions: string[];      // lista de permisos ("appointments.create", ...)
   isAdmin?: boolean;          // ¿es administrador del negocio?
+  isOwner?: boolean;          // ¿es el DUEÑO (rol owner)? Solo el dueño ve el portal admin completo y el cambio de perfil.
   employeeId?: string | null; // id como empleado (si también lo es)
   isEmployeeActive?: boolean; // ¿su ficha de empleado está activa?
   posEnabled?: boolean;       // ¿tiene acceso al Punto de Venta?
