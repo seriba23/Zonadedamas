@@ -100,9 +100,13 @@ const TEAL = '#008080';
 
 // loadStripe se llama UNA SOLA VEZ al cargar el módulo (fuera del componente).
 // Devuelve una promesa que resuelve con el objeto Stripe.
-// Si la variable de entorno no está definida, usa string vacío
-// (en producción siempre debe estar definida).
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+// Si la publishable key NO está embebida en el build, NO inicializamos Stripe:
+// loadStripe('') lanza un IntegrationError ("You used an empty string") que
+// contamina la consola en toda pantalla del empleado. En ese caso dejamos null;
+// <Elements stripe={null}> lo acepta sin romper y el pago con tarjeta queda
+// deshabilitado hasta que la clave (pk_...) esté presente en el build.
+const STRIPE_PK = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+const stripePromise = STRIPE_PK.startsWith('pk_') ? loadStripe(STRIPE_PK) : null;
 
 // ─── Panel de pago independiente (Stripe) ─────────────────────
 // Este componente sólo se usa cuando el empleado desvinculado elige
