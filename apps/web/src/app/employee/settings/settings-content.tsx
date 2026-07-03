@@ -98,6 +98,9 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   // ─── HOOKS DE CONTEXTO Y NAVEGACIÓN ──────────────────────────────────────
   // Obtenemos el usuario logueado y la función logout del contexto global.
   const { user, logout } = useAuth();
+  // Freelancer (profesional independiente): puede elegir su profesión para
+  // aparecer en el filtro de profesionales del marketplace.
+  const isFreelancer = (user as any)?.tenantType === 'FREELANCER';
 
   // Router de Next.js para navegar programáticamente (ej. router.push('/login')).
   const router = useRouter();
@@ -140,7 +143,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
 
   // Formulario de datos básicos del empleado (se sincroniza con la BD).
   // Empieza con strings vacíos; se llena cuando llegan los datos del servidor.
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '' });
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '', jobTitle: '' });
 
   // Formulario de información personal/médica y contacto de emergencia.
   const [personalForm, setPersonalForm] = useState({ bloodType: '', allergies: '', emergencyContactName: '', emergencyContactLastName: '', emergencyContactPhone: '', emergencyContactRelation: '' });
@@ -181,6 +184,14 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
     enabled: !!user?.employeeId,
   });
 
+  // Catálogo de profesiones del marketplace (barbero, colorista, etc.). Solo se
+  // pide para freelancers, que son quienes eligen su profesión.
+  const { data: professionList } = useQuery({
+    queryKey: ['professions-catalog'],
+    queryFn: () => api.get<{ data: string[] }>('/api/marketplace/professions').then((r) => r.data),
+    enabled: isFreelancer,
+  });
+
   // ─── INICIALIZACIÓN DEL FORMULARIO (una sola vez) ─────────────────────────
   // Fill form when data loads
   //
@@ -199,7 +210,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   if (empData && !formInitialized) {
     // Llenamos editForm con los datos actuales del empleado.
     // "|| ''" proporciona un string vacío como fallback si el campo es null.
-    setEditForm({ firstName: empData.firstName, lastName: empData.lastName, email: empData.email || '', phone: empData.phone || '', bio: empData.bio || '' });
+    setEditForm({ firstName: empData.firstName, lastName: empData.lastName, email: empData.email || '', phone: empData.phone || '', bio: empData.bio || '', jobTitle: empData.jobTitle || '' });
     // Llenamos personalForm con los datos médicos y de emergencia.
     setPersonalForm({ bloodType: empData.bloodType || '', allergies: empData.allergies || '', emergencyContactName: empData.emergencyContactName || '', emergencyContactLastName: empData.emergencyContactLastName || '', emergencyContactPhone: empData.emergencyContactPhone || '', emergencyContactRelation: empData.emergencyContactRelation || '' });
     // Marcamos como inicializado para no volver a ejecutar este bloque.
@@ -274,7 +285,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
   // con los datos actuales del servidor (por si empData cambió).
   function startEdit() {
     if (empData) {
-      setEditForm({ firstName: empData.firstName, lastName: empData.lastName, email: empData.email || '', phone: empData.phone || '', bio: empData.bio || '' });
+      setEditForm({ firstName: empData.firstName, lastName: empData.lastName, email: empData.email || '', phone: empData.phone || '', bio: empData.bio || '', jobTitle: empData.jobTitle || '' });
       setPersonalForm({ bloodType: empData.bloodType || '', allergies: empData.allergies || '', emergencyContactName: empData.emergencyContactName || '', emergencyContactLastName: empData.emergencyContactLastName || '', emergencyContactPhone: empData.emergencyContactPhone || '', emergencyContactRelation: empData.emergencyContactRelation || '' });
     }
     // Activamos el modo edición (muestra el formulario).
@@ -481,6 +492,45 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
                   placeholder="Ej: Estilista con 8 años de experiencia, especializada en colorimetría y cortes modernos…"
                 />
               </div>
+
+              {/* Profesión — solo freelancers. Determina en qué profesión(es)
+                  aparece en el filtro de profesionales del marketplace. Se guarda
+                  en jobTitle (varias separadas por coma), donde el filtro ya busca. */}
+              {isFreelancer && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Profesión</label>
+                  <p className="text-[11px] text-gray-400 mb-1.5 leading-relaxed">
+                    Elige a qué te dedicas. Así los clientes te encuentran en el filtro de profesionales del marketplace. Puedes marcar más de una.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(professionList || []).map((name) => {
+                      const selected = editForm.jobTitle.split(',').map((s) => s.trim()).filter(Boolean);
+                      const active = selected.includes(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setEditForm((f) => {
+                            const cur = f.jobTitle.split(',').map((s) => s.trim()).filter(Boolean);
+                            const next = cur.includes(name) ? cur.filter((p) => p !== name) : [...cur, name];
+                            return { ...f, jobTitle: next.join(', ') };
+                          })}
+                          className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                            active
+                              ? 'bg-[#008080] border-[#008080] text-white'
+                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                    {(!professionList || professionList.length === 0) && (
+                      <span className="text-xs text-gray-400">No hay profesiones en el catálogo todavía.</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* ── Sección: Información médica ───────────────────────────── */}
               <h4 className="text-xs font-semibold text-gray-500 uppercase pt-2">Información médica</h4>
