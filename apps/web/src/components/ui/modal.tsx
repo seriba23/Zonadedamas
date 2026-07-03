@@ -66,11 +66,12 @@ export function Modal({
     // Capa que cubre toda la pantalla: fixed inset-0 = pegado a los 4 bordes;
     // z-50 = muy por encima; flex + center = centra el diálogo.
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay (fondo oscuro semitransparente). bg-black/50 = negro al 50%;
-          backdrop-blur-sm = desenfoca lo que hay detrás. Al hacer clic, cierra.
-          aria-hidden lo oculta a lectores de pantalla (es decorativo). */}
+      {/* Overlay (fondo oscuro semitransparente). bg-black/60 = negro al 60%.
+          Sin backdrop-blur: en algunos GPU/zoom de Chrome el backdrop-filter
+          rasteriza el diálogo borroso. Al hacer clic, cierra. aria-hidden lo
+          oculta a lectores de pantalla (es decorativo). */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
         aria-hidden="true"
       />

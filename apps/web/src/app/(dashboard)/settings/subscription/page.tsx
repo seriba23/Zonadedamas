@@ -578,13 +578,17 @@ export default function SubscriptionPage() {
                 subtitle={`$${preview?.totalMonthly.toFixed(2) || '—'} MXN/mes · pago seguro vía Stripe`}
                 amountUsd={preview?.totalMonthly || 0}
                 breakdown={preview ? [
-                  { label: 'Licencia base (incluye todos los empleados)', amount: '$500.00 MXN' },
+                  { label: 'Licencia base (incluye todos los empleados)', amount: `$${(preview.totalMonthly || 0).toFixed(2)} MXN` },
                 ] : undefined}
                 onSuccess={() => {
+                  // Cerramos el pago y mostramos la celebración a pantalla completa.
+                  // Al pulsar "Aceptar" se recarga la página (ver onClose de la
+                  // celebración) para refrescar accesos: la suscripción ya activa
+                  // levanta el bloqueo. El breve tiempo de lectura del modal cubre
+                  // la latencia del webhook invoice.paid que marca ACTIVE.
                   setClientSecret(null);
                   setModal(null);
-                  setModalData({ nextBillingDate: dayjs().add(1, 'month').toISOString(), paid: true });
-                  refetch();
+                  setCelebrate(true);
                 }}
                 onCancel={() => setClientSecret(null)}
               />
@@ -828,7 +832,9 @@ export default function SubscriptionPage() {
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-semibold text-gray-900">Estado de la suscripción</h2>
+              <h2 className="text-base font-semibold text-gray-900">
+                {(!isActive && !isCancelled) ? 'Resumen de tu suscripción' : 'Estado de la suscripción'}
+              </h2>
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
                 style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
                 {isAnnual ? 'Anual' : 'Mensual'}
@@ -841,7 +847,54 @@ export default function SubscriptionPage() {
             )}
           </div>
 
-          {/* Métricas */}
+          {/* Cuerpo: si la cuenta está POR PAGAR, mostramos un "resumen de compra"
+              (plan, descuento y total a pagar). Si está activa/cancelada, las
+              métricas normales (costo, próximo cobro, último pago). */}
+          {(!isActive && !isCancelled) ? (
+            (() => {
+              const planLabel = (user as any)?.tenantType === 'FREELANCER' ? 'Pro' : 'Plus';
+              const hasDiscount = !!creatorCodeResult?.valid;
+              const discount = hasDiscount ? (creatorCodeResult!.discount || 0) : 0;
+              const firstCharge = Math.max(0, payAmount - discount);
+              return (
+                <div className="px-6 py-5">
+                  {/* Concepto: el plan */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">Plan {planLabel}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Suscripción mensual · todos los empleados incluidos</p>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                      ${payAmount}<span className="text-gray-400 font-normal"> MXN/mes</span>
+                    </p>
+                  </div>
+
+                  {/* Descuento por código de creador (si aplica) */}
+                  {hasDiscount && (
+                    <div className="flex items-center justify-between gap-3 mt-2.5">
+                      <p className="text-sm text-gray-600">
+                        Descuento código de creador{creatorCodeResult!.months ? ` (${creatorCodeResult!.months} meses)` : ''}
+                      </p>
+                      <p className="text-sm font-semibold whitespace-nowrap" style={{ color: TEAL }}>-${discount} MXN</p>
+                    </div>
+                  )}
+
+                  <div className="border-t border-dashed border-gray-200 my-4" />
+
+                  {/* Total a pagar ahora */}
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Total a pagar ahora</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Luego ${payAmount} MXN/mes automáticos</p>
+                    </div>
+                    <p className="text-2xl font-black text-gray-900 whitespace-nowrap">
+                      ${firstCharge}<span className="text-sm font-medium text-gray-400"> MXN</span>
+                    </p>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
           <div className="px-6 py-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs text-gray-500 mb-1">{isAnnual ? 'Total anual' : 'Costo mensual'}</p>
@@ -872,6 +925,7 @@ export default function SubscriptionPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Pago anticipado activo */}
           {sub.advancePaid && isMonthly && (
@@ -1328,7 +1382,9 @@ export default function SubscriptionPage() {
       {celebrate && (() => {
         const planRaw = (sub as any)?.plan as string | undefined;
         const planLabel = planRaw ? ({ BASICO: 'Básico', PLUS: 'Plus', PRO: 'Pro' } as Record<string, string>)[planRaw] || planRaw : undefined;
-        return <SubscriptionCelebration planLabel={planLabel} onClose={() => setCelebrate(false)} />;
+        // Al cerrar la felicitación recargamos: refresca getMe/estado y, con la
+        // suscripción ya activa, levanta el bloqueo por-pagar.
+        return <SubscriptionCelebration planLabel={planLabel} onClose={() => window.location.reload()} />;
       })()}
     </div>
   );
