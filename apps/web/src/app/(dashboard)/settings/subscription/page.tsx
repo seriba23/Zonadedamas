@@ -457,7 +457,7 @@ export default function SubscriptionPage() {
   // ── Confirmar pago anticipado (post-Stripe)
   const confirmAdvanceMutation = useMutation({
     mutationFn: () => api.post('/api/stripe/subscription/advance-payment/confirm', {}),
-    onSuccess: () => { closeModal(); refetch(); },
+    onSuccess: () => { closeModal(); refetch(); showSaveSuccess({ title: 'Mes adelantado', message: 'Tu acceso se extendió un mes más.' }); },
   });
 
   // ── Cambiar a plan anual
@@ -611,7 +611,7 @@ export default function SubscriptionPage() {
                   { label: 'Plan anual (12 meses × $500 MXN)', amount: `$${modalData?.annualTotal?.toFixed(2)} MXN` },
                   { label: 'Descuento anual (15%)', amount: '-$' + ((preview.totalMonthly * 12 * 0.15).toFixed(2)) + ' MXN' },
                 ] : undefined}
-                onSuccess={() => { closeModal(); refetch(); }}
+                onSuccess={() => { closeModal(); refetch(); showSaveSuccess({ title: 'Plan anual activado', message: 'Tu suscripción cambió a facturación anual con 15% de descuento.' }); }}
                 onCancel={closeModal}
               />
             </Elements>
