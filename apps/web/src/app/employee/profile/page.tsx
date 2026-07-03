@@ -510,6 +510,9 @@ function PersonalInfoEditor({ employee, onSave }: { employee: Employee; onSave: 
 
 function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; employeeId: string }) {
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  // IDs de fotos cuyo archivo ya no existe (404): las ocultamos para no mostrar
+  // recuadros de imagen rota en el portafolio.
+  const [failedImgIds, setFailedImgIds] = useState<Set<string>>(new Set());
 
   const { data: pro, isLoading } = useQuery({
     queryKey: ['public-profile-preview', tenantSlug, employeeId],
@@ -526,6 +529,8 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
 
   const fullName = `${pro.firstName} ${pro.lastName}`;
   const specialty = pro.topServices?.length > 0 ? pro.topServices[0].serviceName : null;
+  // Portafolio sin las fotos cuyo archivo falló (rotas): solo imágenes existentes.
+  const visiblePortfolio: any[] = (pro.portfolio || []).filter((img: any) => !failedImgIds.has(img.id));
 
   return (
     <div className="px-0 lg:px-6">
@@ -589,7 +594,7 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
       </div>
 
       {/* Portfolio */}
-      {pro.portfolio?.length > 0 && (
+      {visiblePortfolio.length > 0 && (
         <div className="mb-6 px-6 lg:px-0">
           <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
             <svg className="w-4 h-4 text-[#008080]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -598,9 +603,9 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
             Portafolio
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {pro.portfolio.map((img: any) => (
+            {visiblePortfolio.map((img: any) => (
               <button key={img.id} onClick={() => setLightboxImg(`${API_URL}${img.imageUrl}`)} className="relative aspect-square rounded-xl overflow-hidden group">
-                <img src={`${API_URL}${img.imageUrl}`} alt={img.caption || ''} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                <img src={`${API_URL}${img.imageUrl}`} alt={img.caption || ''} onError={() => setFailedImgIds((prev) => new Set(prev).add(img.id))} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                 {img.caption && (
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <p className="text-xs text-white truncate">{img.caption}</p>
@@ -654,7 +659,7 @@ function PublicProfilePreview({ tenantSlug, employeeId }: { tenantSlug: string; 
         </div>
       )}
 
-      {(!pro.portfolio || pro.portfolio.length === 0) && (!pro.reviews || pro.reviews.length === 0) && (
+      {visiblePortfolio.length === 0 && (!pro.reviews || pro.reviews.length === 0) && (
         <div className="text-center py-12 text-gray-400 text-sm px-6">
           <p>Tu perfil público aún no tiene portafolio ni reseñas.</p>
           <p className="text-xs mt-1">Sube fotos a tu galería y completa servicios para que los clientes te califiquen.</p>

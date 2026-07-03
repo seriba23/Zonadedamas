@@ -1111,6 +1111,16 @@ export class EmployeesService {
     if (!image) throw new NotFoundException('Imagen de portfolio no encontrada');
 
     await this.prisma.employeePortfolioImage.delete({ where: { id: imageId } });
+
+    // Si esta foto provino de una cita cerrada (auto-copiada), borramos también
+    // la AppointmentPhoto que apunta al MISMO archivo. Si no, el perfil público
+    // (que combina portafolio + fotos de cita) la seguiría mostrando —rota,
+    // porque el archivo se elimina abajo— y el backfill de getPortfolio la
+    // recrearía. Así la eliminación es definitiva en ambas fuentes.
+    await this.prisma.appointmentPhoto.deleteMany({
+      where: { imageUrl: image.imageUrl, appointment: { employeeId, tenantId } },
+    });
+
     return image; // Return so controller can delete the file
   }
 
