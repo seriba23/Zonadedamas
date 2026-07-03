@@ -130,6 +130,19 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
     }
   }
 
+  // DEDUP: si al empleado se le concedió la sección admin equivalente (Servicios,
+  // Cupones), ocultamos su versión NATIVA de empleado para no duplicar la entrada
+  // en el menú (ambas abren lo mismo). La versión admin (más completa) la sustituye.
+  const SUPERSEDED_BY_ADMIN: Record<string, string> = {
+    '/employee/services': 'services',
+    '/employee/rewards': 'rewards',
+  };
+  const grantedAdminKeys = new Set(adminSections.map((s) => s.key));
+  const visibleMenu = menuItems.filter((item) => {
+    const adminKey = SUPERSEDED_BY_ADMIN[item.href];
+    return !(adminKey && grantedAdminKeys.has(adminKey));
+  });
+
   // NavIcon: sub-componente interno que renderiza un ícono SVG.
   // Recibe d (el path SVG) y className (clases Tailwind opcionales).
   // Permite reutilizar la misma estructura SVG cambiando solo el path.
@@ -191,7 +204,7 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <ul className="space-y-1">
-            {menuItems.map((item) => {
+            {visibleMenu.map((item) => {
               // isActive: true si la ruta actual coincide exactamente con el href,
               // O si la ruta comienza con el href (para sub-páginas como /employee/appointments/123).
               // Excepción: '/employee' solo se activa con coincidencia exacta (no startsWith),
