@@ -956,8 +956,10 @@ export default function ReportsPage() {
             )}
           </div>
 
-          {/* Asistencias del periodo (resumen) */}
-          <AttendanceReportCard startDate={bounds.start} endDate={bounds.end} />
+          {/* Asistencias del periodo (resumen). Oculto para freelancer: no tiene equipo. */}
+          {!hideTeam && (
+            <AttendanceReportCard startDate={bounds.start} endDate={bounds.end} />
+          )}
 
           {/* Client source breakdown */}
           <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
