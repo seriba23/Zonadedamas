@@ -83,7 +83,7 @@ export function SubscriptionBanner({ status, trialEndsAt }: SubscriptionBannerPr
           <button
             // onClick: evento que se dispara al pulsar el botón. La función
             // flecha () => ... lleva al usuario a la página de suscripciones.
-            onClick={() => router.push('/settings?tab=suscripcion')}
+            onClick={() => router.push('/settings/subscription')}
             className={`flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
               urgency
                 ? 'bg-red-600 text-white hover:bg-red-700'

@@ -138,9 +138,14 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
     '/employee/rewards': 'rewards',
   };
   const grantedAdminKeys = new Set(adminSections.map((s) => s.key));
+  // "Suscripción" solo la ven freelancers (es su único portal) y el dueño; un
+  // empleado normal no gestiona la suscripción del negocio.
+  const canSeeSubscription = isFreelancer || isOwner;
   const visibleMenu = menuItems.filter((item) => {
     const adminKey = SUPERSEDED_BY_ADMIN[item.href];
-    return !(adminKey && grantedAdminKeys.has(adminKey));
+    if (adminKey && grantedAdminKeys.has(adminKey)) return false;
+    if (item.href === '/employee/subscription' && !canSeeSubscription) return false;
+    return true;
   });
 
   // NavIcon: sub-componente interno que renderiza un ícono SVG.
