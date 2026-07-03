@@ -430,7 +430,7 @@ async function main() {
       // precio real (FREELANCER→Pro 300 / BUSINESS→Plus 500).
       tenantType: 'BUSINESS',
       subscriptionPlan: 'professional',
-      subscriptionStatus: 'active',
+      subscriptionStatus: 'past_due',
       coverImageUrl: '/api/uploads/avatars/cover-1772686771095-c33kej.jpg',
       isMarketplaceListed: true,
       businessType: 'SALON',
@@ -1283,24 +1283,26 @@ async function main() {
   console.log('  Platform admin: super@siliba.com / Super123!');
 
   // 13. Subscription for demo tenant — plan PLUS ($500 MXN) en estado "por pagar"
-  // (TRIAL vencido) para que el demo muestre las opciones de pago (tarjeta +
-  // transferencia) y el aviso de vencimiento. Se hace UPSERT para reconciliar el
-  // registro aunque ya exista de un seed anterior (que lo dejaba en BASICO/ACTIVE).
-  console.log('Seeding demo subscription (PLUS, por pagar)...');
+  // (PAST_DUE) para que el demo muestre las opciones de pago (tarjeta + transferencia).
+  // Se usa PAST_DUE y NO TRIAL a propósito: el login auto-suspende los TRIAL vencidos
+  // (auth.service) y el interceptor bloquea TODO cuando está SUSPENDED (incluido el
+  // pago con Stripe). PAST_DUE deja pasar el pago y no se auto-suspende. UPSERT para
+  // reconciliar aunque exista de un seed anterior (BASICO/ACTIVE).
+  console.log('Seeding demo subscription (PLUS, PAST_DUE)...');
   const now = new Date();
   const oneYearLater = new Date(now);
   oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-  // Prueba vencida hace 3 días → banner "prueba vencida" + opciones de pago.
-  const trialEnded = new Date(now);
-  trialEnded.setDate(trialEnded.getDate() - 3);
+  const graceEnds = new Date(now);
+  graceEnds.setDate(graceEnds.getDate() + 7); // 7 días de gracia
 
   const demoSubData = {
     plan: 'PLUS' as const,
-    status: 'TRIAL' as const,
+    status: 'PAST_DUE' as const,
     monthlyAmountUsd: 500,
     baseMonthlyUsd: 500,
     perEmployeeUsd: 0,
-    trialEndsAt: trialEnded,
+    trialEndsAt: null,
+    gracePeriodEndsAt: graceEnds,
     contractStartDate: now,
     contractEndDate: oneYearLater,
     nextBillingDate: now,
@@ -1313,7 +1315,7 @@ async function main() {
     update: demoSubData,
     create: { tenantId: tenant.id, ...demoSubData },
   });
-  console.log('  Subscription PLUS ($500 MXN) en estado por pagar.');
+  console.log('  Subscription PLUS ($500 MXN) en estado PAST_DUE (por pagar).');
 
   // ─── NOTIFICATION TEMPLATES ───────────────────────────────────────────────
   console.log('Seeding notification templates...');

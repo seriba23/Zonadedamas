@@ -20,24 +20,29 @@ async function main() {
   }
 
   // Negocio con equipo => tier PLUS ($500). tenantType gobierna el precio real.
+  // subscriptionStatus se resetea porque el login lo pudo dejar en 'SUSPENDED'.
   await prisma.tenant.update({
     where: { id: tenant.id },
-    data: { tenantType: 'BUSINESS', currency: 'MXN' },
+    data: { tenantType: 'BUSINESS', currency: 'MXN', subscriptionStatus: 'past_due' },
   });
 
   const now = new Date();
   const oneYearLater = new Date(now);
   oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-  const trialEnded = new Date(now);
-  trialEnded.setDate(trialEnded.getDate() - 3); // prueba vencida hace 3 días
+  const graceEnds = new Date(now);
+  graceEnds.setDate(graceEnds.getDate() + 7); // 7 días de gracia para regularizar
 
+  // Estado PAST_DUE (pago pendiente), NO TRIAL: el login solo auto-suspende los
+  // TRIAL vencidos, y el interceptor deja pasar lecturas + el POST de Stripe para
+  // pagar. Así aparece "Renovar suscripción" y el pago con tarjeta funciona.
   const demoSubData = {
     plan: 'PLUS' as const,
-    status: 'TRIAL' as const,
+    status: 'PAST_DUE' as const,
     monthlyAmountUsd: 500,
     baseMonthlyUsd: 500,
     perEmployeeUsd: 0,
-    trialEndsAt: trialEnded,
+    trialEndsAt: null,
+    gracePeriodEndsAt: graceEnds,
     contractStartDate: now,
     contractEndDate: oneYearLater,
     nextBillingDate: now,
@@ -51,7 +56,7 @@ async function main() {
     create: { tenantId: tenant.id, ...demoSubData },
   });
 
-  console.log('✔ Demo Salon → PLUS ($500 MXN), estado por pagar (TRIAL vencido).');
+  console.log('✔ Demo Salon → PLUS ($500 MXN), estado PAST_DUE (por pagar, sin auto-suspension).');
 }
 
 main()
