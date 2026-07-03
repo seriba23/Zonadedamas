@@ -46,6 +46,9 @@ interface PortfolioImage {
 interface PortfolioGalleryProps {
   employeeId: string;
   canEdit: boolean;
+  // self=true: el empleado gestiona SU propio portafolio → usa los endpoints
+  // /api/employees/me/portfolio (sin permiso). Sin self, usa los de admin por id.
+  self?: boolean;
 }
 
 // ─── CONSTANTES ─────────────────────────────────────────────
@@ -63,8 +66,12 @@ type VisibilityFilter = 'all' | 'visible' | 'hidden' | 'featured';
 type SortKey = 'recent' | 'oldest';
 
 // ─── COMPONENTE PRINCIPAL ────────────────────────────────────
-export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps) {
+export function PortfolioGallery({ employeeId, canEdit, self = false }: PortfolioGalleryProps) {
   const queryClient = useQueryClient();
+
+  // basePath: raíz de los endpoints del portafolio. En modo self usamos /me
+  // (el propio empleado, sin necesitar employees.read/update); si no, por id.
+  const basePath = self ? '/api/employees/me/portfolio' : `/api/employees/${employeeId}/portfolio`;
 
   // Ref al input[type=file] oculto dentro del botón de "+" para subir fotos.
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,9 +107,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   const { data, isLoading } = useQuery({
     queryKey: ['employee-portfolio', employeeId],
     queryFn: () =>
-      api.get<ApiResponse<PortfolioImage[]>>(
-        `/api/employees/${employeeId}/portfolio`,
-      ),
+      api.get<ApiResponse<PortfolioImage[]>>(basePath),
   });
   // Extraemos el array de imágenes (o [] si aún no cargó).
   const images = data?.data || [];
@@ -110,7 +115,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   // ─── MUTATION: subir foto ────────────────────────────────
   const uploadMutation = useMutation({
     mutationFn: (file: File) =>
-      api.upload(`/api/employees/${employeeId}/portfolio`, file),
+      api.upload(basePath, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee-portfolio', employeeId] });
     },
@@ -119,7 +124,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   // ─── MUTATION: eliminar foto ─────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: (imageId: string) =>
-      api.delete(`/api/employees/${employeeId}/portfolio/${imageId}`),
+      api.delete(`${basePath}/${imageId}`),
     // onSuccess recibe (data, variables) donde variables = el argumento que
     // se pasó a .mutate() — en este caso el imageId.
     onSuccess: async (_data, imageId) => {
@@ -138,7 +143,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   // ─── MUTATION: cambiar visibilidad ──────────────────────
   const toggleVisibilityMutation = useMutation({
     mutationFn: ({ imageId, isHidden }: { imageId: string; isHidden: boolean }) =>
-      api.patch(`/api/employees/${employeeId}/portfolio/${imageId}/visibility`, { isHidden }),
+      api.patch(`${basePath}/${imageId}/visibility`, { isHidden }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employee-portfolio', employeeId] });
       // Si el lightbox está abierto con ESTA imagen, actualizamos su estado
@@ -152,7 +157,7 @@ export function PortfolioGallery({ employeeId, canEdit }: PortfolioGalleryProps)
   // ─── MUTATION: cambiar destacado ────────────────────────
   const toggleFeaturedMutation = useMutation({
     mutationFn: ({ imageId, isFeatured }: { imageId: string; isFeatured: boolean }) =>
-      api.patch(`/api/employees/${employeeId}/portfolio/${imageId}/featured`, { isFeatured }),
+      api.patch(`${basePath}/${imageId}/featured`, { isFeatured }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employee-portfolio', employeeId] });
       // Igual que con visibilidad: actualizamos el lightbox si está abierto.

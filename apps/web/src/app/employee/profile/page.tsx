@@ -302,6 +302,7 @@ export default function EmployeeProfilePage() {
         <PortfolioGallery
           employeeId={user.employeeId}
           canEdit={true}
+          self={true}
         />
       )}
 
@@ -322,12 +323,6 @@ export default function EmployeeProfilePage() {
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <p className="text-xs font-medium text-gray-500 mb-1">Este mes</p>
                   <p className="text-3xl font-bold text-gray-900">{stats.completedThisMonth}</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <p className="text-xs font-medium text-gray-500 mb-1">Ingresos generados</p>
-                  <p className="text-2xl font-bold text-primary-700">
-                    {formatCurrency(stats.totalRevenue)}
-                  </p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <p className="text-xs font-medium text-gray-500 mb-1">Valoración</p>

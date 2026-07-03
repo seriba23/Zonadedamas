@@ -281,6 +281,76 @@ export class EmployeesController {
     return { data: schedules };
   }
 
+  // ─── PORTAFOLIO SELF ───────────────────────────────────────────────────────
+  // El empleado ve y gestiona SU propio portafolio (incluye las fotos de las
+  // citas cerradas) sin necesitar employees.read/employees.update. Deben ir
+  // ANTES de las rutas ':id/portfolio' para que 'me' no se capture como :id.
+
+  // ── GET /api/employees/me/portfolio ───────────────────────────────────────
+  @Get('me/portfolio')
+  async getMyPortfolio(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const images = await this.employeesService.getPortfolio(emp.id, tenantId);
+    return { data: images };
+  }
+
+  // ── POST /api/employees/me/portfolio ──────────────────────────────────────
+  @Post('me/portfolio')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async addMyPortfolioImage(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+    @UploadedFile() file: MulterFile,
+    @Body() dto: CreatePortfolioImageDto,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const imageUrl = await this.uploadsService.saveFile(file, 'portfolio');
+    const image = await this.employeesService.addPortfolioImage(emp.id, tenantId, imageUrl, dto.caption);
+    return { data: image };
+  }
+
+  // ── DELETE /api/employees/me/portfolio/:imageId ───────────────────────────
+  @Delete('me/portfolio/:imageId')
+  async removeMyPortfolioImage(
+    @CurrentUser() user: JwtPayload,
+    @Param('imageId') imageId: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const image = await this.employeesService.removePortfolioImage(emp.id, tenantId, imageId);
+    await this.uploadsService.deleteFile(image.imageUrl);
+    return { data: { message: 'Imagen eliminada' } };
+  }
+
+  // ── PATCH /api/employees/me/portfolio/:imageId/visibility ──────────────────
+  @Patch('me/portfolio/:imageId/visibility')
+  async toggleMyPortfolioVisibility(
+    @CurrentUser() user: JwtPayload,
+    @Param('imageId') imageId: string,
+    @CurrentTenant() tenantId: string,
+    @Body() body: { isHidden: boolean },
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const image = await this.employeesService.togglePortfolioVisibility(emp.id, tenantId, imageId, !!body.isHidden);
+    return { data: image };
+  }
+
+  // ── PATCH /api/employees/me/portfolio/:imageId/featured ────────────────────
+  @Patch('me/portfolio/:imageId/featured')
+  async toggleMyPortfolioFeatured(
+    @CurrentUser() user: JwtPayload,
+    @Param('imageId') imageId: string,
+    @CurrentTenant() tenantId: string,
+    @Body() body: { isFeatured: boolean },
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const image = await this.employeesService.togglePortfolioFeatured(emp.id, tenantId, imageId, !!body.isFeatured);
+    return { data: image };
+  }
+
   // ── GET /api/employees/:id ────────────────────────────────────────────────
   // Devuelve el detalle de UN empleado.
   @Get(':id')
