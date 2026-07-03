@@ -1678,7 +1678,7 @@ export class MarketplaceService {
     const services = await this.prisma.serviceCatalog.findMany({
       where: { isActive: true },
       orderBy: { name: 'asc' },
-      select: { name: true, category: true },
+      select: { name: true, category: true, description: true },
     });
     return { data: services };
   }

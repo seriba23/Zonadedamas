@@ -55,6 +55,7 @@ interface CatalogItem {
   id: string;              // CUID único.
   name: string;            // Nombre del servicio (ej: "Corte de cabello").
   category: string | null; // Categoría/profesión a la que pertenece. Puede ser null.
+  description: string | null; // Descripción por defecto (se precarga al crear un servicio).
   isActive: boolean;       // Si el servicio está activo.
 }
 
@@ -79,6 +80,7 @@ export default function ServiceCatalogPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');           // Nombre en edición.
   const [editCategory, setEditCategory] = useState('');   // Categoría en edición.
+  const [editDescription, setEditDescription] = useState(''); // Descripción por defecto en edición.
 
   // ── ESTADOS DE FILTROS Y BÚSQUEDA ─────────────────────
   // filterCategory: categoría seleccionada en el modal de filtros. '' = todas.
@@ -138,7 +140,7 @@ export default function ServiceCatalogPage() {
   // ── MUTACIÓN: ACTUALIZAR ÍTEM ─────────────────────────
   // "{ id, ...body }": desestructura id y agrupa el resto en body.
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name?: string; category?: string }) =>
+    mutationFn: ({ id, ...body }: { id: string; name?: string; category?: string; description?: string }) =>
       platformApi.patch(`/api/platform/service-catalog/${id}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-service-catalog'] });
@@ -544,7 +546,10 @@ export default function ServiceCatalogPage() {
                     {/* Modo edición si editingId coincide con el ID de este ítem. */}
                     {editingId === item.id ? (
                       // ── MODO EDICIÓN INLINE ──────────────────
-                      <div className="flex-1 flex gap-2 flex-wrap">
+                      // flex-wrap + textarea w-full: el nombre y la categoría van en
+                      // la primera fila, la descripción por defecto ocupa su propia
+                      // fila completa, y los botones abajo.
+                      <div className="flex-1 flex gap-2 flex-wrap items-start">
                         {/* Campo de nombre en edición. */}
                         <input
                           type="text"
@@ -552,40 +557,55 @@ export default function ServiceCatalogPage() {
                           onChange={(e) => setEditName(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter')
-                              updateMutation.mutate({ id: item.id, name: editName.trim(), category: editCategory || undefined });
+                              updateMutation.mutate({ id: item.id, name: editName.trim(), category: editCategory || undefined, description: editDescription });
                             if (e.key === 'Escape') setEditingId(null);
                           }}
                           className="flex-1 min-w-[150px] px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080]"
                           autoFocus
                         />
-                        {/* Selector de categoría en edición.
-                            "editCategory || undefined": si está vacío, envía undefined
-                            para que el backend lo trate como "sin categoría". */}
+                        {/* Selector de categoría en edición. */}
                         <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
                           <option value="">Sin categoría</option>
                           {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        {/* Guardar: envía la mutación de actualización. */}
-                        <button
-                          onClick={() => updateMutation.mutate({ id: item.id, name: editName.trim(), category: editCategory || undefined })}
-                          disabled={updateMutation.isPending}
-                          className="px-3 py-1.5 text-xs font-medium text-white rounded-lg"
-                          style={{ backgroundColor: '#008080' }}>
-                          Guardar
-                        </button>
-                        {/* Cancelar: sale del modo edición sin guardar. */}
-                        <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg">Cancelar</button>
+                        {/* Descripción por defecto (fila completa). Es la que se
+                            precarga al crear este servicio en cualquier negocio. */}
+                        <textarea
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          rows={3}
+                          placeholder="Descripción por defecto (se precarga al crear este servicio en un negocio; cada negocio puede editar la suya)…"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] resize-none"
+                        />
+                        <div className="flex gap-2">
+                          {/* Guardar: envía la mutación de actualización. */}
+                          <button
+                            onClick={() => updateMutation.mutate({ id: item.id, name: editName.trim(), category: editCategory || undefined, description: editDescription })}
+                            disabled={updateMutation.isPending}
+                            className="px-3 py-1.5 text-xs font-medium text-white rounded-lg"
+                            style={{ backgroundColor: '#008080' }}>
+                            Guardar
+                          </button>
+                          {/* Cancelar: sale del modo edición sin guardar. */}
+                          <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg">Cancelar</button>
+                        </div>
                       </div>
                     ) : (
                       // ── MODO LECTURA ─────────────────────────
                       <>
-                        {/* Nombre del servicio. */}
-                        <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                        <div className="flex items-center gap-2">
-                          {/* Editar: activa edición inline y pre-rellena los campos.
-                              "item.category || ''": si category es null, usa cadena vacía. */}
+                        <div className="flex-1 min-w-0">
+                          {/* Nombre del servicio. */}
+                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                          {/* Descripción por defecto (si tiene). Ayuda al superadmin a
+                              ver de un vistazo qué texto se precargará. */}
+                          {item.description
+                            ? <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>
+                            : <p className="text-xs text-gray-300 mt-0.5 italic">Sin descripción por defecto</p>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Editar: activa edición inline y pre-rellena los campos. */}
                           <button
-                            onClick={() => { setEditingId(item.id); setEditName(item.name); setEditCategory(item.category || ''); }}
+                            onClick={() => { setEditingId(item.id); setEditName(item.name); setEditCategory(item.category || ''); setEditDescription(item.description || ''); }}
                             className="text-xs text-[#008080] font-medium">
                             Editar
                           </button>

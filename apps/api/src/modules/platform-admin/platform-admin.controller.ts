@@ -280,14 +280,14 @@ export class PlatformAdminController {
   // ── POST /api/platform/service-catalog ────────────────────────────────────
   // Crea un servicio en el catálogo. "category" es opcional.
   @Post('service-catalog')
-  async createServiceCatalogItem(@Body() body: { name: string; category?: string }) {
-    return this.adminService.createServiceCatalogItem(body.name, body.category);
+  async createServiceCatalogItem(@Body() body: { name: string; category?: string; description?: string }) {
+    return this.adminService.createServiceCatalogItem(body.name, body.category, body.description);
   }
 
   // ── PATCH /api/platform/service-catalog/:id ───────────────────────────────
-  // Edita un servicio del catálogo (nombre y/o categoría, ambos opcionales).
+  // Edita un servicio del catálogo (nombre, categoría y/o descripción por defecto).
   @Patch('service-catalog/:id')
-  async updateServiceCatalogItem(@Param('id') id: string, @Body() body: { name?: string; category?: string }) {
+  async updateServiceCatalogItem(@Param('id') id: string, @Body() body: { name?: string; category?: string; description?: string }) {
     return this.adminService.updateServiceCatalogItem(id, body);
   }
 

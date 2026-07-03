@@ -849,8 +849,8 @@ export class PlatformAdminService {
     return { data: items };
   }
 
-  // createServiceCatalogItem(): crea un servicio. "category" es opcional.
-  async createServiceCatalogItem(name: string, category?: string) {
+  // createServiceCatalogItem(): crea un servicio. "category" y "description" opcionales.
+  async createServiceCatalogItem(name: string, category?: string, description?: string) {
     const item = await this.prisma.serviceCatalog.create({
       data: {
         name: name.trim(),
@@ -858,19 +858,25 @@ export class PlatformAdminService {
         // resultado fuera vacío "" (que es "falso"), o category era undefined,
         // guardamos null. El "?." evita error si category es undefined.
         category: category?.trim() || null,
+        // Descripción por defecto (opcional).
+        description: description?.trim() || null,
       },
     });
     return { data: item };
   }
 
-  // updateServiceCatalogItem(): edita nombre y/o categoría de un servicio.
-  async updateServiceCatalogItem(id: string, body: { name?: string; category?: string }) {
+  // updateServiceCatalogItem(): edita nombre, categoría y/o descripción por defecto.
+  async updateServiceCatalogItem(
+    id: string,
+    body: { name?: string; category?: string; description?: string },
+  ) {
     const item = await this.prisma.serviceCatalog.update({
       where: { id },
       data: {
         // Solo actualizamos los campos que llegaron (!== undefined).
         ...(body.name !== undefined && { name: body.name.trim() }),
         ...(body.category !== undefined && { category: body.category?.trim() || null }),
+        ...(body.description !== undefined && { description: body.description?.trim() || null }),
       },
     });
     return { data: item };

@@ -107,9 +107,9 @@ export function ServicesContent() {
 
   const { data: catalogData } = useQuery({
     queryKey: ['service-catalog'],
-    queryFn: () => api.get<{ data: { name: string; category: string | null }[] }>('/api/marketplace/service-catalog'),
+    queryFn: () => api.get<{ data: { name: string; category: string | null; description: string | null }[] }>('/api/marketplace/service-catalog'),
   });
-  const catalogItems: { name: string; category: string | null }[] = (catalogData as any)?.data || [];
+  const catalogItems: { name: string; category: string | null; description: string | null }[] = (catalogData as any)?.data || [];
 
   // Profesiones reales (tabla Profession, gestionada desde SuperAdmin
   // en /platform/professions). Esta es la fuente de verdad del dropdown
@@ -559,7 +559,24 @@ export function ServicesContent() {
                 return (
                   <select
                     value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    onChange={(e) => {
+                      const picked = e.target.value;
+                      const match = catalogItems.find((c) => c.name === picked);
+                      setForm((f) => {
+                        // Precargamos la descripción por defecto del catálogo, PERO
+                        // sin pisar una descripción que el negocio ya escribió: solo
+                        // la rellenamos si está vacía o si sigue siendo el texto por
+                        // defecto de otro servicio del catálogo (aún no editada).
+                        const untouched =
+                          !f.description ||
+                          catalogItems.some((c) => (c.description || '') === f.description);
+                        return {
+                          ...f,
+                          name: picked,
+                          description: untouched ? (match?.description || '') : f.description,
+                        };
+                      });
+                    }}
                     className="input-field"
                     required
                   >
