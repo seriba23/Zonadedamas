@@ -145,6 +145,7 @@ export class PlatformAdminService {
     search?: string;
     sortBy?: string;
     tenantType?: string;
+    createdThisMonth?: boolean;
   }) {
     // "filters.page || 1": si no viene página (o es 0), usamos la 1 por defecto.
     const page = filters.page || 1;
@@ -173,6 +174,12 @@ export class PlatformAdminService {
     // "||" = O lógico: aceptamos FREELANCER o BUSINESS.
     if (filters.tenantType === 'FREELANCER' || filters.tenantType === 'BUSINESS') {
       where.tenantType = filters.tenantType;
+    }
+
+    // Filtro "Nuevos este mes": registrados desde el primer día del mes actual.
+    if (filters.createdThisMonth) {
+      const now = new Date();
+      where.createdAt = { gte: new Date(now.getFullYear(), now.getMonth(), 1) };
     }
 
     // Construimos un sub-filtro para la suscripción relacionada.

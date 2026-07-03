@@ -106,6 +106,8 @@ export class PlatformAdminController {
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: string,
     @Query('tenantType') tenantType?: string,
+    // ?new=month => solo los negocios registrados en el mes actual (KPI "Nuevos este mes").
+    @Query('new') createdIn?: string,
   ) {
     return this.adminService.getTenants({
       // "page ? parseInt(page, 10) : undefined" es un ternario:
@@ -119,6 +121,7 @@ export class PlatformAdminController {
       search,
       sortBy,
       tenantType,
+      createdThisMonth: createdIn === 'month',
     });
   }
 

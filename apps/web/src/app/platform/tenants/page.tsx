@@ -120,6 +120,8 @@ export default function TenantsPage() {
   // initialStatus: pre-selecciona el filtro de estado desde la URL.
   // searchParams.get('status') devuelve el valor o null; "|| ''" lo convierte a ''.
   const initialStatus = searchParams.get('status') || '';
+  // initialNew: llega desde el KPI "Nuevos este mes" del dashboard (?new=month).
+  const initialNew = searchParams.get('new') === 'month';
 
   // ── ESTADOS PRINCIPALES ────────────────────────────────
   const [tenants, setTenants] = useState<Tenant[]>([]);  // Lista de negocios cargados.
@@ -129,6 +131,7 @@ export default function TenantsPage() {
   // ── ESTADOS DE BÚSQUEDA Y FILTROS ─────────────────────
   const [search, setSearch] = useState('');               // Texto del buscador.
   const [filterStatus, setFilterStatus] = useState(initialStatus); // Estado de suscripción.
+  const [filterNew, setFilterNew] = useState(initialNew);          // Solo nuevos de este mes.
   const [filterTenantType, setFilterTenantType] = useState('');    // BUSINESS | FREELANCER
   const [sortBy, setSortBy] = useState('');               // Criterio de ordenamiento.
   const [page, setPage] = useState(1);                    // Página actual.
@@ -200,6 +203,7 @@ export default function TenantsPage() {
       // Solo incluye el parámetro si tiene valor (evita ?search=&status=&...).
       if (search) params.set('search', search);
       if (filterStatus) params.set('status', filterStatus);
+      if (filterNew) params.set('new', 'month');
       if (filterTenantType) params.set('tenantType', filterTenantType);
       if (sortBy) params.set('sortBy', sortBy);
 
@@ -214,14 +218,14 @@ export default function TenantsPage() {
       setLoading(false);
     }
   // Dependencias: la función cambia (y se re-ejecuta vía useEffect) cuando cambia alguna de estas.
-  }, [page, search, filterStatus, filterTenantType, sortBy]);
+  }, [page, search, filterStatus, filterNew, filterTenantType, sortBy]);
 
   // Carga los datos cada vez que fetchTenants cambia (o sea, cuando cambia page o algún filtro).
   useEffect(() => { fetchTenants(); }, [fetchTenants]);
 
   // Cuando cambia cualquier filtro o la búsqueda, vuelve a la página 1.
   // Sin esto, podría quedar en página 5 con resultados de un filtro diferente.
-  useEffect(() => { setPage(1); }, [search, filterStatus, filterTenantType, sortBy]);
+  useEffect(() => { setPage(1); }, [search, filterStatus, filterNew, filterTenantType, sortBy]);
 
   // Click fuera cierra menú + recalcular si scroll/resize
   // EFECTO: cierra el menú al hacer clic fuera, al hacer scroll o redimensionar.
@@ -348,7 +352,7 @@ export default function TenantsPage() {
           onClick={() => setShowFilters(true)}
           aria-label="Filtros"
           className={`shrink-0 p-2.5 rounded-lg border transition-colors ${
-            (filterTenantType || filterStatus || sortBy)
+            (filterTenantType || filterStatus || sortBy || filterNew)
               ? 'bg-[#008080] border-[#008080] text-white'  // Algún filtro activo
               : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50' // Sin filtros
           }`}
@@ -398,7 +402,7 @@ export default function TenantsPage() {
             </div>
             <div className="flex gap-2 pt-2">
               {/* Limpiar: resetea los tres filtros simultáneamente. */}
-              <button onClick={() => { setFilterTenantType(''); setFilterStatus(''); setSortBy(''); }}
+              <button onClick={() => { setFilterTenantType(''); setFilterStatus(''); setSortBy(''); setFilterNew(false); }}
                 className="flex-1 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
                 Limpiar
               </button>

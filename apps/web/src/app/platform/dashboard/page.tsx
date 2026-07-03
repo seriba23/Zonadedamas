@@ -134,13 +134,13 @@ export default function PlatformDashboardPage() {
   //   - color: clase CSS para el color del número
   //   - link (opcional): URL a la que lleva al hacer clic
   const kpiCards = [
-    { label: 'Total negocios', value: data.kpis.totalTenants, color: 'text-gray-900' },
-    { label: 'Activos', value: data.kpis.activeTenants, color: 'text-green-600' },
-    // Este KPI tiene "link", por eso al hacer clic navega a la lista filtrada por TRIAL.
+    { label: 'Total negocios', value: data.kpis.totalTenants, color: 'text-gray-900', link: '/platform/tenants' },
+    // Cada KPI con "link" navega a la lista de negocios ya filtrada por ese criterio.
+    { label: 'Activos', value: data.kpis.activeTenants, color: 'text-green-600', link: '/platform/tenants?status=ACTIVE' },
     { label: 'En período de prueba', value: data.kpis.trialTenants, color: 'text-teal-600', link: '/platform/tenants?status=TRIAL' },
-    { label: 'Pago pendiente', value: data.kpis.pastDueTenants, color: 'text-amber-600' },
-    { label: 'Suspendidos', value: data.kpis.suspendedTenants, color: 'text-red-600' },
-    { label: 'Nuevos este mes', value: data.kpis.newTenantsThisMonth, color: 'text-blue-600' },
+    { label: 'Pago pendiente', value: data.kpis.pastDueTenants, color: 'text-amber-600', link: '/platform/tenants?status=PAST_DUE' },
+    { label: 'Suspendidos', value: data.kpis.suspendedTenants, color: 'text-red-600', link: '/platform/tenants?status=SUSPENDED' },
+    { label: 'Nuevos este mes', value: data.kpis.newTenantsThisMonth, color: 'text-blue-600', link: '/platform/tenants?new=month' },
     // .toFixed(2): formatea el número con exactamente 2 decimales (ej. "1234.50").
     { label: 'Ingresos totales', value: `$${data.kpis.totalRevenue.toFixed(2)}`, color: 'text-gray-900' },
     { label: 'Ingresos este mes', value: `$${data.kpis.revenueThisMonth.toFixed(2)}`, color: 'text-green-600' },
