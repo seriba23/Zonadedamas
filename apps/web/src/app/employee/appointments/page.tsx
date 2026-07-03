@@ -69,6 +69,11 @@ import { AppointmentModal } from '@/components/appointments/appointment-modal';
 // cobro en POS). El empleado ve solo las acciones permitidas por su rol.
 
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort, formatBookingWeekday } from '@/lib/booking-time';
+
+// AdminCalendarPage → el calendario COMPLETO del administrador (CalendarView con
+// vistas mes/semana/día, wizard de creación, arrastrar/soltar, etc.). Los
+// freelancers usan exactamente este mismo calendario en su sección de citas.
+import AdminCalendarPage from '@/app/(dashboard)/calendar/page';
 // Funciones de formato de fecha para la tarjeta de cada cita:
 //   formatBookingTime  → "3:30 PM"
 //   formatBookingDay   → "17" (número del día)
@@ -201,7 +206,16 @@ function getDateRangeForSection(section: SectionTab): { startDate: string; endDa
   }
 }
 
+// Los freelancers (profesionales independientes) usan EL MISMO calendario que el
+// administrador; los empleados normales usan la lista de citas de abajo. El
+// wrapper solo elige según el tipo de cuenta (hooks limpios en cada rama).
 export default function EmployeeAppointmentsPage() {
+  const { user } = useAuth();
+  const isFreelancer = (user as any)?.tenantType === 'FREELANCER';
+  return isFreelancer ? <AdminCalendarPage /> : <EmployeeAppointmentsList />;
+}
+
+function EmployeeAppointmentsList() {
   const { user } = useAuth();
   const currencyHook = useCurrency();
   const formatCurrency = currencyHook?.format ?? rawFormatCurrency;
