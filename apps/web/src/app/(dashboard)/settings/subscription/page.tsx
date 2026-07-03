@@ -7,6 +7,7 @@ import { loadStripe, StripePaymentElementOptions } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { showSaveSuccess } from '@/lib/save-toast';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -644,7 +645,7 @@ export default function SubscriptionPage() {
             <h2 className="text-lg font-bold text-gray-900 mb-1">Domiciliar tarjeta</h2>
             <p className="text-sm text-gray-500 mb-5">Cobro automático mensual sin interrupciones.</p>
             <Elements stripe={stripePromise} options={stripeOptions}>
-              <SetupForm onSuccess={() => { closeModal(); refetch(); }} onCancel={closeModal} />
+              <SetupForm onSuccess={() => { closeModal(); refetch(); showSaveSuccess({ title: 'Tarjeta domiciliada', message: 'Tus próximas mensualidades se cobrarán automáticamente con esta tarjeta.' }); }} onCancel={closeModal} />
             </Elements>
           </div>
         </Modal>
