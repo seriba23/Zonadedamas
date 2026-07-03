@@ -790,7 +790,7 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                 </div>
 
                 <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-800">
-                  La cuenta pasará a estado <strong>Prueba</strong> y la próxima fecha de cobro se moverá {grantModal.months} mes{grantModal.months !== 1 ? 'es' : ''} más adelante. No se generarán cobros durante ese período.
+                  Se regalarán <strong>{grantModal.months} mes{grantModal.months !== 1 ? 'es' : ''} gratis</strong>: la cuenta queda <strong>activa</strong> (cubierta por cortesía de Siliba) y la próxima fecha de cobro se mueve {grantModal.months} mes{grantModal.months !== 1 ? 'es' : ''} más adelante. No se generan cobros durante ese período, queda registrado como cortesía y el negocio recibe una notificación.
                 </div>
 
                 {grantModal.error && (
