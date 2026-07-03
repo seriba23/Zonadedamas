@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
 import { formatDate, resolveImageUrl } from '@/lib/utils';
 import { useCurrency } from '@/lib/hooks/use-currency';
+import { useAuth } from '@/lib/hooks/use-auth';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { SalesBreakdownGrid } from '@/components/dashboard/sales-breakdown-grid';
 import dayjs from 'dayjs';
@@ -198,6 +199,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function ReportsPage() {
   const { format: formatCurrency } = useCurrency();
+  // hideTeam: el freelancer (trabaja solo) no ve la sección "Empleados
+  // destacados"; sus datos ya son individuales. Se deriva del tipo de cuenta,
+  // así el mismo reporte sirve para /reports (negocio) y /employee/reports (solo).
+  const { user } = useAuth();
+  const hideTeam = (user as any)?.tenantType === 'FREELANCER';
   const searchParams = useSearchParams();
   const initialRange: DateRange = (() => {
     const r = (searchParams?.get('range') || '').toLowerCase();
@@ -771,7 +777,8 @@ export default function ReportsPage() {
 
         {/* Top employees + Payment methods */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6 mb-3 md:mb-6">
-          {/* Top employees - INTERACTIVE */}
+          {/* Top employees - INTERACTIVE (oculto para freelancer: no tiene equipo) */}
+          {!hideTeam && (
           <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
             <h3 className="text-sm md:text-base font-semibold text-[var(--text-primary)] mb-2 md:mb-4">Empleados destacados</h3>
             {isLoading ? (
@@ -818,6 +825,7 @@ export default function ReportsPage() {
               </>
             )}
           </div>
+          )}
 
           {/* Payment methods - INTERACTIVE */}
           <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] p-3 md:p-5">
