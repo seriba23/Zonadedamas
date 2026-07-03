@@ -763,10 +763,10 @@ export function InventoryContent() {
                 />
               </li>
 
-              {/* SKU */}
+              {/* SKU (opcional: el producto se puede dar de alta sin código) */}
               <li className="flex items-center justify-between gap-3 px-3 py-2">
                 <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
-                  SKU
+                  SKU <span className="text-[10px] normal-case font-normal text-[var(--text-muted)]">(opcional)</span>
                 </span>
                 <input
                   type="text"
