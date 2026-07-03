@@ -584,8 +584,19 @@ export class StripeService implements OnModuleInit {
   // creándolo la primera vez. ": Promise<string>" => promete devolver un texto.
   async getOrCreateCustomer(tenantId: string): Promise<string> {
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
-    // "sub?.stripeCustomerId" => si ya hay customer guardado, lo reutilizamos.
-    if (sub?.stripeCustomerId) return sub.stripeCustomerId;
+    // Si ya hay customer guardado, lo reutilizamos PERO verificando que siga
+    // existiendo en ESTA cuenta de Stripe. Si la clave/cuenta cambió, el customer
+    // viejo ya no existe ("No such customer") y hay que recrearlo en vez de fallar.
+    if (sub?.stripeCustomerId) {
+      try {
+        const existing: any = await this.stripe.customers.retrieve(sub.stripeCustomerId);
+        if (existing && !existing.deleted) return sub.stripeCustomerId;
+      } catch (err: any) {
+        // resource_missing = el customer no existe en esta cuenta: seguimos y
+        // creamos uno nuevo. Cualquier otro error sí se propaga.
+        if (err?.code !== 'resource_missing') throw err;
+      }
+    }
 
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException('Tenant no encontrado');

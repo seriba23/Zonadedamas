@@ -25,9 +25,6 @@ import {
 //   - Observable: un "flujo" de datos asíncrono. Los interceptores de NestJS
 //     devuelven un Observable con la respuesta.
 import { Observable } from 'rxjs';
-// map: operador de RxJS que transforma el valor que viaja por el flujo (lo
-// usamos para añadir un aviso a la respuesta sin cambiar lo demás).
-import { map } from 'rxjs/operators';
 
 // PrismaService: puente a la base de datos para leer la suscripción del negocio.
 import { PrismaService } from '../../prisma/prisma.service';
@@ -43,6 +40,9 @@ const ALWAYS_ALLOWED_PATHS = [
   '/api/subscription',
   '/api/subscription/usage',
   '/api/subscription/invoices',
+  // Rutas de pago/renovación de la suscripción: deben seguir disponibles aunque
+  // la cuenta esté bloqueada, para que el negocio pueda PAGAR y reactivarse.
+  '/api/stripe/subscription',
 ];
 
 // Prefijo de las rutas de la PLATAFORMA (superadmin). Estas nunca dependen de la
@@ -110,61 +110,20 @@ export class SubscriptionStatusInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    // ── ESTADO SUSPENDED: bloquear TODO (las rutas permitidas ya se filtraron
-    // arriba). Lanzamos 403 con un código y mensaje específicos para que el
-    // frontend pueda reaccionar (ej. mostrar pantalla de cuenta suspendida).
-    if (subscription.status === 'SUSPENDED') {
+    // ── ESTADOS QUE REQUIEREN PAGO (PAST_DUE o SUSPENDED): se bloquea TODO el
+    // acceso salvo la propia sección de suscripción (las rutas de pago y
+    // /api/subscription ya se filtraron arriba). Sin plazos: el negocio queda
+    // limitado a la sección de suscripción hasta que renueve. El frontend usa el
+    // código 'SUBSCRIPTION_INACTIVE' para llevarlo a esa sección.
+    if (subscription.status === 'SUSPENDED' || subscription.status === 'PAST_DUE') {
       throw new ForbiddenException({
         statusCode: 403,
-        error: 'SUBSCRIPTION_SUSPENDED',
-        message: 'Tu cuenta está suspendida. Contacta soporte para reactivarla.',
+        error: 'SUBSCRIPTION_INACTIVE',
+        message: 'Renueva tu suscripción para reactivar tus beneficios en Siliba.',
       });
     }
 
-    // ── ESTADO PAST_DUE (pago vencido): permitir lecturas (GET) pero bloquear
-    // las ESCRITURAS sobre citas hasta que regularicen el pago.
-    if (subscription.status === 'PAST_DUE') {
-      // isWrite = true si el método modifica datos (no es una simple lectura).
-      // includes(method) devuelve true si el método está en esa lista.
-      const isWrite = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-      // isAppointmentWrite = true solo si es una escritura Y va contra la ruta de
-      // citas. El "&&" exige que AMBAS condiciones sean verdaderas.
-      const isAppointmentWrite = isWrite && path.startsWith('/api/appointments');
-
-      // Si es una escritura sobre citas, la bloqueamos con 403.
-      if (isAppointmentWrite) {
-        throw new ForbiddenException({
-          statusCode: 403,
-          error: 'SUBSCRIPTION_PAST_DUE',
-          message: 'Tienes un pago pendiente. No puedes crear o modificar citas hasta regularizar tu cuenta.',
-        });
-      }
-
-      // Para el resto de peticiones (lecturas u otras escrituras), las dejamos
-      // pasar PERO añadimos un aviso a la respuesta. next.handle() continúa y
-      // ".pipe(map(...))" intercepta el resultado para transformarlo.
-      return next.handle().pipe(
-        map((data) => {
-          // Solo modificamos la respuesta si es un objeto. "typeof data ===
-          // 'object'" comprueba que sea un objeto; "data &&" evita el caso null
-          // (que técnicamente también es de tipo 'object').
-          if (data && typeof data === 'object') {
-            // "{ ...data, _subscriptionWarning }" copia todos los campos de la
-            // respuesta original (el "..." es el operador spread) y le suma un
-            // campo extra con el aviso, sin perder nada de lo que ya traía.
-            return {
-              ...data,
-              _subscriptionWarning: 'Pago pendiente. Tienes 24 horas para regularizar tu cuenta.',
-            };
-          }
-          // Si no es un objeto, devolvemos la respuesta tal cual (sin aviso).
-          return data;
-        }),
-      );
-    }
-
-    // Si el estado no es SUSPENDED ni PAST_DUE (p. ej. activo), dejamos pasar
-    // la petición normalmente.
+    // Si el estado no requiere pago (p. ej. activo o trial vigente), dejamos pasar.
     return next.handle();
   }
 }

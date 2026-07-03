@@ -46,7 +46,11 @@ async function main() {
     contractStartDate: now,
     contractEndDate: oneYearLater,
     nextBillingDate: now,
+    // Limpiamos ids de Stripe (pueden ser de una cuenta/clave anterior y provocar
+    // "No such customer" al pagar): se recrean con la cuenta actual al renovar.
+    stripeCustomerId: null,
     stripeSubscriptionId: null,
+    stripePriceId: null,
     advancePaid: false,
   };
 

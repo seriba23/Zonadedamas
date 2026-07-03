@@ -229,13 +229,14 @@ function DashboardLayoutContent({
     }
   }, [isLoading, isAuthenticated, isFreelancer, user, pathname, router]);
 
-  // Redirect to suspended page if subscription is suspended
+  // Cuenta que requiere pago (PAST_DUE o SUSPENDED): se limita SOLO a la sección
+  // de suscripción; cualquier otra ruta se redirige ahí para que renueve. Sin
+  // plazos ni acceso a otras zonas (el backend además bloquea sus APIs con 403).
   useEffect(() => {
-    if (
-      user?.subscriptionStatus === 'SUSPENDED' &&
-      pathname !== '/suspended'
-    ) {
-      router.replace('/suspended');
+    const st = user?.subscriptionStatus;
+    const mustPay = st === 'PAST_DUE' || st === 'SUSPENDED';
+    if (mustPay && !pathname.startsWith('/settings/subscription')) {
+      router.replace('/settings/subscription');
     }
   }, [user?.subscriptionStatus, pathname, router]);
 
