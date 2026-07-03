@@ -781,8 +781,14 @@ export class StripeService implements OnModuleInit {
       // 'default_incomplete' => la sub queda en estado "incompleta" hasta que el
       // cliente confirme el primer pago en el frontend (con el clientSecret).
       payment_behavior: 'default_incomplete',
-      // Guarda la tarjeta usada como método de pago por defecto de la sub.
-      payment_settings: { save_default_payment_method: 'on_subscription' },
+      payment_settings: {
+        // Guarda la tarjeta usada como método de pago por defecto de la sub.
+        save_default_payment_method: 'on_subscription',
+        // Solo TARJETA: desactiva Stripe Link (el prompt de telefono/correo para
+        // "guardar tu info") y otros metodos. El formulario queda limpio: nº de
+        // tarjeta, fecha y CVC.
+        payment_method_types: ['card'],
+      },
       // metadata: el tenantId siempre; el creatorCodeId solo si hubo cupón.
       metadata: { tenantId, ...(creatorContext ? { creatorCodeId: creatorContext.codeId } : {}) },
     });
