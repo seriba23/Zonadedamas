@@ -622,33 +622,42 @@ export class StripeService implements OnModuleInit {
   // → PaymentIntent → client_secret. El frontend necesita ese secret para cobrar
   // la primera mensualidad con la tarjeta del cliente. Devuelve el secret o null.
   private async getClientSecretFromSubscription(stripeSubId: string): Promise<string | null> {
+    // ── Intento NUEVO (API 2025+): el client_secret del primer cobro vive en
+    // latest_invoice.confirmation_secret. Se obtiene expandiéndolo. (Antes estaba
+    // en latest_invoice.payment_intent, que las versiones nuevas ya no exponen y
+    // por eso salía NULL.)
     try {
-      // 1) Traemos la suscripción de Stripe.
-      const stripeSub = await this.stripe.subscriptions.retrieve(stripeSubId);
-      // 2) Su "latest_invoice" (última factura) puede venir como id (texto) o
-      //    como objeto; el ternario obtiene el id en ambos casos.
-      const invoiceId = typeof stripeSub.latest_invoice === 'string'
-        ? stripeSub.latest_invoice
-        : (stripeSub.latest_invoice as any)?.id;
+      const sub: any = await this.stripe.subscriptions.retrieve(stripeSubId, {
+        expand: ['latest_invoice.confirmation_secret'],
+      });
+      const secret = sub?.latest_invoice?.confirmation_secret?.client_secret;
+      if (secret) {
+        this.logger.log(`[getClientSecret] confirmation_secret OK (inv ${sub.latest_invoice?.id})`);
+        return secret;
+      }
+    } catch (err: any) {
+      this.logger.warn(`[getClientSecret] confirmation_secret no disponible: ${err.message}`);
+    }
 
-      if (!invoiceId) return null; // sin factura, no hay nada que cobrar aún.
+    // ── Fallback VIEJO: latest_invoice.payment_intent (API antiguas).
+    try {
+      const sub: any = await this.stripe.subscriptions.retrieve(stripeSubId);
+      const invoiceId = typeof sub.latest_invoice === 'string'
+        ? sub.latest_invoice
+        : sub.latest_invoice?.id;
+      if (!invoiceId) return null;
 
-      // 3) Traemos la factura. "as any" relaja el tipado para leer payment_intent.
-      const invoice = await this.stripe.invoices.retrieve(invoiceId) as any;
-      // 4) De la factura sacamos el id del PaymentIntent (texto u objeto).
-      const piId = typeof invoice.payment_intent === 'string'
-        ? invoice.payment_intent
-        : invoice.payment_intent?.id;
-
-      if (!piId) return null;
-
-      // 5) Traemos el PaymentIntent y devolvemos su client_secret.
+      const invoice: any = await this.stripe.invoices.retrieve(invoiceId);
+      const piField = invoice.payment_intent;
+      const piId = typeof piField === 'string' ? piField : piField?.id;
+      if (!piId) {
+        this.logger.warn(`[getClientSecret] sin confirmation_secret ni payment_intent (inv ${invoiceId}, status ${invoice.status})`);
+        return null;
+      }
       const pi = await this.stripe.paymentIntents.retrieve(piId);
-      // Log de diagnóstico: imprime si el secret salió OK o NULL (sin exponerlo).
-      this.logger.log(`[getClientSecret] pi=${pi.id} status=${pi.status} secret=${pi.client_secret ? 'OK' : 'NULL'}`);
+      this.logger.log(`[getClientSecret] payment_intent OK status=${pi.status}`);
       return pi.client_secret;
     } catch (err: any) {
-      // Si algo falla en la cadena, lo registramos y devolvemos null (no rompemos).
       this.logger.error(`[getClientSecret] error: ${err.message}`);
       return null;
     }
