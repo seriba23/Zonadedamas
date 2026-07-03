@@ -484,7 +484,11 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                   {tenant.recentInvoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-gray-50">
                       <td className="py-2 font-medium">{inv.invoiceNumber}</td>
-                      <td className="py-2">${Number(inv.amountUsd).toFixed(2)}</td>
+                      <td className="py-2">
+                        {Number(inv.amountUsd) === 0
+                          ? <span className="font-medium text-teal-600">Cortesía</span>
+                          : `$${Number(inv.amountUsd).toFixed(2)}`}
+                      </td>
                       <td className="py-2">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${INVOICE_BADGES[inv.status] || ''}`}>
                           {inv.status}

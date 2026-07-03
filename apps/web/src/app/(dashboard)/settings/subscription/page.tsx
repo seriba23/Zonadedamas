@@ -1160,11 +1160,23 @@ export default function SubscriptionPage() {
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold">${Number(inv.amountUsd).toFixed(2)} MXN</p>
-                  <span className={`text-xs font-medium ${inv.status === 'PAID' ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {inv.status === 'PAID' ? 'Pagado' : 'Pendiente'}
-                    {inv.paidAt && ` · ${dayjs(inv.paidAt).format('D MMM YYYY')}`}
-                  </span>
+                  {Number(inv.amountUsd) === 0 ? (
+                    // Factura de cortesía (mes regalado por la plataforma).
+                    <>
+                      <p className="text-sm font-bold" style={{ color: TEAL }}>Cortesía</p>
+                      <span className="text-xs font-medium text-gray-500">
+                        Mes gratis{inv.paidAt && ` · ${dayjs(inv.paidAt).format('D MMM YYYY')}`}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-bold">${Number(inv.amountUsd).toFixed(2)} MXN</p>
+                      <span className={`text-xs font-medium ${inv.status === 'PAID' ? 'text-green-600' : 'text-yellow-600'}`}>
+                        {inv.status === 'PAID' ? 'Pagado' : 'Pendiente'}
+                        {inv.paidAt && ` · ${dayjs(inv.paidAt).format('D MMM YYYY')}`}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

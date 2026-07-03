@@ -8,6 +8,10 @@
 //   - BadRequestException: error que responde con HTTP 400 (petición inválida).
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 
+// EventEmitter2: para emitir el evento "subscription.gifted" y que el listener de
+// notificaciones avise al negocio que se le regalaron meses.
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 // Tipos generados por Prisma: los planes y estados de suscripción válidos.
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 
@@ -32,6 +36,7 @@ export class PlatformAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly employeesService: EmployeesService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -307,33 +312,50 @@ export class PlatformAdminService {
     // El usuario quiere "regalar meses": independientemente del estado actual,
     // dejamos la cuenta activa y movemos el próximo cobro y trial.
     // Ponemos en null gracePeriodEndsAt y cancelledAt para limpiar avisos previos.
+    // Regalo de meses: la cuenta queda ACTIVA (cubierta por cortesía de la
+    // plataforma), NO en "prueba". Solo movemos el próximo cobro; trialEndsAt se
+    // limpia porque ya no es un periodo de prueba.
     const updated = await this.prisma.subscription.update({
       where: { tenantId },
       data: {
-        status: 'TRIAL',
-        trialEndsAt: newEnd,
+        status: 'ACTIVE',
+        trialEndsAt: null,
         nextBillingDate: newEnd,
         gracePeriodEndsAt: null,
         cancelledAt: null,
       },
     });
 
-    // Actualizamos también la copia "denormalizada" del estado en el propio tenant
-    // (se guarda en minúsculas: 'trial').
+    // Copia "denormalizada" del estado en el propio tenant (minúsculas).
     await this.prisma.tenant.update({
       where: { id: tenantId },
-      data: { subscriptionStatus: 'trial' },
+      data: { subscriptionStatus: 'active' },
     });
+
+    // CONSTANCIA de la cortesía: una factura de $0 (PAID) con nota. Queda visible
+    // en el "Historial de pagos" del negocio Y en las "Facturas recientes" del
+    // super admin, dejando referencia de que ese periodo fue gratuito.
+    await this.prisma.invoice.create({
+      data: {
+        subscriptionId: subscription.id,
+        tenantId,
+        invoiceNumber: `CORTESIA-${now.getTime()}`,
+        amountUsd: 0,
+        status: 'PAID',
+        notes: `Cortesía de Siliba: ${months} mes${months !== 1 ? 'es' : ''} gratis`,
+        periodStart: base,
+        periodEnd: newEnd,
+        dueDate: newEnd,
+        paidAt: now,
+      },
+    });
+
+    // Notificamos al negocio (evento → staff-events.listener → campana + push).
+    this.eventEmitter.emit('subscription.gifted', { tenantId, months, until: newEnd });
 
     return {
       data: {
-        // Mensaje legible. Detalles de los operadores usados aquí:
-        //   - "mes${months !== 1 ? 'es' : ''}": ternario para pluralizar. Si months
-        //     NO es 1 (!== es "distinto de"), añade "es" => "meses"; si es 1, "mes".
-        //   - newEnd.toISOString() => texto ISO (ej. "2026-12-31T00:00:00.000Z");
-        //     .slice(0, 10) toma los primeros 10 caracteres => solo la fecha "AAAA-MM-DD".
-        message: `Se regalaron ${months} mes${months !== 1 ? 'es' : ''} hasta ${newEnd.toISOString().slice(0, 10)}`,
-        trialEndsAt: updated.trialEndsAt,
+        message: `Se regalaron ${months} mes${months !== 1 ? 'es' : ''} gratis. Próximo cobro: ${newEnd.toISOString().slice(0, 10)}`,
         nextBillingDate: updated.nextBillingDate,
         status: updated.status,
       },

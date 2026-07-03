@@ -481,4 +481,36 @@ export class StaffEventsListener {
       this.logger.warn(`timeoff.${decision.toLowerCase()} notify failed: ${err?.message}`);
     }
   }
+
+  // ─── Suscripción: meses de regalo ──────────────────
+
+  // @OnEvent('subscription.gifted'): el super admin regaló meses al negocio.
+  // Avisamos a los admins del negocio que su acceso quedó cubierto por cortesía.
+  @OnEvent('subscription.gifted')
+  async handleSubscriptionGifted(payload: {
+    tenantId: string;
+    months: number;
+    until: Date;
+  }) {
+    try {
+      const m = payload.months;
+      const hasta = new Date(payload.until).toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      await this.notify.notify({
+        tenantId: payload.tenantId,
+        type: 'subscription.gifted',
+        section: 'subscription',
+        title: `${m} mes${m === 1 ? '' : 'es'} de regalo`,
+        body: `Siliba te regaló ${m} mes${m === 1 ? '' : 'es'} gratis. Tu acceso está cubierto sin cargo hasta el ${hasta}.`,
+        adminLink: `/settings?tab=suscripcion`,
+        entityType: 'subscription',
+        audience: { kind: 'admins' },
+      });
+    } catch (err: any) {
+      this.logger.warn(`subscription.gifted notify failed: ${err?.message}`);
+    }
+  }
 }
