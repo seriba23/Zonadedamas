@@ -13,6 +13,7 @@
     "test:cov": "jest --coverage",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "db:seed-catalog-desc": "ts-node prisma/seed-catalog-descriptions.ts",
     "db:seed-marketplace": "ts-node prisma/seed-marketplace.ts",
     "db:seed-photos": "ts-node prisma/seed-photos.ts",
     "db:seed-demo": "ts-node prisma/seed-demo.ts",
