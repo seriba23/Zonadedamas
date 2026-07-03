@@ -269,6 +269,18 @@ export class EmployeesController {
     return { data: result };
   }
 
+  // ── GET /api/employees/me/schedules ───────────────────────────────────────
+  // El empleado ve SU propio horario (solo lectura) sin necesitar employees.read.
+  @Get('me/schedules')
+  async getMySchedules(
+    @CurrentUser() user: JwtPayload,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const emp = await this.employeesService.findByUserId(user.userId, tenantId);
+    const schedules = await this.employeesService.getSchedules(emp.id, tenantId);
+    return { data: schedules };
+  }
+
   // ── GET /api/employees/:id ────────────────────────────────────────────────
   // Devuelve el detalle de UN empleado.
   @Get(':id')

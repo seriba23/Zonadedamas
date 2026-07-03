@@ -29,6 +29,7 @@ import { showSaveSuccess } from '@/lib/save-toast';
 // Modal estándar de confirmación de guardado.
 
 import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
+import { usePermissions } from '@/lib/hooks/use-permissions';
 // Hook personalizado que indica si el tenant (negocio) es "freelancer".
 // Los freelancers no tienen "negocio" como tal, por lo que no tienen
 // restricciones de días cerrados del negocio.
@@ -121,6 +122,13 @@ const TIME_OPTIONS = generateTimeOptions();
 export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorProps) {
   const queryClient = useQueryClient();
 
+  // canEdit: solo quien pueda gestionar horarios (permiso employees.manage_schedule)
+  // edita; el resto ve el horario en SOLO LECTURA. Así el mismo componente sirve para
+  // el admin (edita) y para el portal de empleado (solo ve, sin el error 403 al
+  // guardar). El flujo de "solicitar cambio de horario" queda pendiente para V2.
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('employees.manage_schedule');
+
   // Estado: array de los 7 días con su configuración de horario.
   // Se inicializa con los defaults y se sobreescribe cuando llegan
   // datos del servidor (en useEffect).
@@ -132,9 +140,13 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
 
   // ─── QUERY: horario actual del empleado ─────────────────
   const { data, isLoading } = useQuery({
-    queryKey: ['employee-schedules', employeeId],
+    queryKey: ['employee-schedules', employeeId, canEdit],
+    // El admin (canEdit) carga por id; el empleado en solo lectura usa el endpoint
+    // self /me/schedules, que no exige employees.read.
     queryFn: () =>
-      api.get<{ data: Schedule[] }>(`/api/employees/${employeeId}/schedules`),
+      api.get<{ data: Schedule[] }>(
+        canEdit ? `/api/employees/${employeeId}/schedules` : `/api/employees/me/schedules`,
+      ),
   });
 
   // Hook que detecta si el tenant es freelancer para saber si aplican
@@ -311,21 +323,25 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <p className="text-sm text-[var(--text-secondary)] flex-1 min-w-[200px]">
-          Configura los días y horarios de trabajo de este empleado.
+          {canEdit
+            ? 'Configura los días y horarios de trabajo de este empleado.'
+            : 'Estos son tus días y horarios de trabajo (solo lectura). Para cambios, contacta a tu administrador.'}
         </p>
-        {/* Botón para replicar el horario del primer día a todos */}
-        <button
-          type="button"
-          onClick={applyToAllDays}
-          className="px-3 py-1.5 text-xs font-semibold rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5 flex-shrink-0"
-          title="Replica el horario del primer dia laboral a toda la semana"
-        >
-          {/* Ícono de flechas bidireccionales */}
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-          </svg>
-          Aplicar a todos los días
-        </button>
+        {/* Botón para replicar el horario del primer día a todos (solo si edita) */}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={applyToAllDays}
+            className="px-3 py-1.5 text-xs font-semibold rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5 flex-shrink-0"
+            title="Replica el horario del primer dia laboral a toda la semana"
+          >
+            {/* Ícono de flechas bidireccionales */}
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Aplicar a todos los días
+          </button>
+        )}
       </div>
 
       {/* Lista de días */}
@@ -380,12 +396,13 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                   {/* Toggle switch para activar/desactivar el día */}
                   <button
                     type="button"
-                    // Al hacer clic, invertimos isWorking del día.
-                    // !day.isWorking = si era true, ahora false; y viceversa.
-                    onClick={() => updateDay(day.dayOfWeek, 'isWorking', !day.isWorking)}
+                    // Al hacer clic, invertimos isWorking del día. En solo lectura
+                    // está deshabilitado (el empleado no puede cambiar su horario).
+                    onClick={() => canEdit && updateDay(day.dayOfWeek, 'isWorking', !day.isWorking)}
+                    disabled={!canEdit}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
                       day.isWorking ? 'bg-primary-600' : 'bg-gray-300'
-                    }`}
+                    } ${!canEdit ? 'opacity-70 cursor-default' : ''}`}
                   >
                     {/* Bolita blanca del toggle que se desliza */}
                     <span
@@ -403,7 +420,8 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                       <select
                         value={day.startTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="py-1.5 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        disabled={!canEdit}
+                        className="py-1.5 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500"
                       >
                         {/* Genera 96 <option> (una por cada intervalo de 15min). */}
                         {TIME_OPTIONS.map((t) => (
@@ -416,7 +434,8 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
                       <select
                         value={day.endTime}
                         onChange={(e) => updateDay(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="py-1.5 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        disabled={!canEdit}
+                        className="py-1.5 text-sm rounded-lg border border-gray-300 bg-white px-2 min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{t}</option>
@@ -431,24 +450,29 @@ export function EmployeeScheduleEditor({ employeeId }: EmployeeScheduleEditorPro
         })}
       </div>
 
-      {/* Botón de guardar */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          // Deshabilitado si no hay cambios O si la mutación está en progreso.
-          disabled={!hasChanges || saveMutation.isPending}
-          className="btn-primary disabled:opacity-50"
-        >
-          {saveMutation.isPending ? 'Guardando...' : 'Guardar Horario'}
-        </button>
-      </div>
+      {/* Botón de guardar + errores: solo cuando el usuario puede editar
+          (con permiso employees.manage_schedule). En solo lectura no aparecen,
+          evitando el 403 que veía el empleado al intentar guardar. */}
+      {canEdit && (
+        <>
+          <div className="flex justify-end">
+            <button
+              onClick={handleSave}
+              // Deshabilitado si no hay cambios O si la mutación está en progreso.
+              disabled={!hasChanges || saveMutation.isPending}
+              className="btn-primary disabled:opacity-50"
+            >
+              {saveMutation.isPending ? 'Guardando...' : 'Guardar Horario'}
+            </button>
+          </div>
 
-      {/* Mensajes de resultado de la operación de guardar. */}
-      {/* "saveMutation.isError" es true si la última mutación falló. */}
-      {saveMutation.isError && (
-        <p className="text-sm text-red-600 text-right">
-          Error al guardar el horario
-        </p>
+          {/* "saveMutation.isError" es true si la última mutación falló. */}
+          {saveMutation.isError && (
+            <p className="text-sm text-red-600 text-right">
+              Error al guardar el horario
+            </p>
+          )}
+        </>
       )}
     </div>
   );
