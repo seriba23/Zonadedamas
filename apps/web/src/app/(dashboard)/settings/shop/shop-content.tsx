@@ -12,6 +12,7 @@ interface ShopSettings {
   shopEnabled: boolean;
   shopPickupEnabled: boolean;
   shopShippingEnabled: boolean;
+  shopShippingCost: number | string | null;
   shopPaymentCash: boolean;
   shopPaymentSpei: boolean;
   shopPaymentCard: boolean;
@@ -25,6 +26,7 @@ export function ShopSettingsContent() {
     shopEnabled: false,
     shopPickupEnabled: true,
     shopShippingEnabled: false,
+    shopShippingCost: '',
     shopPaymentCash: true,
     shopPaymentSpei: false,
     shopPaymentCard: false,
@@ -51,7 +53,15 @@ export function ShopSettingsContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await api.put<{ data: ShopSettings }>('/api/tenants/shop-settings', settings);
+      // Normalizamos el costo de envío: '' o null → null; si no, número.
+      const payload = {
+        ...settings,
+        shopShippingCost:
+          settings.shopShippingCost === '' || settings.shopShippingCost === null
+            ? null
+            : Number(settings.shopShippingCost),
+      };
+      const res = await api.put<{ data: ShopSettings }>('/api/tenants/shop-settings', payload);
       setSettings(res.data);
       showSaveSuccess();
     } catch (err: any) {
@@ -148,8 +158,23 @@ export function ShopSettingsContent() {
           checked={settings.shopShippingEnabled}
           onChange={(v) => setSettings({ ...settings, shopShippingEnabled: v })}
           label="Envio a domicilio"
-          description="Ofreces envio y el cliente paga al recibir. El costo de envio se configura en cada producto."
+          description="Ofreces envio a domicilio. El costo es el mismo por pedido, sin importar cuantos productos lleve."
         />
+        {settings.shopShippingEnabled && (
+          <div className="pl-1 pt-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Costo de envío por pedido (MXN)</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={settings.shopShippingCost ?? ''}
+              onChange={(e) => setSettings({ ...settings, shopShippingCost: e.target.value })}
+              placeholder="Ej: 80"
+              className="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Se cobra una sola vez por compra a domicilio. Déjalo vacío o en 0 para envío gratis.</p>
+          </div>
+        )}
       </div>
 
       {/* Payment Methods */}

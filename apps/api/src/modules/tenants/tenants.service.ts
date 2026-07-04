@@ -726,6 +726,7 @@ export class TenantsService {
         shopEnabled: true,
         shopPickupEnabled: true,
         shopShippingEnabled: true,
+        shopShippingCost: true,
         shopPaymentCash: true,
         shopPaymentSpei: true,
         shopPaymentCard: true,
@@ -747,6 +748,7 @@ export class TenantsService {
     if (dto.shopEnabled !== undefined) data.shopEnabled = dto.shopEnabled;
     if (dto.shopPickupEnabled !== undefined) data.shopPickupEnabled = dto.shopPickupEnabled;
     if (dto.shopShippingEnabled !== undefined) data.shopShippingEnabled = dto.shopShippingEnabled;
+    if (dto.shopShippingCost !== undefined) data.shopShippingCost = dto.shopShippingCost;
     if (dto.shopPaymentCash !== undefined) data.shopPaymentCash = dto.shopPaymentCash;
     if (dto.shopPaymentSpei !== undefined) data.shopPaymentSpei = dto.shopPaymentSpei;
     if (dto.shopPaymentCard !== undefined) data.shopPaymentCard = dto.shopPaymentCard;
@@ -762,6 +764,7 @@ export class TenantsService {
         shopEnabled: true,
         shopPickupEnabled: true,
         shopShippingEnabled: true,
+        shopShippingCost: true,
         shopPaymentCash: true,
         shopPaymentSpei: true,
         shopPaymentCard: true,

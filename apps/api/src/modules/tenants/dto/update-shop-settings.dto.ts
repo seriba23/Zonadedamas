@@ -6,7 +6,7 @@
 //   - IsOptional: el campo puede venir o no.
 //   - IsString: el valor debe ser texto.
 //   - MaxLength: el texto no puede pasar de N caracteres.
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 // DTO para ACTUALIZAR los ajustes de la tienda. TODO es opcional: el cliente
 // envía solo lo que quiere cambiar.
@@ -25,6 +25,12 @@ export class UpdateShopSettingsDto {
   @IsOptional()
   @IsBoolean()
   shopShippingEnabled?: boolean;
+
+  // Costo de envío PLANO por pedido (se cobra una vez por compra a domicilio).
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  shopShippingCost?: number;
 
   // ¿Acepta pago en efectivo? Opcional.
   @IsOptional()

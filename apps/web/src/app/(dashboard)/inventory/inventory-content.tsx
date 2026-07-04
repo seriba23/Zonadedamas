@@ -1014,50 +1014,14 @@ export function InventoryContent() {
                 </button>
               </li>
 
-              {/* Envío disponible — solo si isShopListed */}
+              {/* El envío YA NO se configura por producto: es un costo plano por
+                  pedido a nivel tienda. Se cobra una sola vez por compra a
+                  domicilio, sin importar cuántos productos lleve el carrito. */}
               {form.isShopListed && (
-                <li className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                    Envío disponible
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={form.shippingEnabled}
-                    onClick={() => setForm((f) => ({ ...f, shippingEnabled: !f.shippingEnabled, ...(!f.shippingEnabled ? {} : { shippingCost: '' }) }))}
-                    className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                    style={{ backgroundColor: form.shippingEnabled ? '#008080' : 'var(--border)' }}
-                  >
-                    <span
-                      className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                      style={{ transform: form.shippingEnabled ? 'translateX(20px)' : 'translateX(0)' }}
-                    />
-                  </button>
-                </li>
-              )}
-
-              {/* Costo de envio — solo si isShopListed && shippingEnabled */}
-              {form.isShopListed && form.shippingEnabled && (
-                <li className="flex items-center justify-between gap-3 px-3 py-2">
-                  <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
-                    Costo de envío
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">
-                      {!form.shippingCost || Number(form.shippingCost) === 0
-                        ? 'Envío gratis'
-                        : `${formatCurrency(Number(form.shippingCost), form.currency || 'MXN')} por envío`}
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.shippingCost}
-                      onChange={(e) => setForm((f) => ({ ...f, shippingCost: e.target.value }))}
-                      placeholder="0.00"
-                      className="w-24 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
-                    />
-                  </div>
+                <li className="px-3 py-2">
+                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                    El envío se configura una sola vez para toda la tienda en <span className="font-medium">Ajustes → Tienda</span> (costo plano por pedido).
+                  </p>
                 </li>
               )}
 

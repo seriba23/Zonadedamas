@@ -94,6 +94,7 @@ export class ShopService {
         isMarketplaceListed: true,// ¿el negocio aparece en el marketplace?
         shopPickupEnabled: true,  // ¿permite recoger en tienda?
         shopShippingEnabled: true,// ¿permite envíos a domicilio?
+        shopShippingCost: true,   // costo de envío PLANO por pedido (una vez).
         shopPaymentCash: true,    // ¿acepta efectivo?
         shopPaymentSpei: true,    // ¿acepta transferencia SPEI?
         shopPaymentCard: true,    // ¿acepta tarjeta?
@@ -390,9 +391,9 @@ export class ShopService {
             productId: product.id,
             quantity: dto.quantity,
             unitPrice: product.price, // precio congelado al momento de apartar.
-            // Costo de envío: si es SHIPPING, usamos el del producto ("|| 0"
-            // pone 0 si fuera null/undefined); si es PICKUP, el costo es 0.
-            shippingCost: dto.fulfillmentType === 'SHIPPING' ? (product.shippingCost || 0) : 0,
+            // Costo de envío PLANO por pedido (a nivel tienda). Como aquí es un
+            // solo producto, se cobra una vez. ("|| 0" si no hay costo configurado.)
+            shippingCost: dto.fulfillmentType === 'SHIPPING' ? Number(tenant.shopShippingCost || 0) : 0,
             customerName: dto.customerName,
             customerEmail: dto.customerEmail,
             customerPhone: dto.customerPhone,
@@ -526,6 +527,9 @@ export class ShopService {
       async (tx) => {
         // "results" irá acumulando cada reserva creada para devolverlas juntas.
         const results: any[] = [];
+        // El envío es PLANO por pedido (a nivel tienda): se cobra UNA sola vez,
+        // no por producto. Este flag marca si ya lo aplicamos al primer item.
+        let shippingCharged = false;
 
         // Recorremos cada item del carrito. "for...of" toma cada "item" del arreglo.
         for (const item of dto.items) {
@@ -567,7 +571,8 @@ export class ShopService {
               productId: product.id,
               quantity: item.quantity,
               unitPrice: product.price,
-              shippingCost: dto.fulfillmentType === 'SHIPPING' ? (product.shippingCost || 0) : 0,
+              // Envío plano por pedido: solo el PRIMER item a domicilio lo cobra.
+              shippingCost: (dto.fulfillmentType === 'SHIPPING' && !shippingCharged) ? Number(tenant.shopShippingCost || 0) : 0,
               customerName: dto.customerName,
               customerEmail: dto.customerEmail,
               customerPhone: dto.customerPhone,
@@ -586,6 +591,8 @@ export class ShopService {
           });
           // Guardamos la reserva creada en la lista de resultados.
           results.push(reservation);
+          // Ya cobramos el envío (una vez): los siguientes items van con envío 0.
+          if (dto.fulfillmentType === 'SHIPPING') shippingCharged = true;
         }
 
         // Devolvemos todas las reservas creadas (al cerrar la transacción).
