@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { showSaveSuccess } from '@/lib/save-toast';
 import { usePermissions } from '@/lib/hooks/use-permissions';
+import { useTenantTier } from '@/lib/hooks/use-tenant-tier';
 import { Modal } from '@/components/ui/modal';
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 import { formatCurrency } from '@/lib/utils';
@@ -92,6 +93,9 @@ const defaultForm: ProductForm = {
 
 export function InventoryContent() {
   const { hasPermission } = usePermissions();
+  // isFreelancer: el freelancer trabaja solo, así que la comisión al empleado que
+  // vende el producto no aplica (todas las ventas son suyas). Se le oculta.
+  const { isFreelancer } = useTenantTier();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -838,31 +842,40 @@ export function InventoryContent() {
                 />
               </li>
 
-              {/* Comisión al empleado que vende este producto en el POS */}
-              <li className="flex items-center justify-between gap-3 px-3 py-2">
-                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
-                  Comisión
-                </span>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={form.commissionType}
-                    onChange={(e) => setForm((f) => ({ ...f, commissionType: e.target.value }))}
-                    className="text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-2 py-2 text-[var(--text-primary)] focus:outline-none focus:border-[#008080]"
-                  >
-                    <option value="AMOUNT">$ fijo</option>
-                    <option value="PERCENT">% del precio</option>
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.commission}
-                    onChange={(e) => setForm((f) => ({ ...f, commission: e.target.value }))}
-                    placeholder="0"
-                    className="w-24 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
-                  />
-                </div>
-              </li>
+              {/* Comisión al empleado que vende este producto en el POS.
+                  Se oculta para freelancer: trabaja solo, todas las ventas son suyas. */}
+              {!isFreelancer && (
+                <li className="px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
+                      Comisión
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={form.commissionType}
+                        onChange={(e) => setForm((f) => ({ ...f, commissionType: e.target.value }))}
+                        className="text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-2 py-2 text-[var(--text-primary)] focus:outline-none focus:border-[#008080]"
+                      >
+                        <option value="AMOUNT">$ fijo</option>
+                        <option value="PERCENT">% del precio</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.commission}
+                        onChange={(e) => setForm((f) => ({ ...f, commission: e.target.value }))}
+                        placeholder="0"
+                        className="w-24 text-sm text-right tabular-nums bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
+                      />
+                    </div>
+                  </div>
+                  {/* Explicación de qué es y para qué sirve (para el administrador). */}
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                    Lo que gana el empleado que venda este producto en el Punto de Venta. Puede ser un monto fijo ($) o un porcentaje del precio. Déjalo en 0 si no pagas comisión por este producto.
+                  </p>
+                </li>
+              )}
 
               {/* Moneda — fija en MXN; el SaaS opera solo en pesos mexicanos. */}
               <li className="flex items-center justify-between gap-3 px-3 py-2">
