@@ -1871,7 +1871,7 @@ export class MarketplaceService {
     // Negocio dueño del profesional (debe estar listado).
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: tenantSlug },
-      select: { id: true, name: true, slug: true, isMarketplaceListed: true },
+      select: { id: true, name: true, slug: true, isMarketplaceListed: true, shopEnabled: true },
     });
 
     // "No listado en marketplace" = no aparece en búsquedas/descubrimiento, PERO
@@ -2083,6 +2083,7 @@ export class MarketplaceService {
         ...employee,
         businessName: tenant.name,
         tenantSlug: tenant.slug,
+        shopEnabled: tenant.shopEnabled, // ¿el profesional tiene tienda activa?
         completedAppointments: completedCount,
         averageRating: combinedEmpRating.avg,
         totalReviews: combinedEmpRating.total,

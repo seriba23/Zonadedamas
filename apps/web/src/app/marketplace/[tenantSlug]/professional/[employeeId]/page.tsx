@@ -70,6 +70,7 @@ interface Professional {
   bio: string | null;       // Texto de presentación / descripción
   businessName: string;     // Nombre del negocio al que pertenece
   tenantSlug: string;       // Slug del negocio (para rutas internas)
+  shopEnabled?: boolean;    // ¿el profesional tiene tienda activa? (muestra atajo a /shop)
   completedAppointments: number; // Total de citas completadas (estadística)
   averageRating: number | null;  // Calificación promedio (1-5, null si sin reseñas)
   totalReviews: number;     // Número total de reseñas recibidas
@@ -430,6 +431,31 @@ export default function ProfessionalProfilePage() {
       {/* ─── Content below hero (white bg covers the fixed photo) ─── */}
       <div className="relative z-10 bg-gray-50 min-h-screen pb-20">
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+
+          {/* Tienda del profesional — atajo a /shop cuando tiene tienda activa.
+              Mismo aspecto que la tarjeta de tienda del negocio en el marketplace. */}
+          {pro.shopEnabled && (
+            <button
+              type="button"
+              onClick={() => router.push(`/marketplace/${tenantSlug}/shop`)}
+              className="w-full block bg-white rounded-xl border border-gray-200 p-4 hover:border-[#008080] hover:shadow-sm transition-all text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
+                  <svg className="w-6 h-6" style={{ color: '#008080' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Tienda</p>
+                  <p className="text-xs text-gray-500">Ver productos disponibles</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+          )}
 
           {/* Servicios que ofrece — listado completo del catálogo del
               empleado. Click en una tarjeta abre el booking con ese
