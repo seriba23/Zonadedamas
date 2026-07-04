@@ -877,15 +877,8 @@ export function InventoryContent() {
                 </li>
               )}
 
-              {/* Moneda — fija en MXN; el SaaS opera solo en pesos mexicanos. */}
-              <li className="flex items-center justify-between gap-3 px-3 py-2">
-                <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide flex-shrink-0">
-                  Moneda
-                </span>
-                <div className="min-w-[220px] flex-1 text-sm bg-gray-50 border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-medium">
-                  MXN - Peso Mexicano
-                </div>
-              </li>
+              {/* Moneda: no se muestra en el formulario. El SaaS opera solo en MXN,
+                  así que el campo fijo no aportaba nada (se envía 'MXN' al guardar). */}
 
               {/* Stock actual */}
               <li className="flex items-center justify-between gap-3 px-3 py-2">
