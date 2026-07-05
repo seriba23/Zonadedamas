@@ -188,6 +188,8 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   const [catalogTab, setCatalogTab] = useState<'services' | 'products'>('services');
   // mobileTicketOpen: en móvil, abre el ticket (panel derecho) como hoja completa.
   const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
+  // ticketEditor: cuál editor está abierto en el ticket (botones Descuento/Propina).
+  const [ticketEditor, setTicketEditor] = useState<'discount' | 'tip' | null>(null);
 
   // ── Consultas al backend (useQuery) ──────────────────────────────────────
   // today: fecha de hoy en formato 'YYYY-MM-DD' para el filtro de citas.
@@ -1267,9 +1269,55 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
                 </div>
               ))}
               <div><label className="label-caps block mb-1">Cliente</label><SearchableSelect value={selectedClientId} onChange={(id) => { setSelectedClientId(id); const c: any = clients.find((x: any) => x.id === id); setPhone(c?.phone ? String(c.phone).replace(/\D/g, '').slice(-10) : ''); }} options={clientOptions} placeholder="Buscar cliente..." allLabel="Seleccionar cliente" /><button onClick={() => setShowNewClient(true)} className="text-[11px] text-[#008080] hover:underline mt-1.5">+ Registrar nuevo cliente</button></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className="label-caps block mb-1">Descuento</label><div className="flex gap-1"><input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} min="0" className="input-field flex-1" placeholder="0" /><div className="flex rounded-lg border overflow-hidden" style={{ borderColor: softBorder }}><button onClick={() => setDiscountType('amount')} className={`px-2 text-sm ${discountType === 'amount' ? 'bg-[#008080] text-white' : 'text-[#5b6e6a]'}`}>$</button><button onClick={() => setDiscountType('percent')} className={`px-2 text-sm border-l ${discountType === 'percent' ? 'bg-[#008080] text-white' : 'text-[#5b6e6a]'}`} style={{ borderColor: softBorder }}>%</button></div></div></div>
-                <div><label className="label-caps block mb-1">Propina</label><div className="flex gap-1">{[5, 10, 15].map((pct) => (<button key={pct} onClick={() => { setTipPercent(tipPercent === pct ? null : pct); setTipManual(''); }} className={`flex-1 py-2 rounded-lg text-xs font-bold ${tipPercent === pct ? 'bg-[#008080] text-white' : 'bg-[#eff6f4] text-[#5b6e6a]'}`}>{pct}%</button>))}</div></div>
+              <div>
+                {/* Botones Descuento / Propina: despliegan su editor al pulsarlos. */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTicketEditor(ticketEditor === 'discount' ? null : 'discount')}
+                    className={`py-2.5 rounded-full text-[13px] font-bold border transition-colors ${ticketEditor === 'discount' || discountAmount > 0 ? 'bg-[#008080] text-white border-[#008080]' : 'bg-white text-[#5b6e6a]'}`}
+                    style={ticketEditor === 'discount' || discountAmount > 0 ? {} : { borderColor: softBorder }}
+                  >
+                    Descuento
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTicketEditor(ticketEditor === 'tip' ? null : 'tip')}
+                    className={`py-2.5 rounded-full text-[13px] font-bold border transition-colors ${ticketEditor === 'tip' || tipAmount > 0 ? 'bg-[#008080] text-white border-[#008080]' : 'bg-white text-[#5b6e6a]'}`}
+                    style={ticketEditor === 'tip' || tipAmount > 0 ? {} : { borderColor: softBorder }}
+                  >
+                    Propina
+                  </button>
+                </div>
+
+                {/* Editor de DESCUENTO: monto libre + toggle $ / % */}
+                {ticketEditor === 'discount' && (
+                  <div className="mt-2 p-3 rounded-[14px]" style={{ backgroundColor: 'var(--soft-tint)' }}>
+                    <label className="label-caps block mb-1.5">Descuento (monto o %)</label>
+                    <div className="flex gap-1.5">
+                      <input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} min="0" className="input-field flex-1" placeholder="0" autoFocus />
+                      <div className="flex rounded-lg border overflow-hidden bg-white" style={{ borderColor: softBorder }}>
+                        <button type="button" onClick={() => setDiscountType('amount')} className={`px-3 text-sm font-bold ${discountType === 'amount' ? 'bg-[#008080] text-white' : 'text-[#5b6e6a]'}`}>$</button>
+                        <button type="button" onClick={() => setDiscountType('percent')} className={`px-3 text-sm font-bold border-l ${discountType === 'percent' ? 'bg-[#008080] text-white' : 'text-[#5b6e6a]'}`} style={{ borderColor: softBorder }}>%</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Editor de PROPINA: porcentajes rápidos + monto libre (manual) */}
+                {ticketEditor === 'tip' && (
+                  <div className="mt-2 p-3 rounded-[14px]" style={{ backgroundColor: 'var(--soft-tint)' }}>
+                    <label className="label-caps block mb-1.5">Propina (% o monto)</label>
+                    <div className="flex gap-1.5 mb-2">
+                      {[5, 10, 15, 20].map((pct) => (
+                        <button key={pct} type="button" onClick={() => { setTipPercent(tipPercent === pct ? null : pct); setTipManual(''); }}
+                          className={`flex-1 py-2 rounded-lg text-xs font-bold border ${tipPercent === pct ? 'bg-[#008080] text-white border-[#008080]' : 'bg-white text-[#5b6e6a]'}`}
+                          style={tipPercent === pct ? {} : { borderColor: softBorder }}>{pct}%</button>
+                      ))}
+                    </div>
+                    <input type="number" value={tipManual} onChange={(e) => { setTipManual(e.target.value); setTipPercent(null); }} min="0" className="input-field w-full" placeholder="Monto manual" />
+                  </div>
+                )}
               </div>
             </>
           )}
