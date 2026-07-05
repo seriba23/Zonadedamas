@@ -2151,13 +2151,32 @@ export class MarketplaceService {
     // Rating combinado del empleado: incluye TenantReview del negocio.
     const combinedEmpRating = await this.getCombinedEmployeeRating(employeeId, tenant.id);
 
-    // Horario de atención del negocio. Para un profesional independiente
-    // (freelancer) es su propio horario de atención; se muestra en su perfil.
-    const businessHours = await this.prisma.businessHours.findMany({
-      where: { tenantId: tenant.id },
-      orderBy: { dayOfWeek: 'asc' },
-      select: { dayOfWeek: true, openTime: true, closeTime: true, isOpen: true },
+    // Horario de atención del PROFESIONAL: su propio horario de empleado
+    // (employee_schedules), que es lo que realmente marca cuándo atiende. El
+    // freelancer configura justo esto en "Mi horario". Tomamos el horario vigente
+    // (por rango effectiveFrom/Until) y nos quedamos con una fila por día.
+    const nowSchedule = new Date();
+    const empSchedules = await this.prisma.employeeSchedule.findMany({
+      where: {
+        employeeId,
+        effectiveFrom: { lte: nowSchedule },
+        OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: nowSchedule } }],
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { effectiveFrom: 'desc' }],
+      select: { dayOfWeek: true, startTime: true, endTime: true, isWorking: true },
     });
+    const seenDays = new Set<string>();
+    let businessHours = empSchedules
+      .filter((s) => (seenDays.has(s.dayOfWeek) ? false : (seenDays.add(s.dayOfWeek), true)))
+      .map((s) => ({ dayOfWeek: s.dayOfWeek, openTime: s.startTime, closeTime: s.endTime, isOpen: s.isWorking }));
+    // Fallback: si el profesional no tiene horario propio, usamos el del negocio.
+    if (businessHours.length === 0) {
+      businessHours = await this.prisma.businessHours.findMany({
+        where: { tenantId: tenant.id },
+        orderBy: { dayOfWeek: 'asc' },
+        select: { dayOfWeek: true, openTime: true, closeTime: true, isOpen: true },
+      });
+    }
 
     return {
       data: {
