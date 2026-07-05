@@ -146,10 +146,15 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
   // "Suscripción" solo la ven freelancers (es su único portal) y el dueño; un
   // empleado normal no gestiona la suscripción del negocio.
   const canSeeSubscription = isFreelancer || isOwner;
+  // Freelancer (trabaja solo, sin equipo): no aplican conceptos de equipo —
+  // Comisiones (no cobra comisión, gana el total), Asistencia (no checa) ni
+  // Permisos (no hay admin a quien pedírselos).
+  const FREELANCER_HIDDEN = ['/employee/attendance', '/employee/commissions', '/employee/time-off'];
   const visibleMenu = menuItems.filter((item) => {
     const adminKey = SUPERSEDED_BY_ADMIN[item.href];
     if (adminKey && grantedAdminKeys.has(adminKey)) return false;
     if (item.href === '/employee/subscription' && !canSeeSubscription) return false;
+    if (isFreelancer && FREELANCER_HIDDEN.includes(item.href)) return false;
     return true;
   });
 
