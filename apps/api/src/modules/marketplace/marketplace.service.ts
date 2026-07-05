@@ -2914,6 +2914,14 @@ export class MarketplaceService {
       data: { avatarUrl },
     });
 
+    // Sincronizar el perfil SELF (el del titular), que alimenta el selector de
+    // perfiles del marketplace. Sin esto, el selector seguía mostrando el avatar
+    // viejo tras cambiar la foto.
+    await this.prisma.profile.updateMany({
+      where: { userId: marketplaceUserId, relationship: 'SELF' },
+      data: { avatarUrl },
+    });
+
     return oldUrl;
   }
 

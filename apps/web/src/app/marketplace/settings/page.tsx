@@ -640,11 +640,17 @@ function EditProfilePanel({
           className="relative w-32 h-32 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
           style={{ backgroundColor: TEAL_LIGHT }}
         >
-          {/* Muestra la imagen de previsualización o las iniciales. */}
-          {avatarSrc ? (
-            <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-4xl font-bold" style={{ color: TEAL }}>{initials}</span>
+          {/* Iniciales de fondo: si la imagen falla (URL de Google que expira o
+              rota), quedan visibles como respaldo en vez de un ícono roto. */}
+          <span className="absolute inset-0 flex items-center justify-center text-4xl font-bold" style={{ color: TEAL }}>{initials}</span>
+          {avatarSrc && (
+            <img
+              src={avatarSrc}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              className="relative w-full h-full object-cover"
+            />
           )}
           {/* Overlay con ícono de cámara: siempre visible encima del avatar. */}
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-full">

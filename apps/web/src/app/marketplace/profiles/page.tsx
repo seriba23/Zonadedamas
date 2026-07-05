@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useMarketplaceAuth, MarketplaceProfile } from '@/lib/hooks/use-marketplace-auth';
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { signOutAll } from '@/lib/sign-out-all';
+import { resolveImageUrl } from '@/lib/utils';
 
 const TEAL = '#008080';
 
@@ -191,17 +192,23 @@ export default function ProfilesSelectorPage() {
             >
               <div className="relative">
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden text-xl font-bold text-white group-hover:ring-2 group-hover:ring-[#008080] transition-all"
+                  className="relative w-20 h-20 rounded-full flex items-center justify-center overflow-hidden text-xl font-bold text-white group-hover:ring-2 group-hover:ring-[#008080] transition-all"
                   style={{ backgroundColor: p.color || TEAL }}
                 >
-                  {p.avatarUrl ? (
+                  {/* Iniciales de fondo: si la imagen falla (URL rota o de Google
+                      que expira), quedan visibles como respaldo. */}
+                  <span className="absolute inset-0 flex items-center justify-center">{initials(p)}</span>
+                  {p.avatarUrl && (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${p.avatarUrl}`}
+                      // resolveImageUrl respeta las URLs http(s) (Google) y solo
+                      // antepone la API a las rutas locales — sin él se armaba
+                      // "http://localhost:3001https://lh3..." (rota).
+                      src={resolveImageUrl(p.avatarUrl) || ''}
                       alt=""
-                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      className="relative w-full h-full object-cover"
                     />
-                  ) : (
-                    initials(p)
                   )}
                 </div>
                 {/* En modo gestión, ícono de lápiz; etiqueta "Menor" si aplica */}
