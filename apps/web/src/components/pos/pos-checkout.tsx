@@ -743,7 +743,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     // Mantienen la card original con imagen. Click en imagen abre detalle.
     if (type === 'product') {
       return (
-        <div key={id} className={`relative bg-white rounded-xl border-2 overflow-hidden transition-all hover:shadow-md ${qty > 0 ? 'border-[#008080]' : 'border-gray-200 hover:border-gray-300'}`}>
+        <div key={id} className={`relative bg-white rounded-[18px] border-2 overflow-hidden transition-all hover:shadow-soft ${qty > 0 ? 'border-[#008080]' : 'border-[#e6efec] hover:border-[#008080]'}`}>
           {/* Imagen: click separado para abrir detalle */}
           <button
             type="button"
@@ -779,7 +779,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     // Card más alta con cápsula de empleado prominente arriba (cuando se
     // agrega al carrito). Sin imagen, todo el espacio para servicio + emp.
     return (
-      <div key={id} className={`relative bg-white rounded-xl border-2 overflow-hidden transition-all hover:shadow-md flex flex-col ${qty > 0 ? 'border-[#008080]' : 'border-gray-200 hover:border-gray-300'}`} style={{ minHeight: 140 }}>
+      <div key={id} className={`relative bg-white rounded-[18px] border-2 overflow-hidden transition-all hover:shadow-soft flex flex-col ${qty > 0 ? 'border-[#008080]' : 'border-[#e6efec] hover:border-[#008080]'}`} style={{ minHeight: 140 }}>
         {/* Zona empleado — siempre reservada para servicios con qty > 0 */}
         {qty > 0 ? (
           <button
