@@ -865,7 +865,7 @@ export default function SubscriptionPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
                 <div className="rounded-2xl px-4 py-3.5" style={{ backgroundColor: '#eff6f4' }}>
                   <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Costo</p>
                   <p className="text-[26px] font-extrabold tracking-[-0.02em] text-[#0f1e1c] leading-tight mt-0.5">${(isAnnual ? annualEquiv : monthly).toFixed(0)}<span className="text-[13px] font-semibold text-[#7c8d89]"> MXN / mes</span></p>
@@ -874,25 +874,25 @@ export default function SubscriptionPage() {
                   <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Próximo cobro</p>
                   <p className="text-[15px] font-bold text-[#0f1e1c] mt-2">{dayjs(isAnnual ? (sub.annualPeriodEnd || sub.nextBillingDate) : sub.nextBillingDate).format('D MMM YYYY')}</p>
                 </div>
-                <div className="rounded-2xl px-4 py-3.5" style={{ backgroundColor: '#eff6f4' }}>
+                <div className="hidden sm:block rounded-2xl px-4 py-3.5" style={{ backgroundColor: '#eff6f4' }}>
                   <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Facturación</p>
                   <p className="text-[15px] font-bold text-[#0f1e1c] mt-2">{isAnnual ? 'Anual' : 'Mensual'}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 flex-wrap mt-5 pt-5 border-t border-[#e6efec]">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:flex-wrap mt-5 pt-5 border-t border-[#e6efec]">
                 {STRIPE_ENABLED && (
-                  <button onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending} className="px-4 py-2.5 rounded-full text-[13.5px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: TEAL }}>
+                  <button onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending} className="w-full sm:w-auto px-4 py-2.5 rounded-full text-[13.5px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: TEAL }}>
                     {setupMutation.isPending ? 'Preparando...' : 'Domiciliar tarjeta'}
                   </button>
                 )}
                 {STRIPE_ENABLED && isMonthly && !sub.advancePaid && (
-                  <button onClick={() => advanceMutation.mutate()} disabled={advanceMutation.isPending} className="px-4 py-2.5 rounded-full text-[13.5px] font-bold border disabled:opacity-50" style={{ borderColor: TEAL, color: TEAL }}>
+                  <button onClick={() => advanceMutation.mutate()} disabled={advanceMutation.isPending} className="w-full sm:w-auto px-4 py-2.5 rounded-full text-[13.5px] font-bold border disabled:opacity-50" style={{ borderColor: TEAL, color: TEAL }}>
                     {advanceMutation.isPending ? 'Preparando...' : 'Adelantar un mes'}
                   </button>
                 )}
                 {sub.stripeSubscriptionId && (
-                  <button onClick={() => setModal('cancel-confirm')} className="ml-auto px-2 py-2.5 text-[13.5px] font-bold hover:opacity-80" style={{ color: '#c14242' }}>
+                  <button onClick={() => setModal('cancel-confirm')} className="w-full sm:w-auto sm:ml-auto px-2 py-2.5 text-[13.5px] font-bold hover:opacity-80" style={{ color: '#c14242' }}>
                     Cancelar suscripción
                   </button>
                 )}
