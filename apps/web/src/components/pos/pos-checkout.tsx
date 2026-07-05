@@ -414,8 +414,12 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
     if (existing) {
       setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
-      setItems((prev) => [...prev, { id, name, price, quantity: 1, type, imageUrl, duration }]);
-      if (type === 'service') setEmployeePickerFor(id);
+      // Si es servicio y solo hay UN empleado (caso profesional independiente),
+      // lo asignamos automáticamente y NO abrimos el selector "¿quién atiende?"
+      // (no hay más opciones). Con varios empleados, abrimos el selector.
+      const soloEmp = type === 'service' && employees.length === 1 ? employees[0] : null;
+      setItems((prev) => [...prev, { id, name, price, quantity: 1, type, imageUrl, duration, ...(soloEmp ? { employeeId: soloEmp.id, employeeName: `${soloEmp.firstName} ${soloEmp.lastName}` } : {}) }]);
+      if (type === 'service' && !soloEmp) setEmployeePickerFor(id);
     }
   }
 

@@ -499,9 +499,10 @@ function LoginPageInner() {
       if (availableProfiles.includes(profile)) {
         if (profile === 'admin') {
           if (isFreelancer) {
-            // Freelancer tocando "Administrador" -> lo llevamos a su Suscripción,
-            // donde vive el upsell a PLUS (la comparativa vieja quedó integrada ahí).
-            router.push('/employee/subscription');
+            // Freelancer tocando "Administrador" -> vista mínima /plan: SOLO la
+            // suscripción (su único "admin"), sin menú, con botón para volver al
+            // selector y entrar como Profesional.
+            router.push('/plan');
           } else {
             router.push(wantsBusiness ? redirectAfterLogin! : '/home');
           }
