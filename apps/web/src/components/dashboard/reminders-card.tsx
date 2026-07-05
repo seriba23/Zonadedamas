@@ -124,8 +124,8 @@ export function RemindersCard() {
 
   return (
     <div
-      className="rounded-xl border p-4 md:p-5"
-      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+      className="rounded-[22px] shadow-soft border p-4 md:p-5"
+      style={{ backgroundColor: 'var(--soft-card)', borderColor: 'var(--soft-border)' }}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

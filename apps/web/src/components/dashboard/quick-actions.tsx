@@ -54,7 +54,7 @@ const actions = [
 // Componente sin props: siempre muestra los mismos 4 botones.
 export function QuickActions() {
   return (
-    <div className="card p-3 md:p-5">
+    <div className="card-soft p-3 md:p-5">
       <h2 className="text-xs md:text-sm font-semibold mb-3 md:mb-4" style={{ color: 'var(--text-secondary)' }}>Acciones rápidas</h2>
       {/* grid-cols-2 = rejilla de 2 columnas, así los 4 botones quedan en 2x2. */}
       <div className="grid grid-cols-2 gap-2 md:gap-3">

@@ -81,8 +81,8 @@ export function EmployeesToday() {
 
   return (
     <div
-      className="rounded-xl p-5"
-      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+      className="rounded-[22px] shadow-soft p-5"
+      style={{ backgroundColor: 'var(--soft-card)', border: '1px solid var(--soft-border)' }}
     >
       {/* Título con el total de empleados de hoy. {employees.length} = cantidad. */}
       <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>

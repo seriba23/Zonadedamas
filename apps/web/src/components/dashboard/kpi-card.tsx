@@ -51,12 +51,12 @@ export function KpiCard({
     //   cambian con modo claro/oscuro).
     <div
       onClick={onClick}
-      className={`rounded-xl p-3 md:p-5 flex items-start gap-2.5 md:gap-3 overflow-hidden ${interactive ? 'cursor-pointer transition-colors hover:bg-[var(--bg-muted)]' : ''}`}
-      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+      className={`rounded-[18px] p-3 md:p-5 flex items-start gap-2.5 md:gap-3 overflow-hidden shadow-soft transition-colors ${interactive ? 'cursor-pointer hover:bg-[var(--soft-tint)]' : ''}`}
+      style={{ backgroundColor: 'var(--soft-card)', border: '1px solid var(--soft-border)' }}
     >
       {/* Cuadrito de color que contiene el icono a la izquierda. */}
       <div
-        className="flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center"
+        className="flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-[13px] flex items-center justify-center"
         style={{ backgroundColor: 'var(--primary-tint)', color: 'var(--primary-tint-fg)' }}
       >
         {/* {icon} inserta el SVG recibido por props dentro del cuadrito. */}
@@ -67,15 +67,15 @@ export function KpiCard({
       <div className="min-w-0 flex-1">
         {/* Etiqueta pequeña en mayúsculas. truncate = corta con "..." si no cabe. */}
         <p
-          className="text-[10px] md:text-[11px] uppercase tracking-wide font-semibold truncate"
-          style={{ color: 'var(--text-muted)' }}
+          className="text-[10px] md:text-[11px] uppercase tracking-[0.12em] font-semibold truncate"
+          style={{ color: 'var(--soft-muted)' }}
         >
           {label}
         </p>
         {/* El valor grande y destacado (el dato principal de la tarjeta). */}
         <p
           className="text-base md:text-xl font-extrabold leading-tight mt-0.5 tabular-nums break-words"
-          style={{ color: 'var(--text-primary)', letterSpacing: '-0.015em' }}
+          style={{ color: 'var(--soft-ink)', letterSpacing: '-0.02em' }}
         >
           {value}
         </p>

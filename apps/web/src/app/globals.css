@@ -17,6 +17,16 @@
   --primary-tint: #e0f2f1;          /* fondo suave teal en claro */
   --primary-tint-border: #b2dfdb;   /* borde tint en claro */
   --primary-tint-fg: #006666;       /* texto/icon sobre tint en claro */
+
+  /* ─── Sistema "soft" (rediseño Suscripción → rollout por secciones) ─── */
+  --soft-card: #ffffff;             /* superficie de tarjeta */
+  --soft-border: #e6efec;           /* borde sutil */
+  --soft-ink: #0f1e1c;              /* texto principal */
+  --soft-muted: #7c8d89;            /* texto atenuado */
+  --soft-tint: #eff6f4;             /* fondo suave (stat-box, hover) */
+  --soft-shadow: 0 18px 40px -30px rgba(15, 40, 36, 0.25);
+  --ok-bg: #e4f5ee; --ok-fg: #0a7d54; --ok-dot: #12a86e; /* estado "activo" */
+  --danger-soft: #c14242;           /* rojo de acción/alerta */
 }
 
 html[data-theme="dark"] {
@@ -33,6 +43,16 @@ html[data-theme="dark"] {
   --primary-tint: rgba(20, 184, 166, 0.12);
   --primary-tint-border: rgba(20, 184, 166, 0.30);
   --primary-tint-fg: #5eead4;
+
+  /* Sistema "soft" en oscuro: mapea a las superficies del tema. */
+  --soft-card: var(--bg-surface);
+  --soft-border: var(--border);
+  --soft-ink: var(--text-primary);
+  --soft-muted: var(--text-secondary);
+  --soft-tint: var(--bg-muted);
+  --soft-shadow: 0 18px 40px -30px rgba(0, 0, 0, 0.55);
+  --ok-bg: rgba(16, 185, 129, 0.16); --ok-fg: #34d399; --ok-dot: #34d399;
+  --danger-soft: #f28b8b;
 }
 
 @layer base {
@@ -127,6 +147,67 @@ html[data-theme="dark"] {
   .card-highlight {
     background-color: var(--primary-tint);
     border-color: var(--primary-tint-border);
+  }
+
+  /* ─── Sistema "soft" — clases reutilizables para el rollout ─────────────
+     Aplican el lenguaje visual del rediseño de Suscripción a cualquier sección
+     de forma consistente y sin repetir hex. Respetan el tema claro/oscuro. */
+  .card-soft {
+    background-color: var(--soft-card);
+    border: 1px solid var(--soft-border);
+    border-radius: 22px;
+    box-shadow: var(--soft-shadow);
+  }
+  .card-soft-flat {            /* misma tarjeta, sin sombra (grids densos) */
+    background-color: var(--soft-card);
+    border: 1px solid var(--soft-border);
+    border-radius: 22px;
+  }
+  .stat-box {                  /* caja de métrica con fondo suave */
+    background-color: var(--soft-tint);
+    border-radius: 16px;
+    @apply px-4 py-3.5;
+  }
+  .label-caps {                /* label tipo "TU PLAN" */
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--soft-muted);
+  }
+  .status-active {             /* pastilla verde "Activo/a" con punto */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    background-color: var(--ok-bg);
+    color: var(--ok-fg);
+  }
+  .status-active::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 999px;
+    background-color: var(--ok-dot);
+  }
+  .pill-active {               /* cápsula seleccionada (teal sólido) */
+    border-radius: 999px;
+    font-weight: 700;
+    background-color: #008080;
+    color: #ffffff;
+  }
+  .pill-idle {                 /* cápsula sin seleccionar */
+    border-radius: 999px;
+    font-weight: 600;
+    background-color: var(--soft-card);
+    border: 1px solid var(--soft-border);
+    color: #5b6e6a;
+    transition: background-color .15s, color .15s;
+  }
+  .pill-idle:hover {
+    background-color: var(--soft-tint);
+    color: #008080;
   }
 }
 

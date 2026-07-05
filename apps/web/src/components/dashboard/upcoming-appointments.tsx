@@ -44,7 +44,7 @@ function statusInfo(status: string): { text: string; bg: string; textColor: stri
 export function UpcomingAppointments({ appointments }: { appointments: UpcomingAppointment[] }) {
   const { format: formatCurrency } = useCurrency();
   return (
-    <div className="card p-3 md:p-5">
+    <div className="card-soft p-3 md:p-5">
       <div className="flex items-center justify-between mb-3 md:mb-4">
         <h2 className="text-xs md:text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Próximas citas</h2>
         <Link href="/calendar" className="text-xs text-primary-600 hover:text-primary-700 font-medium">

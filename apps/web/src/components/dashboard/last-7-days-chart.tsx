@@ -61,8 +61,8 @@ export function Last7DaysChart({ days }: { days: { date: string; revenue: number
 
   return (
     <div
-      className="rounded-xl p-5 overflow-hidden min-w-0"
-      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+      className="rounded-[22px] shadow-soft p-5 overflow-hidden min-w-0"
+      style={{ backgroundColor: 'var(--soft-card)', border: '1px solid var(--soft-border)' }}
     >
       <div className="flex items-start justify-between mb-3 min-w-0">
         <div className="min-w-0 flex-1">

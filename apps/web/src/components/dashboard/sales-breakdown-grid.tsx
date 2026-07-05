@@ -54,7 +54,7 @@ export function SalesBreakdownGrid({
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {/* Card destacado — Venta Total */}
       <div
-        className="rounded-xl p-3 md:p-5 overflow-hidden text-white"
+        className="rounded-[22px] shadow-soft p-3 md:p-5 overflow-hidden text-white"
         style={{ backgroundColor: '#008080' }}
       >
         <div className="flex items-center gap-2 mb-1">
@@ -128,8 +128,8 @@ function BreakdownCell({
 }) {
   return (
     <div
-      className="rounded-xl p-3 md:p-5 overflow-hidden"
-      style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+      className="rounded-[22px] shadow-soft p-3 md:p-5 overflow-hidden"
+      style={{ backgroundColor: 'var(--soft-card)', border: '1px solid var(--soft-border)' }}
     >
       <div className="flex items-center gap-2 mb-1">
         <div

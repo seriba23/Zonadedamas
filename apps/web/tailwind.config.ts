@@ -66,8 +66,18 @@ const config: Config = {
           600: '#9333ea',
           700: '#7e22ce',
         },
+        // Tokens del sistema "soft" (mapeados a CSS vars → respetan tema).
+        soft: {
+          card: 'var(--soft-card)',
+          border: 'var(--soft-border)',
+          ink: 'var(--soft-ink)',
+          muted: 'var(--soft-muted)',
+          tint: 'var(--soft-tint)',
+        },
       },
       fontFamily: { sans: ['var(--font-manrope)', 'Manrope', 'system-ui', 'sans-serif'] },
+      boxShadow: { soft: '0 18px 40px -30px rgba(15, 40, 36, 0.25)' },
+      borderRadius: { soft: '22px' },
     },
   },
   plugins: [],
