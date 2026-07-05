@@ -226,6 +226,25 @@ export class MarketplaceService {
       data: { userId: user.id },
     });
 
+    // Unificación por TELÉFONO: fichas walk-in con este teléfono y sin dueño
+    // (el negocio suele dar de alta solo con teléfono; es lo que se usa para el
+    // enlace de WhatsApp).
+    if (user.phone) {
+      await this.prisma.client.updateMany({
+        where: { phone: user.phone, userId: null },
+        data: { userId: user.id },
+      });
+    }
+
+    // Si viene de una invitación (claim token), vinculamos ESA ficha concreta
+    // aunque su teléfono/email difieran de los del registro, y consumimos el token.
+    if (dto.claimToken) {
+      await this.prisma.client.updateMany({
+        where: { claimToken: dto.claimToken },
+        data: { userId: user.id, claimToken: null, claimTokenAt: null },
+      });
+    }
+
     // Generamos el par de tokens (acceso + refresco).
     const tokens = await this.generateTokens(user);
 
@@ -243,6 +262,56 @@ export class MarketplaceService {
         gender: user.gender,
       },
     };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // getClaimPreview(): datos para PRELLENAR la página pública de "reclamar
+  // cuenta" (a partir del token que el negocio envió por WhatsApp). Indica si ya
+  // existe una cuenta con ese teléfono/email (para ofrecer login en vez de crear).
+  // ───────────────────────────────────────────────────────────────────────────
+  async getClaimPreview(token: string) {
+    const client = await this.prisma.client.findFirst({
+      where: { claimToken: token },
+      select: {
+        firstName: true, lastName: true, phone: true, email: true, userId: true,
+        tenant: { select: { name: true } },
+      },
+    });
+    if (!client) throw new NotFoundException('Invitación no válida o ya utilizada.');
+    const or: any[] = [];
+    if (client.phone) or.push({ phone: client.phone });
+    if (client.email) or.push({ email: client.email });
+    const existing = or.length
+      ? await this.prisma.user.findFirst({ where: { isClient: true, OR: or }, select: { id: true } })
+      : null;
+    return {
+      firstName: client.firstName,
+      lastName: client.lastName,
+      phone: client.phone,
+      email: client.email,
+      businessName: client.tenant?.name || null,
+      alreadyClaimed: !!client.userId,
+      existingAccount: !!existing,
+    };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // claimClient(): un usuario YA autenticado (que ya tenía cuenta) vincula la
+  // ficha walk-in del negocio a su cuenta. Consume el token.
+  // ───────────────────────────────────────────────────────────────────────────
+  async claimClient(token: string, marketplaceUserId: string) {
+    const client = await this.prisma.client.findFirst({ where: { claimToken: token } });
+    if (!client) throw new NotFoundException('Invitación no válida o ya utilizada.');
+    // Si ya está vinculada (doble clic), solo limpiamos el token y respondemos ok.
+    await this.prisma.client.update({
+      where: { id: client.id },
+      data: {
+        ...(client.userId ? {} : { userId: marketplaceUserId }),
+        claimToken: null,
+        claimTokenAt: null,
+      },
+    });
+    return { linked: true, tenantId: client.tenantId };
   }
 
   // login(): inicia sesión con email O teléfono + contraseña. Si la cuenta estaba

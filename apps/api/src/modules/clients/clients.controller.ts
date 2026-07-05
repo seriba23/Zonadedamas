@@ -108,6 +108,19 @@ export class ClientsController {
     return { data: client };
   }
 
+  // ── POST /api/clients/:id/claim-token ─────────────────────────────────────
+  // Genera (o reutiliza) el token de "reclamo" para invitar por WhatsApp al
+  // cliente walk-in a crear/vincular su cuenta real. Devuelve { token }.
+  @Post(':id/claim-token')
+  @RequirePermissions('clients.update')
+  async claimToken(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const data = await this.clientsService.generateClaimToken(id, tenantId);
+    return { data };
+  }
+
   // ── GET /api/clients/tags ─────────────────────────────────────────────────
   // Lista todas las etiquetas del negocio. Requiere "clients.read".
   // OJO: se declara ANTES de @Get(':id') a propósito. Si estuviera después,

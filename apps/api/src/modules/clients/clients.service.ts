@@ -10,6 +10,8 @@
 import {
   Injectable,
   NotFoundException,
+  ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 
 // PrismaService es nuestro "puente" hacia la base de datos. Prisma es el ORM
@@ -202,6 +204,25 @@ export class ClientsService {
   // Recibe: tenantId y el DTO con los datos del cliente. Devuelve el creado.
   // ───────────────────────────────────────────────────────────────────────────
   async create(tenantId: string, dto: CreateClientDto) {
+    // Dedup: evitar fichas duplicadas por teléfono/email dentro del negocio.
+    // Si ya existe una activa con ese teléfono o correo, avisamos (409) con el
+    // id existente para que el frontend ofrezca abrirla en vez de duplicar.
+    const or: any[] = [];
+    if (dto.phone) or.push({ phone: dto.phone });
+    if (dto.email) or.push({ email: dto.email });
+    if (or.length > 0) {
+      const existing = await this.prisma.client.findFirst({
+        where: { tenantId, isActive: true, OR: or },
+        select: { id: true, firstName: true, lastName: true, phone: true, email: true },
+      });
+      if (existing) {
+        const byPhone = !!dto.phone && existing.phone === dto.phone;
+        throw new ConflictException({
+          message: `Ya tienes un cliente con ese ${byPhone ? 'teléfono' : 'correo'}: ${existing.firstName} ${existing.lastName}.`,
+          existingClientId: existing.id,
+        });
+      }
+    }
     return this.prisma.client.create({
       data: {
         ...dto, // todos los campos enviados (firstName, lastName, email, etc.)
@@ -214,6 +235,30 @@ export class ClientsService {
         isActive: true, // nace activo
       },
     });
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // generateClaimToken(): crea (o reutiliza) el token de "reclamo" de un cliente
+  // walk-in, para invitarlo por WhatsApp a crear/vincular su cuenta real.
+  // ───────────────────────────────────────────────────────────────────────────
+  async generateClaimToken(id: string, tenantId: string) {
+    const client = await this.findOne(id, tenantId);
+    if (!client.phone) {
+      throw new BadRequestException('El cliente necesita un teléfono para invitarlo por WhatsApp.');
+    }
+    if (client.userId) {
+      throw new BadRequestException('Este cliente ya tiene una cuenta vinculada en la plataforma.');
+    }
+    if (client.claimToken) return { token: client.claimToken };
+    // Token de 12 chars sin caracteres ambiguos (mismo alfabeto que las citas).
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let token = '';
+    for (let i = 0; i < 12; i++) token += chars[Math.floor(Math.random() * chars.length)];
+    await this.prisma.client.update({
+      where: { id },
+      data: { claimToken: token, claimTokenAt: new Date() },
+    });
+    return { token };
   }
 
   // ───────────────────────────────────────────────────────────────────────────

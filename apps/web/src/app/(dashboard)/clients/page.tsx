@@ -206,10 +206,18 @@ export default function ClientsPage() {
                     textClassName="text-sm"
                   />
 
-                  {/* Nombre */}
-                  <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
-                    {client.firstName} {client.lastName}
-                  </span>
+                  {/* Nombre + distintivo de cliente vinculado a la plataforma */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-gray-900 truncate">
+                      {client.firstName} {client.lastName}
+                    </span>
+                    {(client as any).userId && (
+                      <span className="flex-shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#e4f5ee', color: '#0a7d54' }} title="Cuenta de la plataforma vinculada">
+                        <span className="w-1 h-1 rounded-full" style={{ backgroundColor: '#12a86e' }} />
+                        Plataforma
+                      </span>
+                    )}
+                  </div>
 
                   {/* Iconos de contacto */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">

@@ -282,6 +282,22 @@ export function buildReminderMessage(opts: {
   );
 }
 
+// buildClaimMessage: invitación para que un cliente walk-in ACTIVE/VINCULE su
+// cuenta real de la plataforma (enlace con token de reclamo). El negocio ya
+// registró sus datos; el cliente solo confirma/crea su cuenta en 1 minuto.
+export function buildClaimMessage(opts: {
+  clientFirstName: string;
+  tenantName: string;
+  token: string;
+}): string {
+  const link = `${WEB_BASE}/reclamar/${opts.token}`;
+  return (
+    `Hola ${opts.clientFirstName},\n` +
+    `Te invitamos a activar tu cuenta en Siliba para ver tus citas e historial con *${opts.tenantName}*.\n\n` +
+    `Actívala aquí (te toma 1 minuto):\n${link}`
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RECORDATORIO DE PAGO DE SUSCRIPCIÓN (Siliba → dueño del negocio)
 // ─────────────────────────────────────────────────────────────────────────────

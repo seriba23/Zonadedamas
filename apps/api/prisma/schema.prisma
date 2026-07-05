@@ -659,6 +659,11 @@ model Client {
   // hijos). Nullable para los walk-in (creados sin cuenta de marketplace).
   profileId          String?   @map("profile_id")
   loyaltyPoints      Int       @default(0) @map("loyalty_points")
+  // Token de "reclamo": el negocio invita por WhatsApp a un cliente walk-in a
+  // crear/vincular su cuenta real de la plataforma. Ata el enlace a ESTA ficha
+  // para prellenar y unificar. Se limpia al reclamar. Único a nivel global.
+  claimToken         String?   @unique @map("claim_token")
+  claimTokenAt       DateTime? @map("claim_token_at")
   // Saldo a favor del cliente (ej. anticipo de una cita cancelada que el negocio
   // dejó como crédito). El negocio lo aplica manualmente como descuento.
   creditBalance      Decimal   @default(0) @map("credit_balance") @db.Decimal(10, 2)

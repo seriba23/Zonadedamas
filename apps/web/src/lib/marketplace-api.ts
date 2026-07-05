@@ -293,6 +293,9 @@ class MarketplaceApiClient {
     firstName: string;
     lastName: string;
     phone?: string;
+    // Token de "reclamo" (invitación de un negocio por WhatsApp): vincula la
+    // ficha walk-in de ese negocio a la cuenta recién creada.
+    claimToken?: string;
   }) {
     const res: any = await this.post('/auth/register', params);
     const data = res.data;

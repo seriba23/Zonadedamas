@@ -117,6 +117,25 @@ export class MarketplaceController {
     return { data: result };
   }
 
+  // ─── RECLAMO DE CUENTA (invitación por WhatsApp desde un negocio) ─────
+
+  // GET /api/marketplace/claim/:token => datos para PRELLENAR la página de
+  // reclamo + si ya existe cuenta con ese teléfono/email (público).
+  @Get('claim/:token')
+  async getClaimPreview(@Param('token') token: string) {
+    const data = await this.marketplaceService.getClaimPreview(token);
+    return { data };
+  }
+
+  // POST /api/marketplace/claim/:token => un usuario YA logueado vincula a su
+  // cuenta la ficha walk-in del negocio (unificación sin re-registrar).
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('claim/:token')
+  async claimClient(@Param('token') token: string, @Req() req: any) {
+    const data = await this.marketplaceService.claimClient(token, req.user.marketplaceUserId);
+    return { data };
+  }
+
   // GET /api/marketplace/auth/me => datos del usuario logueado.
   // @UseGuards(MarketplaceJwtGuard) exige token válido. De req.user (que puso la
   // estrategia) sacamos el id del usuario para pasarlo al servicio.

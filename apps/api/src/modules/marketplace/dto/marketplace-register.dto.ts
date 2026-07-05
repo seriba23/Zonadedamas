@@ -37,4 +37,10 @@ export class MarketplaceRegisterDto {
   @IsOptional() // el teléfono es opcional (el "?" en "phone?" lo confirma)
   @IsString()
   phone?: string;
+
+  // Token de "reclamo" (viene del enlace de WhatsApp que envió un negocio):
+  // vincula la ficha walk-in de ese negocio a esta cuenta recién creada.
+  @IsOptional()
+  @IsString()
+  claimToken?: string;
 }
