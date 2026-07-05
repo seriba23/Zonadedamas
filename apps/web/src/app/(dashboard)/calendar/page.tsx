@@ -74,6 +74,8 @@ export default function CalendarPage() {
   const [showStats, setShowStats] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState<string | undefined>();
   const [prefillEmployeeId, setPrefillEmployeeId] = useState<string | undefined>();
+  // Servicios pre-seleccionados al reagendar el mismo servicio desde el POS.
+  const [prefillServiceIds, setPrefillServiceIds] = useState<string[] | undefined>();
 
   const [customStart, setCustomStart] = useState(
     () => searchParams.get('from') || dayjs().subtract(7, 'day').format('YYYY-MM-DD'),
@@ -100,6 +102,11 @@ export default function CalendarPage() {
     if (searchParams.get('new') === '1' || newClientId) {
       setSelectedAppointmentId(null);
       if (newClientId) setPrefillClientId(newClientId);
+      // Reagendar el MISMO servicio/empleado desde el POS ("Agendar otra cita").
+      const empId = searchParams.get('employeeId');
+      if (empId) setPrefillEmployeeId(empId);
+      const svcIds = searchParams.get('serviceIds');
+      if (svcIds) setPrefillServiceIds(svcIds.split(',').filter(Boolean));
       setIsModalOpen(true);
     }
   }, [searchParams]);
@@ -1176,6 +1183,7 @@ export default function CalendarPage() {
             initialTime={selectedSlot ? selectedSlot.split('T')[1]?.substring(0, 5) : undefined}
             initialEmployeeId={prefillEmployeeId}
             initialClientId={prefillClientId}
+            initialServiceIds={prefillServiceIds}
           />
         )
       )}

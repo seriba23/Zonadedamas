@@ -5,6 +5,7 @@
 // useEffect: efectos para pre-cargar datos de cita/apartado seleccionado.
 // useRef: referencia mutable para evitar recargas duplicadas.
 import { useState, useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 // useQuery: para cargar listas (citas, servicios, productos, empleados, clientes, ubicaciones).
 // useMutation: para registrar pagos y crear clientes.
 // useQueryClient: para invalidar caché y actualizar listas tras una venta.
@@ -14,7 +15,6 @@ import { QRCodeSVG } from 'qrcode.react';
 // api: cliente HTTP del proyecto (GET/POST/upload).
 import { api } from '@/lib/api';
 // RebookPromptModal: modal de "¿Agendar nueva cita?" al cerrar la venta.
-import { RebookPromptModal } from '@/components/ui/rebook-prompt-modal';
 // useCurrency: hook que devuelve formatCurrency para mostrar precios formateados.
 import { useCurrency } from '@/lib/hooks/use-currency';
 // SearchableSelect: combo con búsqueda para seleccionar clientes/ubicaciones.
@@ -75,6 +75,11 @@ interface PosCheckoutProps {
 // Gestiona todo el flujo de cobro: selección de cita/apartado, carrito,
 // descuentos, propina, método de pago, comprobante y QR de reseña.
 export function PosCheckout({ onComplete, initialAppointmentId, initialReservationId }: PosCheckoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  // Ruta del calendario según el portal: el empleado/freelancer usa
+  // /employee/appointments (que reusa el calendario admin); el dashboard, /calendar.
+  const calendarPath = pathname?.startsWith('/employee') ? '/employee/appointments' : '/calendar';
   // formatCurrency: función que formatea un número como moneda local (p.ej. $1,500.00).
   const { format: formatCurrency } = useCurrency();
   // queryClient: permite invalidar consultas del caché para refrescar datos tras una venta.
@@ -180,9 +185,6 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
 
   // reviewSkipped: true si el cajero pulsó "Saltar reseña" en el comprobante.
   const [reviewSkipped, setReviewSkipped] = useState(false);
-  // Modal "¿Agendar nueva cita?" al cerrar la venta. Solo aparece si la
-  // venta tuvo cliente conocido (cita pre-cargada o cliente seleccionado).
-  const [showRebook, setShowRebook] = useState(false);
   // ── Rediseño 2 paneles ──
   // catalogTab: qué muestra el panel izquierdo (catálogo): servicios o productos.
   const [catalogTab, setCatalogTab] = useState<'services' | 'products'>('services');
@@ -1571,28 +1573,35 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
               </>
             )}
 
+            {/* Agendar otra cita (recurrente): mismo servicio + mismo empleado,
+                nueva fecha. Solo si hubo cliente conocido y al menos un servicio.
+                Abre el wizard del calendario ya en el paso de fecha. */}
+            {!isTransfer && selectedClientId && serviceItems.length > 0 && (
+              <button
+                onClick={() => {
+                  const svcIds = Array.from(new Set(serviceItems.map((i) => i.id))).join(',');
+                  const empId = serviceItems.find((i) => i.employeeId)?.employeeId || '';
+                  const q = new URLSearchParams({ new: '1', clientId: selectedClientId });
+                  if (svcIds) q.set('serviceIds', svcIds);
+                  if (empId) q.set('employeeId', empId);
+                  router.push(`${calendarPath}?${q.toString()}`);
+                }}
+                className="w-full py-3 rounded-xl text-sm font-semibold border-2 border-[#008080] text-[#008080] hover:bg-[#eff6f4] transition-colors"
+              >
+                Agendar otra cita
+              </button>
+            )}
+
             <button
-              onClick={() => {
-                // Si hubo cliente conocido en la venta, ofrecemos reagendar.
-                // El modal se encarga de redirigir o cerrar.
-                if (selectedClientId) setShowRebook(true);
-                else resetCheckout();
-              }}
+              onClick={resetCheckout}
               disabled={isTransfer && pendingPaymentId != null && !transferProofPreview}
               className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#008080' }}
             >
-              {isTransfer ? 'Confirmar pago' : 'Nueva venta'}
+              {isTransfer ? 'Confirmar pago' : 'Finalizar'}
             </button>
           </div>
         </div>
-
-        <RebookPromptModal
-          show={showRebook}
-          clientId={selectedClientId}
-          clientFirstName={clientForReceipt?.firstName || 'el cliente'}
-          onDismiss={() => { setShowRebook(false); resetCheckout(); }}
-        />
       </div>
     );
   }

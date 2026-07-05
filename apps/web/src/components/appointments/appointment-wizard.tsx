@@ -50,6 +50,7 @@ interface AppointmentWizardProps {
   initialTime?: string;      // HH:mm — hora pre-seleccionada
   initialEmployeeId?: string;// Si viene, saltamos el step de profesional
   initialClientId?: string;  // Si viene, saltamos el step de cliente (rebook)
+  initialServiceIds?: string[]; // Si vienen, pre-seleccionamos los mismos servicios (rebook desde POS)
 }
 
 // Interfaz para el objeto Cliente que devuelve el backend.
@@ -95,6 +96,7 @@ export function AppointmentWizard({
   initialTime,
   initialEmployeeId,
   initialClientId,
+  initialServiceIds,
 }: AppointmentWizardProps) {
   // useQueryClient: acceso al caché global de React Query para invalidar queries.
   const queryClient = useQueryClient();
@@ -105,11 +107,16 @@ export function AppointmentWizard({
   // useState<WizardStep>(valor_inicial): crea una variable reactiva del tipo WizardStep.
   // Si viene un cliente preseleccionado (rebook tras cerrar cita), saltamos
   // el step 'client' al step de servicios para ahorrar un paso.
-  const [step, setStep] = useState<WizardStep>(initialClientId ? 'service' : 'client');
+  // Al reagendar el MISMO servicio desde el POS vienen cliente + servicios +
+  // empleado: saltamos directo a fecha/hora (solo falta elegir la nueva fecha).
+  const rebookPrefilled = !!(initialClientId && initialServiceIds?.length && initialEmployeeId);
+  const [step, setStep] = useState<WizardStep>(
+    rebookPrefilled ? 'datetime' : initialClientId ? 'service' : 'client',
+  );
   // selectedClientId: el ID del cliente elegido. Si vino initialClientId, lo usamos.
   const [selectedClientId, setSelectedClientId] = useState(initialClientId || '');
   // selectedServiceIds: array de IDs de servicios elegidos (puede ser más de uno).
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(initialServiceIds || []);
   // selectedEmployeeId: ID del profesional elegido (vacío si es "cualquier disponible").
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialEmployeeId || '');
   // anyEmployee: true si el usuario eligió "Cualquier profesional disponible".

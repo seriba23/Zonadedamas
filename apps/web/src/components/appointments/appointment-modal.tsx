@@ -206,6 +206,7 @@ interface AppointmentModalProps {
   initialStartTime?: string;    // Hora inicial pre-seleccionada (desde el click en el calendario)
   initialClientId?: string;     // Cliente pre-seleccionado (ej. al reagendar desde el perfil del cliente)
   initialEmployeeId?: string;   // Empleado pre-seleccionado
+  initialServiceIds?: string[]; // Servicios pre-seleccionados (ej. al reagendar el mismo servicio desde el POS)
   onClose: () => void;          // Función que llama el padre cuando se cierra el modal
   onSave: () => void;           // Función que llama el padre cuando se guarda exitosamente
   onCreateAnother?: (clientId: string, employeeId: string) => void; // Para encadenar "Crear otra cita"
@@ -223,6 +224,7 @@ export function AppointmentModal({
   initialStartTime,
   initialClientId,
   initialEmployeeId,
+  initialServiceIds,
   onClose,
   onSave,
   onCreateAnother,
@@ -242,7 +244,7 @@ export function AppointmentModal({
   // Cuando se llama la función de cambio, React re-renderiza el componente.
 
   // Lista de IDs de los servicios que el usuario marcó con checkbox.
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(initialServiceIds || []);
 
   // Hook de moneda: format("$1234.56") según la configuración del tenant.
   const { format: formatCurrency } = useCurrency();
