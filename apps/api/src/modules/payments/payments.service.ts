@@ -335,8 +335,9 @@ export class PaymentsService {
         take: perPage,   // tomar como máximo perPage registros
         orderBy: { createdAt: 'desc' }, // más recientes primero ('desc' = descendente)
         include: {
-          // Del cliente traemos solo id y nombre (lo justo para mostrar la lista).
-          client: { select: { id: true, firstName: true, lastName: true } },
+          // Del cliente traemos id, nombre y avatar (propio o el de su cuenta
+          // vinculada) para mostrar su foto en la lista.
+          client: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, user: { select: { avatarUrl: true } } } },
           // items = los renglones del pago.
           items: true,
         },
@@ -360,7 +361,8 @@ export class PaymentsService {
     const payment = await this.prisma.payment.findFirst({
       where: { id, tenantId },
       include: {
-        client: true, // todos los datos del cliente (es el detalle, sí interesa)
+        // Todos los datos del cliente + el avatar de su cuenta vinculada.
+        client: { include: { user: { select: { avatarUrl: true } } } },
         appointment: {
           // De la cita ligada traemos solo lo útil para mostrar el contexto.
           select: { id: true, startTime: true, endTime: true, status: true },

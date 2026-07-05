@@ -14,6 +14,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 import { formatBookingTime, formatBookingDay, formatBookingMonthShort } from '@/lib/booking-time';
 // DetailSheet: panel lateral deslizante para mostrar el detalle de una venta.
 import { DetailSheet } from '@/components/ui/detail-sheet';
+import { Avatar } from '@/components/ui/avatar';
 // SalesBreakdownGrid: grid de desglose de ventas (servicios + paquetes + productos).
 import { SalesBreakdownGrid } from '@/components/dashboard/sales-breakdown-grid';
 
@@ -46,7 +47,7 @@ interface Payment {
   id: string;
   appointmentId: string | null;
   clientId: string | null;
-  client: { id: string; firstName: string; lastName: string } | null;
+  client: { id: string; firstName: string; lastName: string; avatarUrl?: string | null; user?: { avatarUrl?: string | null } | null } | null;
   items: PaymentItem[];
   // En Prisma el subtotal vive en `amount` (no `subtotalAmount`). Mantener
   // los nombres del backend para evitar NaN al castear.
@@ -510,10 +511,15 @@ function PaymentCard({ payment, onClick, formatCurrency }: { payment: Payment; o
           <p className="text-xs font-semibold text-gray-700 tabular-nums mt-1.5 leading-none">{time}</p>
         </div>
 
-        {/* Col 2: avatar cliente */}
-        <div className="row-span-2 self-center w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden ring-2 ring-white shadow" style={{ backgroundColor: '#008080' }}>
-          <span>{initials}</span>
-        </div>
+        {/* Col 2: avatar cliente — muestra su foto (propia o de su cuenta
+            vinculada) si existe; si no, sus iniciales. */}
+        <Avatar
+          avatarUrl={payment.client?.avatarUrl || payment.client?.user?.avatarUrl || null}
+          firstName={payment.client?.firstName}
+          lastName={payment.client?.lastName}
+          className="row-span-2 self-center w-10 h-10 ring-2 ring-white shadow"
+          textClassName="text-xs"
+        />
 
         {/* Col 3 row 1: cliente */}
         <p className="text-sm font-bold text-gray-900 truncate min-w-0">{clientName}</p>
