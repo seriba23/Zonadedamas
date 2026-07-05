@@ -183,6 +183,11 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   // Modal "¿Agendar nueva cita?" al cerrar la venta. Solo aparece si la
   // venta tuvo cliente conocido (cita pre-cargada o cliente seleccionado).
   const [showRebook, setShowRebook] = useState(false);
+  // ── Rediseño 2 paneles ──
+  // catalogTab: qué muestra el panel izquierdo (catálogo): servicios o productos.
+  const [catalogTab, setCatalogTab] = useState<'services' | 'products'>('services');
+  // mobileTicketOpen: en móvil, abre el ticket (panel derecho) como hoja completa.
+  const [mobileTicketOpen, setMobileTicketOpen] = useState(false);
 
   // ── Consultas al backend (useQuery) ──────────────────────────────────────
   // today: fecha de hoy en formato 'YYYY-MM-DD' para el filtro de citas.
@@ -1209,345 +1214,115 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
   }
 
   // ─── STEP 1: Services ───
-  if (step === 'services') {
+  // ═══ REDISEÑO 2 PANELES ═══════════════════════════════════════════════════
+  // Fusiona el armado del ticket (servicios + productos + detalles) en una sola
+  // vista de 2 paneles: catálogo (izq) + ticket (der). Reusa TODA la lógica y los
+  // handlers existentes; la lógica de pago/recibo no se toca. Intercepta los pasos
+  // 'services'/'products'/'details' (los bloques viejos de abajo quedan inactivos).
+  if (step === 'services' || step === 'products' || step === 'details') {
     const grouped: Record<string, any[]> = {};
-    filteredServices.forEach((s: any) => { const c = s.subcategory || s.category || 'General'; (grouped[c] = grouped[c] || []).push(s); });
-    const noItemsYet = items.length === 0;
-    return (
-      <div className="flex flex-col h-full">
-        <div className="border-b border-gray-200 px-4 py-3 bg-white flex items-center gap-2">
-          <button onClick={() => { if (returnToDetails) { setReturnToDetails(false); setStep('details'); } else { setStep('start'); } }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-          </button>
-          <h3 className="text-sm font-semibold text-gray-900 flex-1">Servicios</h3>
-        </div>
-        {renderStepProgress('services')}
-        {renderSearchRow('Buscar servicio...')}
-        <div className="flex-1 overflow-y-auto p-4">
-          {/* CTA claro para venta solo de productos: si el cajero no
-              tiene ningún servicio en el carrito y solo va a vender
-              productos, este botón le ahorra el paso. */}
-          {noItemsYet && (
-            <button
-              onClick={() => setStep('products')}
-              className="w-full mb-4 flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#008080] hover:bg-teal-50 transition-colors text-left group"
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-gray-100 group-hover:bg-white flex items-center justify-center flex-shrink-0 transition-colors">
-                  <svg className="w-5 h-5 text-gray-500 group-hover:text-[#008080]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">¿Solo productos?</p>
-                  <p className="text-xs text-gray-500">Salta los servicios y pasa directo a vender productos</p>
-                </div>
-              </div>
-              <svg className="w-5 h-5 text-gray-400 group-hover:text-[#008080] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          )}
-          {renderGridSection('Servicios', grouped, 'service')}
-        </div>
-        {renderEmployeePicker()}
-        {returnToDetails ? renderBottomBar('details', 'Volver al pedido') : renderBottomBar('products')}
-      </div>
-    );
-  }
-
-  // ─── STEP 2: Products ───
-  if (step === 'products') {
-    const grouped: Record<string, any[]> = {};
-    filteredProducts.forEach((p: any) => { const c = p.category || 'General'; (grouped[c] = grouped[c] || []).push(p); });
-    return (
-      <div className="flex flex-col h-full">
-        <div className="border-b border-gray-200 px-4 py-3 bg-white flex items-center gap-2">
-          <button onClick={() => { setReturnToDetails(false); setStep('services'); }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-          </button>
-          <h3 className="text-sm font-semibold text-gray-900 flex-1">Productos</h3>
-          <button onClick={() => setStep('details')} className="text-xs text-gray-400 hover:text-gray-600">Saltar</button>
-        </div>
-        {renderStepProgress('products')}
-        {renderSearchRow('Buscar producto...')}
-        <div className="flex-1 overflow-y-auto p-4">
-          {Object.keys(grouped).length > 0 ? renderGridSection('Productos', grouped, 'product') : (
-            <p className="text-center text-sm text-gray-400 py-12">No hay productos disponibles</p>
-          )}
-        </div>
-        {renderProductDetail()}
-        {renderBottomBar('details')}
-      </div>
-    );
-  }
-
-  // ─── STEP 3: Details ───
-  if (step === 'details') {
-    // Clientes en orden alfabético (acentos respetados via locale 'es')
+    const catList: any[] = catalogTab === 'services' ? filteredServices : filteredProducts;
+    catList.forEach((it: any) => {
+      const c = catalogTab === 'services' ? (it.subcategory || it.category || 'General') : (it.category || 'General');
+      (grouped[c] = grouped[c] || []).push(it);
+    });
     const clientOptions = clients
       .slice()
-      .sort((a: any, b: any) =>
-        `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es'),
-      )
-      .map((c: any) => ({
-        id: c.id,
-        label: `${c.firstName} ${c.lastName}`,
-        sublabel: c.phone || c.email,
-        initials: `${c.firstName[0]}${c.lastName[0]}`,
-        avatarUrl: c.avatarUrl || null,
-        color: '#008080',
-      }));
+      .sort((a: any, b: any) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es'))
+      .map((c: any) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.phone || c.email, initials: `${c.firstName[0]}${c.lastName[0]}`, avatarUrl: c.avatarUrl || null, color: '#008080' }));
+
+    const softBorder = 'var(--soft-border)';
+    const ticketContent = (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {items.length === 0 ? (
+            <div className="text-center py-12 text-[13px] text-[#7c8d89]">Agrega servicios o productos del catálogo.</div>
+          ) : (
+            <>
+              {serviceItems.map((item) => {
+                const emp: any = item.employeeId ? employees.find((e: any) => e.id === item.employeeId) : null;
+                return (
+                  <div key={item.id} className="rounded-[16px] border overflow-hidden" style={{ borderColor: softBorder }}>
+                    <div className="flex items-center gap-2 p-2.5">
+                      <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-[#0f1e1c] truncate">{item.name}</p><p className="text-[11px] text-[#7c8d89]">{formatCurrency(item.price)} c/u</p></div>
+                      <div className="flex items-center gap-1"><button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 rounded-full border flex items-center justify-center text-[#5b6e6a]" style={{ borderColor: softBorder }}>−</button><span className="text-[13px] font-bold w-5 text-center">{item.quantity}</span><button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 rounded-full border flex items-center justify-center text-[#5b6e6a]" style={{ borderColor: softBorder }}>+</button></div>
+                      <span className="text-[13px] font-bold text-[#0f1e1c] w-16 text-right">{formatCurrency(item.price * item.quantity)}</span>
+                    </div>
+                    <button onClick={() => setEmployeePickerFor(item.id)} className="w-full flex items-center gap-2 px-2.5 py-2 border-t text-left" style={{ borderColor: softBorder, backgroundColor: 'var(--soft-tint)' }}>
+                      {emp ? (<><div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white overflow-hidden flex-shrink-0" style={{ backgroundColor: emp.color || '#008080' }}>{emp.avatarUrl ? <img src={`${API_URL}${emp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{emp.firstName[0]}{emp.lastName[0]}</>}</div><span className="text-[11px] font-semibold text-[#0f1e1c] flex-1 truncate">{emp.firstName} {emp.lastName}</span><span className="text-[10px] text-[#008080] font-bold">Cambiar</span></>) : (<><div className="w-6 h-6 rounded-full bg-red-50 border border-red-200 flex items-center justify-center flex-shrink-0"><svg className="w-3 h-3" style={{ color: '#c14242' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg></div><span className="text-[11px] font-bold flex-1" style={{ color: '#c14242' }}>Asignar empleado</span></>)}
+                    </button>
+                  </div>
+                );
+              })}
+              {productItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 p-2.5 rounded-[16px] border" style={{ borderColor: softBorder }}>
+                  {item.imageUrl && <img src={`${API_URL}${item.imageUrl}`} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />}
+                  <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-[#0f1e1c] truncate">{item.name}</p><p className="text-[11px] text-[#7c8d89]">{formatCurrency(item.price)} c/u</p></div>
+                  <div className="flex items-center gap-1"><button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 rounded-full border flex items-center justify-center text-[#5b6e6a]" style={{ borderColor: softBorder }}>−</button><span className="text-[13px] font-bold w-5 text-center">{item.quantity}</span><button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 rounded-full border flex items-center justify-center text-[#5b6e6a]" style={{ borderColor: softBorder }}>+</button></div>
+                  <span className="text-[13px] font-bold text-[#0f1e1c] w-16 text-right">{formatCurrency(item.price * item.quantity)}</span>
+                </div>
+              ))}
+              <div><label className="label-caps block mb-1">Cliente</label><SearchableSelect value={selectedClientId} onChange={(id) => { setSelectedClientId(id); const c: any = clients.find((x: any) => x.id === id); setPhone(c?.phone ? String(c.phone).replace(/\D/g, '').slice(-10) : ''); }} options={clientOptions} placeholder="Buscar cliente..." allLabel="Seleccionar cliente" /><button onClick={() => setShowNewClient(true)} className="text-[11px] text-[#008080] hover:underline mt-1.5">+ Registrar nuevo cliente</button></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="label-caps block mb-1">Descuento</label><div className="flex gap-1"><input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} min="0" className="input-field flex-1" placeholder="0" /><div className="flex rounded-lg border overflow-hidden" style={{ borderColor: softBorder }}><button onClick={() => setDiscountType('amount')} className={`px-2 text-sm ${discountType === 'amount' ? 'bg-[#008080] text-white' : 'text-[#5b6e6a]'}`}>$</button><button onClick={() => setDiscountType('percent')} className={`px-2 text-sm border-l ${discountType === 'percent' ? 'bg-[#008080] text-white' : 'text-[#5b6e6a]'}`} style={{ borderColor: softBorder }}>%</button></div></div></div>
+                <div><label className="label-caps block mb-1">Propina</label><div className="flex gap-1">{[5, 10, 15].map((pct) => (<button key={pct} onClick={() => { setTipPercent(tipPercent === pct ? null : pct); setTipManual(''); }} className={`flex-1 py-2 rounded-lg text-xs font-bold ${tipPercent === pct ? 'bg-[#008080] text-white' : 'bg-[#eff6f4] text-[#5b6e6a]'}`}>{pct}%</button>))}</div></div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="border-t p-4" style={{ borderColor: softBorder }}>
+          <div className="space-y-1.5 mb-3 text-[13px]">
+            <div className="flex justify-between"><span className="text-[#7c8d89]">Subtotal</span><span className="font-semibold text-[#0f1e1c]">{formatCurrency(subtotal)}</span></div>
+            {discountAmount > 0 && <div className="flex justify-between"><span className="text-[#7c8d89]">Descuento</span><span className="font-semibold" style={{ color: '#0a7d54' }}>−{formatCurrency(discountAmount)}</span></div>}
+            {appointmentDeposit > 0 && <div className="flex justify-between"><span className="text-[#7c8d89]">Anticipo pagado</span><span className="font-semibold" style={{ color: '#0a7d54' }}>−{formatCurrency(appointmentDeposit)}</span></div>}
+            {tipAmount > 0 && <div className="flex justify-between"><span className="text-[#7c8d89]">Propina</span><span className="font-semibold text-[#0f1e1c]">{formatCurrency(tipAmount)}</span></div>}
+          </div>
+          <div className="flex items-end justify-between mb-3"><span className="label-caps">Total</span><span className="text-[26px] font-extrabold tracking-[-0.02em] text-[#0f1e1c]">{formatCurrency(total)}</span></div>
+          <button onClick={() => setStep('pay')} disabled={items.length === 0} className="w-full py-3 rounded-full text-[14px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>Cobrar {formatCurrency(total)}</button>
+        </div>
+      </div>
+    );
 
     return (
-      <div className="flex flex-col h-full">
-        <div className="border-b border-gray-200 px-4 py-3 bg-white flex items-center gap-2">
-          <button onClick={() => setStep(selectedAppointmentId ? 'start' : 'products')} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-          </button>
-          <h3 className="text-sm font-semibold text-gray-900 flex-1">Detalles del pedido</h3>
-        </div>
-        {renderStepProgress('details')}
-
-        <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-xl mx-auto space-y-4">
-          {/* Services — cada servicio con su empleado en una row separada para
-              poder reasignar individualmente */}
-          {serviceItems.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Servicios</p>
-              <div className="space-y-2">
-                {serviceItems.map((item) => {
-                  const assignedEmp = item.employeeId ? employees.find((e: any) => e.id === item.employeeId) : null;
-                  return (
-                    <div key={item.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      {/* Row 1: servicio */}
-                      <div className="flex items-center gap-3 p-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                          <p className="text-xs text-gray-400">{formatCurrency(item.price)} c/u</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-gray-600">-</button>
-                          <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-gray-600">+</button>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900 w-20 text-right">{formatCurrency(item.price * item.quantity)}</span>
-                      </div>
-                      {/* Row 2: empleado — avatar+nombre, click para reasignar */}
-                      <button
-                        onClick={() => setEmployeePickerFor(item.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 border-t border-gray-100 text-left hover:bg-gray-100 transition-colors"
-                      >
-                        {assignedEmp ? (
-                          <>
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: assignedEmp.color || '#008080' }}>
-                              {assignedEmp.avatarUrl ? <img src={`${API_URL}${assignedEmp.avatarUrl}`} alt="" className="w-full h-full object-cover" /> : <>{assignedEmp.firstName[0]}{assignedEmp.lastName[0]}</>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] text-gray-400">Atiende</p>
-                              <p className="text-xs font-medium text-gray-900 truncate">{assignedEmp.firstName} {assignedEmp.lastName}</p>
-                            </div>
-                            <span className="text-[10px] text-[#008080] font-medium whitespace-nowrap">Cambiar</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-7 h-7 rounded-full bg-red-50 border border-red-200 flex items-center justify-center flex-shrink-0">
-                              <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                              </svg>
-                            </div>
-                            <p className="text-xs font-medium text-red-600 flex-1">Asignar empleado</p>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => { setReturnToDetails(true); setSearch(''); setStep('services'); }}
-                className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-sm font-medium text-[#008080] hover:border-[#008080] hover:bg-teal-50 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Añadir servicio
-              </button>
-            </div>
-          )}
-
-          {/* Products */}
-          {productItems.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Productos</p>
-              <div className="space-y-2">
-                {productItems.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-200">
-                    {item.imageUrl && <img src={`${API_URL}${item.imageUrl}`} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                      <p className="text-xs text-gray-400">{formatCurrency(item.price)} c/u</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-gray-600">-</button>
-                      <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-gray-600">+</button>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900 w-20 text-right">{formatCurrency(item.price * item.quantity)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Client */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
-            <SearchableSelect
-              value={selectedClientId}
-              onChange={(id) => {
-                setSelectedClientId(id);
-                // Prerrelleno SIEMPRE con el teléfono del cliente registrado
-                // (10 últimos dígitos, sin prefijos). Si el cajero quiere otro
-                // número, puede editarlo manualmente después.
-                const c = clients.find((x: any) => x.id === id);
-                if (c?.phone) {
-                  const cleaned = String(c.phone).replace(/\D/g, '').slice(-10);
-                  setPhone(cleaned);
-                } else {
-                  setPhone('');
-                }
-              }}
-              options={clientOptions}
-              placeholder="Buscar cliente..."
-              allLabel="Seleccionar cliente"
-            />
-            <button onClick={() => setShowNewClient(true)} className="text-xs text-[#008080] hover:underline mt-2">+ Registrar nuevo cliente</button>
-          </div>
-
-          {/* Location */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ubicación *</label>
-            <select value={selectedLocationId} onChange={(e) => setSelectedLocationId(e.target.value)} className="input-field">
-              <option value="">Seleccionar...</option>
-              {locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-
-          {/* Discount */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Descuento</label>
-
-            {/* Cupón heredado de la cita: mini-ticket con el mismo estilo
-                que el catalogo/historial (stub coloreado + contenido).
-                El cajero puede quitarlo si no aplica; al quitar el campo
-                discount se resetea. */}
-            {appointmentCoupon && (
-              <div className="mb-2 relative bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm flex" style={{ minHeight: 56 }}>
-                <div
-                  className="w-16 flex-shrink-0 flex flex-col items-center justify-center relative"
-                  style={{ backgroundColor: '#008080' }}
-                >
-                  <span className="text-white font-black text-sm leading-tight">-{formatCurrency(appointmentCoupon.amount)}</span>
-                  <span className="text-white/70 text-[9px] uppercase tracking-wider">cupón</span>
-                  <div className="absolute -right-2 -top-2 w-4 h-4 rounded-full bg-white" />
-                  <div className="absolute -right-2 -bottom-2 w-4 h-4 rounded-full bg-white" />
-                </div>
-                <div className="flex flex-col items-center justify-center w-3 flex-shrink-0 gap-[2px] py-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="w-[2px] h-[2px] rounded-full bg-gray-300" />
-                  ))}
-                </div>
-                <div className="flex-1 py-2 pr-2 flex items-center justify-between gap-2 min-w-0">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-900 truncate">{appointmentCoupon.label}</p>
-                    {appointmentCoupon.code && (
-                      <p className="font-mono text-[10px] font-semibold text-gray-500 mt-0.5">{appointmentCoupon.code}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => { setAppointmentCoupon(null); setDiscount('0'); }}
-                    className="flex-shrink-0 text-[10px] font-semibold text-red-600 hover:text-red-700 hover:underline px-2"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} min="0" className="input-field flex-1" placeholder="0" />
-              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-                <button onClick={() => setDiscountType('amount')} className={`px-3 py-2 text-sm ${discountType === 'amount' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700'}`}>$</button>
-                <button onClick={() => setDiscountType('percent')} className={`px-3 py-2 text-sm border-l border-gray-300 ${discountType === 'percent' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700'}`}>%</button>
-              </div>
-            </div>
-            {appointmentCoupon && (
-              <p className="text-[10px] text-gray-400 mt-1.5">
-                El cupón ya está aplicado en este campo. Súmale más si vas a otorgar descuento adicional.
-              </p>
-            )}
-          </div>
-
-          {/* Tip */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-xs font-medium text-gray-600 mb-2">Propina</label>
-            <div className="flex gap-2 mb-2">
-              {[5, 10, 15].map((pct) => (
-                <button key={pct} onClick={() => { setTipPercent(tipPercent === pct ? null : pct); setTipManual(''); }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tipPercent === pct ? 'bg-[#008080] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  {pct}%
-                </button>
-              ))}
-              <button onClick={() => { setTipPercent(null); }}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tipPercent === null && tipManual ? 'bg-[#008080] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                Otro
-              </button>
-            </div>
-            {tipPercent === null && (
-              <input type="number" value={tipManual} onChange={(e) => setTipManual(e.target.value)} min="0" className="input-field" placeholder="Monto de propina" />
-            )}
-            {tipAmount > 0 && <p className="text-xs text-gray-400 mt-1">Propina: {formatCurrency(tipAmount)}</p>}
-          </div>
-
-          {/* Phone — solo 10 dígitos para enviar el recibo por WhatsApp */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono para recibo (WhatsApp)</label>
-            <div className="flex items-stretch gap-0 border border-gray-200 rounded-lg overflow-hidden focus-within:border-[#008080] focus-within:ring-1 focus-within:ring-[#008080]">
-              <span className="inline-flex items-center px-3 bg-gray-50 text-sm font-medium text-gray-500 border-r border-gray-200">+52</span>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                className="flex-1 px-3 py-2 text-sm focus:outline-none"
-                placeholder="10 dígitos"
-                maxLength={10}
-              />
-            </div>
-            <p className="text-[10px] text-gray-400 mt-1">
-              Recibirá los detalles del pedido por WhatsApp para mayor confianza.
-              {phone.length > 0 && phone.length < 10 && <span className="text-red-500 ml-1">Faltan {10 - phone.length} dígitos.</span>}
-            </p>
-          </div>
-
-          {/* Summary */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-              {discountAmount > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Descuento</span><span className="font-medium text-green-600">-{formatCurrency(discountAmount)}</span></div>}
-              {appointmentDeposit > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Anticipo pagado</span><span className="font-medium text-green-600">-{formatCurrency(appointmentDeposit)}</span></div>}
-              {tipAmount > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Propina</span><span className="font-medium">{formatCurrency(tipAmount)}</span></div>}
-              <div className="flex justify-between pt-2 border-t border-gray-200"><span className="font-bold text-gray-900">Total</span><span className="font-bold text-xl text-[#008080]">{formatCurrency(total)}</span></div>
-            </div>
+      <div className="flex flex-col h-full" style={{ backgroundColor: '#f5f8f7' }}>
+        {/* Barra: volver + buscador + toggle Servicios/Productos */}
+        <div className="border-b px-4 py-3" style={{ backgroundColor: 'var(--soft-card)', borderColor: softBorder }}>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setStep('start')} className="p-1.5 rounded-lg hover:bg-[#eff6f4] text-[#5b6e6a] flex-shrink-0"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg></button>
+            <div className="relative flex-1 min-w-0"><svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9db5af]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar servicio o producto…" className="w-full text-sm rounded-full pl-9 pr-3 py-2 border bg-white focus:border-[#008080] focus:ring-1 focus:ring-[#008080]" style={{ borderColor: softBorder }} /></div>
+            <div className="inline-flex p-1 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--soft-tint)' }}>{(['services', 'products'] as const).map((t) => (<button key={t} onClick={() => setCatalogTab(t)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catalogTab === t ? 'text-white' : 'text-[#5b6e6a]'}`} style={catalogTab === t ? { backgroundColor: '#008080' } : {}}>{t === 'services' ? 'Servicios' : 'Productos'}</button>))}</div>
           </div>
         </div>
+
+        {/* 2 paneles */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <div className="flex-1 min-w-0 overflow-y-auto p-4">
+            {Object.keys(grouped).length > 0
+              ? renderGridSection(catalogTab === 'services' ? 'Servicios' : 'Productos', grouped, catalogTab === 'services' ? 'service' : 'product')
+              : <p className="text-center text-sm text-[#7c8d89] py-12">Sin resultados</p>}
+          </div>
+          <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col border-l min-h-0 overflow-hidden" style={{ borderColor: softBorder, backgroundColor: 'var(--soft-card)' }}>
+            <div className="px-4 py-3 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: softBorder }}><h3 className="text-[15px] font-extrabold text-[#0f1e1c]">Ticket</h3><span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--soft-tint)', color: '#5b6e6a' }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</span></div>
+            {ticketContent}
+          </div>
         </div>
+
+        {/* Barra inferior móvil */}
+        <div className="lg:hidden border-t p-3 flex items-center gap-3 flex-shrink-0" style={{ borderColor: softBorder, backgroundColor: 'var(--soft-card)' }}>
+          <div className="flex-1"><p className="text-[11px] text-[#7c8d89]">{totalItems} item{totalItems !== 1 ? 's' : ''}</p><p className="text-[18px] font-extrabold text-[#0f1e1c]">{formatCurrency(total)}</p></div>
+          <button onClick={() => setMobileTicketOpen(true)} disabled={items.length === 0} className="px-5 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>Ver ticket y cobrar</button>
+        </div>
+
+        {/* Hoja del ticket en móvil */}
+        {mobileTicketOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--soft-card)' }}>
+            <div className="px-4 py-3 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: softBorder }}><h3 className="text-[16px] font-extrabold text-[#0f1e1c]">Ticket</h3><button onClick={() => setMobileTicketOpen(false)} className="p-1.5 rounded-lg hover:bg-[#eff6f4] text-[#5b6e6a]"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div>
+            <div className="flex-1 min-h-0">{ticketContent}</div>
+          </div>
+        )}
 
         {renderEmployeePicker()}
-
-        {/* New client modal */}
+        {renderProductDetail()}
         {showNewClient && (
           <Modal title="Registrar Cliente" onClose={() => setShowNewClient(false)}>
             <div className="space-y-3">
@@ -1559,23 +1334,11 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
               <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={newClient.phone} onChange={(e) => setNewClient((c) => ({ ...c, phone: e.target.value }))} className="input-field" /></div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowNewClient(false)} className="btn-secondary flex-1">Cancelar</button>
-                <button onClick={() => { if (!newClient.firstName || !newClient.lastName) return; createClientMutation.mutate(newClient); }}
-                  disabled={createClientMutation.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
-                  {createClientMutation.isPending ? 'Guardando...' : 'Registrar'}
-                </button>
+                <button onClick={() => { if (!newClient.firstName || !newClient.lastName) return; createClientMutation.mutate(newClient); }} disabled={createClientMutation.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>{createClientMutation.isPending ? 'Guardando...' : 'Registrar'}</button>
               </div>
             </div>
           </Modal>
         )}
-
-        <div className="border-t border-gray-200 bg-white px-6 py-3">
-          <div className="max-w-xl mx-auto">
-            <button onClick={() => setStep('pay')} disabled={items.length === 0}
-              className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>
-              Continuar al pago
-            </button>
-          </div>
-        </div>
       </div>
     );
   }
