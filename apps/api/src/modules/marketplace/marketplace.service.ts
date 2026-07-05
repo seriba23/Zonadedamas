@@ -2147,12 +2147,21 @@ export class MarketplaceService {
     // Rating combinado del empleado: incluye TenantReview del negocio.
     const combinedEmpRating = await this.getCombinedEmployeeRating(employeeId, tenant.id);
 
+    // Horario de atención del negocio. Para un profesional independiente
+    // (freelancer) es su propio horario de atención; se muestra en su perfil.
+    const businessHours = await this.prisma.businessHours.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { dayOfWeek: 'asc' },
+      select: { dayOfWeek: true, openTime: true, closeTime: true, isOpen: true },
+    });
+
     return {
       data: {
         ...employee,
         businessName: tenant.name,
         tenantSlug: tenant.slug,
         shopEnabled: tenant.shopEnabled, // ¿el profesional tiene tienda activa?
+        businessHours, // horario de atención (para freelancer, es el suyo)
         completedAppointments: completedCount,
         averageRating: combinedEmpRating.avg,
         totalReviews: combinedEmpRating.total,

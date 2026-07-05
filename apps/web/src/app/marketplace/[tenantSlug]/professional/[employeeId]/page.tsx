@@ -86,6 +86,12 @@ interface Professional {
     subcategory?: string | null;
   }[];
   topServices: { serviceName: string; count: number }[]; // Servicios más realizados (para "Especialidad")
+  businessHours?: {         // Horario de atención (para freelancer, es el suyo)
+    dayOfWeek: string;
+    openTime: string;
+    closeTime: string;
+    isOpen: boolean;
+  }[];
   reviews: {                // Reseñas de clientes
     id: string;
     rating: number;           // Calificación de 1 a 5
@@ -95,6 +101,17 @@ interface Professional {
     clientAvatarUrl: string | null; // Foto del cliente (puede no tener)
   }[];
 }
+
+// Etiquetas de los días para el horario de atención (mismo orden que el enum).
+const DAY_LABELS: Record<string, string> = {
+  MONDAY: 'Lunes',
+  TUESDAY: 'Martes',
+  WEDNESDAY: 'Miércoles',
+  THURSDAY: 'Jueves',
+  FRIDAY: 'Viernes',
+  SATURDAY: 'Sábado',
+  SUNDAY: 'Domingo',
+};
 
 // ────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
@@ -455,6 +472,26 @@ export default function ProfessionalProfilePage() {
                 </svg>
               </div>
             </button>
+          )}
+
+          {/* Horario de atención — para un profesional independiente es su
+              propio horario. Mismo formato que el perfil del negocio. */}
+          {pro.businessHours && pro.businessHours.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="text-base font-semibold text-gray-900 mb-3">Horario de atención</h2>
+              <div className="space-y-1.5">
+                {pro.businessHours.map((h) => (
+                  <div key={h.dayOfWeek} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">{DAY_LABELS[h.dayOfWeek] || h.dayOfWeek}</span>
+                    {h.isOpen ? (
+                      <span className="text-gray-900 font-medium">{h.openTime} - {h.closeTime}</span>
+                    ) : (
+                      <span className="text-gray-400">Cerrado</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Servicios que ofrece — listado completo del catálogo del
