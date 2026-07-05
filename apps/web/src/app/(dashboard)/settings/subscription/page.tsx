@@ -366,6 +366,9 @@ export default function SubscriptionPage() {
   const sub: SubscriptionData | null = (subData as any)?.data || null;
   const preview: PreviewData | null = (previewData as any)?.data || null;
   const [stripeUnavailable, setStripeUnavailable] = useState(false);
+  // payToggle: toggle Mensual/Anual de la tarjeta "Forma de pago" (rediseño ACTIVE).
+  // Solo cambia lo que se MUESTRA (preview de anual); el cambio real lo dispara el botón.
+  const [payToggle, setPayToggle] = useState<'monthly' | 'annual'>('monthly');
   const invoices: Invoice[] = (invoicesData as any)?.data || [];
   const allEmployees: any[] = (employeesData as any)?.data || [];
   const activeEmployees = allEmployees.filter((e) => e.isActive);
@@ -522,7 +525,11 @@ export default function SubscriptionPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
+      <div className={isActive ? 'max-w-[1040px] mx-auto' : ''}>
+      <h1 className="text-2xl md:text-[30px] font-extrabold tracking-[-0.02em] text-[#0f1e1c]">Suscripción</h1>
+      {isActive && (
+        <p className="text-[14.5px] text-[#7c8d89] mt-1">Tu plan, tus pagos y cómo crecer con Siliba.</p>
+      )}
 
       {/* ─── Modales ─────────────────────────────── */}
 
@@ -822,7 +829,185 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* ─── Grid 2 columnas ─────────────────────── */}
+      {/* ═══ NUEVO DISEÑO — estado ACTIVE ═══════════════════════════════════
+          Hero unificado (plan + estado + 3 stats + acciones) y grid 2 columnas
+          (incluye del plan + historial | forma de pago + upsell PLUS). */}
+      {isActive && sub && preview && (() => {
+        const isFree = (user as any)?.tenantType === 'FREELANCER';
+        const planName = isFree ? 'PRO' : 'PLUS';
+        const monthly = preview.totalMonthly;
+        const annualYear = monthly * 12 * 0.85;
+        const savings = monthly * 12 * 0.15;
+        const annualEquiv = annualYear / 12;
+        const includes = isFree
+          ? ['Agenda y reservas', 'Punto de venta', 'Servicios e inventario', 'Anticipos y comisiones', 'Reportes de tu actividad', 'Reseñas y perfil público']
+          : ['Agenda y reservas', 'Punto de venta', 'Servicios e inventario', 'Equipo, roles y permisos', 'Control de asistencias', 'Reportes completos', 'Tienda online', 'Reseñas y perfil público'];
+        const Check = ({ cls }: { cls?: string }) => (
+          <svg className={cls || 'w-3 h-3'} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+        );
+        return (
+          <div className="mt-5">
+            {/* ── HERO ── */}
+            <div className="bg-white rounded-[22px] border border-[#e6efec] p-6" style={{ boxShadow: '0 18px 40px -30px rgba(15,40,36,.25)' }}>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-[46px] h-[46px] rounded-[13px] flex items-center justify-center text-white flex-shrink-0" style={{ backgroundColor: TEAL }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" /></svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Tu plan</p>
+                    <p className="text-[24px] font-extrabold tracking-[-0.02em] text-[#0f1e1c] leading-tight">Siliba {planName}</p>
+                    <p className="text-[13px] text-[#7c8d89]">{isFree ? 'Profesional independiente · sin equipo' : `${activeEmployees.length} empleado${activeEmployees.length !== 1 ? 's' : ''} · equipo incluido`}</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12.5px] font-bold flex-shrink-0" style={{ backgroundColor: '#e4f5ee', color: '#0a7d54' }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#12a86e' }} />Activa
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+                <div className="rounded-2xl px-4 py-3.5" style={{ backgroundColor: '#eff6f4' }}>
+                  <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Costo</p>
+                  <p className="text-[26px] font-extrabold tracking-[-0.02em] text-[#0f1e1c] leading-tight mt-0.5">${(isAnnual ? annualEquiv : monthly).toFixed(0)}<span className="text-[13px] font-semibold text-[#7c8d89]"> MXN / mes</span></p>
+                </div>
+                <div className="rounded-2xl px-4 py-3.5" style={{ backgroundColor: '#eff6f4' }}>
+                  <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Próximo cobro</p>
+                  <p className="text-[15px] font-bold text-[#0f1e1c] mt-2">{dayjs(isAnnual ? (sub.annualPeriodEnd || sub.nextBillingDate) : sub.nextBillingDate).format('D MMM YYYY')}</p>
+                </div>
+                <div className="rounded-2xl px-4 py-3.5" style={{ backgroundColor: '#eff6f4' }}>
+                  <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#7c8d89]">Facturación</p>
+                  <p className="text-[15px] font-bold text-[#0f1e1c] mt-2">{isAnnual ? 'Anual' : 'Mensual'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap mt-5 pt-5 border-t border-[#e6efec]">
+                {STRIPE_ENABLED && (
+                  <button onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending} className="px-4 py-2.5 rounded-full text-[13.5px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: TEAL }}>
+                    {setupMutation.isPending ? 'Preparando...' : 'Domiciliar tarjeta'}
+                  </button>
+                )}
+                {STRIPE_ENABLED && isMonthly && !sub.advancePaid && (
+                  <button onClick={() => advanceMutation.mutate()} disabled={advanceMutation.isPending} className="px-4 py-2.5 rounded-full text-[13.5px] font-bold border disabled:opacity-50" style={{ borderColor: TEAL, color: TEAL }}>
+                    {advanceMutation.isPending ? 'Preparando...' : 'Adelantar un mes'}
+                  </button>
+                )}
+                {sub.stripeSubscriptionId && (
+                  <button onClick={() => setModal('cancel-confirm')} className="ml-auto px-2 py-2.5 text-[13.5px] font-bold hover:opacity-80" style={{ color: '#c14242' }}>
+                    Cancelar suscripción
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ── GRID 2 COLUMNAS ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 mt-5">
+              {/* IZQUIERDA */}
+              <div className="space-y-5 min-w-0">
+                {/* incluye */}
+                <div className="bg-white rounded-[22px] border border-[#e6efec] p-6">
+                  <h2 className="text-[17px] font-extrabold text-[#0f1e1c]">Todo lo que incluye tu plan {planName}</h2>
+                  <p className="text-[13px] text-[#7c8d89] mt-0.5">{isFree ? 'Pensado para trabajar por tu cuenta.' : 'Pensado para tu equipo completo.'}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 mt-4">
+                    {includes.map((txt) => (
+                      <div key={txt} className="flex items-center gap-2.5 text-[13.5px] font-semibold text-[#0f1e1c]">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1', color: TEAL }}><Check /></span>
+                        {txt}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* historial */}
+                <div className="bg-white rounded-[22px] border border-[#e6efec] overflow-hidden">
+                  <div className="px-6 py-4 border-b border-[#e6efec]">
+                    <h2 className="text-[16px] font-extrabold text-[#0f1e1c]">Historial de pagos</h2>
+                  </div>
+                  {invoices.length > 0 ? (
+                    <div className="divide-y divide-[#eef3f1]">
+                      {invoices.map((inv) => (
+                        <div key={inv.id} className="px-6 py-3.5 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[13.5px] font-bold text-[#0f1e1c] capitalize">{dayjs(inv.periodStart).format('MMMM YYYY')}</p>
+                            <p className="text-[11px] text-[#7c8d89] truncate">{inv.invoiceNumber}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            {Number(inv.amountUsd) === 0 ? (
+                              <><p className="text-[13.5px] font-bold" style={{ color: TEAL }}>Cortesía</p><span className="text-[11px] font-semibold text-[#7c8d89]">Mes gratis</span></>
+                            ) : (
+                              <><p className="text-[13.5px] font-bold text-[#0f1e1c]">${Number(inv.amountUsd).toFixed(2)} MXN</p><span className={`text-[11px] font-semibold ${inv.status === 'PAID' ? 'text-[#0a7d54]' : 'text-[#c14242]'}`}>{inv.status === 'PAID' ? 'Pagado' : 'Pendiente'}</span></>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-6 py-10 text-center">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#f0f5f4' }}>
+                        <svg className="w-6 h-6 text-[#9db5af]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" /></svg>
+                      </div>
+                      <p className="text-[13.5px] font-bold text-[#0f1e1c]">Aún no tienes cobros</p>
+                      <p className="text-[12px] text-[#7c8d89] mt-1">Tu primer cobro aparecerá aquí el {dayjs(sub.nextBillingDate).format('D [de] MMMM')}.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* DERECHA */}
+              <div className="space-y-5 min-w-0">
+                {/* forma de pago */}
+                <div className="bg-white rounded-[22px] border border-[#e6efec] p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-[16px] font-extrabold text-[#0f1e1c]">Forma de pago</h2>
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: TEAL }}>AHORRA 15%</span>
+                  </div>
+                  <div className="mt-3 p-1 rounded-full flex" style={{ backgroundColor: '#eff6f4' }}>
+                    {(['monthly', 'annual'] as const).map((opt) => (
+                      <button key={opt} type="button" onClick={() => setPayToggle(opt)} className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${payToggle === opt ? 'text-white' : 'text-[#5b6e6a]'}`} style={payToggle === opt ? { backgroundColor: TEAL } : {}}>
+                        {opt === 'monthly' ? 'Mensual' : 'Anual'}
+                      </button>
+                    ))}
+                  </div>
+                  {payToggle === 'monthly' ? (
+                    <div className="mt-4">
+                      <p className="text-[24px] font-extrabold tracking-[-0.02em] text-[#0f1e1c]">${monthly.toFixed(0)}<span className="text-[13px] font-semibold text-[#7c8d89]"> MXN / mes</span></p>
+                      <p className="text-[13px] text-[#7c8d89] mt-1">Cambia a anual y ahorra ${savings.toFixed(0)} al año.</p>
+                      <button type="button" onClick={() => setPayToggle('annual')} className="w-full mt-3 py-2.5 rounded-full text-[13.5px] font-bold border" style={{ borderColor: TEAL, color: TEAL }}>Ver plan anual</button>
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <p className="text-[24px] font-extrabold tracking-[-0.02em] text-[#0f1e1c]">${annualEquiv.toFixed(0)}<span className="text-[13px] font-semibold text-[#7c8d89]"> MXN / mes equiv.</span></p>
+                      <p className="text-[13px] text-[#7c8d89] mt-1">Un solo cargo de ${annualYear.toFixed(0)} MXN/año. Ahorras ${savings.toFixed(0)}.</p>
+                      <button type="button" onClick={() => switchAnnualMutation.mutate()} disabled={switchAnnualMutation.isPending || isAnnual} className="w-full mt-3 py-2.5 rounded-full text-[13.5px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: TEAL }}>
+                        {isAnnual ? 'Ya estás en plan anual' : switchAnnualMutation.isPending ? 'Preparando...' : 'Cambiar a plan anual'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* upsell PLUS (solo freelancer) */}
+                {isFree && (
+                  <div className="rounded-[22px] p-6 text-white" style={{ background: 'linear-gradient(160deg,#0b6b64,#064b47)' }}>
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-white/20 uppercase tracking-wide">Plan PLUS</span>
+                    <h3 className="text-[19px] font-extrabold mt-2.5">¿Tienes equipo?</h3>
+                    <p className="text-[13px] text-white/80 mt-0.5">Suma empleados, roles y control de asistencias.</p>
+                    <div className="space-y-2 mt-3.5">
+                      {['Equipo y roles', 'Control de asistencias', 'Tienda online'].map((t) => (
+                        <div key={t} className="flex items-center gap-2 text-[13.5px] font-semibold"><Check cls="w-3.5 h-3.5" />{t}</div>
+                      ))}
+                    </div>
+                    <p className="text-[22px] font-extrabold mt-4">$500<span className="text-[13px] font-semibold text-white/70"> MXN / mes</span></p>
+                    <button type="button" onClick={() => { if (window.confirm('Vas a cambiar tu cuenta al plan Plus ($500 MXN/mes). El nuevo monto aplica desde el próximo cobro. ¿Continuar?')) upgradeToPlusMutation.mutate(); }} disabled={upgradeToPlusMutation.isPending} className="w-full mt-4 py-2.5 rounded-full text-[13.5px] font-bold disabled:opacity-60" style={{ backgroundColor: '#ffffff', color: '#0b6b64' }}>
+                      {upgradeToPlusMutation.isPending ? 'Procesando…' : 'Mejorar a PLUS'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ─── Grid 2 columnas (estados NO-ACTIVE: trial, pago pendiente, etc.) ─── */}
+      {!isActive && (
       <div className="mt-6 flex flex-col xl:flex-row gap-6 items-start">
 
       {/* ── Columna izquierda (estado + licencias + historial) ── */}
@@ -1351,7 +1536,8 @@ export default function SubscriptionPage() {
       </div>
 
       </div>{/* fin columna derecha */}
-      </div>{/* fin grid */}
+      </div>
+      )}{/* fin grid (no-ACTIVE) */}
 
       {/* Modal: Stripe SaaS no configurado en backend.
           Es un problema operativo del SaaS, no del tenant. Aviso amigable
@@ -1399,6 +1585,7 @@ export default function SubscriptionPage() {
         // suscripción ya activa, levanta el bloqueo por-pagar.
         return <SubscriptionCelebration planLabel={planLabel} onClose={() => window.location.reload()} />;
       })()}
+      </div>{/* fin contenedor max-width */}
     </div>
   );
 }
