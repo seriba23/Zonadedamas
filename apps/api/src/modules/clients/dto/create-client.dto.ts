@@ -20,6 +20,14 @@ import {
   IsNumber,
   Min,
 } from 'class-validator';
+// Transform nos deja normalizar el valor ANTES de validar. Lo usamos para
+// convertir strings vacíos ('') en undefined, así @IsOptional los ignora (un
+// campo vacío en el formulario no debe disparar "email must be an email").
+import { Transform } from 'class-transformer';
+
+// Helper: '' (o solo espacios) → undefined; cualquier otro valor se conserva.
+const emptyToUndefined = ({ value }: { value: any }) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 /**
  * DTO ("Data Transfer Object" = objeto para transportar datos) que describe la
@@ -39,6 +47,7 @@ export class CreateClientDto {
   // email (correo): opcional (@IsOptional). Si viene, debe ser un email válido.
   // El "?" en "email?" marca la propiedad como opcional en TypeScript.
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsEmail()
   email?: string;
 
@@ -50,6 +59,7 @@ export class CreateClientDto {
   // dateOfBirth (fecha de nacimiento): opcional. Si viene, debe ser una fecha
   // en texto (ej. "1990-05-21"). El servicio la convierte luego a objeto Date.
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsDateString()
   dateOfBirth?: string;
 
@@ -97,6 +107,7 @@ export class UpdateClientDto {
   lastName?: string;
 
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsEmail()
   email?: string;
 
@@ -105,6 +116,7 @@ export class UpdateClientDto {
   phone?: string;
 
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsDateString()
   dateOfBirth?: string;
 
