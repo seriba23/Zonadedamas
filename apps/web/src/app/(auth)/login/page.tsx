@@ -499,9 +499,9 @@ function LoginPageInner() {
       if (availableProfiles.includes(profile)) {
         if (profile === 'admin') {
           if (isFreelancer) {
-            // Freelancer tocando "Administrador" -> mostramos comparativa
-            // Pro vs Plus + CTA de upgrade en vez de llevarlo al admin.
-            router.push('/employee/upgrade-to-plus');
+            // Freelancer tocando "Administrador" -> lo llevamos a su Suscripción,
+            // donde vive el upsell a PLUS (la comparativa vieja quedó integrada ahí).
+            router.push('/employee/subscription');
           } else {
             router.push(wantsBusiness ? redirectAfterLogin! : '/home');
           }

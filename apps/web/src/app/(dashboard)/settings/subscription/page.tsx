@@ -1437,7 +1437,7 @@ export default function SubscriptionPage() {
               {upgradeToPlusMutation.isPending ? 'Procesando…' : 'Mejorar a PLUS ahora · $500 MXN/mes'}
             </button>
             <Link
-              href="/employee/upgrade-to-plus"
+              href="/employee/subscription"
               className="block text-center text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
             >
               Ver comparativa completa →
