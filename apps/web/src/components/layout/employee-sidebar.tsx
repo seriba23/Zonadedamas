@@ -230,13 +230,15 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
                     href={item.href}
                     onClick={onClose}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                      // Si está activo: fondo gris claro + texto oscuro. Si no: gris medio.
-                      isActive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                      'group flex items-center gap-[11px] px-3 py-2 rounded-[10px] text-[13.5px] transition-colors',
+                      // Activo: teal sólido + texto blanco. Inactivo: gris verdoso con hover teal.
+                      isActive
+                        ? 'bg-[#008080] text-white font-bold'
+                        : 'text-[#5b6e6a] font-semibold hover:bg-[#eff6f4] hover:text-[#008080]',
                     )}
                   >
-                    {/* Ícono SVG del ítem. Más oscuro si está activo. */}
-                    <NavIcon d={item.icon} className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-gray-700' : 'text-gray-400')} />
+                    {/* Ícono SVG: blanco si activo; hereda el color (gris/teal en hover) si no. */}
+                    <NavIcon d={item.icon} className={cn('w-[18px] h-[18px] flex-shrink-0', isActive ? 'text-white' : 'text-[#5b6e6a] group-hover:text-[#008080]')} />
                     {/* flex-1: el texto ocupa todo el espacio disponible (empuja el badge a la derecha). */}
                     <span className="flex-1">{item.label}</span>
                     {/* Badge de notificaciones: solo aparece si count > 0.
@@ -244,7 +246,7 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
                     {count > 0 && (
                       <span
                         className="min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
-                        style={{ backgroundColor: '#dc2626' }}
+                        style={{ backgroundColor: '#c14242' }}
                       >
                         {count > 99 ? '99+' : count}
                       </span>
@@ -254,30 +256,8 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
               );
             })}
 
-            {/* Botón "Mejora a PLUS": solo visible para tenants freelancer.
-                isFreelancer && (...): si no es freelancer, no se renderiza nada.
-                Aparece separado por una línea (border-t) del resto del menú. */}
-            {/* Item destacado solo para freelancer (plan Pro): lleva a la
-               comparativa Pro vs Plus + CTA de upgrade. */}
-            {isFreelancer && (
-              <li className="mt-3 pt-3 border-t border-gray-200">
-                <Link
-                  href="/employee/upgrade-to-plus"
-                  onClick={onClose}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
-                    'bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100',
-                  )}
-                >
-                  <span className="w-5 h-5 flex-shrink-0">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z" />
-                    </svg>
-                  </span>
-                  <span>Mejora a PLUS</span>
-                </Link>
-              </li>
-            )}
+            {/* La antigua pastilla "Mejora a PLUS" se movió a la pantalla de
+                Suscripción (el upsell vive ahí, no suelto en el menú). */}
 
             {/* Grupo "Administración": secciones admin concedidas al empleado
                 (vía "Convertir en administrador"). Se muestran aquí mismo, dentro

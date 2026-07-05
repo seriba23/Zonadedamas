@@ -67,7 +67,7 @@ const config: Config = {
           700: '#7e22ce',
         },
       },
-      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      fontFamily: { sans: ['var(--font-manrope)', 'Manrope', 'system-ui', 'sans-serif'] },
     },
   },
   plugins: [],

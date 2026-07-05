@@ -142,7 +142,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold text-primary-600">
+          <span className="text-[22px] font-extrabold tracking-[-0.02em] text-[#008080]">
             Siliba
           </span>
           {/* Toggle de tema visible junto al logo en desktop */}
@@ -242,18 +242,18 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-[11px] px-3 py-2 rounded-[10px] text-[13.5px] transition-colors',
                     isActive
-                      ? 'bg-[var(--bg-muted)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
+                      ? 'bg-[#008080] text-white font-bold'
+                      : 'text-[#5b6e6a] font-semibold hover:bg-[#eff6f4] hover:text-[#008080]',
                   )}
                 >
-                  <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
+                  <span className="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center">{item.icon}</span>
                   <span className="flex-1">{item.label}</span>
                   {count > 0 && (
                     <span
                       className="min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
-                      style={{ backgroundColor: '#dc2626' }}
+                      style={{ backgroundColor: '#c14242' }}
                     >
                       {count > 99 ? '99+' : count}
                     </span>

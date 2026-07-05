@@ -44,6 +44,17 @@ import { Providers } from './providers';
 // Modal global ESTÁNDAR de "guardado": se monta una vez y escucha showSaveSuccess().
 import { SaveSuccessProvider } from '@/components/ui/save-success-provider';
 
+// ─── FUENTE GLOBAL: Manrope ────────────────────────────────────────────────────
+// next/font/google descarga y autohospeda la fuente (sin FOUC, sin request a
+// Google en runtime). Exponemos --font-manrope; Tailwind la usa como `font-sans`.
+import { Manrope } from 'next/font/google';
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-manrope',
+  display: 'swap',
+});
+
 // ─── METADATA ────────────────────────────────────────────────────────────────
 // "metadata" es un export especial que Next.js lee automáticamente para
 // inyectar etiquetas <meta> en el <head> de las páginas. No necesitas
@@ -118,7 +129,7 @@ export default function RootLayout({
   return (
     // <html lang="es"> indica que el idioma del documento es español.
     // Esto es importante para lectores de pantalla y para los motores de búsqueda.
-    <html lang="es">
+    <html lang="es" className={manrope.variable}>
       <head>
         {/* ── Script anti-flash de tema oscuro ──────────────────────────────
             PROBLEMA: Si el usuario eligió tema oscuro (guardado en localStorage),
@@ -145,7 +156,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
+      <body className="font-sans">
         {/* Providers envuelve toda la app con los contextos globales.
             Ver providers.tsx para entender qué proveedores se incluyen.
             "{children}" aquí representa el contenido de la ruta actual
