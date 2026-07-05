@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { usePermissions } from '@/lib/hooks/use-permissions';
@@ -25,6 +25,11 @@ function sanitizePhone(raw: string): string {
 
 export default function ClientsPage() {
   const router = useRouter();
+  // clientsBase: la misma página se usa en /clients (admin) y /employee/clients
+  // (freelancer). Navegamos al detalle/volver según dónde estemos, para no sacar
+  // al freelancer de su portal (el layout admin lo redirige a /employee).
+  const pathname = usePathname();
+  const clientsBase = pathname?.startsWith('/employee') ? '/employee/clients' : '/clients';
   const { hasPermission } = usePermissions();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -190,7 +195,7 @@ export default function ClientsPage() {
               return (
                 <div
                   key={client.id}
-                  onClick={() => router.push(`/clients/${client.id}`)}
+                  onClick={() => router.push(`${clientsBase}/${client.id}`)}
                   className="bg-white rounded-xl border border-gray-200 hover:border-[#008080] hover:shadow-sm transition-all p-3 cursor-pointer flex items-center gap-3"
                 >
                   <Avatar

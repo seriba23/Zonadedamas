@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCurrency } from '@/lib/hooks/use-currency';
@@ -138,6 +138,9 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const clientId = params.id;
+  // Volver a la lista correcta según el portal (admin vs freelancer).
+  const pathname = usePathname();
+  const clientsBase = pathname?.startsWith('/employee') ? '/employee/clients' : '/clients';
   const { format: formatCurrency } = useCurrency();
   const { user } = useAuth();
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
@@ -173,7 +176,7 @@ export default function ClientDetailPage() {
     return (
       <div className="p-6">
         <button
-          onClick={() => router.push('/clients')}
+          onClick={() => router.push(clientsBase)}
           className="text-sm text-[#008080] hover:underline"
         >
           ← Volver a clientes
@@ -219,7 +222,7 @@ export default function ClientDetailPage() {
       <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6">
         {/* Volver */}
         <button
-          onClick={() => router.push('/clients')}
+          onClick={() => router.push(clientsBase)}
           className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-[#008080] transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
