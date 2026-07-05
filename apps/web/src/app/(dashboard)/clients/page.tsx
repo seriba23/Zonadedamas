@@ -204,6 +204,7 @@ export default function ClientsPage() {
                     lastName={client.lastName}
                     className="w-11 h-11"
                     textClassName="text-sm"
+                    ring={!!(client as any).userId}
                   />
 
                   {/* Nombre + distintivo de cliente vinculado a la plataforma */}

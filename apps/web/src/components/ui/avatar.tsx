@@ -36,6 +36,9 @@ interface AvatarProps {
   color?: string;
   /** Alt text para la imagen. Default vacio. */
   alt?: string;
+  /** Anillo distintivo alrededor del avatar (ej. cliente con cuenta verificada
+   *  en la plataforma). Verde, con separación del círculo. */
+  ring?: boolean;
 }
 
 /**
@@ -55,6 +58,7 @@ export function Avatar({
   textClassName = 'text-xs', // tamaño por defecto de las iniciales
   color = TEAL, // color por defecto: teal del proyecto
   alt = '', // texto alternativo de la imagen
+  ring = false, // anillo verde de "cuenta verificada"
 }: AvatarProps) {
   // useState devuelve un par: [valorActual, funciónParaCambiarlo].
   // imgFailed = true cuando la imagen no se pudo cargar (URL rota, 404, etc.).
@@ -96,7 +100,7 @@ export function Avatar({
     // a la forma circular; flex-shrink-0 evita que se encoja en layouts flex.
     // El backgroundColor se aplica con style en línea (color dinámico).
     <div
-      className={`rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${className}`}
+      className={`rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${ring ? 'ring-2 ring-offset-2 ring-[#12a86e] ring-offset-white' : ''} ${className}`}
       style={{ backgroundColor: bgColor }}
     >
       {/* Renderizado condicional con TERNARIO: si showImage es true mostramos la

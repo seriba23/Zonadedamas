@@ -374,7 +374,13 @@ export class ClientsService {
     const client = await this.prisma.client.findFirst({
       where: { id, tenantId },
       include: {
-        user: { select: { id: true, avatarUrl: true } },
+        // Datos que el CLIENTE mantiene en su propia cuenta (una vez validada):
+        // alergias, fecha de nacimiento y género. NO traemos la dirección (esa
+        // solo se usa al hacer un pedido a domicilio).
+        user: { select: { id: true, avatarUrl: true, allergies: true, birthDate: true, gender: true } },
+        // Perfil concreto (estilo Netflix) si la ficha está vinculada a uno; sus
+        // datos son más específicos que los del titular.
+        profile: { select: { allergies: true, dateOfBirth: true, gender: true } },
         tags: { include: { tag: true } },
       },
     });

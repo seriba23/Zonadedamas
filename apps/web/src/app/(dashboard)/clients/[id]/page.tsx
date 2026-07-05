@@ -86,7 +86,12 @@ interface ClientSummary {
     loyaltyPoints: number;
     creditBalance?: number | string | null;
     tags: Tag[];
-    user?: { avatarUrl?: string | null; allergies?: string | null } | null;
+    userId?: string | null;
+    dateOfBirth?: string | null;
+    gender?: string | null;
+    // Datos que el cliente mantiene en su cuenta de la plataforma (validada).
+    user?: { avatarUrl?: string | null; allergies?: string | null; birthDate?: string | null; gender?: string | null } | null;
+    profile?: { allergies?: string | null; dateOfBirth?: string | null; gender?: string | null } | null;
     allergies?: string | null;
     emergencyContactName?: string | null;
     emergencyContactLastName?: string | null;
@@ -108,6 +113,17 @@ interface ClientSummary {
 
 function sanitizePhone(raw: string): string {
   return raw.replace(/[^\d+]/g, '');
+}
+
+function genderLabel(g: string): string {
+  const map: Record<string, string> = {
+    MALE: 'Masculino',
+    FEMALE: 'Femenino',
+    NON_BINARY: 'No binario',
+    PREFER_NOT_SAY: 'Prefiere no decir',
+    OTHER: 'Otro',
+  };
+  return map[g] || g;
 }
 
 function paymentMethodLabel(method: string): string {
@@ -232,8 +248,13 @@ export default function ClientDetailPage() {
   const phoneClean = sanitizePhone(phoneRaw);
   const hasPhone = phoneClean.length > 0;
   const hasEmail = !!client.email;
-  // Alergias: pueden vivir en el Client (walk-in) o en la cuenta marketplace.
-  const clientAllergies = client.allergies || client.user?.allergies || null;
+  // ¿La ficha está vinculada a una cuenta real de la plataforma? (validado)
+  const isLinked = !!(client.userId || client.user);
+  // Datos del perfil del cliente. Preferimos lo que el propio cliente mantiene
+  // en su cuenta (perfil > titular) y caemos a lo que registró el negocio (ficha).
+  const clientAllergies = client.profile?.allergies || client.user?.allergies || client.allergies || null;
+  const clientBirthDate = client.profile?.dateOfBirth || client.user?.birthDate || client.dateOfBirth || null;
+  const clientGender = client.profile?.gender || client.user?.gender || client.gender || null;
   // Contacto de emergencia.
   const emName = [client.emergencyContactName, client.emergencyContactLastName].filter(Boolean).join(' ').trim();
   const emPhoneClean = sanitizePhone(client.emergencyContactPhone || '');
@@ -265,6 +286,7 @@ export default function ClientDetailPage() {
               lastName={client.lastName}
               className="w-16 h-16 md:w-20 md:h-20"
               textClassName="text-xl md:text-2xl"
+              ring={isLinked}
             />
 
             <div className="flex-1 min-w-0">
@@ -369,6 +391,47 @@ export default function ClientDetailPage() {
             <p className="text-sm text-red-800">
               <span className="font-semibold">Alergias del cliente:</span> {clientAllergies}
             </p>
+          </div>
+        )}
+
+        {/* Datos del perfil del cliente. Cuando la cuenta está validada, muchos
+            de estos datos los mantiene el propio cliente. NUNCA mostramos su
+            dirección (esa solo se usa al hacer un pedido a domicilio). */}
+        {(clientBirthDate || clientGender || hasEmergency) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">Datos del perfil</h2>
+              {isLinked && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#e4f5ee', color: '#0a7d54' }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#12a86e' }} />
+                  Cuenta verificada
+                </span>
+              )}
+            </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
+              {clientBirthDate && (
+                <div className="flex justify-between sm:block">
+                  <dt className="text-gray-500">Fecha de nacimiento</dt>
+                  <dd className="text-gray-900 font-medium sm:mt-0.5">{formatDate(clientBirthDate)}</dd>
+                </div>
+              )}
+              {clientGender && (
+                <div className="flex justify-between sm:block">
+                  <dt className="text-gray-500">Género</dt>
+                  <dd className="text-gray-900 font-medium sm:mt-0.5">{genderLabel(clientGender)}</dd>
+                </div>
+              )}
+              {hasEmergency && (
+                <div className="flex justify-between sm:block sm:col-span-2">
+                  <dt className="text-gray-500">Contacto de emergencia</dt>
+                  <dd className="text-gray-900 font-medium sm:mt-0.5">
+                    {[client.emergencyContactName, client.emergencyContactLastName].filter(Boolean).join(' ')}
+                    {client.emergencyContactPhone ? ` · ${client.emergencyContactPhone}` : ''}
+                    {client.emergencyContactRelation ? ` (${client.emergencyContactRelation})` : ''}
+                  </dd>
+                </div>
+              )}
+            </dl>
           </div>
         )}
 
