@@ -688,6 +688,10 @@ export class MarketplaceService {
         birthDate: true,
         gender: true,
         allergies: true,
+        emergencyContactName: true,
+        emergencyContactLastName: true,
+        emergencyContactPhone: true,
+        emergencyContactRelation: true,
         address: true,
         country: true,
         language: true,
@@ -2605,6 +2609,10 @@ export class MarketplaceService {
     if (dto.birthDate !== undefined) updateData.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
     if (dto.gender !== undefined) updateData.gender = dto.gender || null;
     if (dto.allergies !== undefined) updateData.allergies = dto.allergies || null;
+    if (dto.emergencyContactName !== undefined) updateData.emergencyContactName = dto.emergencyContactName || null;
+    if (dto.emergencyContactLastName !== undefined) updateData.emergencyContactLastName = dto.emergencyContactLastName || null;
+    if (dto.emergencyContactPhone !== undefined) updateData.emergencyContactPhone = dto.emergencyContactPhone || null;
+    if (dto.emergencyContactRelation !== undefined) updateData.emergencyContactRelation = dto.emergencyContactRelation || null;
     if (dto.address !== undefined) updateData.address = dto.address || null;
     if (dto.country !== undefined) updateData.country = dto.country || null;
     if (dto.phone !== undefined) updateData.phone = dto.phone || null;
@@ -2622,6 +2630,10 @@ export class MarketplaceService {
         birthDate: true,
         gender: true,
         allergies: true,
+        emergencyContactName: true,
+        emergencyContactLastName: true,
+        emergencyContactPhone: true,
+        emergencyContactRelation: true,
         address: true,
         createdAt: true,
       },

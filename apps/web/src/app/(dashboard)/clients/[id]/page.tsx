@@ -90,7 +90,11 @@ interface ClientSummary {
     dateOfBirth?: string | null;
     gender?: string | null;
     // Datos que el cliente mantiene en su cuenta de la plataforma (validada).
-    user?: { avatarUrl?: string | null; allergies?: string | null; birthDate?: string | null; gender?: string | null } | null;
+    user?: {
+      avatarUrl?: string | null; allergies?: string | null; birthDate?: string | null; gender?: string | null;
+      emergencyContactName?: string | null; emergencyContactLastName?: string | null;
+      emergencyContactPhone?: string | null; emergencyContactRelation?: string | null;
+    } | null;
     profile?: { allergies?: string | null; dateOfBirth?: string | null; gender?: string | null } | null;
     allergies?: string | null;
     emergencyContactName?: string | null;
@@ -255,9 +259,14 @@ export default function ClientDetailPage() {
   const clientAllergies = client.profile?.allergies || client.user?.allergies || client.allergies || null;
   const clientBirthDate = client.profile?.dateOfBirth || client.user?.birthDate || client.dateOfBirth || null;
   const clientGender = client.profile?.gender || client.user?.gender || client.gender || null;
-  // Contacto de emergencia.
-  const emName = [client.emergencyContactName, client.emergencyContactLastName].filter(Boolean).join(' ').trim();
-  const emPhoneClean = sanitizePhone(client.emergencyContactPhone || '');
+  // Contacto de emergencia: preferimos el que el cliente mantiene en su cuenta
+  // (validada); si no, el que registró el negocio en la ficha.
+  const emContactName = client.user?.emergencyContactName || client.emergencyContactName || null;
+  const emContactLastName = client.user?.emergencyContactLastName || client.emergencyContactLastName || null;
+  const emContactPhone = client.user?.emergencyContactPhone || client.emergencyContactPhone || null;
+  const emContactRelation = client.user?.emergencyContactRelation || client.emergencyContactRelation || null;
+  const emName = [emContactName, emContactLastName].filter(Boolean).join(' ').trim();
+  const emPhoneClean = sanitizePhone(emContactPhone || '');
   const hasEmergency = !!(emName || emPhoneClean);
   const iconBtnBase = 'w-9 h-9 rounded-full flex items-center justify-center transition-colors';
   const iconBtnActive = 'bg-[var(--primary-tint)] text-[var(--primary-tint-fg)] hover:bg-[#008080] hover:text-white';
@@ -425,9 +434,9 @@ export default function ClientDetailPage() {
                 <div className="flex justify-between sm:block sm:col-span-2">
                   <dt className="text-gray-500">Contacto de emergencia</dt>
                   <dd className="text-gray-900 font-medium sm:mt-0.5">
-                    {[client.emergencyContactName, client.emergencyContactLastName].filter(Boolean).join(' ')}
-                    {client.emergencyContactPhone ? ` · ${client.emergencyContactPhone}` : ''}
-                    {client.emergencyContactRelation ? ` (${client.emergencyContactRelation})` : ''}
+                    {emName}
+                    {emContactPhone ? ` · ${emContactPhone}` : ''}
+                    {emContactRelation ? ` (${emContactRelation})` : ''}
                   </dd>
                 </div>
               )}
@@ -624,9 +633,9 @@ export default function ClientDetailPage() {
       {/* Modal del contacto de emergencia */}
       {showEmergency && hasEmergency && (() => {
         const emWaUrl = buildWhatsAppUrl(
-          client.emergencyContactPhone || '',
+          emContactPhone || '',
           buildEmergencyContactMessage({
-            contactName: client.emergencyContactName || undefined,
+            contactName: emContactName || undefined,
             clientName: `${client.firstName} ${client.lastName}`.trim(),
             tenantName: user?.tenantName || 'tu negocio',
           }),
@@ -645,13 +654,13 @@ export default function ClientDetailPage() {
                 {emName && (
                   <div className="flex justify-between gap-3"><span className="text-gray-500">Nombre</span><span className="font-medium text-gray-900 text-right">{emName}</span></div>
                 )}
-                {client.emergencyContactRelation && (
-                  <div className="flex justify-between gap-3"><span className="text-gray-500">Relación</span><span className="font-medium text-gray-900 text-right">{client.emergencyContactRelation}</span></div>
+                {emContactRelation && (
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Relación</span><span className="font-medium text-gray-900 text-right">{emContactRelation}</span></div>
                 )}
-                {client.emergencyContactPhone && (
-                  <div className="flex justify-between gap-3"><span className="text-gray-500">Teléfono</span><span className="font-medium text-gray-900 text-right">{client.emergencyContactPhone}</span></div>
+                {emContactPhone && (
+                  <div className="flex justify-between gap-3"><span className="text-gray-500">Teléfono</span><span className="font-medium text-gray-900 text-right">{emContactPhone}</span></div>
                 )}
-                {!client.emergencyContactPhone && (
+                {!emContactPhone && (
                   <p className="text-xs text-gray-400">Sin teléfono registrado para este contacto.</p>
                 )}
               </div>

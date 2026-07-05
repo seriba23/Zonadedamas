@@ -32,6 +32,23 @@ export class UpdateMarketplaceProfileDto {
   @IsString()
   allergies?: string; // alergias / notas médicas
 
+  // Contacto de emergencia (opcional) que el cliente mantiene en su cuenta.
+  @IsOptional()
+  @IsString()
+  emergencyContactName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactLastName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyContactRelation?: string;
+
   @IsOptional()
   @IsString()
   address?: string; // dirección

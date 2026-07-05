@@ -454,6 +454,12 @@ model User {
   birthDate         DateTime? @map("birth_date") @db.Date
   gender            String?   @db.VarChar(20)
   allergies         String?   @db.Text
+  // Contacto de emergencia que el cliente mantiene en su propia cuenta. Al
+  // validar/vincular su ficha con un negocio, este dato se muestra en la consola.
+  emergencyContactName     String? @map("emergency_contact_name")
+  emergencyContactLastName String? @map("emergency_contact_last_name")
+  emergencyContactPhone    String? @map("emergency_contact_phone")
+  emergencyContactRelation String? @map("emergency_contact_relation") @db.VarChar(50)
   address           String?   @db.Text
   country           String?   @db.VarChar(2)
   language          String    @default("es") @db.VarChar(5)
