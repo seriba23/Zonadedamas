@@ -293,6 +293,9 @@ class MarketplaceApiClient {
     firstName: string;
     lastName: string;
     phone?: string;
+    // Datos personales del formulario unificado (perfil completo desde el registro).
+    birthDate?: string;
+    gender?: string;
     // Token de "reclamo" (invitación de un negocio por WhatsApp): vincula la
     // ficha walk-in de ese negocio a la cuenta recién creada.
     claimToken?: string;

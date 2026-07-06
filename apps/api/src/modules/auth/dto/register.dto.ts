@@ -14,6 +14,7 @@ import {
   IsIn,
   IsBoolean,
   IsArray,
+  IsDateString,
   Matches,
 } from 'class-validator';
 
@@ -52,6 +53,17 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  // Datos personales compartidos con el perfil de cliente (formulario unificado):
+  // si se capturan aquí, el usuario no tendrá que volver a llenarlos al usar el
+  // lado cliente (el modal "completa tu perfil" ya no aparece).
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
+
+  @IsOptional()
+  @IsIn(['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_SAY'])
+  gender?: string;
 
   // Código de invitación: opcional. Si viene, el registro es de un empleado que
   // se une a un negocio existente (flujo "afiliado").

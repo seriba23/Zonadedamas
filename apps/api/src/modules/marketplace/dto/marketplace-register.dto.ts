@@ -5,7 +5,7 @@
 //   - IsString: debe ser texto.
 //   - Matches: debe cumplir una expresión regular (un patrón de caracteres).
 //   - MinLength: longitud mínima del texto.
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 
 /**
  * DTO de registro: valida los datos que envía alguien para crear su cuenta de
@@ -37,6 +37,16 @@ export class MarketplaceRegisterDto {
   @IsOptional() // el teléfono es opcional (el "?" en "phone?" lo confirma)
   @IsString()
   phone?: string;
+
+  // Datos personales del formulario unificado: si vienen, el perfil nace completo
+  // y no aparece el modal "completa tu perfil".
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
+
+  @IsOptional()
+  @IsIn(['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_SAY'])
+  gender?: string;
 
   // Token de "reclamo" (viene del enlace de WhatsApp que envió un negocio):
   // vincula la ficha walk-in de ese negocio a esta cuenta recién creada.

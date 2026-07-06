@@ -429,6 +429,8 @@ export class AuthService {
               // "dto.phone || existing.phone || null": usa el primer valor que NO
               // sea vacío/null, en ese orden de preferencia.
               phone: dto.phone || existing.phone || null,
+              birthDate: dto.birthDate ? new Date(dto.birthDate) : existing.birthDate,
+              gender: dto.gender || existing.gender,
               address: dto.personalAddress || existing.address || null,
               isActive: true,
             },
@@ -441,6 +443,8 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           phone: dto.phone || null,
+          birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+          gender: dto.gender || null,
           // Direccion PERSONAL del empleado afiliado (no la del negocio
           // donde trabaja, que ya esta en invite.tenant). El profesional
           // puede tener una direccion personal distinta a la del local.
@@ -672,6 +676,8 @@ export class AuthService {
               firstName: dto.firstName,
               lastName: dto.lastName,
               phone: dto.phone || existingUser.phone || null,
+              birthDate: dto.birthDate ? new Date(dto.birthDate) : existingUser.birthDate,
+              gender: dto.gender || existingUser.gender,
               address: dto.personalAddress || existingUser.address || null,
               isActive: true,
             },
@@ -684,6 +690,8 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           phone: dto.phone || null,
+          birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+          gender: dto.gender || null,
           // Direccion personal del admin/dueño. Separada de Tenant.address
           // (la del negocio) — pueden ser distintas.
           address: dto.personalAddress || null,
@@ -870,6 +878,8 @@ export class AuthService {
               firstName: dto.firstName,
               lastName: dto.lastName,
               phone: dto.phone || existingUser.phone || null,
+              birthDate: dto.birthDate ? new Date(dto.birthDate) : existingUser.birthDate,
+              gender: dto.gender || existingUser.gender,
               address: dto.personalAddress || existingUser.address || null,
               isActive: true,
             },
@@ -882,6 +892,8 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           phone: dto.phone || null,
+          birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+          gender: dto.gender || null,
           // Direccion personal del freelancer. Separada de Tenant.address
           // (del local del negocio independiente) — pueden ser distintas.
           address: dto.personalAddress || null,

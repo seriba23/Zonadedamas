@@ -194,9 +194,11 @@ export class MarketplaceService {
       where: { email: dto.email },
     });
 
-    // Si ya existía, no se puede registrar de nuevo -> 409 (conflicto).
+    // Si ya existía, no se re-registra. Como una cuenta de negocio/staff YA es
+    // apta para el marketplace (el login activa isClient), lo guiamos a iniciar
+    // sesión en vez de dar un error crudo.
     if (existing) {
-      throw new ConflictException('Ya existe una cuenta con este email');
+      throw new ConflictException('Ya tienes una cuenta con este correo. Inicia sesión.');
     }
 
     // Ciframos la contraseña con bcrypt. El "12" es el "cost factor" (cuántas
@@ -212,6 +214,8 @@ export class MarketplaceService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         phone: dto.phone || null,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+        gender: dto.gender || null,
         passwordHash,
         isClient: true,
       },

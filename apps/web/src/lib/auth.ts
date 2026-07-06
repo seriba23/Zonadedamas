@@ -113,6 +113,10 @@ export interface RegisterParams {
   email: string;
   password: string;
   phone?: string;
+  // Datos personales del formulario unificado (perfil de cliente completo desde
+  // el registro, para no re-pedirlos al usar el lado cliente).
+  birthDate?: string;
+  gender?: string;
   inviteCode?: string; // código de invitación (para unirse como empleado)
   // Tipo de cuenta a crear (solo uno de esos tres valores).
   type?: 'business' | 'individual' | 'freelancer';

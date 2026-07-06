@@ -219,6 +219,10 @@ interface FormState {
   password: string;
   confirmPassword: string;
   phone: string;
+  // Datos personales compartidos con el perfil de cliente (formulario unificado):
+  // así el perfil nace completo y no aparece el modal "completa tu perfil".
+  birthDate: string;              // YYYY-MM-DD
+  gender: string;                 // MALE | FEMALE | NON_BINARY | PREFER_NOT_SAY
   // Business invite (modo 'business' afiliado)
   inviteCode: string;
   // Step 2 - Business info (individual only)
@@ -313,6 +317,8 @@ function RegisterPageInner() {
     password: '',
     confirmPassword: '',
     phone: '',
+    birthDate: '',
+    gender: '',
     inviteCode: codeParam,
     businessName: '',
     businessTypes: [],
@@ -385,6 +391,9 @@ function RegisterPageInner() {
           lastName: f.lastName || u.lastName || '',
           email: f.email || u.email || '',
           phone: f.phone || u.phone || '',
+          // Datos personales ya capturados en su cuenta: no re-pedirlos.
+          birthDate: f.birthDate || (u.birthDate ? String(u.birthDate).split('T')[0] : ''),
+          gender: f.gender || u.gender || '',
           // Si el cliente tiene phone, lo usamos como default del telefono
           // del negocio. El user puede sobrescribir si su negocio tiene
           // numero distinto.
@@ -425,6 +434,8 @@ function RegisterPageInner() {
       const digits = rest.replace(/\D/g, '');
       if (digits.length !== 10) newErrors.phone = 'El teléfono debe tener 10 dígitos';
     }
+    if (!prefilledFromClient && !form.birthDate) newErrors.birthDate = 'La fecha de nacimiento es requerida';
+    if (!prefilledFromClient && !form.gender) newErrors.gender = 'El género es requerido';
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
     } else {
@@ -489,6 +500,8 @@ function RegisterPageInner() {
       const digits = rest.replace(/\D/g, '');
       if (digits.length !== 10) newErrors.phone = 'El teléfono debe tener 10 dígitos';
     }
+    if (!prefilledFromClient && !form.birthDate) newErrors.birthDate = 'La fecha de nacimiento es requerida';
+    if (!prefilledFromClient && !form.gender) newErrors.gender = 'El género es requerido';
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
     } else {
@@ -528,6 +541,8 @@ function RegisterPageInner() {
       const digits = rest.replace(/\D/g, '');
       if (digits.length !== 10) newErrors.phone = 'El teléfono debe tener 10 dígitos';
     }
+    if (!prefilledFromClient && !form.birthDate) newErrors.birthDate = 'La fecha de nacimiento es requerida';
+    if (!prefilledFromClient && !form.gender) newErrors.gender = 'El género es requerido';
     if (!form.password) {
       newErrors.password = 'La contraseña es requerida';
     } else {
@@ -573,6 +588,8 @@ function RegisterPageInner() {
         email: form.email,
         password: form.password,
         phone: form.phone.trim(),
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
         type: 'individual',
         businessName: form.businessName.trim(),
         businessTypes: form.businessTypes,
@@ -605,6 +622,8 @@ function RegisterPageInner() {
         email: form.email,
         password: form.password,
         phone: form.phone.trim(),
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
         type: 'freelancer',
         // Direccion del LOCAL profesional → guarda en Tenant.address
         businessStreet: [localAddress.street.trim(), localAddress.number.trim()].filter(Boolean).join(' ') || undefined,
@@ -655,6 +674,8 @@ function RegisterPageInner() {
         email: form.email,
         password: form.password,
         phone: form.phone.trim(),
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
         inviteCode: code,
         personalAddress: personalAddrStr || undefined,
       });
@@ -687,6 +708,11 @@ function RegisterPageInner() {
     } else if (form.password !== form.confirmPassword) {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
+    // Formulario unificado: capturamos también teléfono, nacimiento y género
+    // para que el perfil de cliente nazca completo (sin el modal posterior).
+    if (!form.phone.trim()) newErrors.phone = 'El teléfono es requerido';
+    if (!prefilledFromClient && !form.birthDate) newErrors.birthDate = 'La fecha de nacimiento es requerida';
+    if (!prefilledFromClient && !form.gender) newErrors.gender = 'El género es requerido';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -704,6 +730,8 @@ function RegisterPageInner() {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         phone: form.phone.trim() || undefined,
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
       });
       // Limpiar dismissed key del CompleteProfileGate. Sin esto, si el usuario
       // ya habia cerrado el modal en una sesion previa de esta pestaña, no lo
@@ -725,6 +753,39 @@ function RegisterPageInner() {
     setForm((f) => ({ ...f, [field]: value }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
   }
+
+  // Campos personales compartidos por TODOS los flujos de registro (formulario
+  // unificado): fecha de nacimiento + género. Al capturarlos aquí, el perfil de
+  // cliente nace completo y no reaparece el modal "completa tu perfil".
+  const personalExtraFields = (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha de nacimiento</label>
+        <input
+          type="date"
+          value={form.birthDate}
+          onChange={(e) => updateField('birthDate', e.target.value)}
+          className={`input-field ${errors.birthDate ? 'border-red-400' : ''}`}
+        />
+        {errors.birthDate && <p className="mt-1 text-xs text-red-600">{errors.birthDate}</p>}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Género</label>
+        <select
+          value={form.gender}
+          onChange={(e) => updateField('gender', e.target.value)}
+          className={`input-field ${errors.gender ? 'border-red-400' : ''}`}
+        >
+          <option value="">Selecciona</option>
+          <option value="MALE">Masculino</option>
+          <option value="FEMALE">Femenino</option>
+          <option value="NON_BINARY">No binario</option>
+          <option value="PREFER_NOT_SAY">Prefiero no decir</option>
+        </select>
+        {errors.gender && <p className="mt-1 text-xs text-red-600">{errors.gender}</p>}
+      </div>
+    </div>
+  );
 
   const API_URL_REG = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -1027,6 +1088,8 @@ function RegisterPageInner() {
                   error={errors.phone}
                 />
               </div>
+
+              {personalExtraFields}
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
@@ -1518,6 +1581,8 @@ function RegisterPageInner() {
                   error={errors.phone}
                 />
               </div>
+
+              {personalExtraFields}
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
