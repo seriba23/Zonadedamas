@@ -111,6 +111,16 @@ export function SubscriptionBanner({ status, trialEndsAt }: SubscriptionBannerPr
           <p className="text-sm text-red-800">
             <span className="font-semibold">Renueva tu suscripción</span> para reactivar tus beneficios en Siliba.
           </p>
+          {/* La suspensión es SOLO de la cuenta de negocio/profesional; la cuenta
+              de cliente sigue activa. Damos una salida al selector de perfil para
+              que pueda seguir usando la app como cliente. Enlace <a> (navegación
+              completa) para salir del layout que atrapa en /settings/subscription. */}
+          <a
+            href="/login"
+            className="ml-auto flex-shrink-0 text-xs font-semibold text-red-700 underline underline-offset-2 hover:text-red-900 whitespace-nowrap"
+          >
+            Entrar como cliente
+          </a>
         </div>
       </div>
     );
