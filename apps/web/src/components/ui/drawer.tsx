@@ -16,11 +16,13 @@ export interface DrawerProps {
   footer?: ReactNode; // contenido opcional del pie (ej. botones de acción)
 }
 
-// Diccionario ancho -> clase Tailwind. w-80 ≈ 20rem, w-96 ≈ 24rem.
+// Diccionario ancho -> clase Tailwind. En MÓVIL el cajón ocupa el 100% del ancho
+// de la pantalla (w-full) para que "encaje" bien; a partir de sm (≥640px) toma su
+// ancho fijo de escritorio. w-80 ≈ 20rem, w-96 ≈ 24rem.
 const widthClasses = {
-  sm: 'w-80',
-  md: 'w-96',
-  lg: 'w-[32rem]',
+  sm: 'w-full sm:w-80',
+  md: 'w-full sm:w-96',
+  lg: 'w-full sm:w-[32rem]',
 };
 
 // Componente Drawer: cajón lateral. Igual filosofía que Modal pero pegado a un
