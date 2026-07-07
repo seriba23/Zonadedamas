@@ -14,6 +14,11 @@
 // tipeo si lo escribimos en varios lugares.
 const CREATOR_TOKEN_KEY = 'creatorAccessToken';
 
+// Cliente HTTP del backend de negocio (sesión normal de Siliba). Ya adjunta el
+// Bearer de la sesión activa (profesional/freelancer/admin) y maneja el refresh.
+// Lo usamos SOLO para el SSO: cambiar la sesión de Siliba por un token de creador.
+import { api } from '@/lib/api';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERFAZ: CreatorProfile
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,6 +208,30 @@ export async function creatorLogin(email: string, password: string) {
     { email, password },
   );
   // Guardamos el token recibido para que las próximas peticiones lo incluyan.
+  setCreatorToken(res.data.accessToken);
+  return res.data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN: creatorLoginFromSession
+// ─────────────────────────────────────────────────────────────────────────────
+// SSO: entra al portal de creadores usando la sesión de Siliba YA activa, sin
+// pedir usuario ni contraseña. El usuario ya inició sesión en su consola normal
+// (profesional / freelancer / administrador); aquí cambiamos ESA sesión por un
+// token de creador.
+//
+// Usa el cliente `api` (no `request`) a propósito: `api` adjunta automáticamente
+// el Bearer de la sesión de negocio y refresca el token si hiciera falta. El
+// backend valida ese token, comprueba que el correo corresponde a un creador
+// APROBADO y devuelve un token de creador.
+//
+// Devuelve el perfil del creador. Lanza si el usuario no es un creador aprobado
+// (p. ej. aún pendiente), para que la UI muestre el motivo.
+export async function creatorLoginFromSession() {
+  const res = await api.post<{ data: { accessToken: string; influencer: CreatorProfile } }>(
+    '/api/creator/auth/from-session',
+  );
+  // Guardamos el token de creador para que las peticiones del portal lo usen.
   setCreatorToken(res.data.accessToken);
   return res.data;
 }

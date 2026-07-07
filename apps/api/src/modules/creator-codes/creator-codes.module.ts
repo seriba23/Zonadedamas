@@ -17,11 +17,14 @@ import { CreatorPayoutsService } from './creator-payouts.service';
 import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
 // Módulo de Stripe: provee StripeService para crear cuentas Connect y Transfers.
 import { StripeModule } from '../stripe/stripe.module';
+// Módulo de notificaciones del staff: nos da NotifyStaffService para avisar (con
+// una notificación dorada) al usuario cuando lo aprueban como creador.
+import { StaffNotificationsModule } from '../staff-notifications/staff-notifications.module';
 
 // @Module recibe un objeto de configuración que describe el módulo:
 @Module({
   // imports: otros módulos cuyos servicios/guards necesitamos aquí dentro.
-  imports: [PlatformAuthModule, StripeModule],
+  imports: [PlatformAuthModule, StripeModule, StaffNotificationsModule],
   // controllers: las clases que exponen los endpoints HTTP de este módulo.
   controllers: [CreatorCodesController],
   // providers: los servicios que NestJS creará y podrá inyectar en este módulo.

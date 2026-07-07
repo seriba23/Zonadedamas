@@ -21,6 +21,11 @@ import { CreatorPortalService } from './creator-portal.service';
 // El guard que exige un token JWT de creador válido en los endpoints protegidos.
 import { CreatorJwtGuard } from './guards/creator-jwt.guard';
 
+// El guard del JWT PRINCIPAL de Siliba (clientes/profesionales/admin). Lo usamos
+// en el endpoint SSO: valida la sesión normal del usuario para emitir, a partir
+// de ella, un token de creador (sin pedir login otra vez).
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
 // Los DTOs que validan la forma de los datos que llegan en cada petición.
 import {
   CreatorLoginDto,
@@ -69,6 +74,18 @@ export class CreatorPortalController {
   @Post('auth/set-password')
   async setPassword(@Body() dto: CreatorSetPasswordDto) {
     const data = await this.service.setPasswordFromToken(dto);
+    return { data };
+  }
+
+  // POST /api/creator/auth/from-session — SSO desde la sesión de Siliba.
+  // Va protegido por el JWT PRINCIPAL (no el de creador): el usuario ya inició
+  // sesión en su consola normal. Tomamos su correo verificado (req.user.email)
+  // y, si es un creador aprobado, devolvemos un token de creador para entrar al
+  // portal sin volver a autenticarse.
+  @UseGuards(JwtAuthGuard)
+  @Post('auth/from-session')
+  async fromSession(@Req() req: any) {
+    const data = await this.service.tokenFromSession(req.user.email);
     return { data };
   }
 

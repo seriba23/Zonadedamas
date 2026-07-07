@@ -20,6 +20,9 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 // StripeService: integración con Stripe (cuentas Connect, links, transfers).
 import { StripeService } from '../stripe/stripe.service';
+// NotifyStaffService: crea notificaciones en la consola del staff (y dispara push).
+// Lo usamos para el aviso DORADO "ahora eres creador" al aprobar.
+import { NotifyStaffService } from '../staff-notifications/notify-staff.service';
 // DTOs de validación para crear/actualizar.
 import { CreateInfluencerDto, UpdateInfluencerDto } from './dto/influencer.dto';
 // Helpers del archivo de configuración: estado del referido y meses transcurridos.
@@ -32,7 +35,47 @@ export class CreatorCodesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripe: StripeService,
+    private readonly notifyStaff: NotifyStaffService,
   ) {}
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // notifyCreatorApproved(): tras aprobar a un creador, avisamos (con una
+  // notificación DORADA) al usuario REAL de Siliba que tiene el MISMO correo.
+  // Como User.email es único a nivel global, un correo = exactamente una cuenta,
+  // que puede entrar como cliente / profesional / administrador. La notificación
+  // se guarda por (tenantId + userId), así que aparece en TODAS las consolas de
+  // staff de esa persona (profesional, freelancer, admin) donde ya inició sesión.
+  //
+  // Es "best-effort": si algo falla aquí (o el correo no corresponde a una cuenta
+  // de staff), NO debe romper la aprobación. Por eso quien la llama la envuelve
+  // en un catch.
+  // ───────────────────────────────────────────────────────────────────────────
+  private async notifyCreatorApproved(email: string) {
+    const normalized = (email || '').toLowerCase().trim();
+    if (!normalized) return;
+    // Buscamos la cuenta real de Siliba con ese correo.
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalized },
+      select: { id: true, tenantId: true },
+    });
+    // Sin cuenta, o sin tenant (p. ej. solo cliente del marketplace): no hay
+    // consola de staff donde mostrar la notificación. El creador podrá entrar
+    // igualmente desde el acceso "Creadores" del login.
+    if (!user?.tenantId) return;
+
+    await this.notifyStaff.notify({
+      tenantId: user.tenantId,
+      // Solo a esta persona (la recién aprobada), no a todos los admins.
+      audience: { kind: 'users', userIds: [user.id] },
+      type: 'creator.approved',
+      section: 'creator',
+      title: '¡Ya eres parte de Creadores Siliba!',
+      body: 'Tu solicitud fue aprobada. Toca para ver cómo funcionan las comisiones y entrar a tu portal de creadores.',
+      // Deep-link a la pantalla de bienvenida (modal dorado + comisiones + SSO).
+      link: '/creator/welcome',
+      metadata: { kind: 'creator_approved' },
+    });
+  }
 
   // ─── LISTADO ──────────────────────────────────────
 
@@ -422,6 +465,10 @@ export class CreatorCodesService {
       // Devolvemos el influencer actualizado y su código (nuevo o existente).
       return { influencer: updated, code };
     });
+
+    // Aviso DORADO al usuario real de Siliba con este correo (best-effort: si
+    // falla o el correo no es de una cuenta de staff, la aprobación sigue válida).
+    await this.notifyCreatorApproved(influencer.email).catch(() => {});
 
     return { data: result };
   }

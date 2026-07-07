@@ -223,17 +223,20 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
                 Notificaciones no leídas → fondo teal claro + borde izquierdo teal.
                 Leídas → sin fondo especial. */}
             {!isLoading &&
-              items.map((n) => (
+              items.map((n) => {
+                // Las notificaciones de "creador" se destacan en DORADO.
+                const isCreator = n.section === 'creator';
+                return (
                 <button
                   key={n.id}
                   type="button"
                   onClick={() => handleClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors flex gap-3 ${n.readAt ? '' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
+                  className={`w-full text-left px-4 py-3 border-b border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors flex gap-3 ${n.readAt ? '' : isCreator ? 'bg-amber-50 border-l-[3px] border-l-amber-500' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
                 >
-                  {/* Punto indicador: teal si no leída, transparente si ya leída. */}
+                  {/* Punto indicador: dorado/teal si no leída, transparente si leída. */}
                   <span
                     className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ backgroundColor: n.readAt ? 'transparent' : TEAL }}
+                    style={{ backgroundColor: n.readAt ? 'transparent' : isCreator ? '#f59e0b' : TEAL }}
                   />
                   <div className="min-w-0 flex-1">
                     {/* Título de la notificación (truncate: no se desborda). */}
@@ -244,7 +247,8 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
                     <p className={`text-[11px] mt-0.5 ${n.readAt ? 'text-[var(--text-muted)]' : 'text-gray-500'}`}>{timeAgo(n.createdAt)}</p>
                   </div>
                 </button>
-              ))}
+                );
+              })}
           </div>
 
           {/* Pie del dropdown: enlace "Ver todas" → inbox completo.

@@ -13,6 +13,8 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 // JwtService: servicio para FIRMAR (crear) tokens JWT. Lo configuró el módulo
@@ -113,6 +115,60 @@ export class CreatorPortalService {
     // Devolvemos el token de acceso recién firmado + el perfil público (sin
     // datos sensibles). El frontend guardará el token y lo enviará en cada
     // petición protegida.
+    return {
+      accessToken: this.signToken(influencer),
+      influencer: this.publicProfile(influencer),
+    };
+  }
+
+  // ── tokenFromSession(): SSO desde la sesión de Siliba ──
+  // El usuario YA está autenticado en su consola normal (profesional / freelancer
+  // / administrador). En lugar de pedirle usuario y contraseña otra vez, tomamos
+  // el correo de su sesión (verificado por el JWT principal) y, si existe un
+  // creador APROBADO con ese MISMO correo, le emitimos un token de creador. Así
+  // entra al portal "ya logueado" sin volver a autenticarse.
+  //
+  // El flujo de aprobación NO cambia: si el creador no existe o no está aprobado,
+  // no se emite token y se explica por qué.
+  async tokenFromSession(email: string) {
+    // Normalizamos igual que en login/register para que el match por correo sea
+    // consistente (minúsculas + sin espacios).
+    const normalized = (email || '').toLowerCase().trim();
+    if (!normalized) throw new UnauthorizedException('Sesión inválida');
+
+    // Buscamos al creador por su correo (único). Es el enlace entre la cuenta
+    // real de Siliba y su perfil de creador: mismo correo = misma persona.
+    const influencer = await this.prisma.influencer.findUnique({
+      where: { email: normalized },
+    });
+
+    // No hay solicitud de creador con este correo -> 404 con mensaje claro.
+    if (!influencer) {
+      throw new NotFoundException(
+        'No encontramos una cuenta de creador con este correo. Regístrate como creador para empezar.',
+      );
+    }
+    // Todavía pendiente de aprobación -> 403 (aún no puede entrar al panel).
+    if (influencer.status === 'PENDING') {
+      throw new ForbiddenException(
+        'Tu solicitud de creador aún está en revisión. Te avisaremos al aprobarla.',
+      );
+    }
+    // Suspendido -> 403.
+    if (influencer.status === 'SUSPENDED') {
+      throw new ForbiddenException(
+        'Tu cuenta de creador está suspendida. Contacta al administrador.',
+      );
+    }
+
+    // Registramos el acceso (mismo comportamiento que el login normal).
+    await this.prisma.influencer.update({
+      where: { id: influencer.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // Emitimos el token de creador + perfil público. El frontend lo guarda y
+    // redirige al dashboard del portal, ya con sesión activa.
     return {
       accessToken: this.signToken(influencer),
       influencer: this.publicProfile(influencer),
