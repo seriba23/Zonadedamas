@@ -1373,19 +1373,30 @@ export class StripeService implements OnModuleInit {
     // Buscamos la traducción. "|| 'PAST_DUE'" => si el estado no está en el mapa,
     // asumimos PAST_DUE por seguridad (mejor restringir acceso que regalarlo).
     const newStatus = statusMap[subscription.status] || 'PAST_DUE';
-    // Fin del periodo actual (segundos UNIX → ms con × 1000).
-    const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+
+    // Fin del periodo actual. En la API nueva de Stripe `current_period_end` ya
+    // NO viene en el nivel superior de la suscripción, sino dentro del primer
+    // item (subscription.items.data[0]). Leemos de ambos sitios y, si no hay un
+    // valor válido, lo dejamos en null para NO enviar una fecha inválida a
+    // Prisma (era la causa real del error "Invalid Date" → 500 en el webhook).
+    const rawPeriodEnd =
+      (subscription as any).current_period_end ??
+      (subscription as any).items?.data?.[0]?.current_period_end;
+    const periodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
+    const validPeriodEnd =
+      periodEnd && !isNaN(periodEnd.getTime()) ? periodEnd : null;
 
     // updateMany (NO update): si no existe una suscripción local para ese
-    // tenantId, updateMany simplemente afecta 0 filas y NO lanza. `update`
-    // lanzaría P2025 (Record not found) → 500 en el webhook y reintentos en
-    // bucle. Un evento de una suscripción que no tenemos registrada se ignora.
+    // tenantId, updateMany simplemente afecta 0 filas y NO lanza. Las fechas solo
+    // se incluyen si son válidas (spread condicional): así el estado se actualiza
+    // siempre, aunque Stripe no nos diera un periodo utilizable.
     await this.prisma.subscription.updateMany({
       where: { tenantId },
       data: {
         status: newStatus as any, // "as any" para encajar con el enum de Prisma.
-        nextBillingDate: currentPeriodEnd,
-        contractEndDate: currentPeriodEnd,
+        ...(validPeriodEnd
+          ? { nextBillingDate: validPeriodEnd, contractEndDate: validPeriodEnd }
+          : {}),
       },
     });
   }
