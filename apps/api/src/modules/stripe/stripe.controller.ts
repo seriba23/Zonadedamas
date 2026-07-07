@@ -286,44 +286,61 @@ export class StripeController {
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // "switch" elige qué hacer según el TIPO de evento recibido. Cada "case"
-    // delega en el handler correspondiente del servicio. "event.data.object"
-    // es el objeto principal del evento (sesión, cuenta, suscripción, factura).
-    // "as any" relaja el tipado para pasarlo tal cual al servicio.
-    switch (event.type) {
-      // Pago de una cita completado con éxito → marcar Payment como COMPLETED.
-      case 'checkout.session.completed':
-        await this.stripeService.handleCheckoutCompleted(event.data.object as any);
-        break; // "break" corta el switch para no caer en los siguientes case.
-      // La sesión de pago expiró sin pagarse → borrar el Payment pendiente.
-      case 'checkout.session.expired':
-        await this.stripeService.handleCheckoutExpired(event.data.object as any);
-        break;
-      // Cambió el estado de una cuenta Connect (negocio o influencer) →
-      // sincronizar si ya puede cobrar/recibir.
-      case 'account.updated':
-        await this.stripeService.handleAccountUpdated(event.data.object as any);
-        break;
-      // La suscripción de plataforma cambió de estado (activa, vencida, etc.).
-      case 'customer.subscription.updated':
-        await this.stripeService.handleSubscriptionUpdated(event.data.object as any);
-        break;
-      // La suscripción se eliminó por completo → marcarla CANCELLED.
-      case 'customer.subscription.deleted':
-        await this.stripeService.handleSubscriptionDeleted(event.data.object as any);
-        break;
-      // Se pagó una factura de la suscripción → marcar ACTIVE y registrar factura.
-      case 'invoice.paid':
-        await this.stripeService.handleInvoicePaid(event.data.object as any);
-        break;
-      // Falló el cobro de una factura → marcar PAST_DUE con periodo de gracia.
-      case 'invoice.payment_failed':
-        await this.stripeService.handleInvoicePaymentFailed(event.data.object as any);
-        break;
-      // (Otros tipos de evento que Stripe envíe se ignoran a propósito.)
+    // A partir de aquí la FIRMA ya está verificada: el evento es legítimo. Todo
+    // el procesamiento va dentro de un try/catch porque, si un handler falla, NO
+    // queremos responder 500: reintentar el MISMO evento no lo va a arreglar (un
+    // bug de datos o un registro que no existe fallará igual cada vez), y una
+    // racha de 500 hace que Stripe acabe DESHABILITANDO el endpoint —rompiendo
+    // TODOS los webhooks—. En su lugar registramos el error para investigarlo y
+    // respondemos 2xx (Stripe da el evento por entregado y no reintenta en bucle).
+    try {
+      // "switch" elige qué hacer según el TIPO de evento recibido. Cada "case"
+      // delega en el handler correspondiente del servicio. "event.data.object"
+      // es el objeto principal del evento (sesión, cuenta, suscripción, factura).
+      // "as any" relaja el tipado para pasarlo tal cual al servicio.
+      switch (event.type) {
+        // Pago de una cita completado con éxito → marcar Payment como COMPLETED.
+        case 'checkout.session.completed':
+          await this.stripeService.handleCheckoutCompleted(event.data.object as any);
+          break; // "break" corta el switch para no caer en los siguientes case.
+        // La sesión de pago expiró sin pagarse → borrar el Payment pendiente.
+        case 'checkout.session.expired':
+          await this.stripeService.handleCheckoutExpired(event.data.object as any);
+          break;
+        // Cambió el estado de una cuenta Connect (negocio o influencer) →
+        // sincronizar si ya puede cobrar/recibir.
+        case 'account.updated':
+          await this.stripeService.handleAccountUpdated(event.data.object as any);
+          break;
+        // La suscripción de plataforma cambió de estado (activa, vencida, etc.).
+        case 'customer.subscription.updated':
+          await this.stripeService.handleSubscriptionUpdated(event.data.object as any);
+          break;
+        // La suscripción se eliminó por completo → marcarla CANCELLED.
+        case 'customer.subscription.deleted':
+          await this.stripeService.handleSubscriptionDeleted(event.data.object as any);
+          break;
+        // Se pagó una factura de la suscripción → marcar ACTIVE y registrar factura.
+        case 'invoice.paid':
+          await this.stripeService.handleInvoicePaid(event.data.object as any);
+          break;
+        // Falló el cobro de una factura → marcar PAST_DUE con periodo de gracia.
+        case 'invoice.payment_failed':
+          await this.stripeService.handleInvoicePaymentFailed(event.data.object as any);
+          break;
+        // (Otros tipos de evento que Stripe envíe se ignoran a propósito.)
+      }
+    } catch (err: any) {
+      // Log detallado (tipo + id del evento) para poder rastrear el fallo en el
+      // Dashboard de Stripe y en los logs del servidor sin romper la entrega.
+      console.error(
+        `Stripe webhook handler error [${event.type} ${event.id}]:`,
+        err?.stack || err?.message || err,
+      );
     }
 
-    // Confirmamos a Stripe que recibimos el evento. Sin esto, Stripe reintentaría.
+    // Confirmamos a Stripe que recibimos el evento (2xx). Lo hacemos SIEMPRE tras
+    // verificar la firma, haya fallado o no el procesamiento interno.
     return res.json({ received: true });
   }
 }

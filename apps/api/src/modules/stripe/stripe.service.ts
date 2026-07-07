@@ -1376,7 +1376,11 @@ export class StripeService implements OnModuleInit {
     // Fin del periodo actual (segundos UNIX → ms con × 1000).
     const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
-    await this.prisma.subscription.update({
+    // updateMany (NO update): si no existe una suscripción local para ese
+    // tenantId, updateMany simplemente afecta 0 filas y NO lanza. `update`
+    // lanzaría P2025 (Record not found) → 500 en el webhook y reintentos en
+    // bucle. Un evento de una suscripción que no tenemos registrada se ignora.
+    await this.prisma.subscription.updateMany({
       where: { tenantId },
       data: {
         status: newStatus as any, // "as any" para encajar con el enum de Prisma.
@@ -1391,7 +1395,10 @@ export class StripeService implements OnModuleInit {
     const tenantId = subscription.metadata?.tenantId;
     if (!tenantId) return;
 
-    await this.prisma.subscription.update({
+    // updateMany por la misma razón que en handleSubscriptionUpdated: si no hay
+    // fila local para ese tenantId, no lanza (afecta 0 filas) en vez de romper
+    // el webhook con P2025.
+    await this.prisma.subscription.updateMany({
       where: { tenantId },
       data: {
         status: 'CANCELLED',
@@ -1418,6 +1425,17 @@ export class StripeService implements OnModuleInit {
       where: { id: sub.id },
       data: { status: 'ACTIVE', lastPaymentDate: new Date() },
     });
+
+    // Idempotencia: si ya registramos esta factura (webhook reintentado), no la
+    // volvemos a crear. Sin esto, un reintento chocaría con la restricción única
+    // de stripeInvoiceId y lanzaría → 500 en el webhook.
+    if (invoice.id) {
+      const already = await this.prisma.invoice.findFirst({
+        where: { stripeInvoiceId: invoice.id },
+        select: { id: true },
+      });
+      if (already) return;
+    }
 
     // Monto pagado a unidades (centavos ÷ 100).
     const amount = invoice.amount_paid / 100;
