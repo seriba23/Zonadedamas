@@ -10,7 +10,8 @@ import {
 } from '@/lib/creator-auth';
 import { PasswordField, isPasswordValid } from '@/components/ui/password-field';
 
-const TEAL = '#008080';
+// Identidad NEGRA/tinta del portal de reclutamiento (nombre conservado).
+const TEAL = '#111827';
 
 // Número de WhatsApp del admin (incluye código de país, sin + ni espacios).
 // Configurable vía NEXT_PUBLIC_SUPPORT_WHATSAPP.
@@ -18,7 +19,7 @@ const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '5233344056
 
 const STATE_BADGE: Record<string, { label: string; className: string }> = {
   ACTIVO: { label: 'Nuevo', className: 'bg-gray-100 text-gray-600' },
-  PAGANDO: { label: 'Pagando comisión', className: 'bg-teal-50 text-teal-700' },
+  PAGANDO: { label: 'Pagando comisión', className: 'bg-gray-100 text-gray-800' },
   EN_RIESGO: { label: 'En riesgo', className: 'bg-red-50 text-red-600' },
   PERDIDO: { label: 'Perdido', className: 'bg-gray-100 text-gray-400' },
 };
@@ -133,7 +134,7 @@ export default function CreatorDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between relative" style={{ background: `linear-gradient(135deg, ${TEAL} 0%, #006666 100%)` }}>
+      <div className="px-5 py-4 flex items-center justify-between relative" style={{ background: `linear-gradient(135deg, #1f2937 0%, #000000 100%)` }}>
         <div>
           <p className="text-white/80 text-xs">Hola,</p>
           <h1 className="text-white text-lg font-bold">{inf.firstName} {inf.lastName}</h1>
@@ -226,8 +227,8 @@ export default function CreatorDashboardPage() {
             <div className="bg-white rounded-2xl border border-gray-200 p-4">
               <p className="text-sm font-semibold text-gray-800 mb-2">Cobros</p>
               {inf.stripeOnboardingComplete ? (
-                <p className="text-sm text-teal-700 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-500" /> Cobros activos — recibirás tus comisiones automáticamente.
+                <p className="text-sm text-gray-800 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-gray-900" /> Cobros activos — recibirás tus comisiones automáticamente.
                 </p>
               ) : (
                 <>
@@ -269,7 +270,7 @@ export default function CreatorDashboardPage() {
                   <button
                     onClick={() => setShowClientsInfo(true)}
                     aria-label="Qué significa cada estado"
-                    className="text-gray-400 hover:text-teal-600"
+                    className="text-gray-400 hover:text-gray-700"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
@@ -314,7 +315,7 @@ export default function CreatorDashboardPage() {
                     <li key={p.id} className="px-4 py-2.5 flex items-center justify-between text-sm">
                       <span className="text-gray-700">{p.forMonth}</span>
                       <span className="font-medium text-gray-900 tabular-nums">{money(p.amount)}</span>
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${p.transferred ? 'bg-teal-50 text-teal-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${p.transferred ? 'bg-gray-100 text-gray-800' : 'bg-gray-100 text-gray-500'}`}>
                         {p.transferred ? 'Pagado' : 'Pendiente'}
                       </span>
                     </li>

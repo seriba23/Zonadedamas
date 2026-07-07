@@ -132,7 +132,7 @@ export default function CreatorsPage() {
       {/* Encabezado */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Reclutadores y creadores de contenido</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Reclutadores</h1>
           <p className="text-sm text-gray-500 mt-1">
             Toca una tarjeta para ver el detalle, sus clientes y todas las acciones.
           </p>
@@ -485,7 +485,7 @@ function CreatorDetailModal({
   const payouts = data?.data?.payouts || [];
   const code = data?.data?.codes?.[0]?.code;
 
-  // Envía por WhatsApp la bienvenida a Siliba Creadores + su enlace de acceso
+  // Envía por WhatsApp la bienvenida a Siliba Reclutadores + su enlace de acceso
   // (para crear contraseña) + su código. Genera el enlace de acceso al vuelo.
   // Abrimos una pestaña en blanco de inmediato (gesto del usuario) y la
   // redirigimos a wa.me cuando el enlace está listo, para no ser bloqueados.
@@ -497,7 +497,7 @@ function CreatorDetailModal({
         const url = r?.data?.url || '';
         const msg =
           `¡Hola ${inf.firstName}!\n` +
-          `Te damos la bienvenida a *Siliba Creadores*.\n\n` +
+          `Te damos la bienvenida a *Siliba Reclutadores*.\n\n` +
           `Ya estás dado de alta. Crea tu contraseña y entra a tu panel aquí:\n${url}` +
           (code ? `\n\nTu código para compartir es: *${code}*` : '') +
           `\n\nDesde tu panel podrás ver tus referidos y tus comisiones. ¡Bienvenido!`;

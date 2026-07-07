@@ -69,8 +69,8 @@ export class CreatorCodesService {
       audience: { kind: 'users', userIds: [user.id] },
       type: 'creator.approved',
       section: 'creator',
-      title: '¡Ya eres parte de Creadores Siliba!',
-      body: 'Tu solicitud fue aprobada. Toca para ver cómo funcionan las comisiones y entrar a tu portal de creadores.',
+      title: '¡Ya eres parte de Reclutadores Siliba!',
+      body: 'Tu solicitud fue aprobada. Toca para ver cómo funcionan las comisiones y entrar a tu portal de reclutamiento.',
       // Deep-link a la pantalla de bienvenida (modal dorado + comisiones + SSO).
       link: '/creator/welcome',
       metadata: { kind: 'creator_approved' },

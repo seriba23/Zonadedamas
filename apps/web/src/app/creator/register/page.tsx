@@ -38,8 +38,9 @@ import { creatorRegister } from '@/lib/creator-auth';
 // (longitud mínima, número, símbolo). La usamos para habilitar/deshabilitar el botón.
 import { PasswordField, isPasswordValid } from '@/components/ui/password-field';
 
-// Color primario de la marca (verde azulado). Constante en módulo para no repetir.
-const TEAL = '#008080';
+// Identidad NEGRA/tinta del portal de reclutamiento (nombre conservado por
+// compatibilidad; el valor es gris muy oscuro para verse distinto del resto).
+const TEAL = '#111827';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL

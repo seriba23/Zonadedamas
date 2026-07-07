@@ -14,6 +14,17 @@
 // tipeo si lo escribimos en varios lugares.
 const CREATOR_TOKEN_KEY = 'creatorAccessToken';
 
+// Marca (en localStorage) de que la persona YA vio la presentación del programa
+// de reclutamiento. Mientras exista, el menú entra directo al login sin repetir
+// la intro. Se pone al pulsar "Acceder" en la intro o al iniciar sesión.
+export const INTRO_SEEN_KEY = 'creatorIntroSeen';
+
+// markCreatorIntroSeen(): registra que la intro ya fue vista.
+export function markCreatorIntroSeen() {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(INTRO_SEEN_KEY, '1');
+}
+
 // Cliente HTTP del backend de negocio (sesión normal de Siliba). Ya adjunta el
 // Bearer de la sesión activa (profesional/freelancer/admin) y maneja el refresh.
 // Lo usamos SOLO para el SSO: cambiar la sesión de Siliba por un token de creador.
@@ -88,8 +99,13 @@ export function getCreatorToken(): string | null {
 // No devuelve nada (void).
 export function setCreatorToken(token: string | null) {
   if (typeof window === 'undefined') return;                     // seguridad en SSR
-  if (token) localStorage.setItem(CREATOR_TOKEN_KEY, token);    // guarda si hay valor
-  else localStorage.removeItem(CREATOR_TOKEN_KEY);              // borra si es null
+  if (token) {
+    localStorage.setItem(CREATOR_TOKEN_KEY, token);              // guarda si hay valor
+    // Quien inicia sesión ya "accedió": no volver a mostrarle la intro.
+    localStorage.setItem(INTRO_SEEN_KEY, '1');
+  } else {
+    localStorage.removeItem(CREATOR_TOKEN_KEY);                  // borra si es null
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

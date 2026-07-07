@@ -45,7 +45,8 @@ import { creatorSetPassword } from '@/lib/creator-auth';
 import { PasswordField, isPasswordValid } from '@/components/ui/password-field';
 
 // Color de marca.
-const TEAL = '#008080';
+// Identidad NEGRA/tinta del portal de reclutamiento (nombre conservado).
+const TEAL = '#111827';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE INTERNO: SetPasswordInner
@@ -142,7 +143,7 @@ export default function CreatorSetPasswordPage() {
         {/* Cabecera de marca */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-black" style={{ color: TEAL }}>Siliba</h1>
-          <p className="text-sm text-gray-500 mt-1">Panel de reclutadores y creadores de contenido</p>
+          <p className="text-sm text-gray-500 mt-1">Panel de reclutadores</p>
         </div>
 
         {/* <Suspense>: mientras SetPasswordInner carga (porque useSearchParams

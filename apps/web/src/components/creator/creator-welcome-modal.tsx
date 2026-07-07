@@ -6,8 +6,9 @@
 // "ya logueado" (SSO): usa la sesión de Siliba activa para emitir el token de
 // creador, sin pedir usuario ni contraseña otra vez.
 //
-// El dorado es intencional (estatus "premium" de creador) y es lo que el negocio
-// pidió explícitamente para este aviso; es la única excepción a la paleta teal.
+// El NEGRO es intencional: es la identidad distintiva del programa de creadores
+// (misma que la sección "Creadores de contenido" del menú), para que no se
+// confunda con la paleta teal del resto de la app.
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
@@ -38,7 +39,7 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
       await creatorLoginFromSession();
       router.push('/creator/dashboard');
     } catch (err: any) {
-      setError(err?.message || 'No pudimos abrir tu portal de creadores. Intenta de nuevo.');
+      setError(err?.message || 'No pudimos abrir tu portal de reclutamiento. Intenta de nuevo.');
       setBusy(false);
     }
   }
@@ -53,10 +54,10 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
     // Overlay semitransparente centrado (mismo patrón que los popups del proyecto).
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
-        {/* ── Cabecera dorada con icono ── */}
-        <div className="relative bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 px-6 py-8 text-center">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/25 ring-4 ring-white/30">
-            {/* Estrella/insignia dorada */}
+        {/* ── Cabecera negra con icono ── */}
+        <div className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-black px-6 py-8 text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/15 ring-4 ring-white/20">
+            {/* Estrella/insignia */}
             <svg className="h-9 w-9 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M11.48 3.5a.6.6 0 011.04 0l2.34 4.05a.6.6 0 00.42.29l4.6.86a.6.6 0 01.32 1l-3.2 3.38a.6.6 0 00-.16.5l.6 4.63a.6.6 0 01-.85.62l-4.2-1.9a.6.6 0 00-.5 0l-4.2 1.9a.6.6 0 01-.85-.62l.6-4.63a.6.6 0 00-.16-.5L4.2 9.7a.6.6 0 01.32-1l4.6-.86a.6.6 0 00.42-.29L11.48 3.5z" />
             </svg>
@@ -65,7 +66,7 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
             {firstName ? `¡Felicidades, ${firstName}!` : '¡Felicidades!'}
           </h2>
           <p className="mt-1 text-sm font-medium text-white/90">
-            Ya eres parte de <span className="font-bold">Creadores Siliba</span>
+            Ya eres parte de <span className="font-bold">Reclutadores Siliba</span>
           </p>
         </div>
 
@@ -78,8 +79,8 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
 
           <div className="mt-4 space-y-3">
             {/* Paso 1 — descuento inicial al referido */}
-            <div className="flex gap-3 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">1</span>
+            <div className="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">1</span>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Comparte tu código</p>
                 <p className="text-xs text-gray-600">
@@ -90,21 +91,21 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
             </div>
 
             {/* Paso 2 — comisión recurrente desde el mes 3 */}
-            <div className="flex gap-3 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">2</span>
+            <div className="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">2</span>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Gana cada mes</p>
                 <p className="text-xs text-gray-600">
                   A partir del mes 3, mientras el referido siga activo, cobras
-                  <span className="font-semibold text-amber-700"> $50/mes por cada negocio</span> y
-                  <span className="font-semibold text-amber-700"> $25/mes por cada profesional</span>.
+                  <span className="font-semibold text-gray-900"> $50/mes por cada negocio</span> y
+                  <span className="font-semibold text-gray-900"> $25/mes por cada profesional</span>.
                 </p>
               </div>
             </div>
 
             {/* Paso 3 — cobro por Stripe */}
-            <div className="flex gap-3 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">3</span>
+            <div className="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">3</span>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Cobra directo</p>
                 <p className="text-xs text-gray-600">
@@ -126,7 +127,7 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
           <button
             onClick={handleEnter}
             disabled={busy}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-95 disabled:opacity-60"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-black disabled:opacity-60"
           >
             {busy && (
               <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
@@ -134,7 +135,7 @@ export function CreatorWelcomeModal({ firstName, onDismiss }: CreatorWelcomeModa
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             )}
-            {busy ? 'Abriendo tu portal...' : 'Entrar a mi portal de creadores'}
+            {busy ? 'Abriendo tu portal...' : 'Entrar a mi portal de reclutamiento'}
           </button>
           <button
             onClick={handleDismiss}

@@ -37,7 +37,7 @@ const SECTION_LABELS: Record<string, string> = {
   reviews: 'Reseñas',
   inventory: 'Inventario',
   reservations: 'Apartados',
-  creator: 'Creadores',
+  creator: 'Reclutamiento',
 };
 
 // sectionLabel: convierte la clave técnica de una sección al texto en español.
@@ -325,14 +325,15 @@ export function StaffInbox() {
             El JSX del contenido se guarda en 'content' para no duplicar código. */}
         {!isLoading &&
           list?.data?.map((n) => {
-            // Las notificaciones de "creador" se destacan en DORADO (estatus
-            // premium), el resto en teal. isCreator decide la paleta.
+            // Las notificaciones de "creador" se destacan en NEGRO (identidad
+            // distintiva del programa de creadores), el resto en teal. isCreator
+            // decide la paleta.
             const isCreator = n.section === 'creator';
             // wrapperClass: clases comunes + clases condicionales según si está leída.
-            // No leída: fondo claro + borde izquierdo grueso (dorado o teal).
+            // No leída: fondo claro + borde izquierdo grueso (negro o teal).
             // pl-[13px]: compensa el espacio que ocupa el borde-l de 3px.
             const unreadClass = isCreator
-              ? 'bg-amber-50 border-l-[3px] border-l-amber-500 pl-[13px]'
+              ? 'bg-gray-100 border-l-[3px] border-l-gray-900 pl-[13px]'
               : 'bg-teal-50 border-l-[3px] border-l-[#008080] pl-[13px]';
             const wrapperClass = `block w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
               n.readAt ? '' : unreadClass
@@ -341,10 +342,10 @@ export function StaffInbox() {
             // content: JSX compartido entre Link y button — el cuerpo visual de la notificación.
             const content = (
               <div className="flex gap-3">
-                {/* Punto indicador (dorado para creador, teal el resto). */}
+                {/* Punto indicador (negro para creador, teal el resto). */}
                 <span
                   className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
-                  style={{ backgroundColor: n.readAt ? 'transparent' : isCreator ? '#f59e0b' : TEAL }}
+                  style={{ backgroundColor: n.readAt ? 'transparent' : isCreator ? '#111827' : TEAL }}
                 />
                 <div className="min-w-0 flex-1">
                   {/* Primera fila: título + tiempo relativo. */}
@@ -356,8 +357,8 @@ export function StaffInbox() {
                   </div>
                   {/* Cuerpo de la notificación. */}
                   <p className="text-xs text-gray-600 mt-0.5">{n.body}</p>
-                  {/* Etiqueta de sección en mayúsculas pequeñas (dorada para creador). */}
-                  <span className={`text-[10px] font-semibold uppercase mt-1 inline-block ${isCreator ? 'text-amber-600' : 'text-teal-700'}`}>
+                  {/* Etiqueta de sección en mayúsculas pequeñas (negra para creador). */}
+                  <span className={`text-[10px] font-semibold uppercase mt-1 inline-block ${isCreator ? 'text-gray-900' : 'text-teal-700'}`}>
                     {sectionLabel(n.section)}
                   </span>
                 </div>

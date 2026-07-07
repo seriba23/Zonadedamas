@@ -224,19 +224,19 @@ export function NotificationBell({ basePath = '/employee' }: NotificationBellPro
                 Leídas → sin fondo especial. */}
             {!isLoading &&
               items.map((n) => {
-                // Las notificaciones de "creador" se destacan en DORADO.
+                // Las notificaciones de "creador" se destacan en NEGRO.
                 const isCreator = n.section === 'creator';
                 return (
                 <button
                   key={n.id}
                   type="button"
                   onClick={() => handleClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors flex gap-3 ${n.readAt ? '' : isCreator ? 'bg-amber-50 border-l-[3px] border-l-amber-500' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
+                  className={`w-full text-left px-4 py-3 border-b border-[var(--border)] hover:bg-[var(--bg-muted)] transition-colors flex gap-3 ${n.readAt ? '' : isCreator ? 'bg-gray-100 border-l-[3px] border-l-gray-900' : 'bg-teal-50 border-l-[3px] border-l-[#008080]'}`}
                 >
-                  {/* Punto indicador: dorado/teal si no leída, transparente si leída. */}
+                  {/* Punto indicador: negro/teal si no leída, transparente si leída. */}
                   <span
                     className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ backgroundColor: n.readAt ? 'transparent' : isCreator ? '#f59e0b' : TEAL }}
+                    style={{ backgroundColor: n.readAt ? 'transparent' : isCreator ? '#111827' : TEAL }}
                   />
                   <div className="min-w-0 flex-1">
                     {/* Título de la notificación (truncate: no se desborda). */}

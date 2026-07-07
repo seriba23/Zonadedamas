@@ -56,10 +56,10 @@ import { creatorLogin } from '@/lib/creator-auth';
 // con botón de mostrar/ocultar (ojo). Está en components/ui/password-field.tsx.
 import { PasswordField } from '@/components/ui/password-field';
 
-// TEAL: constante con el color primario de la marca (#008080 = verde azulado).
-// Lo definimos aquí para no repetir el string en múltiples lugares del JSX.
-// Si mañana cambia el color, solo lo cambiamos aquí.
-const TEAL = '#008080';
+// TEAL: color de marca del portal de RECLUTAMIENTO. A diferencia del resto de
+// Siliba (teal), este portal usa una identidad NEGRA/tinta para verse distinto.
+// El nombre se conserva por compatibilidad; el valor es gris muy oscuro.
+const TEAL = '#111827';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
@@ -148,7 +148,7 @@ export default function CreatorLoginPage() {
               CSS en línea. En JSX los estilos se escriben como un objeto de JS,
               con nombres en camelCase (color, backgroundColor, etc.). */}
           <h1 className="text-2xl font-black" style={{ color: TEAL }}>Siliba</h1>
-          <p className="text-sm text-gray-500 mt-1">Panel de reclutadores y creadores de contenido</p>
+          <p className="text-sm text-gray-500 mt-1">Panel de reclutadores</p>
         </div>
 
         {/* Formulario: onSubmit={submit} conecta el evento de envío con nuestra
@@ -210,6 +210,20 @@ export default function CreatorLoginPage() {
             <Link href="/creator/register" className="font-medium" style={{ color: TEAL }}>Regístrate</Link>
           </p>
         </form>
+
+        {/* Botón para regresar al inicio de sesión normal de Siliba (clientes /
+            profesionales / administradores). Reemplaza el atajo que antes vivía
+            en la pantalla de login normal: el acceso a creadores ahora está en el
+            menú de cada perfil, y desde aquí se puede volver al login general. */}
+        <Link
+          href="/login"
+          className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+          </svg>
+          Volver al inicio de sesión de Siliba
+        </Link>
       </div>
     </div>
   );
