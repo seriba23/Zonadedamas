@@ -218,6 +218,10 @@ export class MarketplaceService {
         gender: dto.gender || null,
         passwordHash,
         isClient: true,
+        // Registrarse ya es su primera sesión: marcamos lastLoginAt para que el
+        // SIGUIENTE login se detecte como "no primero" (isFirstLogin=false) y ahí
+        // sí aparezca el selector de perfiles.
+        lastLoginAt: new Date(),
       },
     });
 
@@ -257,6 +261,7 @@ export class MarketplaceService {
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      isFirstLogin: true, // un registro ES, por definición, el primer login
       user: {
         id: user.id,
         email: user.email,
@@ -370,6 +375,12 @@ export class MarketplaceService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // ¿Es su PRIMER login? user.lastLoginAt aún tiene el valor ANTERIOR (lo
+    // leímos antes de actualizarlo): si es null, nunca había iniciado sesión.
+    // El frontend usa esto para entrar "limpio" (sin selector de perfiles) solo
+    // la primera vez — es una marca POR CUENTA (no por dispositivo).
+    const isFirstLogin = !user.lastLoginAt;
+
     // Registramos la fecha del último inicio de sesión.
     await this.prisma.user.update({
       where: { id: user.id },
@@ -382,6 +393,7 @@ export class MarketplaceService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       reactivated, // informa al frontend si se reactivó la cuenta
+      isFirstLogin, // true si nunca antes había iniciado sesión (por cuenta)
       user: {
         id: user.id,
         email: user.email,
@@ -413,6 +425,11 @@ export class MarketplaceService {
 
     // Bandera: ¿hemos creado una cuenta nueva en este login?
     let isNewUser = false;
+
+    // ¿Es su PRIMER login? Lo calculamos con el usuario tal como vino de la BD
+    // (ANTES de actualizar lastLoginAt): si no existe (cuenta nueva) o nunca
+    // había iniciado sesión, es su primer login. Marca POR CUENTA.
+    const isFirstLogin = !user || !user.lastLoginAt;
 
     // CASO A: el usuario YA existía.
     if (user) {
@@ -475,6 +492,9 @@ export class MarketplaceService {
           socialProvider: dto.provider,
           socialId: profile.socialId,
           isClient: true,
+          // Primera sesión = ahora: así el próximo login social ya no cuenta
+          // como primero (isFirstLogin=false) y aparece el selector de perfiles.
+          lastLoginAt: new Date(),
         },
       });
       isNewUser = true; // marcamos que es una cuenta recién creada
@@ -493,6 +513,7 @@ export class MarketplaceService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       isNewUser, // el frontend puede mostrar un onboarding si es nuevo
+      isFirstLogin, // true si nunca antes había iniciado sesión (por cuenta)
       user: {
         id: user.id,
         email: user.email,

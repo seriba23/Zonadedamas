@@ -278,7 +278,7 @@ class MarketplaceApiClient {
     this.setRefreshToken(data.refreshToken);
     // Operador de propagación (...data.user): copia todas las propiedades de
     // data.user en el nuevo objeto, y añadimos el campo `reactivated` encima.
-    return { ...data.user, reactivated: !!data.reactivated };
+    return { ...data.user, reactivated: !!data.reactivated, isFirstLogin: !!data.isFirstLogin };
   }
 
   // Registra un nuevo usuario en el marketplace.
@@ -304,7 +304,7 @@ class MarketplaceApiClient {
     const data = res.data;
     this.accessToken = data.accessToken;
     this.setRefreshToken(data.refreshToken);
-    return data.user;
+    return { ...data.user, isFirstLogin: !!data.isFirstLogin };
   }
 
   // Inicia sesión mediante un proveedor social (Google o Facebook).
@@ -316,7 +316,7 @@ class MarketplaceApiClient {
     const data = res.data;
     this.accessToken = data.accessToken;
     this.setRefreshToken(data.refreshToken);
-    return { ...data.user, isNewUser: !!data.isNewUser };
+    return { ...data.user, isNewUser: !!data.isNewUser, isFirstLogin: !!data.isFirstLogin };
   }
 
   // Cierra la sesión: notifica al backend para invalidar el refreshToken
