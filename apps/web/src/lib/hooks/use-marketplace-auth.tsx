@@ -62,6 +62,11 @@ interface MarketplaceUser {
 // ============================================================
 const ACTIVE_PROFILE_KEY = 'marketplace_active_profile_id';
 
+// Marca (por dispositivo) de que el usuario YA hizo su primer login. En el PRIMER
+// login entramos "limpio" (auto-elegimos su perfil propio, sin mostrar el selector
+// de perfiles familiares); del SEGUNDO login en adelante sí mostramos el selector.
+const FIRST_LOGIN_KEY = 'mp_first_login_done';
+
 export interface MarketplaceProfile {
   id: string;
   relationship: string;        // 'SELF' | 'CHILD' | 'OTHER'
@@ -195,6 +200,28 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Tras un login, decide si mostrar el selector de perfiles o entrar directo:
+  //   - PRIMER login (sin marca): entrada limpia → auto-elegimos el perfil propio
+  //     (SELF) y NO mostramos el selector. Marcamos que ya no es el primero.
+  //   - SEGUNDO login en adelante: perfil activo = null → el guard manda al
+  //     selector (/marketplace/profiles), donde ademas aparece su onboarding.
+  const applyPostLoginProfile = useCallback(
+    (list: MarketplaceProfile[]) => {
+      if (typeof window !== 'undefined' && !localStorage.getItem(FIRST_LOGIN_KEY)) {
+        localStorage.setItem(FIRST_LOGIN_KEY, '1');
+        const self =
+          list.find((p) => p.relationship === 'SELF') ||
+          list.find((p) => p.isDefault) ||
+          list[0] ||
+          null;
+        setActiveProfile(self);
+      } else {
+        setActiveProfile(null);
+      }
+    },
+    [setActiveProfile],
+  );
+
   // ============================================================
   // useEffect: corre una sola vez al montar el componente.
   // Verifica si marketplaceApi ya tiene tokens almacenados y,
@@ -261,11 +288,10 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
     const { reactivated, ...userData } = result;
     setUser(userData);   // Guardamos los datos básicos del usuario (respuesta rápida)
     fetchFullUser();     // Luego cargamos datos completos en segundo plano
-    // Cargamos perfiles y limpiamos el activo: tras un login explícito SIEMPRE
-    // mostramos el selector (el gate redirige porque no hay perfil activo).
-    reloadProfiles().then(() => setActiveProfile(null));
+    // Cargamos perfiles y decidimos: primer login = entrada limpia; después = selector.
+    reloadProfiles().then(applyPostLoginProfile);
     return result;       // Devolvemos el resultado completo (con reactivated) al componente
-  }, [fetchFullUser, reloadProfiles, setActiveProfile]);
+  }, [fetchFullUser, reloadProfiles, applyPostLoginProfile]);
 
   // ============================================================
   // register: registra un nuevo usuario de marketplace.
@@ -285,11 +311,11 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       const u = await marketplaceApi.registerAndStore(params);
       setUser(u);       // Guardamos datos básicos
       fetchFullUser();  // Cargamos datos completos en segundo plano
-      // Tras registrarse, mostramos el selector (perfil activo limpio).
-      reloadProfiles().then(() => setActiveProfile(null));
+      // Al registrarse (primer login) entramos limpio; el helper lo decide.
+      reloadProfiles().then(applyPostLoginProfile);
       return u;
     },
-    [fetchFullUser, reloadProfiles, setActiveProfile],
+    [fetchFullUser, reloadProfiles, applyPostLoginProfile],
   );
 
   // ============================================================
@@ -310,12 +336,12 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       const { isNewUser, ...userData } = result;
       setUser(userData);  // Guardamos datos básicos
       fetchFullUser();    // Cargamos datos completos en segundo plano
-      // Tras login social, mostramos el selector (perfil activo limpio).
-      reloadProfiles().then(() => setActiveProfile(null));
+      // Primer login social = entrada limpia; después, selector. Lo decide el helper.
+      reloadProfiles().then(applyPostLoginProfile);
       return result;      // Devolvemos con isNewUser para que el componente pueda
                           // mostrar un mensaje de bienvenida diferente si es usuario nuevo
     },
-    [fetchFullUser, reloadProfiles, setActiveProfile],
+    [fetchFullUser, reloadProfiles, applyPostLoginProfile],
   );
 
   // ============================================================

@@ -15,8 +15,33 @@ import { useMarketplaceAuth, MarketplaceProfile } from '@/lib/hooks/use-marketpl
 import { marketplaceApi } from '@/lib/marketplace-api';
 import { signOutAll } from '@/lib/sign-out-all';
 import { resolveImageUrl } from '@/lib/utils';
+import { OnboardingCarousel, type OnboardingSlide } from '@/components/ui/onboarding-carousel';
 
 const TEAL = '#008080';
+
+// Marca (por dispositivo) de que el usuario ya vio el onboarding de perfiles.
+// Se muestra la primera vez que llega al selector (2º login) y se puede volver a
+// abrir con el icono ⓘ.
+const PROFILES_ONBOARDING_KEY = 'mp_profiles_onboarding_seen';
+
+// Los 3 slides que explican los perfiles familiares (blanco + acentos teal).
+const PROFILE_SLIDES: OnboardingSlide[] = [
+  {
+    icon: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z',
+    title: 'Perfiles para tu familia',
+    text: 'Crea un perfil para cada persona a tu cargo —hijos o familiares—. Reservas y gestionas sus citas desde tu misma cuenta.',
+  },
+  {
+    icon: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z',
+    title: 'Cada quien, lo suyo',
+    text: 'Cada perfil guarda por separado sus citas, puntos, cupones e historial. Nada se mezcla entre familiares.',
+  },
+  {
+    icon: 'M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5',
+    title: 'Cambia cuando quieras',
+    text: 'Elige con qué perfil entras al abrir la app. Aquí puedes crear, editar o quitar perfiles con "Gestionar perfiles".',
+  },
+];
 
 // Iniciales para el avatar cuando no hay foto (primera letra de nombre+apellido).
 function initials(p: { firstName: string; lastName: string }) {
@@ -71,6 +96,20 @@ export default function ProfilesSelectorPage() {
   // para cubrir la pantalla con un loader y NO mostrar el marketplace de fondo
   // por un instante (se veía raro).
   const [entering, setEntering] = useState(false);
+
+  // Onboarding de perfiles: se muestra la PRIMERA vez que el usuario llega al
+  // selector (2º login) y luego se puede reabrir con el icono ⓘ.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem(PROFILES_ONBOARDING_KEY)) {
+      setShowOnboarding(true);
+    }
+  }, []);
+  // Cierra el onboarding y recuerda que ya se vio (no reaparece solo).
+  function closeOnboarding() {
+    if (typeof window !== 'undefined') localStorage.setItem(PROFILES_ONBOARDING_KEY, '1');
+    setShowOnboarding(false);
+  }
 
   // Elegir un perfil: lo marcamos como activo y volvemos al marketplace.
   function choose(p: MarketplaceProfile) {
@@ -174,8 +213,20 @@ export default function ProfilesSelectorPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-10">
       <div className="w-full max-w-md text-center">
-        {/* Mensaje explicativo claro sobre el uso de los perfiles */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Elige un perfil</h1>
+        {/* Título + icono ⓘ para reabrir el onboarding de perfiles. */}
+        <div className="flex items-center justify-center gap-1.5 mb-1">
+          <h1 className="text-2xl font-bold text-gray-900">Elige un perfil</h1>
+          <button
+            onClick={() => setShowOnboarding(true)}
+            aria-label="¿Cómo funcionan los perfiles?"
+            title="¿Cómo funcionan los perfiles?"
+            className="text-gray-400 hover:text-[#008080] transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+          </button>
+        </div>
         <p className="text-sm text-gray-500 mb-6">
           Puedes crear perfiles para gestionar las citas de tus hijos o
           familiares a tu cargo: cada perfil tiene sus propias citas, puntos e
@@ -404,6 +455,19 @@ export default function ProfilesSelectorPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Onboarding de perfiles (blanco + acentos teal). Se muestra la primera
+          vez que se llega al selector y se reabre con el icono ⓘ del título. */}
+      {showOnboarding && (
+        <OnboardingCarousel
+          slides={PROFILE_SLIDES}
+          theme="light"
+          accent={TEAL}
+          doneLabel="Entendido"
+          onDone={closeOnboarding}
+          onSkip={closeOnboarding}
+        />
       )}
     </div>
   );
