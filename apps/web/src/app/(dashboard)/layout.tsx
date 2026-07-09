@@ -13,6 +13,7 @@ import { useCurrency } from '@/lib/hooks/use-currency';
 import { TopbarActionProvider, useTopbarAction } from '@/lib/hooks/use-topbar-action';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { SectionHelp } from '@/components/ui/section-help';
 import { useEnsurePushSubscription } from '@/lib/hooks/use-staff-notifications';
 
 function EmployeeJoinedNotification({
@@ -314,6 +315,8 @@ function DashboardLayoutContent({
           </h1>
           <div className="relative z-10 ml-auto flex items-center gap-2 flex-shrink-0">
             {topbarAction && <div>{topbarAction}</div>}
+            {/* Ayuda contextual: ⓘ que abre el onboarding de la sección actual. */}
+            <SectionHelp />
             <NotificationBell basePath="" />
           </div>
         </header>
