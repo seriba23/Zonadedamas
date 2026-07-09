@@ -66,6 +66,7 @@ import { ForceLightTheme } from '@/components/ui/force-light-theme';
 // en el portal del empleado, ignorando la preferencia del sistema operativo.
 
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { SectionHelp } from '@/components/ui/section-help';
 // NotificationBell → componente del ícono de campana que muestra el contador
 // de notificaciones no leídas y abre el panel de notificaciones.
 
@@ -763,6 +764,8 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
               EmployeeTopbarSlot muestra el botón que registre la página (ej. "Nueva"). */}
           <div className="ml-auto flex items-center gap-2">
             <EmployeeTopbarSlot />
+            {/* Ayuda contextual: ⓘ que abre el onboarding de la sección actual. */}
+            <SectionHelp />
             {/* basePath="/employee" le dice a la campana dónde están las
                 páginas del portal del empleado (para construir deep-links). */}
             <NotificationBell basePath="/employee" />
@@ -773,6 +776,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
         {/* Solo contiene la campana de notificaciones, alineada a la derecha. */}
         <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center justify-end gap-2 px-4 py-2">
           <EmployeeTopbarSlot />
+          <SectionHelp />
           <NotificationBell basePath="/employee" />
         </header>
 

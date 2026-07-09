@@ -1,13 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // SectionHelp — ícono ⓘ en el header que abre el onboarding de la sección actual.
 //
-// Toma la ruta actual, busca sus slides en el registro (section-help-content) y:
-//   - Muestra un ícono ⓘ para abrir/repasar el onboarding cuando el usuario quiera.
-//   - La PRIMERA vez que se entra a esa sección, lo muestra automáticamente
-//     (marca por sección en localStorage: help_seen_<key>).
-//   - Si la sección no tiene onboarding definido, no pinta nada.
+// Toma la ruta actual, busca sus slides en el registro (section-help-content) y
+// muestra un ícono ⓘ. Se abre SOLO a demanda (al pulsar el ícono): no aparece
+// automáticamente, así no molesta a quienes ya usan la app. Si la sección no
+// tiene onboarding definido, no pinta nada.
 //
-// Es centralizado: se coloca una sola vez en el header y funciona en todas las
+// Es centralizado: se coloca una vez en el header y funciona en todas las
 // secciones; el contenido vive en section-help-content.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
@@ -22,23 +21,12 @@ export function SectionHelp() {
   const help = getSectionHelp(pathname || '');
   const [open, setOpen] = useState(false);
 
-  // Auto-mostrar la primera vez que se visita esta sección (por su key).
+  // Al cambiar de sección, cerramos cualquier ayuda que hubiera quedado abierta.
   useEffect(() => {
-    if (!help) return;
-    if (typeof window === 'undefined') return;
-    if (!localStorage.getItem(`help_seen_${help.key}`)) setOpen(true);
-    // Al cambiar de sección, si la nueva no se ha visto, se auto-muestra.
-  }, [help?.key]);
+    setOpen(false);
+  }, [pathname]);
 
   if (!help) return null;
-
-  // Cierra y recuerda que esta sección ya se vio (no reaparece sola).
-  function close() {
-    if (typeof window !== 'undefined' && help) {
-      localStorage.setItem(`help_seen_${help.key}`, '1');
-    }
-    setOpen(false);
-  }
 
   return (
     <>
@@ -60,8 +48,8 @@ export function SectionHelp() {
           theme="light"
           accent="#008080"
           doneLabel="Entendido"
-          onDone={close}
-          onSkip={close}
+          onDone={() => setOpen(false)}
+          onSkip={() => setOpen(false)}
         />
       )}
     </>
