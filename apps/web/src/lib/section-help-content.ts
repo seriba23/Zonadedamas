@@ -106,21 +106,53 @@ export const SECTION_HELP: SectionHelpEntry[] = [
     key: 'staff', title: 'Personal', match: (p) => p.startsWith('/staff'),
     slides: [
       { icon: I.userGroup, title: 'Tu equipo', text: 'Da de alta a tus empleados y asígnales un color, sus servicios y su horario.' },
-      { icon: I.key, title: 'Permisos y roles', text: 'Controla qué ve y hace cada quien; puedes convertir a un empleado en administrador parcial.' },
+      { icon: I.key, title: 'Permisos y roles', text: 'Controla qué ve y hace cada quien: tus empleados solo verán lo que tú quieras que vean. Incluso puedes convertir a un empleado en administrador parcial.' },
+    ],
+  },
+  // Pestañas de Personal (misma URL /staff). No se seleccionan por ruta —el ⓘ las
+  // toma por "key" cuando la página fija la pestaña activa (match: () => false).
+  {
+    key: 'staff-permisos', title: 'Permisos', match: () => false,
+    slides: [
+      { icon: I.calendar, title: 'Aprueba ausencias', text: 'Cuando un empleado pide un día libre o una ausencia, aquí la revisas y la apruebas o rechazas.' },
+    ],
+  },
+  {
+    key: 'staff-asistencias', title: 'Asistencias', match: () => false,
+    slides: [
+      { icon: I.clock, title: 'Asistencia de tu equipo', text: 'Consulta las entradas y salidas de tus empleados y su historial de asistencia.' },
+    ],
+  },
+  {
+    key: 'staff-horarios', title: 'Horarios', match: () => false,
+    slides: [
+      { icon: I.clock, title: 'Horarios del equipo', text: 'Define el horario de cada empleado; sus citas solo se agendan dentro de su disponibilidad.' },
+    ],
+  },
+  {
+    key: 'staff-comisiones', title: 'Comisiones', match: () => false,
+    slides: [
+      { icon: I.coin, title: 'Comisiones del equipo', text: 'Consulta las comisiones que gana cada empleado y confírmalas cuando se las pagues.' },
+    ],
+  },
+  {
+    key: 'staff-organigrama', title: 'Organigrama', match: () => false,
+    slides: [
+      { icon: I.userGroup, title: 'Organigrama', text: 'Visualiza la estructura de tu equipo: quién es administrador y cómo se organiza tu personal.' },
     ],
   },
   {
     key: 'bundles', title: 'Paquetes', match: (p) => p.startsWith('/bundles'),
     slides: [
-      { icon: I.cube, title: 'Paquetes de servicios', text: 'Agrupa varios servicios en un paquete con precio especial para vender más.' },
-      { icon: I.tag, title: 'Vende combos', text: 'Ideal para promociones: "corte + barba" o paquetes de varias sesiones.' },
+      { icon: I.cube, title: '¿Qué es un paquete?', text: 'Combina varios servicios en uno solo con precio especial (ej. "corte + barba") o un bono de varias sesiones. Tu cliente lo compra como un solo producto.' },
+      { icon: I.tag, title: 'Vende más por visita', text: 'Los paquetes suben el ticket promedio y fidelizan: ideales para promociones y bonos de sesiones.' },
     ],
   },
   {
     key: 'rewards', title: 'Cupones', match: (p) => p.startsWith('/rewards'),
     slides: [
-      { icon: I.gift, title: 'Recompensas y cupones', text: 'Premia la lealtad: tus clientes acumulan puntos y los canjean por servicios o descuentos.' },
-      { icon: I.sparkles, title: 'Crea recompensas', text: 'Define qué se canjea y con cuántos puntos; el cupón se genera automáticamente.' },
+      { icon: I.gift, title: '¿Qué son los cupones?', text: 'Recompensas que tus clientes canjean: acumulan puntos por sus compras y los cambian por servicios o descuentos. Aquí también viven las promociones tipo 2×1.' },
+      { icon: I.sparkles, title: 'Crea una recompensa', text: 'Defines qué se canjea y con cuántos puntos; el cupón se genera solo y el cliente lo usa al pagar.' },
     ],
   },
   {
@@ -302,4 +334,10 @@ export const SECTION_HELP: SectionHelpEntry[] = [
 // null si esa sección aún no tiene onboarding definido.
 export function getSectionHelp(pathname: string): SectionHelpEntry | null {
   return SECTION_HELP.find((h) => h.match(pathname)) || null;
+}
+
+// getSectionHelpByKey(): busca una entrada por su key (para la ayuda por pestaña,
+// donde la página fija el key de la pestaña activa en vez de depender de la ruta).
+export function getSectionHelpByKey(key: string): SectionHelpEntry | null {
+  return SECTION_HELP.find((h) => h.key === key) || null;
 }

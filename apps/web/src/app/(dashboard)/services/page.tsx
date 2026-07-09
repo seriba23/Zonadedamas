@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ServicesContent } from './services-content';
 import { BundlesContent } from '../bundles/bundles-content';
 import { RewardsContent } from '../rewards/rewards-content';
+import { useSectionHelpKey } from '@/lib/section-help-context';
 
 // Tabs de la pagina /services. La pestaña "Promociones" se eliminó porque
 // las promociones (incluyendo 2×1) ahora viven en Cupones (rewards) como
@@ -16,8 +17,17 @@ const SERVICE_PAGE_TABS: { key: ServicePageTab; label: string }[] = [
   { key: 'cupones', label: 'Cupones' },
 ];
 
+// Cada pestaña muestra la ayuda (ⓘ del header) correspondiente.
+const HELP_KEY_BY_TAB: Record<ServicePageTab, string> = {
+  servicios: 'services',
+  paquetes: 'bundles',
+  cupones: 'rewards',
+};
+
 export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState<ServicePageTab>('servicios');
+  // El ⓘ del header explica la pestaña activa (Servicios / Paquetes / Cupones).
+  useSectionHelpKey(HELP_KEY_BY_TAB[activeTab]);
 
   return (
     <div className="flex flex-col h-full">

@@ -14,6 +14,7 @@ import { TopbarActionProvider, useTopbarAction } from '@/lib/hooks/use-topbar-ac
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { SectionHelp } from '@/components/ui/section-help';
+import { SectionHelpProvider } from '@/lib/section-help-context';
 import { useEnsurePushSubscription } from '@/lib/hooks/use-staff-notifications';
 
 function EmployeeJoinedNotification({
@@ -283,6 +284,7 @@ function DashboardLayoutContent({
   const sectionTitle = getSectionTitle(pathname);
 
   return (
+    <SectionHelpProvider>
     <div className="flex h-[100dvh]" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       {/* El dueño ve el portal admin completo; un admin parcial (no-dueño) navega
           estas páginas con la barra lateral de empleado (chrome de su perfil). */}
@@ -341,5 +343,6 @@ function DashboardLayoutContent({
         />
       )}
     </div>
+    </SectionHelpProvider>
   );
 }

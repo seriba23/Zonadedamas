@@ -14,11 +14,14 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { OnboardingCarousel } from './onboarding-carousel';
-import { getSectionHelp } from '@/lib/section-help-content';
+import { getSectionHelp, getSectionHelpByKey } from '@/lib/section-help-content';
+import { useSectionHelpOverride } from '@/lib/section-help-context';
 
 export function SectionHelp() {
   const pathname = usePathname();
-  const help = getSectionHelp(pathname || '');
+  // Si una página con pestañas fijó un "key" (override), usamos ESE; si no, la ruta.
+  const override = useSectionHelpOverride();
+  const help = override ? getSectionHelpByKey(override) : getSectionHelp(pathname || '');
   const [open, setOpen] = useState(false);
 
   // Al cambiar de sección, cerramos cualquier ayuda que hubiera quedado abierta.

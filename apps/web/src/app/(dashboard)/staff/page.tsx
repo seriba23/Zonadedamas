@@ -12,6 +12,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useCurrency } from '@/lib/hooks/use-currency';
 import { Modal } from '@/components/ui/modal';
 import { useRegisterTopbarAction } from '@/lib/hooks/use-topbar-action';
+import { useSectionHelpKey } from '@/lib/section-help-context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -75,6 +76,17 @@ export default function StaffPage() {
       TABS.some((t) => t.key === tabParam && (!t.requiredPermission || hasPermission(t.requiredPermission)))
       ? tabParam
       : 'empleados',
+  );
+  // El ⓘ del header muestra la ayuda de la pestaña activa de Personal.
+  useSectionHelpKey(
+    ({
+      empleados: 'staff',
+      permisos: 'staff-permisos',
+      asistencias: 'staff-asistencias',
+      horarios: 'staff-horarios',
+      comisiones: 'staff-comisiones',
+      organigrama: 'staff-organigrama',
+    } as Record<StaffTab, string>)[activeTab],
   );
   const [search, setSearch] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
