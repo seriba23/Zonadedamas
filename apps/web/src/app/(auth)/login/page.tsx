@@ -72,6 +72,39 @@ import type { AuthUser } from '@/lib/auth';
 // Función que cierra todas las sesiones (negocio + marketplace + portal).
 import { signOutAll } from '@/lib/sign-out-all';
 
+// Onboarding de inicio (carrusel reutilizable) que se muestra ANTES del login la
+// primera vez que alguien llega, para que entienda qué es Siliba.
+import { OnboardingCarousel, type OnboardingSlide } from '@/components/ui/onboarding-carousel';
+
+// Marca (por dispositivo) de que ya se vio la intro de la app. Una vez vista, el
+// login se muestra directo. Es pre-login: no hay cuenta aún, por eso va en
+// localStorage (no se puede ligar a una cuenta que todavía no existe).
+const APP_INTRO_KEY = 'siliba_intro_seen';
+
+// Slides del onboarding de inicio: cliente-primero, con una mención a negocios.
+const APP_INTRO_SLIDES: OnboardingSlide[] = [
+  {
+    icon: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z',
+    title: 'Bienvenido a Siliba',
+    text: 'Reserva belleza y bienestar con profesionales de verdad, todo en un solo lugar.',
+  },
+  {
+    icon: 'M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72M6 6.75h.008v.008H6V6.75z',
+    title: 'Encuentra tu lugar ideal',
+    text: 'Salones, barberías, spas y clínicas cerca de ti: fotos, reseñas y precios reales.',
+  },
+  {
+    icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+    title: 'Reserva en segundos',
+    text: 'Elige servicio, profesional y horario. Sin llamadas y disponible las 24 horas.',
+  },
+  {
+    icon: 'M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z',
+    title: 'Todo en un solo lugar',
+    text: 'Tus citas, puntos y recompensas siempre contigo. ¿Tienes un negocio? También lo gestionas desde Siliba.',
+  },
+];
+
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 // Interfaz TypeScript: define la "forma" (shape) de un objeto.
 // Si intentas usar un objeto como SocialProfile sin que tenga estas propiedades,
@@ -168,6 +201,21 @@ function LoginPageInner() {
   // Ejemplo: ['admin', 'professional'] si tiene cuenta de admin y empleado,
   // pero no de cliente. Se usa para saber qué opciones mostrar en el selector.
   const [availableProfiles, setAvailableProfiles] = useState<string[]>([]);
+
+  // Onboarding de inicio: se muestra ANTES del login la primera vez (sin sesión
+  // y sin la marca en localStorage). Al terminar/saltar, se ve el login normal.
+  const [showIntro, setShowIntro] = useState(false);
+  useEffect(() => {
+    if (authLoading) return;            // esperar a saber si hay sesión
+    if (isAuthenticated) return;        // con sesión activa no mostramos la intro
+    if (typeof window === 'undefined') return;
+    if (!localStorage.getItem(APP_INTRO_KEY)) setShowIntro(true);
+  }, [authLoading, isAuthenticated]);
+  // Cierra la intro y recuerda que ya se vio (no reaparece).
+  function dismissIntro() {
+    if (typeof window !== 'undefined') localStorage.setItem(APP_INTRO_KEY, '1');
+    setShowIntro(false);
+  }
 
   // Helper que setea state + persiste el selector en sessionStorage. Asi al
   // hacer back desde /register el usuario vuelve al selector intacto en vez
@@ -486,6 +534,21 @@ function LoginPageInner() {
   // Si NO lo tiene → va al flujo de registro para convertirse en ese tipo
   // (asi no se cierra la puerta a que un cliente despues quiera ser
   // emprendedor/independiente/admin sin tener que cerrar sesion).
+  // Onboarding de inicio (blanco + teal): tapa todo hasta que el visitante lo
+  // termina o lo salta; luego se ve el login normal.
+  if (showIntro) {
+    return (
+      <OnboardingCarousel
+        slides={APP_INTRO_SLIDES}
+        theme="light"
+        accent="#008080"
+        doneLabel="Empezar"
+        onDone={dismissIntro}
+        onSkip={dismissIntro}
+      />
+    );
+  }
+
   if (roleChoice) {
     // Si el usuario llego al login con ?redirect que apunta a una zona
     // compatible con el rol elegido, lo respetamos al hacer click.
