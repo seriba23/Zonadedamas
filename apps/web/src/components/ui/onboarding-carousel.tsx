@@ -15,6 +15,11 @@
 'use client';
 
 import { useRef, useState } from 'react';
+// createPortal: monta el overlay directamente en <body>, para que quede a nivel
+// raíz y cubra TODO, sin importar en qué contenedor (ej. el header) se use el
+// componente. Sin esto, un contexto de apilamiento del padre podría dejar
+// elementos por encima del onboarding.
+import { createPortal } from 'react-dom';
 
 // Un slide: icono (path SVG), título y texto corto.
 export interface OnboardingSlide {
@@ -69,7 +74,7 @@ export function OnboardingCarousel({
   const dotOn = isDark ? 'bg-white' : '';
   const dotOff = isDark ? 'bg-white/30' : 'bg-gray-300';
 
-  return (
+  const content = (
     <div className={`fixed inset-0 z-[100] flex flex-col ${bg}`}>
       {/* Cabecera: "Saltar" a la derecha */}
       <div className="flex items-center justify-end px-5 pt-6">
@@ -139,4 +144,9 @@ export function OnboardingCarousel({
       </div>
     </div>
   );
+
+  // En SSR no existe document; no renderizamos el portal allí.
+  if (typeof document === 'undefined') return null;
+  // Montamos el overlay en <body> para que cubra toda la pantalla.
+  return createPortal(content, document.body);
 }

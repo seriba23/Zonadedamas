@@ -310,13 +310,15 @@ function DashboardLayoutContent({
           <div className="md:hidden relative z-10">
             <ThemeToggle />
           </div>
+          {/* Ayuda contextual: ⓘ a la izquierda, justo a la derecha del modo oscuro. */}
+          <div className="relative z-10">
+            <SectionHelp />
+          </div>
           <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center text-base font-semibold text-[var(--text-primary)] truncate px-24 md:relative md:px-0 md:inset-auto md:flex-1 md:justify-start md:text-xl md:pointer-events-auto">
             <span className="truncate">{sectionTitle}</span>
           </h1>
           <div className="relative z-10 ml-auto flex items-center gap-2 flex-shrink-0">
             {topbarAction && <div>{topbarAction}</div>}
-            {/* Ayuda contextual: ⓘ que abre el onboarding de la sección actual. */}
-            <SectionHelp />
             <NotificationBell basePath="" />
           </div>
         </header>

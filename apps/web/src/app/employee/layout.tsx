@@ -760,12 +760,11 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             </svg>
           </button>
           <span className="ml-2 text-base font-bold" style={{ color: '#008080' }}>Siliba</span>
-          {/* ml-auto → empuja las acciones al extremo derecho del header.
-              EmployeeTopbarSlot muestra el botón que registre la página (ej. "Nueva"). */}
+          {/* Ayuda contextual: ⓘ a la izquierda, junto al logo. */}
+          <div className="ml-1"><SectionHelp /></div>
+          {/* ml-auto → empuja las acciones al extremo derecho del header. */}
           <div className="ml-auto flex items-center gap-2">
             <EmployeeTopbarSlot />
-            {/* Ayuda contextual: ⓘ que abre el onboarding de la sección actual. */}
-            <SectionHelp />
             {/* basePath="/employee" le dice a la campana dónde están las
                 páginas del portal del empleado (para construir deep-links). */}
             <NotificationBell basePath="/employee" />
@@ -774,10 +773,13 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
         {/* ─── Barra superior en DESKTOP (oculta en móvil con hidden lg:flex) ─── */}
         {/* Solo contiene la campana de notificaciones, alineada a la derecha. */}
-        <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center justify-end gap-2 px-4 py-2">
-          <EmployeeTopbarSlot />
+        <header className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-gray-200 items-center gap-2 px-4 py-2">
+          {/* Ayuda contextual: ⓘ a la izquierda. */}
           <SectionHelp />
-          <NotificationBell basePath="/employee" />
+          <div className="ml-auto flex items-center gap-2">
+            <EmployeeTopbarSlot />
+            <NotificationBell basePath="/employee" />
+          </div>
         </header>
 
         {/* ─── Banner de suscripción (solo freelancer dueño de la cuenta) ─────

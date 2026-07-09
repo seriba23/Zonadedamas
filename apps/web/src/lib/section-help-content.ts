@@ -92,6 +92,7 @@ export const SECTION_HELP: SectionHelpEntry[] = [
     slides: [
       { icon: I.users, title: 'Tu cartera de clientes', text: 'Todos tus clientes en un solo lugar, con su historial de citas, notas y datos de contacto.' },
       { icon: I.chat, title: 'Agrega y contacta', text: 'Crea clientes con el botón "Nuevo" y contáctalos por teléfono, WhatsApp o correo desde su ficha.' },
+      { icon: I.person, title: 'No necesitan cuenta', text: 'Tus clientes no requieren una cuenta en Siliba: los das de alta directamente con su nombre y teléfono, sin que ellos tengan que registrarse.' },
     ],
   },
   {
