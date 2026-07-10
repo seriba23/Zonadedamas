@@ -100,7 +100,7 @@ export const SECTION_HELP: SectionHelpEntry[] = [
     key: 'services', title: 'Servicios', match: (p) => p.startsWith('/services'),
     slides: [
       { icon: I.sparkles, title: 'Tu catálogo de servicios', text: 'Aquí van los trabajos que REALIZAS y que tus clientes reservan: nombre, precio, duración y qué profesionales lo hacen.' },
-      { icon: I.warn, title: 'Aquí NO van productos', text: 'Los productos que vendes (joyería, cremas, etc.) NO se cargan como servicios ni como fotos de portafolio. Los productos van en Inventario y Tienda; un servicio siempre es algo que se agenda y se realiza.' },
+      { icon: I.warn, title: 'Aquí NO van productos', text: 'Los productos que vendes (cremas, velas, aceites, etc.) NO se cargan como servicios ni como fotos de portafolio. Los productos van en Inventario y Tienda; un servicio siempre es algo que se agenda y se realiza.' },
       { icon: I.tag, title: 'Precios, anticipos y puntos', text: 'Configura comisiones, el anticipo requerido y los puntos de recompensa de cada servicio.' },
     ],
   },
