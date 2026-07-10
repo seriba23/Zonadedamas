@@ -47,6 +47,7 @@ const I = {
   coin: 'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   person: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z',
   cube: 'M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9',
+  warn: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z',
 };
 
 export const SECTION_HELP: SectionHelpEntry[] = [
@@ -98,7 +99,8 @@ export const SECTION_HELP: SectionHelpEntry[] = [
   {
     key: 'services', title: 'Servicios', match: (p) => p.startsWith('/services'),
     slides: [
-      { icon: I.sparkles, title: 'Tu catálogo de servicios', text: 'Define lo que ofreces: nombre, precio, duración y qué profesionales lo realizan.' },
+      { icon: I.sparkles, title: 'Tu catálogo de servicios', text: 'Aquí van los trabajos que REALIZAS y que tus clientes reservan: nombre, precio, duración y qué profesionales lo hacen.' },
+      { icon: I.warn, title: 'Aquí NO van productos', text: 'Los productos que vendes (joyería, cremas, etc.) NO se cargan como servicios ni como fotos de portafolio. Los productos van en Inventario y Tienda; un servicio siempre es algo que se agenda y se realiza.' },
       { icon: I.tag, title: 'Precios, anticipos y puntos', text: 'Configura comisiones, el anticipo requerido y los puntos de recompensa de cada servicio.' },
     ],
   },
