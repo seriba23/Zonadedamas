@@ -1661,9 +1661,15 @@ function EmployeeCommissionPayments({ empId }: { empId: string }) {
 
   const { data } = useQuery({
     queryKey: ['emp-commission-payments', empId],
-    queryFn: () => api.get<{ data: { earned: number; collected: number; pending: number; payments: any[] } }>(`/api/employees/${empId}/commission-payments`),
+    queryFn: () => api.get<{ data: { earned: number; collected: number; pending: number; outstanding: number; payments: any[] } }>(`/api/employees/${empId}/commission-payments`),
   });
   const d = data?.data;
+
+  // "outstanding" = lo que aún se le debe (máximo que se puede pagar hoy).
+  const outstanding = d?.outstanding ?? 0;
+  const amountNum = parseFloat(amount) || 0;
+  // El monto no puede exceder la deuda (con tolerancia por decimales).
+  const overDebt = amountNum > outstanding + 0.005;
 
   const pay = useMutation({
     mutationFn: () => api.post(`/api/employees/${empId}/commission-payments`, { amount: parseFloat(amount), note: note.trim() || undefined }),
@@ -1690,29 +1696,57 @@ function EmployeeCommissionPayments({ empId }: { empId: string }) {
           <p className="text-sm font-bold text-[var(--text-primary)]">{d ? formatCurrency(d.earned) : '...'}</p>
         </div>
         <div className="rounded-lg border border-teal-200 bg-teal-50 p-2.5 text-center">
-          <p className="text-[10px] text-teal-700 uppercase tracking-wide">Por cobrar</p>
-          <p className="text-sm font-bold text-teal-800">{d ? formatCurrency(d.pending) : '...'}</p>
+          <p className="text-[10px] text-teal-700 uppercase tracking-wide">Por pagar</p>
+          <p className="text-sm font-bold text-teal-800">{d ? formatCurrency(outstanding) : '...'}</p>
         </div>
         <div className="rounded-lg border border-[var(--border)] p-2.5 text-center">
-          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Cobradas</p>
+          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Pagadas</p>
           <p className="text-sm font-bold text-[var(--text-primary)]">{d ? formatCurrency(d.collected) : '...'}</p>
         </div>
       </div>
 
       <button
         onClick={() => setShowPay((v) => !v)}
-        className="w-full mb-2 py-2 rounded-lg text-xs font-semibold text-white"
+        disabled={!showPay && outstanding <= 0}
+        className="w-full mb-2 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
         style={{ backgroundColor: '#008080' }}
       >
-        {showPay ? 'Cancelar' : 'Registrar pago de comisión'}
+        {showPay
+          ? 'Cancelar'
+          : outstanding <= 0
+            ? 'Sin comisiones por pagar'
+            : 'Registrar pago de comisión'}
       </button>
 
       {showPay && (
         <div className="rounded-lg border border-[var(--border)] p-3 mb-2 space-y-2 bg-[var(--bg-subtle)]/40">
           <div>
-            <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">Monto pagado</label>
-            <input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
-              className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]" />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Monto a pagar</label>
+              {/* Atajo: rellenar con la deuda completa. */}
+              <button
+                type="button"
+                onClick={() => setAmount(String(outstanding))}
+                className="text-[11px] font-semibold text-[#008080] hover:underline"
+              >
+                Pagar todo ({formatCurrency(outstanding)})
+              </button>
+            </div>
+            <input
+              type="number" min={0} max={outstanding} step="0.01" value={amount}
+              onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none bg-[var(--bg-surface)] text-[var(--text-primary)] ${
+                overDebt ? 'border-red-400 focus:border-red-500' : 'border-[var(--border)] focus:border-[#008080]'
+              }`}
+            />
+            <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+              Deuda pendiente: <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(outstanding)}</span>
+            </p>
+            {overDebt && (
+              <p className="mt-1 text-[11px] text-red-600">
+                El monto no puede ser mayor a la deuda pendiente ({formatCurrency(outstanding)}).
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">Nota (opcional)</label>
@@ -1721,7 +1755,7 @@ function EmployeeCommissionPayments({ empId }: { empId: string }) {
           </div>
           <button
             onClick={() => pay.mutate()}
-            disabled={pay.isPending || !amount || parseFloat(amount) <= 0}
+            disabled={pay.isPending || !amount || amountNum <= 0 || overDebt}
             className="w-full py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
             style={{ backgroundColor: '#008080' }}
           >

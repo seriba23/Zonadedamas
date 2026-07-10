@@ -869,6 +869,27 @@ export class EmployeesService {
     if (!dto.amount || dto.amount <= 0) {
       throw new BadRequestException('El monto debe ser mayor a 0');
     }
+
+    // Validar que no se pague MÁS de lo que se debe: devengado menos lo ya pagado
+    // vigente (confirmado + pendiente de confirmar). Lo disputado no cuenta como
+    // pagado (se sigue debiendo). El +0.005 es tolerancia por decimales.
+    const [earned, activeAgg] = await Promise.all([
+      this.earnedCommissions(employeeId, tenantId),
+      this.prisma.commissionPayment.aggregate({
+        where: { employeeId, tenantId, status: { in: ['CONFIRMED', 'PENDING'] } },
+        _sum: { amount: true },
+      }),
+    ]);
+    const outstanding = Math.max(
+      0,
+      Math.round((earned - Number(activeAgg._sum.amount ?? 0)) * 100) / 100,
+    );
+    if (dto.amount > outstanding + 0.005) {
+      throw new BadRequestException(
+        `El monto ($${dto.amount}) no puede ser mayor a lo que se le debe ($${outstanding}).`,
+      );
+    }
+
     const created = await this.prisma.commissionPayment.create({
       data: {
         tenantId,
@@ -897,8 +918,22 @@ export class EmployeesService {
       }),
     ]);
     const collected = Number(paidAgg._sum.amount ?? 0);
+    // "outstanding" = lo que el negocio AÚN debe registrar: devengado menos lo ya
+    // pagado que sigue vigente (confirmado + pendiente de confirmar). Lo DISPUTADO
+    // no cuenta como pagado (se sigue debiendo). Es el máximo que el admin puede
+    // registrar en un nuevo pago.
+    const activePaid = payments
+      .filter((p) => p.status === 'CONFIRMED' || p.status === 'PENDING')
+      .reduce((s, p) => s + Number(p.amount), 0);
+    const outstanding = Math.max(0, Math.round((earned - activePaid) * 100) / 100);
     return {
-      data: { earned, collected, pending: Math.max(0, earned - collected), payments },
+      data: {
+        earned,
+        collected,
+        pending: Math.max(0, earned - collected),
+        outstanding,
+        payments,
+      },
     };
   }
 
