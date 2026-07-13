@@ -577,6 +577,7 @@ export class ClientPortalService {
     return this.availabilityService.getAvailableSlots(
       { serviceIds, startDate, endDate, employeeId, locationId },
       tenantId,
+      { applyLeadTime: true }, // flujo de cliente: oculta slots bajo la antelación mínima.
     );
   }
 
@@ -617,6 +618,8 @@ export class ClientPortalService {
         source: 'ONLINE', // la cita se originó en línea.
       },
       tenantId,
+      undefined, // sin userId de staff: la reserva la hace el propio cliente.
+      { enforceLeadTime: true }, // es reserva de cliente: exige antelación mínima.
     );
   }
 

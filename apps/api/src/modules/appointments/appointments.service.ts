@@ -37,6 +37,9 @@ import { buildPaginatedResponse } from '../../common/dto/pagination.dto';
 // parseWallClock: convierte el texto de fecha-hora respetando la hora "de reloj"
 // que eligió el cliente (fuerza UTC si el ISO viene sin zona horaria).
 import { parseWallClock } from '../../common/utils/parse-wall-clock';
+// nowInTimezoneAsWallClock: "ahora" en la zona del negocio como wall-clock UTC,
+// para validar la antelación mínima de reserva de los clientes.
+import { nowInTimezoneAsWallClock } from '../../common/utils/tenant-now';
 // "Prisma" trae tipos y enums del cliente Prisma; aquí lo usamos para indicar el
 // nivel de aislamiento Serializable de las transacciones.
 import { Prisma } from '@prisma/client';
@@ -65,7 +68,16 @@ export class AppointmentsService {
   // solapamientos (anti-doble-reserva) antes de insertar la cita y sus items con
   // "snapshots" de precio/duración. Recibe el DTO, el negocio y quién la crea.
   // ───────────────────────────────────────────────────────────────────────────
-  async create(dto: CreateAppointmentDto, tenantId: string, userId?: string) {
+  // opts.enforceLeadTime: cuando es true (reservas de CLIENTE: marketplace,
+  // portal y reserva pública), se exige la antelación mínima configurada por el
+  // negocio. El personal (dashboard/empleado) NO lo pasa, así puede crear citas
+  // de último momento (clientes sin cita previa, por teléfono).
+  async create(
+    dto: CreateAppointmentDto,
+    tenantId: string,
+    userId?: string,
+    opts?: { enforceLeadTime?: boolean },
+  ) {
     // Comprobar el límite de citas del plan contratado (lanza error si se excede).
     await this.planLimitsService.checkAppointmentLimit(tenantId);
 
@@ -208,8 +220,34 @@ export class AppointmentsService {
     // "Omitir anticipo" para confirmarla al instante.
     const depositTenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { depositEnabled: true, depositType: true, depositValue: true },
+      select: {
+        depositEnabled: true,
+        depositType: true,
+        depositValue: true,
+        // Para validar la antelación mínima de reserva del cliente.
+        timezone: true,
+        minBookingHoursAdvance: true,
+      },
     });
+
+    // ── ANTELACIÓN MÍNIMA (solo reservas de cliente) ──────────────────────────
+    // Si esta reserva viene de un cliente (enforceLeadTime) y el negocio exige un
+    // mínimo de horas de anticipación, rechazamos las que caigan por debajo. Se
+    // compara contra "ahora" en la zona del negocio (mismo marco wall-clock que
+    // las horas de cita). El personal no pasa enforceLeadTime → sin restricción.
+    if (opts?.enforceLeadTime) {
+      const minHours = depositTenant?.minBookingHoursAdvance ?? 0;
+      if (minHours > 0) {
+        const earliestMs =
+          nowInTimezoneAsWallClock(depositTenant?.timezone).getTime() +
+          minHours * 3600000;
+        if (startTime.getTime() < earliestMs) {
+          throw new BadRequestException(
+            `Este negocio requiere reservar con al menos ${minHours} ${minHours === 1 ? 'hora' : 'horas'} de anticipación.`,
+          );
+        }
+      }
+    }
     const depositRequired = !!depositTenant?.depositEnabled;
     let depositAmount: number | null = null;
     if (depositRequired) {
@@ -349,6 +387,14 @@ export class AppointmentsService {
               depositRequired,
               depositAmount,
               depositPaid: 0,
+              // Servicio a domicilio: guardamos el tipo, la dirección/coordenadas
+              // y el cargo del área (snapshot). Para citas normales queda LOCAL.
+              serviceType: dto.serviceType === 'DOMICILIO' ? 'DOMICILIO' : 'LOCAL',
+              deliveryAddress: dto.deliveryAddress ?? null,
+              deliveryLat: dto.deliveryLat ?? null,
+              deliveryLng: dto.deliveryLng ?? null,
+              homeServiceFee: dto.homeServiceFee ?? null,
+              coverageAreaId: dto.coverageAreaId ?? null,
             },
           });
 

@@ -437,6 +437,7 @@ export class TenantsService {
         ...(dto.depositValue !== undefined && { depositValue: dto.depositValue }),
         ...(dto.depositInstructions !== undefined && { depositInstructions: dto.depositInstructions }),
         ...(dto.depositCancelPolicy !== undefined && { depositCancelPolicy: dto.depositCancelPolicy }),
+        ...(dto.minBookingHoursAdvance !== undefined && { minBookingHoursAdvance: dto.minBookingHoursAdvance }),
         ...(dto.confettiEnabled !== undefined && { confettiEnabled: dto.confettiEnabled }),
         ...(dto.confettiStyle !== undefined && { confettiStyle: dto.confettiStyle }),
         // "as any" calla el chequeo de tipos de TypeScript (estos campos son
@@ -549,6 +550,67 @@ export class TenantsService {
       data: { isActive: false },
     });
     return { message: 'Ubicación eliminada' };
+  }
+
+  // ─── Áreas de cobertura (servicio a domicilio) ───────────────────────────
+  // getCoverageAreas(): lista las áreas de una sucursal, ordenadas por radio
+  // ascendente (el anillo más pequeño primero — el cliente cae en el menor que
+  // lo contenga).
+  async getCoverageAreas(tenantId: string, locationId: string) {
+    const location = await this.prisma.location.findFirst({
+      where: { id: locationId, tenantId },
+      select: { id: true },
+    });
+    if (!location) throw new NotFoundException('Ubicación no encontrada');
+    const areas = await this.prisma.coverageArea.findMany({
+      where: { tenantId, locationId },
+      orderBy: { radiusKm: 'asc' },
+    });
+    return areas;
+  }
+
+  // replaceCoverageAreas(): reemplaza TODO el conjunto de áreas de la sucursal
+  // (el editor de anillos maneja la lista completa). Borra las existentes y crea
+  // las nuevas dentro de una transacción. El cargo aplicado a citas ya creadas
+  // queda como snapshot (homeServiceFee), así que perder el id del área no afecta
+  // el histórico.
+  async replaceCoverageAreas(
+    tenantId: string,
+    locationId: string,
+    areas: {
+      name: string;
+      radiusKm: number;
+      price: number;
+      color?: string;
+      sortOrder?: number;
+    }[],
+  ) {
+    const location = await this.prisma.location.findFirst({
+      where: { id: locationId, tenantId },
+      select: { id: true },
+    });
+    if (!location) throw new NotFoundException('Ubicación no encontrada');
+
+    await this.prisma.$transaction([
+      this.prisma.coverageArea.deleteMany({ where: { tenantId, locationId } }),
+      ...(areas.length > 0
+        ? [
+            this.prisma.coverageArea.createMany({
+              data: areas.map((a, i) => ({
+                tenantId,
+                locationId,
+                name: a.name,
+                radiusKm: a.radiusKm,
+                price: a.price,
+                color: a.color || '#008080',
+                sortOrder: a.sortOrder ?? i,
+              })),
+            }),
+          ]
+        : []),
+    ]);
+
+    return this.getCoverageAreas(tenantId, locationId);
   }
 
   // ─── Horarios del negocio (Business Hours) ───────────────────────────────

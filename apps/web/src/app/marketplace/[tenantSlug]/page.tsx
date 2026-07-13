@@ -64,6 +64,8 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
 import { SuccessPopup } from '@/components/ui/success-popup';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
+import { SectionHelp } from '@/components/ui/section-help';
+import { HomeAddressPicker, type DeliverySelection } from '@/components/marketplace/home-address-picker';
 
 // Cliente HTTP del marketplace (envía token JWT automáticamente).
 import { marketplaceApi } from '@/lib/marketplace-api';
@@ -140,7 +142,7 @@ interface AvailableSlot {
 // BookingStep: tipo unión de todos los posibles pasos del wizard de reserva.
 // `null` = wizard cerrado. Cada string representa una pantalla del modal.
 // El orden del wizard: location → service → promotion → employee → datetime → products → confirm → success.
-type BookingStep = null | 'location' | 'service' | 'promotion' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
+type BookingStep = null | 'location' | 'address' | 'service' | 'promotion' | 'employee' | 'datetime' | 'products' | 'confirm' | 'success';
 
 // BizPromotion: forma unificada de un reward/cupón del negocio.
 // Los rewards de la BD se mapean a esta interfaz para que el wizard
@@ -499,6 +501,12 @@ export default function BusinessDetailPage() {
 
   // ID de la sucursal seleccionada (si el negocio tiene múltiples ubicaciones).
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+
+  // ── Servicio a domicilio ──
+  // deliveryMode: 'local' (en la sucursal, por defecto) | 'domicilio'.
+  // delivery: la dirección validada + zona + cargo elegida en el paso 'address'.
+  const [deliveryMode, setDeliveryMode] = useState<'local' | 'domicilio'>('local');
+  const [delivery, setDelivery] = useState<DeliverySelection | null>(null);
 
   // Hora preferida ingresada por el usuario (se resalta en el grid de horarios).
   const [preferredTime, setPreferredTime] = useState('');
@@ -860,6 +868,13 @@ export default function BusinessDetailPage() {
         serviceAssignments: assignments,
         // Perfil activo (tutor o hijo): la cita se atribuye a ese perfil.
         profileId: activeProfile?.id,
+        // Servicio a domicilio: mandamos el tipo y la dirección/coordenadas. El
+        // backend re-valida contra las zonas y calcula el cargo (no confía en el
+        // cliente). Para reservas en sucursal va como LOCAL.
+        serviceType: deliveryMode === 'domicilio' ? 'DOMICILIO' : 'LOCAL',
+        deliveryAddress: deliveryMode === 'domicilio' ? delivery?.address : undefined,
+        deliveryLat: deliveryMode === 'domicilio' ? delivery?.lat : undefined,
+        deliveryLng: deliveryMode === 'domicilio' ? delivery?.lng : undefined,
       });
 
       // Also create product reservations if cart has items
@@ -1150,9 +1165,14 @@ export default function BusinessDetailPage() {
     setBookingCart([]);
     setSelectedLocationId(null);
     setPreferredTime('');
-    // If multiple locations, show location selection first
+    setDeliveryMode('local');
+    setDelivery(null);
+    // Mostramos el selector de sucursal si hay varias O si el negocio ofrece
+    // servicio a domicilio (ahí va el botón "Servicio a domicilio", que aplica
+    // también a negocios de una sola sucursal, p.ej. freelancers).
     const locations = biz?.locations || [];
-    setBookingStep(locations.length > 1 ? 'location' : 'service');
+    const homeAvailable = !!biz?.homeService?.available;
+    setBookingStep(locations.length > 1 || homeAvailable ? 'location' : 'service');
   };
 
   const closeBooking = () => {
@@ -1278,11 +1298,16 @@ export default function BusinessDetailPage() {
   // ese empleado realiza. Asi se evita que elija un servicio que el
   // profesional no atiende. En el resto de casos mostramos todo el
   // catalogo del negocio.
-  const selectableServices: BizService[] = selectedEmployee
+  const selectableServicesBase: BizService[] = selectedEmployee
     ? services.filter((s) =>
         selectedEmployee.employeeServices?.some((es) => es.serviceId === s.id),
       )
     : services;
+  // En modo "a domicilio" solo se pueden reservar servicios habilitados a domicilio.
+  const selectableServices: BizService[] =
+    deliveryMode === 'domicilio'
+      ? selectableServicesBase.filter((s) => (s as any).homeServiceEnabled)
+      : selectableServicesBase;
 
   // IDs de rewards que el usuario ya canjeo y siguen activos — evitamos
   // mostrarlos como canjeables (ya estan en "Tus cupones").
@@ -1548,22 +1573,30 @@ export default function BusinessDetailPage() {
             />
           )}
         </div>
-        {!fromAdmin && (
-          <button
-            onClick={() => router.push('/marketplace')}
-            className="absolute top-4 left-4 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
-          >
-            <svg
-              className="w-5 h-5 text-gray-700"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
+        {/* Grupo izquierdo del hero: botón volver (si aplica) + ⓘ de ayuda. */}
+        <div className="absolute top-4 left-4 flex items-center gap-2">
+          {!fromAdmin && (
+            <button
+              onClick={() => router.push('/marketplace')}
+              className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-        )}
+              <svg
+                className="w-5 h-5 text-gray-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          {/* Ícono ⓘ de ayuda contextual — mismo estilo "glassy" que los botones
+              del hero para que contraste sobre la foto. */}
+          <div className="bg-white/80 backdrop-blur rounded-full flex items-center justify-center">
+            <SectionHelp className="p-1.5 rounded-lg text-gray-600 hover:text-[#008080] transition-colors" />
+          </div>
+        </div>
         <div className="absolute top-4 right-4 flex items-center gap-2">
           {biz.shopEnabled && (
             <Link
@@ -1993,23 +2026,23 @@ export default function BusinessDetailPage() {
               </h2>
               {/* Tabs Servicios | Paquetes (solo si hay paquetes) */}
               {bizBundles.length > 0 && (
-                <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
-                  <button
-                    onClick={() => setServiceTab('servicios')}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                      serviceTab === 'servicios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Servicios
-                  </button>
-                  <button
-                    onClick={() => setServiceTab('paquetes')}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                      serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Paquetes
-                  </button>
+                <div className="flex justify-center mb-4">
+                  <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+                    <button
+                      onClick={() => setServiceTab('servicios')}
+                      className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${serviceTab === 'servicios' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                      style={serviceTab === 'servicios' ? { backgroundColor: '#008080' } : {}}
+                    >
+                      Servicios
+                    </button>
+                    <button
+                      onClick={() => setServiceTab('paquetes')}
+                      className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${serviceTab === 'paquetes' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                      style={serviceTab === 'paquetes' ? { backgroundColor: '#008080' } : {}}
+                    >
+                      Paquetes
+                    </button>
+                  </div>
                 </div>
               )}
               {/* Paquetes */}
@@ -2702,8 +2735,12 @@ export default function BusinessDetailPage() {
             <button
               onClick={() => {
                 if (bookingStep === 'location') closeBooking();
+                else if (bookingStep === 'address') setBookingStep('location');
                 else if (bookingStep === 'service') {
-                  if ((biz?.locations || []).length > 1) setBookingStep('location');
+                  // En modo domicilio volvemos al paso de dirección; si no, a la
+                  // selección de sucursal (si hay varias/domicilio) o se cierra.
+                  if (deliveryMode === 'domicilio') setBookingStep('address');
+                  else if ((biz?.locations || []).length > 1 || biz?.homeService?.available) setBookingStep('location');
                   else closeBooking();
                 }
                 else if (bookingStep === 'promotion') setBookingStep('service');
@@ -2920,13 +2957,34 @@ export default function BusinessDetailPage() {
                         ))}
                       </div>
                     )}
-                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Selecciona la sucursal</h2>
+                    {/* Servicio a domicilio: botón destacado (teal) — nuevo flujo
+                        que pide una dirección antes de elegir servicios. */}
+                    {biz?.homeService?.available && (
+                      <button
+                        type="button"
+                        onClick={() => { setDeliveryMode('domicilio'); setDelivery(null); setBookingStep('address'); }}
+                        className="w-full mb-4 p-4 rounded-xl text-white text-left flex items-center gap-3 transition-transform active:scale-[0.99]"
+                        style={{ backgroundColor: TEAL }}
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold">Servicio a domicilio</p>
+                          <p className="text-xs text-white/80">Te atendemos en la dirección que elijas</p>
+                        </div>
+                        <svg className="w-5 h-5 ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                      </button>
+                    )}
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">{biz?.homeService?.available ? 'O elige una sucursal' : 'Selecciona la sucursal'}</h2>
                     <p className="text-sm text-gray-500 mb-4">¿A cuál sucursal deseas ir?</p>
                     <div className="grid gap-3">
                       {locsWithDist.map((loc: any, idx: number) => (
                         <button
                           key={loc.id}
-                          onClick={() => { setSelectedLocationId(loc.id); setBookingStep('service'); }}
+                          onClick={() => { setDeliveryMode('local'); setDelivery(null); setSelectedLocationId(loc.id); setBookingStep('service'); }}
                           className="w-full text-left p-4 rounded-xl border-2 transition-all"
                           style={selectedLocationId === loc.id
                             ? { borderColor: TEAL, backgroundColor: TEAL_LIGHT }
@@ -2967,6 +3025,24 @@ export default function BusinessDetailPage() {
                   </div>
                 );
               })()}
+
+              {/* Paso "dirección" (servicio a domicilio): direcciones guardadas +
+                  agregar nueva + validación contra las zonas del negocio. */}
+              {bookingStep === 'address' && biz?.homeService?.available && (
+                <div>
+                  <HomeAddressPicker
+                    homeService={biz.homeService}
+                    formatCurrency={(n) => formatCurrency(n, bizCurrency)}
+                    onConfirm={(d) => { setDelivery(d); setDeliveryMode('domicilio'); setBookingStep('service'); }}
+                    onGoToBranch={() => {
+                      setDeliveryMode('local');
+                      setDelivery(null);
+                      const locs = biz?.locations || [];
+                      setBookingStep(locs.length > 1 ? 'location' : 'service');
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Step 1: Services.
                   Si entramos desde el perfil de un profesional, usamos
@@ -3050,23 +3126,23 @@ export default function BusinessDetailPage() {
 
                   {/* Tabs: Servicios | Paquetes (las Promociones son ahora un step aparte) */}
                   {bizBundles.length > 0 && (
-                    <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-4">
-                      <button
-                        onClick={() => { setServiceTab('servicios'); if (selectedBundle) { setSelectedBundle(null); setSelectedServiceIds([]); } }}
-                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                          serviceTab === 'servicios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Servicios
-                      </button>
-                      <button
-                        onClick={() => setServiceTab('paquetes')}
-                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                          serviceTab === 'paquetes' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Paquetes
-                      </button>
+                    <div className="flex justify-center mb-4">
+                      <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+                        <button
+                          onClick={() => { setServiceTab('servicios'); if (selectedBundle) { setSelectedBundle(null); setSelectedServiceIds([]); } }}
+                          className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${serviceTab === 'servicios' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                          style={serviceTab === 'servicios' ? { backgroundColor: '#008080' } : {}}
+                        >
+                          Servicios
+                        </button>
+                        <button
+                          onClick={() => setServiceTab('paquetes')}
+                          className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${serviceTab === 'paquetes' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                          style={serviceTab === 'paquetes' ? { backgroundColor: '#008080' } : {}}
+                        >
+                          Paquetes
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -4288,6 +4364,18 @@ export default function BusinessDetailPage() {
                       </p>
                     </div>
 
+                    {/* Servicio a domicilio: dirección + zona (para identificarlo). */}
+                    {deliveryMode === 'domicilio' && delivery && (
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+                          Servicio a domicilio
+                        </p>
+                        <p className="text-sm text-gray-700">{delivery.address}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Zona: {delivery.areaName} · Cargo {formatCurrency(delivery.fee, bizCurrency)}</p>
+                      </div>
+                    )}
+
                     {/* Professional(s) */}
                     {Object.keys(serviceEmployeeMap).length > 1 ? (
                       <div className="border-t border-gray-100 pt-4">
@@ -4386,7 +4474,10 @@ export default function BusinessDetailPage() {
                           }
                         }
                         const hasDiscount = disc > 0 || promoDiscount > 0 || payWithPoints;
-                        const finalTotal = payWithPoints ? 0 : Math.max(0, totalPrice + bookingCartTotal - disc);
+                        // El cargo a domicilio SIEMPRE se cobra en efectivo (los
+                        // puntos pagan el servicio, no el desplazamiento).
+                        const homeFee = deliveryMode === 'domicilio' && delivery ? delivery.fee : 0;
+                        const finalTotal = (payWithPoints ? 0 : Math.max(0, totalPrice + bookingCartTotal - disc)) + homeFee;
                         const pointsCost = payWithPoints ? selectedServices.reduce((sum, s) => sum + (s.pointsRequired || 0), 0) : 0;
                         return (
                           <>
@@ -4405,6 +4496,12 @@ export default function BusinessDetailPage() {
                               <div className="flex justify-between text-sm mb-1">
                                 <span className="text-teal-700 font-medium">Pago con puntos</span>
                                 <span className="text-teal-700 font-medium">-{pointsCost} pts</span>
+                              </div>
+                            )}
+                            {deliveryMode === 'domicilio' && delivery && (
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">Servicio a domicilio{delivery.areaName ? ` · ${delivery.areaName}` : ''}</span>
+                                <span className="text-gray-900 font-medium">{formatCurrency(homeFee, bizCurrency)}</span>
                               </div>
                             )}
                             <div className="flex justify-between pt-2 border-t border-gray-100 mt-2">
@@ -4616,6 +4713,8 @@ export default function BusinessDetailPage() {
               employee-single el avance es al click directo, no muestra. */}
           {(() => {
             if (bookingStep === 'location') return null;
+            // El paso de dirección tiene su propio botón ("Usar esta dirección").
+            if (bookingStep === 'address') return null;
 
             let label = 'Continuar';
             let disabled = false;
@@ -4830,6 +4929,19 @@ export default function BusinessDetailPage() {
                     </span>
                   </div>
                 )}
+                {/* Servicio a domicilio: dirección y zona (identificable). */}
+                {deliveryMode === 'domicilio' && delivery && (
+                  <>
+                    <div className="flex justify-between text-sm gap-4">
+                      <span className="text-gray-500 flex-shrink-0">A domicilio:</span>
+                      <span className="font-medium text-right">{delivery.address}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Zona:</span>
+                      <span className="font-medium">{delivery.areaName}</span>
+                    </div>
+                  </>
+                )}
                 {/* Profesionales: en multi-empleado mostramos todos los
                     asignados con su avatar y los servicios que harán.
                     En single-empleado mostramos solo el seleccionado. */}
@@ -4922,7 +5034,8 @@ export default function BusinessDetailPage() {
                   }
                   const hasAnyDiscount = disc > 0 || promoDiscount > 0;
                   // El total incluye los productos apartados (igual que el paso de confirmar).
-                  const finalTotal = Math.max(0, totalPrice + bookingCartTotal - disc);
+                  const homeFee = deliveryMode === 'domicilio' && delivery ? delivery.fee : 0;
+                  const finalTotal = Math.max(0, totalPrice + bookingCartTotal - disc) + homeFee;
                   return (
                     <>
                       {(hasAnyDiscount || bookingCart.length > 0) && (
@@ -4949,10 +5062,16 @@ export default function BusinessDetailPage() {
                           <span className="text-teal-700 font-medium">-{selectedServices.reduce((s, sv) => s + (sv.pointsRequired || 0), 0)} pts</span>
                         </div>
                       )}
+                      {homeFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Servicio a domicilio{delivery?.areaName ? ` · ${delivery.areaName}` : ''}:</span>
+                          <span className="text-gray-700 font-medium">{formatCurrency(homeFee, bizCurrency)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
                         <span className="font-semibold text-gray-900">Total:</span>
                         <span className="font-bold" style={{ color: TEAL }}>
-                          {payWithPoints ? 'Gratis' : formatCurrency(finalTotal, bizCurrency)}
+                          {payWithPoints ? (homeFee > 0 ? formatCurrency(homeFee, bizCurrency) : 'Gratis') : formatCurrency(finalTotal, bizCurrency)}
                         </span>
                       </div>
                     </>

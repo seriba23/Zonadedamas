@@ -18,6 +18,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 // Cliente HTTP del marketplace.
 import { marketplaceApi } from '@/lib/marketplace-api';
+
+import { SectionHelp } from '@/components/ui/section-help';
 // Estado de autenticación.
 import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 // Link: navegación SPA.
@@ -107,6 +109,8 @@ export default function MarketplaceGalleryPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
             </svg>
           </button>
+          {/* Ícono ⓘ de ayuda contextual — lado izquierdo, junto al botón de volver. */}
+          <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
           <div className="flex-1">
             <h1 className="text-lg font-bold text-gray-900">Mi galería</h1>
             {!isLoading && totalPhotos > 0 && (

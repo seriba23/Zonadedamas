@@ -13,6 +13,8 @@
 import {
   IsArray,
   IsEnum,
+  IsIn,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -87,6 +89,32 @@ export class CreateAppointmentDto {
   @ValidateNested({ each: true })
   @Type(() => ServiceAssignment)
   serviceAssignments?: ServiceAssignment[];
+
+  // ── Servicio a domicilio (lo calcula/valida el servicio de marketplace) ──
+  // serviceType 'DOMICILIO' + dirección y coordenadas + cargo del área aplicada.
+  @IsOptional()
+  @IsIn(['LOCAL', 'DOMICILIO'])
+  serviceType?: 'LOCAL' | 'DOMICILIO';
+
+  @IsOptional()
+  @IsString()
+  deliveryAddress?: string;
+
+  @IsOptional()
+  @IsNumber()
+  deliveryLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  deliveryLng?: number;
+
+  @IsOptional()
+  @IsNumber()
+  homeServiceFee?: number;
+
+  @IsOptional()
+  @IsUUID()
+  coverageAreaId?: string;
 }
 
 // DTO para ACTUALIZAR una cita ya creada. Solo permite editar las dos notas;

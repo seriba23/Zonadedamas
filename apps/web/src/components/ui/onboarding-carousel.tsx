@@ -14,16 +14,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 // createPortal: monta el overlay directamente en <body>, para que quede a nivel
 // raíz y cubra TODO, sin importar en qué contenedor (ej. el header) se use el
 // componente. Sin esto, un contexto de apilamiento del padre podría dejar
 // elementos por encima del onboarding.
 import { createPortal } from 'react-dom';
 
-// Un slide: icono (path SVG), título y texto corto.
+// Un slide: icono (path SVG) O una ilustración personalizada, título y texto.
 export interface OnboardingSlide {
-  icon: string;
+  icon?: string;
+  // Ilustración rica opcional (ReactNode). Si se pasa, reemplaza al círculo del
+  // icono — útil para explicar visualmente (p. ej. anillos de cobertura + pin).
+  illustration?: ReactNode;
   title: string;
   text: string;
 }
@@ -95,20 +98,24 @@ export function OnboardingCarousel({
             key={i}
             className="min-w-full snap-center flex flex-col items-center justify-center px-8 text-center"
           >
-            <div
-              className={`mb-8 flex h-24 w-24 items-center justify-center rounded-full ${iconWrap}`}
-              style={isDark ? undefined : { backgroundColor: `${accent}14`, ['--tw-ring-color' as any]: `${accent}33` }}
-            >
-              <svg
-                className="h-11 w-11"
-                fill="none"
-                stroke={isDark ? '#ffffff' : accent}
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
+            {s.illustration ? (
+              <div className="mb-8 flex items-center justify-center">{s.illustration}</div>
+            ) : (
+              <div
+                className={`mb-8 flex h-24 w-24 items-center justify-center rounded-full ${iconWrap}`}
+                style={isDark ? undefined : { backgroundColor: `${accent}14`, ['--tw-ring-color' as any]: `${accent}33` }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
-              </svg>
-            </div>
+                <svg
+                  className="h-11 w-11"
+                  fill="none"
+                  stroke={isDark ? '#ffffff' : accent}
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                </svg>
+              </div>
+            )}
             <h2 className="text-2xl font-bold">{s.title}</h2>
             <p className={`mt-3 max-w-xs text-sm leading-relaxed ${subtext}`}>{s.text}</p>
           </div>

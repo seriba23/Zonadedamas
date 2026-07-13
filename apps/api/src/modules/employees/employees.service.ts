@@ -365,11 +365,12 @@ export class EmployeesService {
   // ($transaction) para que el borrado + creación sea atómico (todo o nada).
   // ───────────────────────────────────────────────────────────────────────────
   async setSchedules(employeeId: string, tenantId: string, dto: SetSchedulesDto) {
-    await this.findOne(employeeId, tenantId);
+    // findOne nos da el empleado (incluida su sucursal) y valida que exista.
+    const employee = await this.findOne(employeeId, tenantId);
 
     // $transaction recibe una función con "tx" (cliente transaccional). Todo lo
     // que se haga con "tx" se confirma junto al final o se revierte si algo falla.
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Primero borramos los horarios actuales del empleado.
       await tx.employeeSchedule.deleteMany({
         where: { employeeId },
@@ -397,6 +398,16 @@ export class EmployeesService {
         orderBy: { dayOfWeek: 'asc' },
       });
     });
+
+    // IMPORTANTE: al cambiar el horario hay que invalidar la caché de
+    // disponibilidad. Si no, los días/slots cacheados (incluidos los "[]" de
+    // días que ANTES no trabajaba, p.ej. el domingo recién habilitado) siguen
+    // devolviéndose hasta ~5 min y el cliente no ve el día nuevo.
+    await this.availabilityService
+      .invalidateCacheForEmployee(tenantId, employee.locationId, employeeId)
+      .catch(() => {});
+
+    return result;
   }
 
   // ───────────────────────────────────────────────────────────────────────────

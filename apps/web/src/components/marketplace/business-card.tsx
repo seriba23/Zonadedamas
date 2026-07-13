@@ -72,11 +72,23 @@ export function MarketplaceBusinessCard({
   const completed = biz.completedAppointments ?? 0;
 
   return (
-    // Toda la tarjeta es un <button> para que sea clickeable y accesible.
-    // active:scale-[0.98] da un efecto de "presión" al tocarla.
-    <button
+    // La tarjeta es un contenedor clickeable. NO usamos <button> aquí porque
+    // dentro va OTRO <button> (el corazón de favorito) y un botón no puede
+    // contener a otro botón (HTML inválido → error de hidratación). Usamos un
+    // <div role="button"> con soporte de teclado (Enter/Espacio) para mantener
+    // la accesibilidad. active:scale-[0.98] da el efecto de "presión" al tocarla.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="w-full rounded-2xl overflow-hidden text-left active:scale-[0.98] transition-transform relative"
+      onKeyDown={(e) => {
+        // Enter o barra espaciadora activan la tarjeta, como un botón nativo.
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="w-full rounded-2xl overflow-hidden text-left active:scale-[0.98] transition-transform relative cursor-pointer"
       style={{ height: 140 }}
     >
       {/* Fondo: foto de portada O color sólido (ternario con hasCover). */}
@@ -243,6 +255,6 @@ export function MarketplaceBusinessCard({
           </span>
         </div>
       )}
-    </button>
+    </div>
   );
 }

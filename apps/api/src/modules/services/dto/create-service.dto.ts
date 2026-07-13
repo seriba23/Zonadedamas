@@ -112,6 +112,11 @@ export class CreateServiceDto {
   @Max(100)
   depositPercent?: number;
 
+  // homeServiceEnabled: ¿el servicio se puede realizar a domicilio? Opcional.
+  @IsOptional()
+  @IsBoolean()
+  homeServiceEnabled?: boolean;
+
   // locationId: id de la sucursal a la que pertenece el servicio. Opcional, y si
   // viene debe ser un UUID versión 4 (IsUUID('4')).
   @IsOptional()
@@ -201,4 +206,9 @@ export class UpdateServiceDto {
   @Min(1)
   @Max(100)
   depositPercent?: number;
+
+  // homeServiceEnabled: ¿el servicio se puede realizar a domicilio?
+  @IsOptional()
+  @IsBoolean()
+  homeServiceEnabled?: boolean;
 }

@@ -48,6 +48,8 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 // MarketplaceBusinessCard: componente de tarjeta para mostrar un negocio
 // con su foto, nombre, rating, precio, etc.
 import { MarketplaceBusinessCard } from '@/components/marketplace/business-card';
+// SectionHelp: ícono ⓘ que abre la ayuda contextual de la sección (por ruta).
+import { SectionHelp } from '@/components/ui/section-help';
 
 // ─── Categorías de negocios ─────────────────────────────────────────
 // Categorías ordenadas alfabéticamente por label (es-MX). "Todos" siempre
@@ -423,6 +425,8 @@ export default function MarketplacePage() {
           <div className="max-w-2xl mx-auto">
             {/* Fila con buscador + 3 botones de acción. */}
             <div className="flex items-center gap-2 mb-2.5">
+              {/* ── Ícono ⓘ de ayuda (esquina izquierda, compacto) ── */}
+              <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
               {/* ── Campo de búsqueda ──
                   flex-1: ocupa todo el espacio horizontal disponible.
                   min-w-0: permite que se comprima si hay otros elementos. */}
@@ -514,33 +518,26 @@ export default function MarketplacePage() {
             </div>
 
             {/* ── Selector Negocios | Profesionales ──
-                Selector "segmentado" estilo toggle de dos opciones.
-                Al hacer click en "Profesionales" → navegamos a /marketplace/professionals.
-                "Negocios" siempre muestra esta misma página. */}
-            {/* Selector Negocios | Profesionales — mismo estilo segmentado
-                que el selector "Servicios | Paquetes" del booking, para
-                mantener coherencia visual entre las distintas vistas. */}
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-              {/* Tab "Negocios": activo cuando viewTab === 'negocios'. */}
-              <button
-                onClick={() => { setViewTab('negocios'); }}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  // Clases condicionales con template literal:
-                  // Si es el tab activo → fondo teal y texto blanco.
-                  // Si no → fondo blanco y texto gris oscuro.
-                  viewTab === 'negocios' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Negocios
-              </button>
-              {/* Tab "Profesionales": siempre inactivo en esta página
-                  porque al hacer click navegamos a /marketplace/professionals. */}
-              <button
-                onClick={() => { setViewTab('profesionales'); router.push('/marketplace/professionals'); }}
-                className="flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              >
-                Profesionales
-              </button>
+                Cápsula redondeada estilo POS de administrador: contenedor con
+                fondo tenue y la pestaña activa como pastilla teal sólida. */}
+            <div className="flex justify-center">
+              <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+                {/* Tab "Negocios": activo cuando viewTab === 'negocios'. */}
+                <button
+                  onClick={() => { setViewTab('negocios'); }}
+                  className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${viewTab === 'negocios' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                  style={viewTab === 'negocios' ? { backgroundColor: '#008080' } : {}}
+                >
+                  Negocios
+                </button>
+                {/* Tab "Profesionales": al hacer click navegamos a /marketplace/professionals. */}
+                <button
+                  onClick={() => { setViewTab('profesionales'); router.push('/marketplace/professionals'); }}
+                  className="px-6 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
+                >
+                  Profesionales
+                </button>
+              </div>
             </div>
 
             {/* Contador de resultados: solo visible cuando hay datos y no está cargando. */}

@@ -144,7 +144,9 @@ export class PublicBookingController {
     // Pedimos la disponibilidad compuesta. El resultado puede venir en DOS
     // formas distintas (con "slots" directos o anidado por "employees"), por
     // eso abajo distinguimos ambos casos.
-    const result = await this.availabilityService.getCompositeAvailability(query, tenant.id);
+    const result = await this.availabilityService.getCompositeAvailability(query, tenant.id, {
+      applyLeadTime: true, // flujo de cliente: oculta slots bajo la antelación mínima.
+    });
 
     // Lista plana de salida. Aquí cada slot ADEMÁS puede llevar "assignments"
     // (qué empleado hace cada servicio del paquete). "assignments?" es opcional.

@@ -34,6 +34,7 @@ import { TenantsService } from './tenants.service';
 // Los DTOs (formas válidas del JSON entrante) que ya documentamos en /dto.
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { CreateLocationDto, UpdateLocationDto } from './dto/create-location.dto';
+import { ReplaceCoverageAreasDto } from './dto/coverage-area.dto';
 import { SetBusinessHoursDto } from './dto/business-hours.dto';
 import { CreateBusinessClosureDto, ClosureQueryDto } from './dto/business-closure.dto';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
@@ -197,6 +198,37 @@ export class TenantsController {
   ) {
     const result = await this.tenantsService.deleteLocation(id, tenantId);
     return { data: result };
+  }
+
+  // ── GET /api/locations/:locationId/coverage-areas ─ Áreas de cobertura ─────
+  // (servicio a domicilio) de una sucursal. Solo lectura (locations.read).
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('locations.read')
+  @Get('locations/:locationId/coverage-areas')
+  async getCoverageAreas(
+    @Param('locationId') locationId: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const areas = await this.tenantsService.getCoverageAreas(tenantId, locationId);
+    return { data: areas };
+  }
+
+  // ── PUT /api/locations/:locationId/coverage-areas ─ Reemplaza el conjunto ──
+  // completo de áreas de la sucursal (el editor de anillos manda toda la lista).
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions('locations.update')
+  @Put('locations/:locationId/coverage-areas')
+  async replaceCoverageAreas(
+    @Param('locationId') locationId: string,
+    @Body() dto: ReplaceCoverageAreasDto,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const areas = await this.tenantsService.replaceCoverageAreas(
+      tenantId,
+      locationId,
+      dto.areas,
+    );
+    return { data: areas };
   }
 
   /**

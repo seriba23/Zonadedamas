@@ -17,10 +17,13 @@ import {
   IsBoolean,
   IsHexColor,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 // DTO para ACTUALIZAR el perfil del negocio. TODO opcional: se envía solo lo
@@ -92,6 +95,15 @@ export class UpdateTenantProfileDto {
   @IsOptional()
   @IsIn(['FORFEIT', 'CREDIT'])
   depositCancelPolicy?: 'FORFEIT' | 'CREDIT';
+
+  // ── Antelación mínima para reservar (solo clientes) ──
+  // Horas mínimas de anticipación con las que un cliente puede reservar una cita.
+  // 0 = sin mínimo. Máximo 720 (30 días). Entero no negativo.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(720)
+  minBookingHoursAdvance?: number;
 
   // ¿Está activada la animación de confeti al completar acciones? Opcional.
   @IsOptional()

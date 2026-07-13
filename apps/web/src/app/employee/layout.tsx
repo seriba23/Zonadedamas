@@ -67,6 +67,7 @@ import { ForceLightTheme } from '@/components/ui/force-light-theme';
 
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { SectionHelp } from '@/components/ui/section-help';
+import { SectionHelpProvider } from '@/lib/section-help-context';
 // NotificationBell → componente del ícono de campana que muestra el contador
 // de notificaciones no leídas y abre el panel de notificaciones.
 
@@ -726,6 +727,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const profileIncomplete = empData && doneCount < totalCount;
 
   return (
+    <SectionHelpProvider>
     <TopbarActionProvider>
     {/* Contenedor principal: ocupa toda la pantalla, los hijos se colocan en fila. */}
     <div className="flex h-screen bg-gray-50">
@@ -759,8 +761,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="ml-2 text-base font-bold" style={{ color: '#008080' }}>Siliba</span>
-          {/* Ayuda contextual: ⓘ a la izquierda, junto al logo. */}
+          {/* Ayuda contextual: ⓘ junto al botón de menú (sin el logo "Siliba"). */}
           <div className="ml-1"><SectionHelp /></div>
           {/* ml-auto → empuja las acciones al extremo derecho del header. */}
           <div className="ml-auto flex items-center gap-2">
@@ -873,5 +874,6 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       </div>
     </div>
     </TopbarActionProvider>
+    </SectionHelpProvider>
   );
 }

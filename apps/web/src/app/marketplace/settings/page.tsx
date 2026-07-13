@@ -50,6 +50,8 @@ import { resolveImageUrl } from '@/lib/utils';
 // SuccessPopup: modal de éxito con ícono de check y botón "Aceptar".
 import { SuccessPopup } from '@/components/ui/success-popup';
 
+import { SectionHelp } from '@/components/ui/section-help';
+
 // AvatarCropModal: modal para recortar la imagen de avatar antes de subirla.
 import { AvatarCropModal } from '@/components/ui/avatar-crop-modal';
 
@@ -1224,6 +1226,8 @@ export default function MarketplaceSettingsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
+          {/* Ícono ⓘ de ayuda contextual — lado izquierdo, junto al botón de volver. */}
+          <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
           <h1 className="text-lg font-bold text-gray-900">Configuración</h1>
         </div>
 

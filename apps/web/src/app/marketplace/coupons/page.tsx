@@ -28,6 +28,12 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 // Link: navegación SPA entre páginas.
 import Link from 'next/link';
 
+// SectionHelp: ícono ⓘ de ayuda contextual de la sección.
+import { SectionHelp } from '@/components/ui/section-help';
+
+// Avatar: foto o iniciales coloreadas de cada perfil (desglose de puntos por perfil).
+import { Avatar } from '@/components/ui/avatar';
+
 // useRouter: para navegación programática.
 import { useRouter } from 'next/navigation';
 
@@ -96,6 +102,9 @@ export default function MarketplaceCouponsPage() {
   const [showCustomize, setShowCustomize] = useState(false);
   const [pointsSort, setPointsSort] = useState<PointsSort>('points_desc');
   const [showPointsFilters, setShowPointsFilters] = useState(false);
+  // Negocio expandido en "Mis puntos": muestra el desglose de puntos por perfil
+  // (solo aplica cuando el negocio tiene puntos en más de un perfil).
+  const [expandedTenant, setExpandedTenant] = useState<string | null>(null);
 
   // Al montar el componente ([] = sin dependencias = solo una vez), cargamos
   // las preferencias guardadas en localStorage.
@@ -204,9 +213,16 @@ export default function MarketplaceCouponsPage() {
   const pointsByTenant: any[] = (statsData as any)?.data?.pointsByTenant || [];
 
   // Separamos los cupones en activos (se pueden usar) e historial (ya usados/expirados).
+  // Un cupón VENCIDO (fecha de expiración ya pasada) NO debe aparecer como
+  // "disponible" aunque su status siga en ACTIVE (el backend puede no haberlo
+  // marcado como EXPIRED todavía). Lo mandamos al historial. Esto iguala el
+  // comportamiento del flujo de reserva, que ya no ofrece cupones vencidos.
+  const nowMs = Date.now();
+  const isRedemptionExpired = (r: any) =>
+    !!r.expiresAt && new Date(r.expiresAt).getTime() < nowMs;
   const redemptions: any[] = (data as any)?.data || [];
-  const active = redemptions.filter((r) => r.status === 'ACTIVE');
-  const used = redemptions.filter((r) => r.status !== 'ACTIVE');
+  const active = redemptions.filter((r) => r.status === 'ACTIVE' && !isRedemptionExpired(r));
+  const used = redemptions.filter((r) => r.status !== 'ACTIVE' || isRedemptionExpired(r));
 
   // ── Filtrado de cupones ─────────────────────────────────
   const q = normalize(search);
@@ -285,13 +301,15 @@ export default function MarketplaceCouponsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Header — search + filtros en un renglon, segmented control abajo.
           Sin titulo: igual patron que /marketplace/appointments. */}
       <div className="bg-gray-50 px-4 pt-3 pb-3 safe-top sticky top-0 z-30">
         <div className="max-w-2xl mx-auto">
           {/* Search + filtros (cupones) o personalizar (puntos) en un renglon */}
           <div className="flex items-center gap-2 mb-2.5">
+            {/* Ícono ⓘ de ayuda (esquina izquierda, compacto) */}
+            <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
             <div className="relative flex-1 min-w-0">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -392,24 +410,24 @@ export default function MarketplaceCouponsPage() {
             )}
           </div>
 
-          {/* Tabs Cupones | Mis puntos */}
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => setTab('cupones')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                tab === 'cupones' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Cupones
-            </button>
-            <button
-              onClick={() => setTab('puntos')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                tab === 'puntos' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Mis puntos
-            </button>
+          {/* Tabs Cupones | Mis puntos — cápsula redondeada estilo POS de administrador. */}
+          <div className="flex justify-center">
+            <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+              <button
+                onClick={() => setTab('cupones')}
+                className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'cupones' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                style={tab === 'cupones' ? { backgroundColor: '#008080' } : {}}
+              >
+                Cupones
+              </button>
+              <button
+                onClick={() => setTab('puntos')}
+                className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'puntos' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                style={tab === 'puntos' ? { backgroundColor: '#008080' } : {}}
+              >
+                Mis puntos
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -650,34 +668,110 @@ export default function MarketplaceCouponsPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {visiblePoints.map((t: any) => (
-                  <Link
-                    key={t.tenantId}
-                    href={`/marketplace/${t.tenantSlug}`}
-                    className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
-                        {t.tenantLogo ? (
-                          <img src={`${API_URL}${t.tenantLogo}`} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          t.tenantName[0]
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{t.tenantName}</p>
-                        <p className="text-xs text-gray-400">Ver recompensas disponibles</p>
-                      </div>
+                {visiblePoints.map((t: any) => {
+                  const profiles: any[] = t.profiles || [];
+                  // Solo desglosamos cuando el negocio tiene puntos en más de un perfil.
+                  const multi = profiles.length > 1;
+                  const isOpen = expandedTenant === t.tenantId;
+
+                  // Logo del negocio (o su inicial) — común a ambos casos.
+                  const logo = (
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0" style={{ backgroundColor: TEAL_LIGHT, color: TEAL }}>
+                      {t.tenantLogo ? (
+                        <img src={`${API_URL}${t.tenantLogo}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        t.tenantName[0]
+                      )}
                     </div>
+                  );
+                  // Total de puntos del negocio (estrella teal + cifra) — común.
+                  const pointsBadge = (
                     <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-5 h-5" style={{ color: TEAL }} fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
                       <span className="text-lg font-bold" style={{ color: TEAL }}>{t.points.toLocaleString()}</span>
                       <span className="text-xs text-gray-400">pts</span>
                     </div>
-                  </Link>
-                ))}
+                  );
+
+                  // ── Caso 1 perfil: tarjeta-enlace directa al negocio (como antes). ──
+                  if (!multi) {
+                    return (
+                      <Link
+                        key={t.tenantId}
+                        href={`/marketplace/${t.tenantSlug}`}
+                        className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center gap-3">
+                          {logo}
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{t.tenantName}</p>
+                            <p className="text-xs text-gray-400">Ver recompensas disponibles</p>
+                          </div>
+                        </div>
+                        {pointsBadge}
+                      </Link>
+                    );
+                  }
+
+                  // ── Caso varios perfiles: tarjeta expandible con el desglose. ──
+                  return (
+                    <div key={t.tenantId} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedTenant(isOpen ? null : t.tenantId)}
+                        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          {logo}
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{t.tenantName}</p>
+                            <p className="text-xs text-gray-400">{profiles.length} perfiles · toca para ver el detalle</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {pointsBadge}
+                          <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                          </svg>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-gray-100">
+                          {profiles.map((p: any, i: number) => (
+                            <div key={p.profileId || `null-${i}`} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 last:border-b-0">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <Avatar
+                                  avatarUrl={p.avatarUrl}
+                                  firstName={p.firstName}
+                                  lastName={p.lastName}
+                                  color={p.color || undefined}
+                                  className="w-7 h-7"
+                                  textClassName="text-[11px]"
+                                />
+                                <span className="text-sm text-gray-700 truncate">{`${p.firstName} ${p.lastName}`.trim()}</span>
+                              </div>
+                              <span className="text-sm font-bold flex-shrink-0" style={{ color: TEAL }}>
+                                {(p.points || 0).toLocaleString()}
+                                <span className="text-xs text-gray-400 font-normal ml-1">pts</span>
+                              </span>
+                            </div>
+                          ))}
+                          <Link
+                            href={`/marketplace/${t.tenantSlug}`}
+                            className="flex items-center justify-center gap-1 px-4 py-3 text-xs font-semibold text-[#008080] hover:bg-gray-50"
+                          >
+                            Ver recompensas disponibles
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                            </svg>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

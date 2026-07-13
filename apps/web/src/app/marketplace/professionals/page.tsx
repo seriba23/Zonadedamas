@@ -31,6 +31,9 @@ import { marketplaceApi } from '@/lib/marketplace-api';
 // Link: navegación al perfil del profesional (/marketplace/[slug]/professional/[id]).
 import Link from 'next/link';
 
+// SectionHelp: ícono ⓘ de ayuda contextual de la sección.
+import { SectionHelp } from '@/components/ui/section-help';
+
 // useRouter: para redirigir al login si no está autenticado al intentar dar favorito.
 import { useRouter } from 'next/navigation';
 
@@ -321,6 +324,8 @@ export default function ProfessionalsPage() {
         <div className="max-w-2xl mx-auto">
           {/* Search + filters en un renglon */}
           <div className="flex items-center gap-2 mb-2.5">
+            {/* Ícono ⓘ de ayuda (esquina izquierda, compacto) */}
+            <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
             {/* Search compacto */}
             <div className="relative flex-1 min-w-0">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -389,20 +394,23 @@ export default function ProfessionalsPage() {
             )}
           </div>
 
-          {/* Selector Negocios | Profesionales — segmentado, mismo estilo
-              que "Servicios | Paquetes" del booking. */}
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => router.push('/marketplace')}
-              className="flex-1 px-4 py-2 text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-50"
-            >
-              Negocios
-            </button>
-            <button
-              className="flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 bg-[#008080] text-white"
-            >
-              Profesionales
-            </button>
+          {/* Selector Negocios | Profesionales — cápsula redondeada estilo POS
+              de administrador (activo teal sólido). */}
+          <div className="flex justify-center">
+            <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+              <button
+                onClick={() => router.push('/marketplace')}
+                className="px-6 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
+              >
+                Negocios
+              </button>
+              <button
+                className="px-6 py-2 rounded-full text-sm font-bold transition-colors text-white"
+                style={{ backgroundColor: '#008080' }}
+              >
+                Profesionales
+              </button>
+            </div>
           </div>
 
           {/* Contador dentro del header sticky */}

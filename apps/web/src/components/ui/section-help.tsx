@@ -17,7 +17,10 @@ import { OnboardingCarousel } from './onboarding-carousel';
 import { getSectionHelp, getSectionHelpByKey } from '@/lib/section-help-content';
 import { useSectionHelpOverride } from '@/lib/section-help-context';
 
-export function SectionHelp() {
+// className: permite ajustar el estilo del botón (p. ej. más compacto en el
+// marketplace) sin afectar al resto de portales. Si se omite, usa el estilo por
+// defecto del panel de administración.
+export function SectionHelp({ className }: { className?: string } = {}) {
   const pathname = usePathname();
   // Si una página con pestañas fijó un "key" (override), usamos ESE; si no, la ruta.
   const override = useSectionHelpOverride();
@@ -38,7 +41,7 @@ export function SectionHelp() {
         onClick={() => setOpen(true)}
         aria-label={`Cómo funciona: ${help.title}`}
         title={`¿Cómo funciona ${help.title}?`}
-        className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[#008080] hover:bg-[var(--bg-muted)] transition-colors"
+        className={className ?? 'p-2 rounded-lg text-[var(--text-secondary)] hover:text-[#008080] hover:bg-[var(--bg-muted)] transition-colors'}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />

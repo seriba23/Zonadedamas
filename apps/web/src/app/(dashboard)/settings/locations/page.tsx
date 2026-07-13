@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { showSaveSuccess } from '@/lib/save-toast';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { CoverageAreasEditor } from '@/components/settings/coverage-areas-editor';
 import {
   AddressFields,
   emptyAddress,
@@ -103,6 +104,8 @@ export default function LocationsPage() {
   const [form, setForm] = useState<LocationForm>(emptyForm(adminEmail));
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Sucursal cuyo editor de "Servicio a domicilio" (áreas de cobertura) está abierto.
+  const [coverageLoc, setCoverageLoc] = useState<Location | null>(null);
 
   useEffect(() => {
     if (adminEmail && !showModal) {
@@ -290,6 +293,11 @@ export default function LocationsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={() => setCoverageLoc(loc)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Servicio a domicilio">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                  </svg>
+                </button>
                 <button onClick={() => openEdit(loc)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Editar">
                   <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
@@ -304,6 +312,14 @@ export default function LocationsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Editor de áreas de cobertura (servicio a domicilio) */}
+      {coverageLoc && (
+        <CoverageAreasEditor
+          location={{ id: coverageLoc.id, name: coverageLoc.name, latitude: coverageLoc.latitude, longitude: coverageLoc.longitude }}
+          onClose={() => setCoverageLoc(null)}
+        />
       )}
 
       {/* Modal */}

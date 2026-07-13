@@ -292,6 +292,10 @@ model Tenant {
   // pierde) o 'CREDIT' (queda como crédito del cliente). Aplica cuando el
   // cliente cancela desde su enlace y en no-show. Default: pierde (es garantía).
   depositCancelPolicy  String?   @map("deposit_cancel_policy") @db.VarChar(10)
+  // Antelación mínima (en horas) para que un CLIENTE reserve una cita. 0 = sin
+  // mínimo. Ej. 24 = el cliente no puede reservar con menos de 24h de anticipación.
+  // Solo aplica a reservas de cliente (marketplace/portal/público), no al personal.
+  minBookingHoursAdvance Int     @default(0) @map("min_booking_hours_advance")
   confettiEnabled      Boolean   @default(true) @map("confetti_enabled")
   confettiStyle        String?   @map("confetti_style") @db.VarChar(40)
   confettiStyles       Json?     @map("confetti_styles")
@@ -337,6 +341,7 @@ model Tenant {
   tenantReviews         TenantReview[]
   staffNotifications    StaffNotification[]
   commissionPayments    CommissionPayment[]
+  coverageAreas         CoverageArea[]
 
   @@map("tenants")
 }
@@ -426,10 +431,36 @@ model Location {
   resources    Resource[]
   appointments Appointment[]
   userRoles    UserRole[]
+  coverageAreas CoverageArea[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
   @@map("locations")
+}
+
+// ─── SERVICIO A DOMICILIO ───────────────────────────
+// Áreas de cobertura: anillos concéntricos centrados en la sucursal. Cada área
+// define un radio máximo (km), un precio (que se suma al total de la cita a
+// domicilio) y un color para dibujarla en el mapa. El cliente cae en el anillo
+// MÁS PEQUEÑO cuyo radio la contiene; si no cabe en ninguno, está fuera de rango.
+model CoverageArea {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  locationId String   @map("location_id")
+  name       String   // ej. "Zona centro", "Periferia"
+  radiusKm   Float    @map("radius_km")   // radio máximo del anillo, en km
+  price      Decimal  @db.Decimal(10, 2)  // cargo a domicilio para esta área
+  color      String   @default("#008080") // color del círculo en el mapa (hex)
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([locationId])
+  @@map("coverage_areas")
 }
 
 // ─── USERS ──────────────────────────────────────────
@@ -490,10 +521,40 @@ model User {
   tenantReviews         TenantReview[]
   staffNotifications    StaffNotification[]
   pushSubscriptions     PushSubscription[]
+  clientAddresses       ClientAddress[]
 
   @@index([tenantId])
   @@index([isClient])
   @@map("users")
+}
+
+// ─── DIRECCIONES GUARDADAS DEL CLIENTE ──────────────
+// Direcciones del cliente (con coordenadas) para el servicio a domicilio. Se
+// asocian a la cuenta (User) y, opcionalmente, al perfil activo (estilo Netflix).
+// A diferencia de User.address (texto libre), aquí guardamos lat/lng para poder
+// validar contra las áreas de cobertura del negocio.
+model ClientAddress {
+  id                String   @id @default(uuid())
+  marketplaceUserId String   @map("marketplace_user_id")
+  profileId         String?  @map("profile_id")
+  label             String?  // ej. "Casa", "Trabajo" (opcional)
+  address           String   @db.Text // dirección legible
+  latitude          Float
+  longitude         Float
+  isDefault         Boolean  @default(false) @map("is_default")
+  // true = dirección derivada AUTOMÁTICAMENTE de la dirección del perfil del
+  // usuario (geocodificada al guardar el perfil). Nos permite actualizarla en
+  // vez de duplicarla, y distinguirla de las que el cliente agrega a mano.
+  fromProfile       Boolean  @default(false) @map("from_profile")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [marketplaceUserId], references: [id], onDelete: Cascade)
+  profile Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  @@index([marketplaceUserId])
+  @@index([profileId])
+  @@map("client_addresses")
 }
 
 // Perfil "estilo Netflix" dentro de una cuenta de marketplace. Un User
@@ -527,6 +588,7 @@ model Profile {
   rewardRedemptions RewardRedemption[]
   favorites MarketplaceFavorite[]
   professionalFavorites MarketplaceProfessionalFavorite[]
+  clientAddresses ClientAddress[]
 
   @@index([userId])
   @@map("profiles")
@@ -765,6 +827,9 @@ model Service {
   pointsRequired      Int?     @map("points_required")
   depositRequired     Boolean  @default(false) @map("deposit_required")
   depositPercent      Int?     @map("deposit_percent")
+  // ¿Este servicio se puede realizar A DOMICILIO? Cuando es true, el servicio
+  // aparece en el flujo de reserva "a domicilio" (dentro del área de cobertura).
+  homeServiceEnabled  Boolean  @default(false) @map("home_service_enabled")
   isActive            Boolean  @default(true) @map("is_active")
   sortOrder           Int      @default(0) @map("sort_order")
   createdAt           DateTime @default(now()) @map("created_at")
@@ -1063,6 +1128,16 @@ model Appointment {
   depositAmount      Decimal?          @map("deposit_amount") @db.Decimal(10, 2)
   depositPaid        Decimal           @default(0) @map("deposit_paid") @db.Decimal(10, 2)
   depositWaived      Boolean           @default(false) @map("deposit_waived")
+  // ─── Servicio a domicilio ───
+  // serviceType: LOCAL (en la sucursal) | DOMICILIO. Si es DOMICILIO, guardamos
+  // la dirección + coordenadas de atención, el cargo del área aplicada
+  // (snapshot) y el id del área de cobertura que aplicó.
+  serviceType        String            @default("LOCAL") @map("service_type") @db.VarChar(10)
+  deliveryAddress    String?           @map("delivery_address") @db.Text
+  deliveryLat        Float?            @map("delivery_lat")
+  deliveryLng        Float?            @map("delivery_lng")
+  homeServiceFee     Decimal?          @map("home_service_fee") @db.Decimal(10, 2)
+  coverageAreaId     String?           @map("coverage_area_id")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 

@@ -55,6 +55,7 @@ import { StripeService } from '../stripe/stripe.service';
 // (deja pasar pero adjunta el usuario si hay token).
 import { MarketplaceJwtGuard } from './guards/marketplace-jwt.guard';
 import { MarketplaceJwtOptionalGuard } from './guards/marketplace-jwt-optional.guard';
+import { CreateClientAddressDto } from './dto/client-address.dto';
 
 // Guards y decoradores del PORTAL DEL NEGOCIO (staff), usados solo en el
 // endpoint del QR: validan el JWT del empleado y sus permisos.
@@ -152,6 +153,28 @@ export class MarketplaceController {
   async updateProfile(@Req() req: any, @Body() dto: UpdateMarketplaceProfileDto) {
     const user = await this.marketplaceService.updateProfile(req.user.marketplaceUserId, dto);
     return { data: user };
+  }
+
+  // ── Direcciones guardadas del cliente (servicio a domicilio) ──────────────
+  @UseGuards(MarketplaceJwtGuard)
+  @Get('addresses')
+  async listAddresses(@Req() req: any) {
+    const data = await this.marketplaceService.listClientAddresses(req.user.marketplaceUserId);
+    return { data };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('addresses')
+  async createAddress(@Req() req: any, @Body() dto: CreateClientAddressDto) {
+    const data = await this.marketplaceService.createClientAddress(req.user.marketplaceUserId, dto);
+    return { data };
+  }
+
+  @UseGuards(MarketplaceJwtGuard)
+  @Delete('addresses/:id')
+  async deleteAddress(@Req() req: any, @Param('id') id: string) {
+    const data = await this.marketplaceService.deleteClientAddress(req.user.marketplaceUserId, id);
+    return { data };
   }
 
   // POST /api/marketplace/auth/otp/send => envía un código OTP al TELÉFONO.

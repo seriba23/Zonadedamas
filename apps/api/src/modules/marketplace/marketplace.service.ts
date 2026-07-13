@@ -780,6 +780,10 @@ export class MarketplaceService {
     // ¿El usuario mandó coordenadas GPS? "!= null" es true si NO es null NI
     // undefined (cubre ambos casos a la vez).
     const hasGps = lat != null && lng != null;
+    // ¿El usuario está BUSCANDO por texto? Si escribió algo (tras quitar
+    // espacios), estamos en modo búsqueda explícita.
+    const hasSearch = !!(search && search.trim());
+
     // applyRadius = ¿filtramos de verdad por distancia? Solo si hay GPS y el
     // radio es un número mayor que 0. "typeof radiusKm === 'number'" comprueba
     // que sea numérico.
@@ -787,7 +791,14 @@ export class MarketplaceService {
     // explicito mayor que cero. Hasta ahora el parametro se calculaba
     // pero NUNCA se usaba en el WHERE — los clientes veian negocios
     // de todo el pais sin importar el radio configurado.
-    const applyRadius = hasGps && typeof radiusKm === 'number' && radiusKm > 0;
+    //
+    // IMPORTANTE: si hay término de búsqueda, IGNORAMOS el radio. El buscador
+    // debe encontrar CUALQUIER negocio registrado sin importar su ubicación
+    // ("si está registrado, debo poder encontrarlo"). Seguimos calculando la
+    // distancia (para mostrarla y ordenar por cercanía), pero NO se usa para
+    // excluir resultados. El radio solo acota el descubrimiento por cercanía
+    // cuando el usuario NO está buscando (navegación "cerca de mí").
+    const applyRadius = hasGps && typeof radiusKm === 'number' && radiusKm > 0 && !hasSearch;
 
     // Trozo de SQL que calcula el nombre del día de HOY en mayúsculas/inglés:
     // DAYOFWEEK(CURDATE()) da 1..7 (1=domingo) y ELT elige el nombre por posición.
@@ -1235,6 +1246,7 @@ export class MarketplaceService {
         pointsReward: true,
         redeemableWithPoints: true,
         pointsRequired: true,
+        homeServiceEnabled: true,
       },
       orderBy: { sortOrder: 'asc' },
     });
@@ -1526,12 +1538,42 @@ export class MarketplaceService {
       isFavorited = !!fav;
     }
 
+    // ── Servicio a domicilio ──
+    // Ubicación primaria (centro de las zonas) y sus áreas de cobertura. Está
+    // "disponible" si hay al menos un servicio a domicilio, áreas definidas y la
+    // ubicación tiene coordenadas. (MVP: usa la sucursal primaria; multi-sucursal
+    // se refinaría luego.)
+    const primaryLoc = await this.prisma.location.findFirst({
+      where: { tenantId: tenant.id, isActive: true, latitude: { not: null }, longitude: { not: null } },
+      select: { id: true, latitude: true, longitude: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const homeServiceAreas = primaryLoc
+      ? await this.prisma.coverageArea.findMany({
+          where: { tenantId: tenant.id, locationId: primaryLoc.id },
+          orderBy: { radiusKm: 'asc' },
+          select: { id: true, name: true, radiusKm: true, price: true, color: true },
+        })
+      : [];
+    const homeService = {
+      available: services.some((s) => s.homeServiceEnabled) && homeServiceAreas.length > 0 && !!primaryLoc,
+      location: primaryLoc ? { lat: primaryLoc.latitude, lng: primaryLoc.longitude } : null,
+      areas: homeServiceAreas.map((a) => ({
+        id: a.id,
+        name: a.name,
+        radiusKm: a.radiusKm,
+        price: Number(a.price),
+        color: a.color,
+      })),
+    };
+
     // Separamos dos campos internos del resto del negocio (no queremos exponerlos
     // crudos): los convertimos a banderas más claras abajo.
     const { stripeOnboardingComplete, shopEnabled, ...tenantData } = tenant;
 
     return {
       data: {
+        homeService,
         ...tenantData, // resto de datos del negocio
         // ¿acepta pagos online? = ¿terminó el onboarding de Stripe? ("!!" -> bool)
         acceptsOnlinePayment: !!stripeOnboardingComplete,
@@ -2707,7 +2749,145 @@ export class MarketplaceService {
       });
     }
 
+    // Si el usuario tocó su dirección, la geocodificamos y la reflejamos como
+    // ClientAddress (con coordenadas) para que el selector de "servicio a
+    // domicilio" pueda usarla sin que el cliente tenga que volver a ubicarla en
+    // el mapa. Best-effort: nunca rompe el guardado del perfil.
+    if (dto.address !== undefined) {
+      await this.syncProfileAddressCoordinates(
+        marketplaceUserId,
+        dto.address || null,
+        dto.country || (current as any).country || undefined,
+      );
+    }
+
     return user;
+  }
+
+  // Consulta puntual a Nominatim (OSM) con un juego de parámetros. Devuelve la
+  // primera coincidencia {lat,lng} o null (si no hay resultados o falla la red).
+  private async queryNominatim(
+    params: Record<string, string>,
+  ): Promise<{ lat: number; lng: number } | null> {
+    const search = new URLSearchParams({
+      format: 'jsonv2',
+      limit: '1',
+      'accept-language': 'es',
+      addressdetails: '0',
+      ...params,
+    });
+    const url = `https://nominatim.openstreetmap.org/search?${search.toString()}`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Siliba/1.0 (contact@siliba.com)',
+          'Accept-Language': 'es',
+        },
+      });
+      if (!res.ok) return null;
+      const json: any = await res.json();
+      if (!Array.isArray(json) || json.length === 0) return null;
+      // Nominatim devuelve "lon" (no "lng"); lo renombramos.
+      return { lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon) };
+    } catch {
+      return null;
+    }
+  }
+
+  // Geocodifica una dirección SERIALIZADA ("Calle Núm, Colonia, Ciudad, Región,
+  // CP, País") a coordenadas. La cadena completa como texto libre casi nunca
+  // matchea en Nominatim (el número exterior + colonia la ensucian), así que la
+  // parseamos y probamos combinaciones ESTRUCTURADAS de lo más preciso a lo más
+  // general — la misma estrategia que el panel de administración. Devuelve null
+  // si nada matchea o si la red falla (para no romper el flujo que la invoca).
+  private async geocodeText(
+    addressStr: string,
+    countryCode?: string,
+  ): Promise<{ lat: number; lng: number } | null> {
+    // Mismo formato que serializeAddress(): partes separadas por coma.
+    const parts = addressStr.split(',').map((s) => s.trim());
+    const street = parts[0] || '';     // "Calle Número"
+    const city = parts[2] || '';
+    const state = parts[3] || '';
+    const postalcode = parts[4] || '';
+
+    // Base común: acota al país del usuario (alpha2 en minúscula) si lo tenemos.
+    const base: Record<string, string> = {};
+    if (countryCode) base.countrycodes = countryCode.toLowerCase();
+
+    // Combinaciones en orden de precisión (la primera que acierte gana).
+    const combos: Array<Record<string, string>> = [];
+    if (street && city) {
+      if (postalcode) combos.push({ ...base, street, city, ...(state ? { state } : {}), postalcode });
+      combos.push({ ...base, street, city, ...(state ? { state } : {}) });
+      combos.push({ ...base, street, city });
+    }
+    if (city) {
+      combos.push({ ...base, city, ...(state ? { state } : {}) });
+      combos.push({ ...base, city });
+    }
+    // Último recurso: texto libre completo.
+    combos.push({ ...base, q: addressStr });
+
+    for (const params of combos) {
+      const hit = await this.queryNominatim(params);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  // Mantiene sincronizada la dirección del PERFIL (texto en User.address) con una
+  // fila ClientAddress marcada `fromProfile=true` (con lat/lng). Así la dirección
+  // que el cliente ya escribió en su perfil aparece lista en el selector de
+  // domicilio. Reglas:
+  //   - Si vaciaron la dirección → borramos la derivada.
+  //   - Si el texto no cambió → no re-geocodificamos (ahorra llamadas).
+  //   - Si el geocoding falla → dejamos solo el texto en el perfil (no rompe).
+  private async syncProfileAddressCoordinates(
+    marketplaceUserId: string,
+    addressStr: string | null,
+    countryCode?: string,
+  ) {
+    try {
+      const existing = await this.prisma.clientAddress.findFirst({
+        where: { marketplaceUserId, fromProfile: true },
+      });
+
+      if (!addressStr || !addressStr.trim()) {
+        if (existing) {
+          await this.prisma.clientAddress.delete({ where: { id: existing.id } });
+        }
+        return;
+      }
+
+      // Si ya existe la derivada y el texto es idéntico, no hay nada que hacer.
+      if (existing && existing.address === addressStr) return;
+
+      const coords = await this.geocodeText(addressStr, countryCode);
+      if (!coords) return; // no ubicable; el perfil conserva solo el texto.
+
+      if (existing) {
+        await this.prisma.clientAddress.update({
+          where: { id: existing.id },
+          data: { address: addressStr, latitude: coords.lat, longitude: coords.lng },
+        });
+      } else {
+        const count = await this.prisma.clientAddress.count({ where: { marketplaceUserId } });
+        await this.prisma.clientAddress.create({
+          data: {
+            marketplaceUserId,
+            label: 'Mi dirección',
+            address: addressStr,
+            latitude: coords.lat,
+            longitude: coords.lng,
+            isDefault: count === 0,
+            fromProfile: true,
+          },
+        });
+      }
+    } catch {
+      // Nunca rompemos el guardado del perfil por un fallo aquí.
+    }
   }
 
   // updateSettings(): guarda las preferencias del usuario (país, idioma, moneda,
@@ -3331,11 +3511,18 @@ export class MarketplaceService {
   // getMyStats(): estadísticas personales del usuario: servicios completados,
   // puntos de fidelidad totales y por negocio, y fotos de resultados.
   async getMyStats(marketplaceUserId: string, profileId?: string) {
-    // Fichas Client del usuario (o de un perfil concreto), con sus puntos y el
-    // negocio asociado.
+    // Fichas Client del usuario (o de un perfil concreto), con sus puntos, el
+    // negocio asociado y el perfil dueño de la ficha (para el desglose por perfil).
     const clients = await this.prisma.client.findMany({
       where: { userId: marketplaceUserId, ...(profileId ? { profileId } : {}) },
-      select: { id: true, tenantId: true, loyaltyPoints: true, tenant: { select: { name: true, slug: true, logoUrl: true } } },
+      select: {
+        id: true,
+        tenantId: true,
+        loyaltyPoints: true,
+        profileId: true,
+        tenant: { select: { name: true, slug: true, logoUrl: true } },
+        profile: { select: { id: true, firstName: true, lastName: true, color: true, avatarUrl: true } },
+      },
     });
     const clientIds = clients.map((c) => c.id);
 
@@ -3362,16 +3549,47 @@ export class MarketplaceService {
     // Puntos totales: reduce suma los loyaltyPoints de todas las fichas (sum
     // empieza en 0 y va acumulando c.loyaltyPoints en cada vuelta).
     const totalPoints = clients.reduce((sum, c) => sum + c.loyaltyPoints, 0);
-    // Puntos por negocio: nos quedamos solo con las fichas que tienen puntos
-    // (filter > 0) y las transformamos al formato de salida (map).
-    const pointsByTenant = clients
-      .filter((c) => c.loyaltyPoints > 0)
-      .map((c) => ({
-        tenantId: c.tenantId,
-        tenantName: c.tenant.name,
-        tenantSlug: c.tenant.slug,
-        tenantLogo: c.tenant.logoUrl,
+
+    // Puntos por negocio AGRUPADOS: un usuario puede tener varias fichas en el
+    // mismo negocio (una por perfil), así que agrupamos por tenantId y sumamos.
+    // Cada entrada trae además `profiles[]` con el desglose por perfil para que
+    // el marketplace muestre UNA tarjeta por negocio y, al tocarla, cuántos
+    // puntos tiene cada perfil.
+    const byTenant = new Map<string, any>();
+    for (const c of clients) {
+      // Solo fichas con puntos: así `profiles[]` contiene únicamente perfiles que
+      // realmente tienen puntos en ese negocio (no perfiles en cero).
+      if (c.loyaltyPoints <= 0) continue;
+      let entry = byTenant.get(c.tenantId);
+      if (!entry) {
+        entry = {
+          tenantId: c.tenantId,
+          tenantName: c.tenant.name,
+          tenantSlug: c.tenant.slug,
+          tenantLogo: c.tenant.logoUrl,
+          points: 0,
+          profiles: [] as any[],
+        };
+        byTenant.set(c.tenantId, entry);
+      }
+      entry.points += c.loyaltyPoints;
+      entry.profiles.push({
+        profileId: c.profileId,
+        // Las fichas antiguas sin perfil (profileId=null) son del titular.
+        firstName: c.profile?.firstName ?? 'Titular',
+        lastName: c.profile?.lastName ?? '',
+        color: c.profile?.color ?? null,
+        avatarUrl: c.profile?.avatarUrl ?? null,
         points: c.loyaltyPoints,
+      });
+    }
+    // Solo negocios con puntos (>0); dentro de cada uno, perfiles ordenados por
+    // puntos desc (el que más tiene primero).
+    const pointsByTenant = Array.from(byTenant.values())
+      .filter((e) => e.points > 0)
+      .map((e) => ({
+        ...e,
+        profiles: e.profiles.sort((a: any, b: any) => (b.points || 0) - (a.points || 0)),
       }));
 
     return { data: { totalServices, totalPoints, totalPhotos, pointsByTenant } };
@@ -3962,6 +4180,81 @@ export class MarketplaceService {
   // bookAppointment(): reserva una cita desde el marketplace. Asegura la ficha
   // Client, valida cupón/promoción/puntos y delega la creación real de la cita
   // a AppointmentsService.
+  // haversineKm(): distancia en km entre dos puntos (fórmula de Haversine, misma
+  // base que el discover del marketplace: radio terrestre 6371 km).
+  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+
+  // resolveHomeService(): dada la sucursal y un punto (lat/lng), devuelve el área
+  // de cobertura (anillo) MÁS PEQUEÑA que lo contenga, con su cargo. Lanza error si
+  // el negocio no tiene ubicación/áreas o si el punto queda fuera de rango.
+  async resolveHomeService(tenantId: string, locationId: string, lat: number, lng: number) {
+    const location = await this.prisma.location.findFirst({
+      where: { id: locationId, tenantId },
+      select: { latitude: true, longitude: true },
+    });
+    if (!location || location.latitude == null || location.longitude == null) {
+      throw new BadRequestException('El negocio no tiene ubicación configurada para servicio a domicilio.');
+    }
+    const areas = await this.prisma.coverageArea.findMany({
+      where: { tenantId, locationId },
+      orderBy: { radiusKm: 'asc' },
+    });
+    if (areas.length === 0) {
+      throw new BadRequestException('Este negocio no ofrece servicio a domicilio.');
+    }
+    const distanceKm = this.haversineKm(location.latitude, location.longitude, lat, lng);
+    // areas ya vienen ordenadas por radio ascendente → el primero que contenga
+    // el punto es el anillo más pequeño (el precio correcto).
+    const area = areas.find((a) => distanceKm <= a.radiusKm);
+    if (!area) {
+      throw new BadRequestException('La dirección seleccionada está fuera del área de servicio a domicilio.');
+    }
+    return { coverageAreaId: area.id, homeServiceFee: Number(area.price), distanceKm, area };
+  }
+
+  // ─── Direcciones guardadas del cliente (servicio a domicilio) ─────────────
+  // Son a nivel de cuenta (no por perfil): "las direcciones del cliente".
+  async listClientAddresses(marketplaceUserId: string) {
+    return this.prisma.clientAddress.findMany({
+      where: { marketplaceUserId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async createClientAddress(
+    marketplaceUserId: string,
+    dto: { label?: string; address: string; latitude: number; longitude: number },
+  ) {
+    const count = await this.prisma.clientAddress.count({ where: { marketplaceUserId } });
+    return this.prisma.clientAddress.create({
+      data: {
+        marketplaceUserId,
+        label: dto.label || null,
+        address: dto.address,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        // La primera dirección que guarda queda como predeterminada.
+        isDefault: count === 0,
+      },
+    });
+  }
+
+  async deleteClientAddress(marketplaceUserId: string, id: string) {
+    const addr = await this.prisma.clientAddress.findFirst({ where: { id, marketplaceUserId } });
+    if (!addr) throw new NotFoundException('Dirección no encontrada');
+    await this.prisma.clientAddress.delete({ where: { id } });
+    return { message: 'Dirección eliminada' };
+  }
+
   async bookAppointment(
     marketplaceUserId: string,
     tenantSlug: string,
@@ -4223,6 +4516,46 @@ export class MarketplaceService {
       }
     }
 
+    // ── SERVICIO A DOMICILIO ──────────────────────────────────────────────────
+    // Si la reserva es a domicilio, validamos SERVER-SIDE (no confiamos en el
+    // cliente): (1) todos los servicios deben estar habilitados a domicilio;
+    // (2) la dirección debe caer dentro de un área de cobertura; el cargo lo
+    // calcula el backend a partir del anillo (no del payload).
+    let homeFields: {
+      serviceType?: 'LOCAL' | 'DOMICILIO';
+      deliveryAddress?: string;
+      deliveryLat?: number;
+      deliveryLng?: number;
+      homeServiceFee?: number;
+      coverageAreaId?: string;
+    } = {};
+    if (dto.serviceType === 'DOMICILIO') {
+      if (dto.deliveryLat == null || dto.deliveryLng == null || !dto.deliveryAddress) {
+        throw new BadRequestException('Falta la dirección para el servicio a domicilio.');
+      }
+      const svcs = await this.prisma.service.findMany({
+        where: { id: { in: dto.serviceIds }, tenantId: tenant.id },
+        select: { id: true, homeServiceEnabled: true },
+      });
+      if (svcs.some((s) => !s.homeServiceEnabled)) {
+        throw new BadRequestException('Uno o más servicios no están disponibles a domicilio.');
+      }
+      const home = await this.resolveHomeService(
+        tenant.id,
+        employee.locationId,
+        dto.deliveryLat,
+        dto.deliveryLng,
+      );
+      homeFields = {
+        serviceType: 'DOMICILIO',
+        deliveryAddress: dto.deliveryAddress,
+        deliveryLat: dto.deliveryLat,
+        deliveryLng: dto.deliveryLng,
+        homeServiceFee: home.homeServiceFee,
+        coverageAreaId: home.coverageAreaId,
+      };
+    }
+
     // Delegate to AppointmentsService.
     // Si vienen serviceAssignments (multi-empleado), las pasamos para que
     // cada servicio quede ligado a su profesional. employeeId queda como
@@ -4239,8 +4572,11 @@ export class MarketplaceService {
         notes: dto.notes,
         source: 'ONLINE',
         serviceAssignments: dto.serviceAssignments,
+        ...homeFields,
       },
       tenant.id,
+      undefined, // sin userId de staff: la reserva la hace el cliente del marketplace.
+      { enforceLeadTime: true }, // es reserva de cliente: exige antelación mínima.
     );
 
     // postOps = lista de operaciones a ejecutar DESPUÉS de crear la cita

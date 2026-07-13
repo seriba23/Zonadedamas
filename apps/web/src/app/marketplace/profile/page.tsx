@@ -53,6 +53,7 @@ import { formatCurrency, resolveImageUrl } from '@/lib/utils';
 
 // Avatar: componente que muestra foto o iniciales coloreadas del usuario.
 import { Avatar } from '@/components/ui/avatar';
+import { SectionHelp } from '@/components/ui/section-help';
 
 // Activamos la localización en español para todas las fechas con dayjs.
 dayjs.locale('es');
@@ -720,6 +721,10 @@ export default function MarketplaceProfilePage() {
               auditar todos los componentes del marketplace para
               asegurar contraste/legibilidad). Ver
               project_v2_dark_mode.md. */}
+          {/* Ícono ⓘ de ayuda contextual — esquina superior izquierda. */}
+          <div className="absolute top-4 left-4">
+            <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors" />
+          </div>
           {/* Botón de configuración en esquina superior derecha. */}
           <div className="absolute top-4 right-4 flex items-center gap-1">
             <Link

@@ -218,6 +218,86 @@ export const SECTION_HELP: SectionHelpEntry[] = [
       { icon: I.gear, title: 'Configuración', text: 'Ajusta los datos de tu negocio, tus ubicaciones, horarios y preferencias generales.' },
     ],
   },
+  // Pestañas de Configuración (misma URL /settings). El ⓘ las toma por "key"
+  // cuando la página fija la pestaña activa (match: () => false).
+  {
+    key: 'set-negocio', title: 'Mi Negocio', match: () => false,
+    slides: [
+      { icon: I.storefront, title: 'Los datos de tu negocio', text: 'Nombre, descripción, categoría, dirección y fotos. Es lo que ven tus clientes en el marketplace, así que cuídalo.' },
+      { icon: I.sparkles, title: 'Tu carta de presentación', text: 'Un buen logo, portada y descripción hacen que más clientes elijan tu negocio al buscarte.' },
+    ],
+  },
+  {
+    key: 'set-sucursales', title: 'Sucursales', match: () => false,
+    slides: [
+      { icon: I.home, title: 'Tus ubicaciones', text: 'Gestiona cada sucursal con su dirección y ubicación en el mapa. Las citas se agendan por sucursal.' },
+      { icon: I.tag, title: 'Ubícate en el mapa', text: 'Ajusta el pin de cada sucursal: la ubicación se usa para mostrarte a clientes cercanos y para el servicio a domicilio.' },
+    ],
+  },
+  {
+    key: 'set-horarios', title: 'Horarios', match: () => false,
+    slides: [
+      { icon: I.calendar, title: 'Cuándo abres', text: 'Define los días y el horario en que atiende tu negocio. Fuera de ese horario no se pueden agendar citas.' },
+      { icon: I.clock, title: 'Cierres y vacaciones', text: 'Registra cierres temporales (feriados, vacaciones) para que esos días no aparezcan disponibles.' },
+    ],
+  },
+  {
+    key: 'set-reserva', title: 'Reserva', match: () => false,
+    slides: [
+      { icon: I.clock, title: 'Antelación mínima', text: 'Elige con cuánta anticipación pueden reservarte los clientes (ej. 24 h). No afecta a las citas que tú o tu equipo creen desde el panel.' },
+    ],
+  },
+  {
+    key: 'set-invitaciones', title: 'Invitaciones', match: () => false,
+    slides: [
+      { icon: I.userGroup, title: 'Suma a tu equipo', text: 'Genera códigos de invitación para que tus empleados creen su cuenta y se unan a tu negocio.' },
+    ],
+  },
+  {
+    key: 'set-qr', title: 'Código QR', match: () => false,
+    slides: [
+      { icon: I.tag, title: 'Tu QR de reservas', text: 'Comparte o imprime tu código QR: al escanearlo, tus clientes llegan directo a reservar contigo.' },
+    ],
+  },
+  {
+    key: 'set-ventas', title: 'Ventas', match: () => false,
+    slides: [
+      { icon: I.card, title: 'Cómo te pagan', text: 'Configura tus datos de cobro (banco, CLABE, titular) para los anticipos por transferencia y las ventas de tu tienda.' },
+    ],
+  },
+  {
+    key: 'set-anticipo', title: 'Anticipo', match: () => false,
+    slides: [
+      { icon: I.receipt, title: 'Asegura tus citas', text: 'Exige un anticipo para confirmar las citas: la cita queda pendiente hasta que confirmes el pago recibido.' },
+      { icon: I.warn, title: 'Si cancelan', text: 'Define qué pasa con el anticipo cuando el cliente cancela o no se presenta: lo pierde o queda como crédito.' },
+    ],
+  },
+  // Pestañas de Configuración del freelancer (/employee/settings).
+  {
+    key: 'emp-set-general', title: 'General', match: () => false,
+    slides: [
+      { icon: I.gear, title: 'Preferencias generales', text: 'Ajusta tu país y el idioma de la aplicación. Afecta el formato de fechas y cómo ves la app.' },
+    ],
+  },
+  {
+    key: 'emp-set-notif', title: 'Notificaciones', match: () => false,
+    slides: [
+      { icon: I.bell, title: 'Qué avisos recibes', text: 'Activa o desactiva los recordatorios de citas, las promociones y los avisos de puntos y recompensas.' },
+    ],
+  },
+  {
+    key: 'emp-set-cuenta', title: 'Cuenta', match: () => false,
+    slides: [
+      { icon: I.person, title: 'Tu cuenta', text: 'Edita tu perfil (foto, contacto, contraseña), consulta la ayuda y los avisos legales, o cierra sesión.' },
+    ],
+  },
+  {
+    key: 'emp-set-domicilio', title: 'A domicilio', match: () => false,
+    slides: [
+      { icon: I.home, title: 'Atiende a domicilio', text: 'Define zonas de cobertura (anillos con radio y precio) alrededor de tu ubicación. El cliente paga según la zona en la que esté.' },
+      { icon: I.tag, title: 'Marca tus servicios', text: 'Activa "disponible a domicilio" en cada servicio de tu catálogo para que aparezca en el flujo de reserva a domicilio.' },
+    ],
+  },
 
   // ─── PORTAL DE EMPLEADO / FREELANCER (/employee/*) ─────────────────────────
   {
@@ -328,6 +408,74 @@ export const SECTION_HELP: SectionHelpEntry[] = [
     key: 'emp-home', title: 'Inicio', match: (p) => p === '/employee',
     slides: [
       { icon: I.home, title: 'Tu inicio', text: 'Un resumen de tu día: tus próximas citas y accesos rápidos a lo que más usas.' },
+    ],
+  },
+
+  // ─── PORTAL DE CLIENTE / MARKETPLACE (/marketplace/*) ──────────────────────
+  // Las rutas específicas van ANTES que /marketplace (inicio) y que el catch-all
+  // de "detalle de negocio", porque getSectionHelp devuelve el PRIMER match.
+  {
+    key: 'mkt-appointments', title: 'Citas', match: (p) => p.startsWith('/marketplace/appointments'),
+    slides: [
+      { icon: I.calendar, title: 'Tus citas', text: 'Aquí ves todas tus citas: próximas, pasadas y canceladas. Toca una para ver los detalles, reagendarla o cancelarla.' },
+      { icon: I.plus, title: 'Reserva en segundos', text: 'Usa el botón + o entra a un negocio para reservar: eliges servicio, profesional y el horario que tengan disponible.' },
+      { icon: I.receipt, title: 'También tus compras', text: 'En la pestaña Compras encuentras los productos que apartaste o compraste en la tienda de cada negocio.' },
+    ],
+  },
+  {
+    key: 'mkt-coupons', title: 'Cupones', match: (p) => p.startsWith('/marketplace/coupons'),
+    slides: [
+      { icon: I.gift, title: 'Tus cupones', text: 'Canjea tus puntos por servicios o descuentos. Cada cupón trae un código que muestras al pagar en el negocio.' },
+      { icon: I.coin, title: 'Gana puntos', text: 'Acumulas puntos con tus compras y tus citas. En "Mis puntos" ves tu saldo y en qué negocios los ganaste.' },
+    ],
+  },
+  {
+    key: 'mkt-professionals', title: 'Profesionales', match: (p) => p.startsWith('/marketplace/professionals'),
+    slides: [
+      { icon: I.users, title: 'Encuentra a tu profesional', text: 'Busca profesionales por nombre, especialidad o ID. Mira su trabajo y reserva directamente con quien prefieras.' },
+    ],
+  },
+  {
+    key: 'mkt-gallery', title: 'Galería', match: (p) => p.startsWith('/marketplace/gallery'),
+    slides: [
+      { icon: I.sparkles, title: 'Tu galería de resultados', text: 'Las fotos de tus servicios terminados, que suben los profesionales al cerrar la cita, se guardan aquí para que veas tu antes y después.' },
+    ],
+  },
+  {
+    key: 'mkt-payments', title: 'Pagos', match: (p) => p.startsWith('/marketplace/payments'),
+    slides: [
+      { icon: I.card, title: 'Tu historial de pagos', text: 'Consulta todo lo que has pagado —anticipos, servicios y compras— con su estado: completado, pendiente o reembolsado.' },
+    ],
+  },
+  {
+    key: 'mkt-settings', title: 'Ajustes', match: (p) => p.startsWith('/marketplace/settings'),
+    slides: [
+      { icon: I.gear, title: 'Ajustes de tu cuenta', text: 'Cambia tu país, idioma y moneda, ajusta el radio de búsqueda y tus notificaciones, o gestiona tu cuenta.' },
+    ],
+  },
+  {
+    key: 'mkt-profile', title: 'Perfil', match: (p) => p.startsWith('/marketplace/profile'),
+    slides: [
+      { icon: I.person, title: 'Tu perfil', text: 'Tu foto, tus datos y tus estadísticas. Desde aquí llegas a tus favoritos, tu galería y tus ajustes.' },
+      { icon: I.gear, title: 'Todo a la mano', text: 'Toca el engranaje para editar tu perfil, cambiar tus preferencias o gestionar tu cuenta.' },
+    ],
+  },
+  // Inicio del marketplace (ruta EXACTA, para no chocar con el detalle de negocio).
+  {
+    key: 'mkt-home', title: 'Inicio', match: (p) => p === '/marketplace',
+    slides: [
+      { icon: I.storefront, title: 'Descubre negocios', text: 'Explora salones, barberías, spas y clínicas cerca de ti. Toca uno para ver sus servicios, fotos y reseñas.' },
+      { icon: I.sparkles, title: 'Filtra a tu gusto', text: 'Busca por nombre, cambia entre Negocios y Profesionales, y usa "Disponible ahora" y los filtros para encontrar justo lo que necesitas.' },
+      { icon: I.bookmark, title: 'Guarda tus favoritos', text: 'Toca el corazón para guardar los negocios y profesionales que más te gustan y volver a ellos rápido.' },
+    ],
+  },
+  // Detalle de negocio: cualquier otra subruta /marketplace/<slug> (catch-all).
+  // Va al FINAL para que las secciones específicas y el inicio ganen primero.
+  {
+    key: 'mkt-business', title: 'Negocio', match: (p) => p.startsWith('/marketplace/'),
+    slides: [
+      { icon: I.storefront, title: 'Perfil del negocio', text: 'Aquí ves los servicios, paquetes, fotos y reseñas del negocio. Toca un servicio y sigue los pasos para reservar tu cita.' },
+      { icon: I.star, title: 'Reserva con confianza', text: 'Consulta las reseñas de otros clientes y guarda el negocio como favorito con el corazón para volver cuando quieras.' },
     ],
   },
 ];

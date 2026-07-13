@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { useSectionHelpKey } from '@/lib/section-help-context';
 
 const BusinessContent = dynamic(() => import('./business/page'), { ssr: false });
 const LocationsContent = dynamic(() => import('./locations/page'), { ssr: false });
@@ -17,13 +18,30 @@ const DepositContent = dynamic(
   () => import('@/components/settings/deposit-settings-content').then((mod) => ({ default: mod.DepositSettingsContent })),
   { ssr: false },
 );
+const AppointmentContent = dynamic(
+  () => import('@/components/settings/appointment-settings-content').then((mod) => ({ default: mod.AppointmentSettingsContent })),
+  { ssr: false },
+);
 
-type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'ventas' | 'anticipo' | 'invitaciones' | 'qr';
+type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'citas' | 'ventas' | 'anticipo' | 'invitaciones' | 'qr';
+
+// Cada pestaña muestra su propia ayuda (ⓘ del header) en vez de la genérica.
+const HELP_KEY_BY_TAB: Record<SettingsTab, string> = {
+  negocio: 'set-negocio',
+  sucursales: 'set-sucursales',
+  horarios: 'set-horarios',
+  citas: 'set-reserva',
+  invitaciones: 'set-invitaciones',
+  qr: 'set-qr',
+  ventas: 'set-ventas',
+  anticipo: 'set-anticipo',
+};
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'negocio', label: 'Mi Negocio' },
   { key: 'sucursales', label: 'Sucursales' },
   { key: 'horarios', label: 'Horarios' },
+  { key: 'citas', label: 'Reserva' },
   { key: 'invitaciones', label: 'Invitaciones' },
   { key: 'qr', label: 'Código QR' },
   { key: 'ventas', label: 'Ventas' },
@@ -38,6 +56,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(
     tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : 'negocio',
   );
+  // El ⓘ del header explica la pestaña activa (Mi Negocio / Sucursales / …).
+  useSectionHelpKey(HELP_KEY_BY_TAB[activeTab]);
 
   return (
     <div className="flex flex-col h-full">
@@ -62,6 +82,7 @@ export default function SettingsPage() {
         {activeTab === 'negocio' && <BusinessContent />}
         {activeTab === 'sucursales' && <LocationsContent />}
         {activeTab === 'horarios' && <HoursContent />}
+        {activeTab === 'citas' && <AppointmentContent />}
         {activeTab === 'ventas' && <ShopContent />}
         {activeTab === 'anticipo' && <DepositContent />}
         {activeTab === 'invitaciones' && <InviteCodesContent />}

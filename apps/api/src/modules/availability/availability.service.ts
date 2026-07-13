@@ -22,6 +22,9 @@ import { CheckAfterDto } from './dto/check-after.dto';
 // parseWallClock: utilidad que interpreta una hora "de reloj de pared" (la hora
 // tal como la ve el usuario) y la convierte a un objeto Date de forma consistente.
 import { parseWallClock } from '../../common/utils/parse-wall-clock';
+// nowInTimezoneAsWallClock: "ahora" en la zona del negocio como wall-clock UTC,
+// para descartar los slots que caen por debajo de la antelación mínima de reserva.
+import { nowInTimezoneAsWallClock } from '../../common/utils/tenant-now';
 // crypto: librería de Node para criptografía. Aquí solo se usa para generar un
 // "hash" (huella corta) a partir de las asignaciones y construir una clave de caché.
 import * as crypto from 'crypto';
@@ -50,7 +53,15 @@ export class AvailabilityService {
   // los huecos LIBRES agrupados por día y por empleado.
   // Recibe: query (los filtros) y tenantId (el negocio). Devuelve { data: [...] }.
   // ───────────────────────────────────────────────────────────────────────────
-  async getAvailableSlots(query: AvailabilityQueryDto, tenantId: string) {
+  // opts.applyLeadTime: cuando es true (flujos de CLIENTE: marketplace, portal y
+  // reserva pública), se descartan los slots que caen por debajo de la antelación
+  // mínima configurada por el negocio. Los flujos internos (dashboard/empleado)
+  // NO lo pasan, así el personal ve toda la disponibilidad.
+  async getAvailableSlots(
+    query: AvailabilityQueryDto,
+    tenantId: string,
+    opts?: { applyLeadTime?: boolean },
+  ) {
     // 1. Fetch services and calculate total duration
     // Traemos de la BD los servicios pedidos. "id: { in: query.serviceIds }"
     // significa "cuyo id esté DENTRO de esta lista". Además filtramos por tenantId.
@@ -388,8 +399,48 @@ export class AvailabilityService {
       }
     }
 
+    // ── Antelación mínima (solo flujos de cliente) ──────────────────────────
+    // Filtramos los slots que caen por debajo del mínimo de horas configurado.
+    // Se hace AQUÍ (sobre el resultado ya ensamblado, no sobre los slots que se
+    // cachean) para no envenenar la caché compartida con los flujos internos.
+    const cutoffMs = await this.leadTimeCutoffMs(tenantId, opts?.applyLeadTime);
+    if (cutoffMs !== null) {
+      for (const day of results) {
+        for (const emp of day.employees) {
+          emp.slots = emp.slots.filter(
+            (s: { startTime: string }) =>
+              new Date(`${day.date}T${s.startTime}:00Z`).getTime() >= cutoffMs,
+          );
+        }
+        // Quitamos empleados que se quedaron sin slots tras el filtro.
+        day.employees = day.employees.filter((e: { slots: unknown[] }) => e.slots.length > 0);
+      }
+      // Y devolvemos solo los días que aún tengan algún empleado con hueco.
+      return { data: results.filter((d: { employees: unknown[] }) => d.employees.length > 0) };
+    }
+
     // Devolvemos todos los días con disponibilidad.
     return { data: results };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // leadTimeCutoffMs(): calcula el timestamp (ms) más temprano en el que un
+  // CLIENTE puede reservar, según la antelación mínima del negocio. Devuelve null
+  // si no aplica (flujo interno, o el negocio no exige mínimo). El corte se
+  // expresa en el mismo marco wall-clock-UTC que las horas de los slots.
+  // ───────────────────────────────────────────────────────────────────────────
+  private async leadTimeCutoffMs(
+    tenantId: string,
+    applyLeadTime?: boolean,
+  ): Promise<number | null> {
+    if (!applyLeadTime) return null;
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true, minBookingHoursAdvance: true },
+    });
+    const minHours = tenant?.minBookingHoursAdvance ?? 0;
+    if (minHours <= 0) return null;
+    return nowInTimezoneAsWallClock(tenant?.timezone).getTime() + minHours * 3600000;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -428,8 +479,14 @@ export class AvailabilityService {
     locationId: string,
     employeeId: string,
   ): Promise<void> {
-    // Patrón con "*" al final: todas las fechas/duraciones de ese empleado.
-    const pattern = `avail:${tenantId}:${locationId}:${employeeId}:*`;
+    // COMODÍN también en la posición de la sucursal: el marketplace/portal
+    // consultan disponibilidad SIN locationId, así que sus entradas se cachean
+    // bajo "all", no bajo el locationId real. Si aquí usáramos el locationId
+    // literal, esas entradas "all" NO se limpiarían y el cambio de horario
+    // tardaría hasta 5 min en verse (p.ej. habilitar el domingo). El parámetro
+    // locationId se mantiene por compatibilidad, pero el patrón cubre todo.
+    void locationId;
+    const pattern = `avail:${tenantId}:*:${employeeId}:*`;
     await this.redis.delPattern(pattern).catch(() => {});
     await this.redis.delPattern(`composite:${tenantId}:*`).catch(() => {});
   }
@@ -1430,13 +1487,15 @@ export class AvailabilityService {
   async getCompositeAvailability(
     query: CompositeAvailabilityQueryDto,
     tenantId: string,
+    opts?: { applyLeadTime?: boolean },
   ) {
     // assignments = lista de pares {servicio, empleado} elegidos por el cliente.
     const assignments = query.serviceAssignments;
 
     // Caso trivial: 1 servicio → delegamos al endpoint normal
     // Si solo hay una asignación, no hay nada que "componer": reutilizamos
-    // getAvailableSlots pasándole ese único servicio y empleado.
+    // getAvailableSlots pasándole ese único servicio y empleado (y el mismo
+    // filtro de antelación mínima si aplica).
     if (assignments.length === 1) {
       return this.getAvailableSlots(
         {
@@ -1447,6 +1506,7 @@ export class AvailabilityService {
           locationId: query.locationId,
         },
         tenantId,
+        opts,
       );
     }
 
@@ -1463,10 +1523,11 @@ export class AvailabilityService {
     const cacheKey = `composite:${tenantId}:${query.locationId || 'all'}:${query.startDate}:${query.endDate}:${assignmentsKey}`;
 
     try {
-      // Si ya está en caché, devolvemos el resultado guardado (parseado).
+      // Si ya está en caché, devolvemos el resultado guardado (parseado),
+      // aplicando el filtro de antelación mínima si es un flujo de cliente.
       const cached = await this.redis.get(cacheKey);
       if (cached !== null) {
-        return JSON.parse(cached);
+        return this.filterCompositeByLeadTime(JSON.parse(cached), tenantId, opts);
       }
     } catch {
       // Si la caché falla, solo avisamos en log y seguimos calculando.
@@ -1732,10 +1793,35 @@ export class AvailabilityService {
       }
     }
 
-    // Guardamos el resultado en caché (5 min) y lo devolvemos.
+    // Guardamos el resultado CRUDO en caché (5 min) —así la caché sirve por igual
+    // a flujos internos y de cliente— y devolvemos la versión filtrada por
+    // antelación mínima si corresponde.
     const response = { data: results };
     await this.redis.set(cacheKey, JSON.stringify(response), 300).catch(() => {});
-    return response;
+    return this.filterCompositeByLeadTime(response, tenantId, opts);
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // filterCompositeByLeadTime(): descarta los slots de disponibilidad compuesta
+  // que caen por debajo de la antelación mínima (solo flujos de cliente). El
+  // resultado compuesto agrupa por día con `slots[]` directos (no por empleado).
+  // ───────────────────────────────────────────────────────────────────────────
+  private async filterCompositeByLeadTime(
+    response: { data: Array<{ date: string; slots: Array<{ startTime: string }> }> },
+    tenantId: string,
+    opts?: { applyLeadTime?: boolean },
+  ) {
+    const cutoffMs = await this.leadTimeCutoffMs(tenantId, opts?.applyLeadTime);
+    if (cutoffMs === null) return response;
+    const days = (response.data || [])
+      .map((day) => ({
+        ...day,
+        slots: (day.slots || []).filter(
+          (s) => new Date(`${day.date}T${s.startTime}:00Z`).getTime() >= cutoffMs,
+        ),
+      }))
+      .filter((day) => day.slots.length > 0);
+    return { data: days };
   }
 
   /**

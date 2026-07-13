@@ -555,31 +555,31 @@ export default function ProfessionalProfilePage() {
             style={{ scrollMarginTop: 'calc(env(safe-area-inset-top) + 4.5rem)' }}
           >
             {/* Tabs Trabajos | Comentarios — estilo segmentado estandar */}
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden mb-3">
-              <button
-                type="button"
-                onClick={() => goToSection(0)}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  activeSection === 0 ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Trabajos
-                {pro.portfolio.length > 0 && (
-                  <span className={`ml-1.5 text-[10px] font-normal ${activeSection === 0 ? 'text-white/70' : 'text-gray-400'}`}>({pro.portfolio.length})</span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSection(1)}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                  activeSection === 1 ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Comentarios
-                {pro.reviews.length > 0 && (
-                  <span className={`ml-1.5 text-[10px] font-normal ${activeSection === 1 ? 'text-white/70' : 'text-gray-400'}`}>({pro.reviews.length})</span>
-                )}
-              </button>
+            <div className="flex justify-center mb-3">
+              <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+                <button
+                  type="button"
+                  onClick={() => goToSection(0)}
+                  className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${activeSection === 0 ? 'text-white' : 'text-[#5b6e6a]'}`}
+                  style={activeSection === 0 ? { backgroundColor: '#008080' } : {}}
+                >
+                  Trabajos
+                  {pro.portfolio.length > 0 && (
+                    <span className={`ml-1.5 text-[10px] font-normal ${activeSection === 0 ? 'text-white/70' : 'text-gray-400'}`}>({pro.portfolio.length})</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToSection(1)}
+                  className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${activeSection === 1 ? 'text-white' : 'text-[#5b6e6a]'}`}
+                  style={activeSection === 1 ? { backgroundColor: '#008080' } : {}}
+                >
+                  Comentarios
+                  {pro.reviews.length > 0 && (
+                    <span className={`ml-1.5 text-[10px] font-normal ${activeSection === 1 ? 'text-white/70' : 'text-gray-400'}`}>({pro.reviews.length})</span>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Swiper horizontal (snap-x) — cada page exactamente al 100% del

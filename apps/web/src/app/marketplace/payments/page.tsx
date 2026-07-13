@@ -30,6 +30,8 @@ import { marketplaceApi } from '@/lib/marketplace-api';
 // Utilidades de formato.
 import { formatCurrency, resolveImageUrl } from '@/lib/utils';
 
+import { SectionHelp } from '@/components/ui/section-help';
+
 // Configurar dayjs para nombres de días/meses en español.
 dayjs.locale('es');
 
@@ -338,6 +340,8 @@ export default function MarketplacePaymentsPage() {
               />
             </svg>
           </button>
+          {/* Ícono ⓘ de ayuda contextual — lado izquierdo, junto al botón de volver. */}
+          <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
           <h1 className="text-lg font-bold text-gray-900">
             Historial de Pagos
           </h1>

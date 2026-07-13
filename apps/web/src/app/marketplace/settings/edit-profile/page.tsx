@@ -20,6 +20,10 @@ const TEAL = '#008080';
 const TEAL_DARK = '#006666';
 const TEAL_LIGHT = '#e0f2f1';
 
+// Tipos de relación más comunes para el contacto de emergencia (droplist).
+// "Otro" muestra un campo de texto libre para especificar.
+const RELATION_OPTIONS = ['Madre', 'Padre', 'Cónyuge', 'Hijo(a)', 'Hermano(a)', 'Abuelo(a)', 'Amigo(a)', 'Tutor'];
+
 // ─── Modal Base ───────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -110,6 +114,8 @@ export default function EditProfilePage() {
     emergencyContactName: '', emergencyContactLastName: '', emergencyContactPhone: '', emergencyContactRelation: '',
   });
   const [address, setAddress] = useState<AddressValue>(emptyAddress());
+  // ¿La relación del contacto de emergencia es "Otro" (texto libre)?
+  const [otherRelation, setOtherRelation] = useState(false);
   const [formReady, setFormReady] = useState(false);
   const [formError, setFormError] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -166,6 +172,9 @@ export default function EditProfilePage() {
       emergencyContactPhone: (user as any).emergencyContactPhone || '',
       emergencyContactRelation: (user as any).emergencyContactRelation || '',
     });
+    // Si la relación guardada no está entre las comunes, es "Otro" (texto libre).
+    const rel = (user as any).emergencyContactRelation || '';
+    if (rel && !RELATION_OPTIONS.includes(rel)) setOtherRelation(true);
     const rawAddress = (user as any).address || '';
     loadCountries().then((countries) => {
       setAddress(parseAddress(rawAddress, countries));
@@ -390,29 +399,74 @@ export default function EditProfilePage() {
               <AllergiesSelector value={form.allergies} onChange={(v) => setForm((f) => ({ ...f, allergies: v }))} />
             </div>
 
-            {/* Contacto de emergencia — el cliente lo mantiene; los negocios
-                donde valide su cuenta podrán verlo por su seguridad. */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Contacto de emergencia <span className="text-gray-400">(opcional)</span></label>
-              <p className="text-xs text-gray-400 mb-2 leading-relaxed">
-                A quién avisar en caso de una emergencia durante un servicio. Los negocios donde valides tu cuenta podrán verlo.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <input value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} placeholder="Nombre" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
-                <input value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} placeholder="Apellido" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
-                <input value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} placeholder="Teléfono" inputMode="tel" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
-                <input value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} placeholder="Relación (ej. Madre)" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
-              </div>
-            </div>
+          </div>
+        </div>
 
-            {/* Address — usa droplists de pais y estado/provincia/departamento */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Dirección <span className="text-gray-400">(opcional)</span></label>
-              <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-                Tu dirección se usará como sugerencia al solicitar envíos de productos a domicilio.
-              </p>
-              <AddressFields value={address} onChange={setAddress} />
+        {/* Contacto de emergencia — SECCIÓN PROPIA, separada del resto de la
+            información personal para que destaque. */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-800">
+              Contacto de emergencia <span className="text-xs font-normal text-gray-400">(opcional)</span>
+            </h2>
+          </div>
+          <div className="px-4 py-4 space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">
+              A quién avisar en caso de una emergencia durante un servicio. Los negocios donde valides tu cuenta podrán verlo por tu seguridad.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} placeholder="Nombre" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
+              <input value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} placeholder="Apellido" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
             </div>
+            <input value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} placeholder="Teléfono" inputMode="tel" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
+            {/* Relación: droplist con los tipos más comunes (igual que en la
+                creación de cuenta) + "Otro…" que revela un campo de texto libre. */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Relación</label>
+              <select
+                value={otherRelation ? 'Otro' : form.emergencyContactRelation}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === 'Otro') {
+                    setOtherRelation(true);
+                    setForm((f) => ({ ...f, emergencyContactRelation: '' }));
+                  } else {
+                    setOtherRelation(false);
+                    setForm((f) => ({ ...f, emergencyContactRelation: v }));
+                  }
+                }}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-[#008080]"
+              >
+                <option value="">Selecciona una opción</option>
+                {RELATION_OPTIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+                <option value="Otro">Otro…</option>
+              </select>
+              {otherRelation && (
+                <input
+                  value={form.emergencyContactRelation}
+                  onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))}
+                  placeholder="Especifica la relación"
+                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Dirección — SECCIÓN PROPIA. */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-800">
+              Dirección <span className="text-xs font-normal text-gray-400">(opcional)</span>
+            </h2>
+          </div>
+          <div className="px-4 py-4">
+            <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+              Tu dirección se usará como sugerencia al solicitar envíos de productos a domicilio.
+            </p>
+            <AddressFields value={address} onChange={setAddress} />
           </div>
         </div>
 

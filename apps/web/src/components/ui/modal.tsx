@@ -17,6 +17,8 @@ export interface ModalProps {
   children: ReactNode; // contenido del cuerpo del modal
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'; // ancho máximo del diálogo
   className?: string;
+  // Elemento opcional que se muestra JUNTO al título (ej. un ⓘ de ayuda).
+  titleAccessory?: ReactNode;
 }
 
 // Diccionario tamaño -> clase de ancho máximo (max-w-*).
@@ -35,6 +37,7 @@ export function Modal({
   children,
   size = 'md',
   className,
+  titleAccessory,
 }: ModalProps) {
   // EFECTO 1: cerrar con la tecla Escape.
   useEffect(() => {
@@ -99,13 +102,16 @@ export function Modal({
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'var(--border)' }}
         >
-          <h2
-            id="modal-title"
-            className="text-lg font-semibold"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {title}
-          </h2>
+          <div className="flex items-center gap-2 min-w-0">
+            <h2
+              id="modal-title"
+              className="text-lg font-semibold truncate"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {title}
+            </h2>
+            {titleAccessory}
+          </div>
           {/* Botón "X" de cerrar. aria-label le da nombre accesible (no tiene
               texto visible, solo el icono). */}
           <button

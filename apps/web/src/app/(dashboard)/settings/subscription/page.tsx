@@ -280,21 +280,26 @@ function CancelConfirmModal({ onClose, nextBillingDate, daysLeft, onConfirm, isP
 }
 
 // ─── Celebración de suscripción (pantalla completa) ────────────────────────
-// Overlay 100% de la pantalla con fondo verde en gradiente a negro y confeti en
-// tonos plata, dando la bienvenida al plan tras reactivar/activar.
-function SubscriptionCelebration({ planLabel, onClose }: { planLabel?: string; onClose: () => void }) {
+// Overlay 100% de la pantalla con fondo verde en gradiente a negro, dando la
+// bienvenida al plan tras reactivar/activar. El confeti cambia según el plan:
+// PLUS → dorado; PRO (por defecto) → plateado.
+function SubscriptionCelebration({ planLabel, plan, onClose }: { planLabel?: string; plan?: 'PRO' | 'PLUS'; onClose: () => void }) {
+  // Paleta del confeti: dorada para PLUS, plateada para el resto (PRO).
+  const confettiColors = plan === 'PLUS'
+    ? ['#FBE7A1', '#F5C542', '#E0A526', '#C08A1E'] // dorado (claro → metálico)
+    : ['#F5F5F5', '#E0E0E0', '#C0C0C0', '#A8A9AD']; // plateado/platino
   return (
     <div
       className="fixed inset-0 z-[70] flex flex-col items-center justify-center text-center px-6"
       style={{ background: 'linear-gradient(to bottom, #10b981 0%, #065f46 42%, #021107 78%, #000000 100%)' }}
     >
-      {/* Confeti en tonos plata/platino */}
+      {/* Confeti — dorado (PLUS) o plateado (PRO) según el plan */}
       <ConfettiCelebration
         show
         duration={6000}
         particlesPerBurst={28}
         shapes={['star', 'square']}
-        colors={['#F5F5F5', '#E0E0E0', '#C0C0C0', '#A8A9AD']}
+        colors={confettiColors}
       />
 
       <div className="relative z-10 flex flex-col items-center">
@@ -1579,11 +1584,18 @@ export default function SubscriptionPage() {
 
       {/* 🎉 Celebración a pantalla completa al reactivar/activar la suscripción */}
       {celebrate && (() => {
-        const planRaw = (sub as any)?.plan as string | undefined;
-        const planLabel = planRaw ? ({ BASICO: 'Básico', PLUS: 'Plus', PRO: 'Pro' } as Record<string, string>)[planRaw] || planRaw : undefined;
+        // El plan real (PLUS/PRO). 'BASICO' o vacío es un valor legado/inicial que
+        // NO debe mostrarse como bienvenida: caemos al tipo de cuenta
+        // (FREELANCER → PRO, negocio → PLUS), igual que el resto de la página.
+        const planRaw = ((sub as any)?.plan as string | undefined)?.toUpperCase();
+        const isFreelancer = (user as any)?.tenantType === 'FREELANCER';
+        const planKey: 'PRO' | 'PLUS' =
+          planRaw === 'PLUS' ? 'PLUS'
+          : planRaw === 'PRO' ? 'PRO'
+          : isFreelancer ? 'PRO' : 'PLUS';
         // Al cerrar la felicitación recargamos: refresca getMe/estado y, con la
         // suscripción ya activa, levanta el bloqueo por-pagar.
-        return <SubscriptionCelebration planLabel={planLabel} onClose={() => window.location.reload()} />;
+        return <SubscriptionCelebration planLabel={planKey} plan={planKey} onClose={() => window.location.reload()} />;
       })()}
       </div>{/* fin contenedor max-width */}
     </div>

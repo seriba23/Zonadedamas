@@ -33,6 +33,7 @@ import { DualReviewModal } from '@/components/ui/dual-review-modal';
 import { AppointmentsCalendar } from '@/components/marketplace/appointments-calendar';
 // Paginación por scroll (bloques de 30, sin botón "ver más").
 import { useInfiniteScroll } from '@/lib/hooks/use-infinite-scroll';
+import { SectionHelp } from '@/components/ui/section-help';
 
 // URL base del backend.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -464,6 +465,8 @@ export default function MarketplaceAppointmentsPage() {
         <div className="max-w-2xl mx-auto">
           {/* Search + filtros + nueva cita en un renglon */}
           <div className="flex items-center gap-2 mb-2.5">
+            {/* Ícono ⓘ de ayuda (esquina izquierda, compacto) */}
+            <SectionHelp className="p-1.5 rounded-lg text-gray-400 hover:text-[#008080] hover:bg-gray-100 transition-colors flex-shrink-0" />
             <div className="relative flex-1 min-w-0">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -534,24 +537,24 @@ export default function MarketplaceAppointmentsPage() {
             )}
           </div>
 
-          {/* Tabs Citas | Compras */}
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                tab === 'citas' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Citas
-            </button>
-            <button
-              onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                tab === 'compras' ? 'bg-[#008080] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Compras
-            </button>
+          {/* Tabs Citas | Compras — cápsula redondeada estilo POS de administrador. */}
+          <div className="flex justify-center">
+            <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
+              <button
+                onClick={() => { setTab('citas'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
+                className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'citas' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                style={tab === 'citas' ? { backgroundColor: '#008080' } : {}}
+              >
+                Citas
+              </button>
+              <button
+                onClick={() => { setTab('compras'); setStatusFilter(''); setServiceFilter(''); setEmployeeFilter(''); setProfileFilter(''); setSortBy('default'); setCitasMode('proximas'); setComprasMode('mes'); }}
+                className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${tab === 'compras' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                style={tab === 'compras' ? { backgroundColor: '#008080' } : {}}
+              >
+                Compras
+              </button>
+            </div>
           </div>
         </div>
       </div>

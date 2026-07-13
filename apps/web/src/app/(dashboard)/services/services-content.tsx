@@ -27,6 +27,7 @@ interface Service {
   pointsRequired?: number | null;
   depositRequired?: boolean;
   depositPercent?: number | null;
+  homeServiceEnabled?: boolean;
   _count?: { employeeServices: number };
 }
 
@@ -42,6 +43,7 @@ interface ServiceForm {
   pointsReward: number | string;
   redeemableWithPoints: boolean;
   pointsRequired: number | string;
+  homeServiceEnabled: boolean;
 }
 
 // No defaults — categories come from service catalog (professions)
@@ -59,6 +61,7 @@ const defaultForm: ServiceForm = {
   pointsReward: '',
   redeemableWithPoints: false,
   pointsRequired: '',
+  homeServiceEnabled: false,
 };
 
 export function ServicesContent() {
@@ -196,6 +199,7 @@ export function ServicesContent() {
       pointsReward: service.pointsReward ?? '',
       redeemableWithPoints: service.redeemableWithPoints || false,
       pointsRequired: service.pointsRequired ?? '',
+      homeServiceEnabled: service.homeServiceEnabled || false,
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -224,6 +228,7 @@ export function ServicesContent() {
       redeemableWithPoints: form.redeemableWithPoints,
       pointsReward: form.generatesPoints && form.pointsReward !== '' ? Number(form.pointsReward) : null,
       pointsRequired: form.redeemableWithPoints && form.pointsRequired !== '' ? Number(form.pointsRequired) : null,
+      homeServiceEnabled: form.homeServiceEnabled,
     };
     saveMutation.mutate(payload);
   }
@@ -725,6 +730,26 @@ export function ServicesContent() {
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* ── Servicio a domicilio ── */}
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="pr-3">
+                  <p className="text-sm font-medium text-gray-700">Disponible a domicilio</p>
+                  <p className="text-xs text-gray-400">El cliente puede reservar este servicio a domicilio, dentro de tu área de cobertura. Las zonas y precios se configuran en Sucursales → Servicio a domicilio.</p>
+                </div>
+                <div className="relative flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.homeServiceEnabled}
+                    onChange={(e) => setForm((f) => ({ ...f, homeServiceEnabled: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] peer-focus:ring-2 peer-focus:ring-teal-300 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+              </label>
             </div>
 
             {/* Ver comisiones: solo al editar un servicio existente. Lleva a

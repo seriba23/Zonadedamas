@@ -3,7 +3,7 @@
 //   - IsOptional (opcional), IsString (texto),
 //   - IsUUID (identificador único con formato UUID),
 //   - ValidateNested (valida los objetos DENTRO de una lista, uno por uno).
-import { IsArray, IsBoolean, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
 // Type: indica de qué CLASE son los objetos anidados, para poder validarlos.
 import { Type } from 'class-transformer';
 
@@ -73,4 +73,24 @@ export class MarketplaceBookDto {
   // ...usando las reglas de la clase MarketplaceServiceAssignment de arriba.
   @Type(() => MarketplaceServiceAssignment)
   serviceAssignments?: MarketplaceServiceAssignment[];
+
+  // ── Servicio a domicilio ──
+  // serviceType: 'LOCAL' (en la sucursal, por defecto) o 'DOMICILIO'. Si es
+  // DOMICILIO, deben venir la dirección y sus coordenadas; el backend valida que
+  // caiga dentro de un área de cobertura y calcula el cargo (no confía en el cliente).
+  @IsOptional()
+  @IsIn(['LOCAL', 'DOMICILIO'])
+  serviceType?: 'LOCAL' | 'DOMICILIO';
+
+  @IsOptional()
+  @IsString()
+  deliveryAddress?: string;
+
+  @IsOptional()
+  @IsNumber()
+  deliveryLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  deliveryLng?: number;
 }

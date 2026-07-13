@@ -115,6 +115,7 @@ export class PublicBookingService {
         locationId: query.locationId,   // (opcional) sucursal concreta
       },
       tenantId, // siempre acotado al negocio.
+      { applyLeadTime: true }, // flujo de cliente: oculta slots bajo la antelación mínima.
     );
   }
 
@@ -183,6 +184,8 @@ export class PublicBookingService {
         serviceAssignments: dto.serviceAssignments, // asignación por servicio
       },
       tenantId, // siempre acotado al negocio.
+      undefined, // sin userId (reserva pública sin sesión de staff).
+      { enforceLeadTime: true }, // es reserva de cliente: exige antelación mínima.
     );
   }
 }
