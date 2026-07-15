@@ -187,9 +187,13 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="border-b border-gray-200 px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900">Notificaciones</h1>
+        <h1 className="text-lg font-semibold text-gray-900">Mensajes automáticos</h1>
         <p className="text-xs text-gray-500 mt-0.5">
-          Activa o desactiva las notificaciones automáticas y edita sus mensajes.
+          Personaliza los mensajes automáticos (Email y WhatsApp) que se envían a
+          tus clientes en cada evento —cita creada, confirmada, completada, pago,
+          etc. Usa el interruptor para activar o desactivar cada mensaje y toca
+          «Editar» para cambiar su texto y las variables ({'{{clientName}}'}, fecha,
+          hora…).
         </p>
       </div>
 
@@ -227,11 +231,14 @@ export default function NotificationsPage() {
                     {eventTemplates.map((template) => (
                       <div
                         key={template.id}
-                        className="flex items-center justify-between px-5 py-3"
+                        className="flex items-center justify-between gap-3 px-5 py-3"
                       >
-                        <div className="flex items-center gap-3">
+                        {/* Izquierda: canal + asunto. min-w-0 + flex-1 permiten que
+                            el texto se TRUNQUE en vez de empujar los controles fuera
+                            de la pantalla en el celular. */}
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            className={`flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               template.type === 'EMAIL'
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'bg-green-100 text-green-700'
@@ -239,13 +246,15 @@ export default function NotificationsPage() {
                           >
                             {CHANNEL_LABELS[template.type]}
                           </span>
-                          <span className="text-sm text-gray-600 truncate max-w-md">
+                          <span className="text-sm text-gray-600 truncate min-w-0">
                             {template.subject ||
                               template.bodyTemplate.slice(0, 60) + '...'}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        {/* Derecha: toggle + Editar. flex-shrink-0 evita que se
+                            encojan o se salgan cuando el asunto es largo. */}
+                        <div className="flex items-center gap-3 flex-shrink-0">
                           {/* Toggle */}
                           <button
                             onClick={() => toggleMutation.mutate(template)}
