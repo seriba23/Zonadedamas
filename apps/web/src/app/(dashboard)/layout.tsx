@@ -16,6 +16,8 @@ import { NotificationBell } from '@/components/notifications/notification-bell';
 import { SectionHelp } from '@/components/ui/section-help';
 import { SectionHelpProvider } from '@/lib/section-help-context';
 import { useEnsurePushSubscription } from '@/lib/hooks/use-staff-notifications';
+import { InstallPwaBanner } from '@/components/pwa/install-pwa-banner';
+import { InstallPwaProvider } from '@/components/pwa/install-pwa-context';
 
 function EmployeeJoinedNotification({
   employee,
@@ -284,6 +286,7 @@ function DashboardLayoutContent({
   const sectionTitle = getSectionTitle(pathname);
 
   return (
+    <InstallPwaProvider>
     <SectionHelpProvider>
     <div className="flex h-[100dvh]" style={{ backgroundColor: 'var(--bg-canvas)' }}>
       {/* El dueño ve el portal admin completo; un admin parcial (no-dueño) navega
@@ -326,6 +329,7 @@ function DashboardLayoutContent({
         </header>
 
         <SubscriptionBanner status={user?.subscriptionStatus || 'ACTIVE'} trialEndsAt={user?.trialEndsAt} />
+        <InstallPwaBanner />
         <main ref={mainRef} className="flex-1 overflow-y-auto">{children}</main>
       </div>
 
@@ -344,5 +348,6 @@ function DashboardLayoutContent({
       )}
     </div>
     </SectionHelpProvider>
+    </InstallPwaProvider>
   );
 }
