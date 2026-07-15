@@ -224,6 +224,12 @@ export class PlatformAdminService {
           businessType: true,
           tenantType: true,
           createdAt: true,
+          // Visibilidad en marketplace y COPIA denormalizada del estado de
+          // suscripción (la columna que REALMENTE filtra el marketplace). Las
+          // exponemos para poder detectar de un vistazo el caso "activo en la
+          // consola pero invisible en el marketplace" (desync tenant vs Subscription).
+          isMarketplaceListed: true,
+          subscriptionStatus: true,
           // Fotos del negocio: logo (perfil) y portada.
           logoUrl: true,
           coverImageUrl: true,
@@ -541,6 +547,27 @@ export class PlatformAdminService {
     });
 
     return updated;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // setMarketplaceVisibility(): enciende/apaga la aparición del negocio en el
+  // marketplace desde superadmin. Es el mismo flag `isMarketplaceListed` que el
+  // dueño controla en su dashboard ("Visible en el marketplace"), pero accesible
+  // desde la consola de plataforma para diagnóstico/soporte (ej.: un negocio que
+  // pagó pero no aparece porque el toggle quedó apagado).
+  // ───────────────────────────────────────────────────────────────────────────
+  async setMarketplaceVisibility(tenantId: string, visible: boolean) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+    if (!tenant) throw new NotFoundException('Negocio no encontrado');
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { isMarketplaceListed: visible },
+      select: { id: true, isMarketplaceListed: true },
+    });
   }
 
   // ───────────────────────────────────────────────────────────────────────────

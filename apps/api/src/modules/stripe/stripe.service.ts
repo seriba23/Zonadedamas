@@ -1399,6 +1399,20 @@ export class StripeService implements OnModuleInit {
           : {}),
       },
     });
+
+    // Sincronizamos la COPIA DENORMALIZADA del estado en el tenant. El marketplace
+    // filtra su visibilidad por `tenant.subscription_status` (NO por el modelo
+    // Subscription), así que si no lo actualizamos aquí el negocio puede seguir
+    // "activo" en la consola pero desaparecer del marketplace (o al revés).
+    const tenantStatusMap: Record<string, string> = {
+      ACTIVE: 'active',
+      PAST_DUE: 'past_due',
+      CANCELLED: 'cancelled',
+    };
+    await this.prisma.tenant.updateMany({
+      where: { id: tenantId },
+      data: { subscriptionStatus: tenantStatusMap[newStatus] ?? 'past_due' },
+    });
   }
 
   // handleSubscriptionDeleted(): la suscripción se eliminó del todo en Stripe.
@@ -1416,6 +1430,12 @@ export class StripeService implements OnModuleInit {
         cancelledAt: new Date(),
         stripeSubscriptionId: null, // limpiamos la referencia ya inexistente.
       },
+    });
+
+    // Copia denormalizada en el tenant (la que lee el marketplace).
+    await this.prisma.tenant.updateMany({
+      where: { id: tenantId },
+      data: { subscriptionStatus: 'cancelled' },
     });
   }
 
@@ -1435,6 +1455,15 @@ export class StripeService implements OnModuleInit {
     await this.prisma.subscription.update({
       where: { id: sub.id },
       data: { status: 'ACTIVE', lastPaymentDate: new Date() },
+    });
+
+    // Copia denormalizada en el tenant. Sin esto, un negocio que paga por Stripe
+    // queda ACTIVE en la consola pero, si `tenant.subscription_status` había
+    // quedado en 'past_due'/'suspended' (p.ej. al vencer el trial), NO reaparece
+    // en el marketplace, que filtra por esta columna.
+    await this.prisma.tenant.update({
+      where: { id: sub.tenantId },
+      data: { subscriptionStatus: 'active' },
     });
 
     // Idempotencia: si ya registramos esta factura (webhook reintentado), no la
@@ -1534,6 +1563,12 @@ export class StripeService implements OnModuleInit {
     await this.prisma.subscription.update({
       where: { id: sub.id },
       data: { status: 'PAST_DUE', gracePeriodEndsAt },
+    });
+
+    // Copia denormalizada en el tenant (la que lee el marketplace).
+    await this.prisma.tenant.update({
+      where: { id: sub.tenantId },
+      data: { subscriptionStatus: 'past_due' },
     });
   }
 }

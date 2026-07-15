@@ -37,7 +37,7 @@ import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 //   - IsString: debe ser texto.   - IsIn: debe ser uno de una lista cerrada.
 //   - IsOptional: el campo puede faltar.   - IsEnum: debe pertenecer a un enum.
 //   - IsInt: número entero.   - Min/Max: valor mínimo/máximo permitido.
-import { IsString, IsIn, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsEnum, IsInt, IsBoolean, Min, Max } from 'class-validator';
 
 // Type: de class-transformer; sirve para CONVERTIR el tipo de un campo entrante
 // (ej. transformar el texto "5" recibido en la petición a número 5) antes de validar.
@@ -48,6 +48,14 @@ class UpdateStatusDto {
   // @IsIn([...]) obliga a que "status" sea exactamente uno de estos cuatro valores.
   @IsIn(['ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'])
   status: SubscriptionStatus;
+}
+
+// DTO para encender/apagar la visibilidad del negocio en el marketplace.
+class MarketplaceVisibilityDto {
+  // true = aparece en el marketplace; false = oculto (mismo flag que el dueño
+  // controla en su dashboard, pero editable desde la consola de plataforma).
+  @IsBoolean()
+  visible: boolean;
 }
 
 // DTO para cambiar el PLAN de la suscripción de un negocio.
@@ -141,6 +149,17 @@ export class PlatformAdminController {
     @Body() dto: UpdateStatusDto,     // cuerpo validado: { status }.
   ) {
     const data = await this.adminService.updateTenantStatus(id, dto.status);
+    return { data };
+  }
+
+  // ── PATCH /api/platform/tenants/:id/marketplace-visibility ────────────────
+  // Enciende/apaga la aparición del negocio en el marketplace (soporte/diagnóstico).
+  @Patch('tenants/:id/marketplace-visibility')
+  async setMarketplaceVisibility(
+    @Param('id') id: string,
+    @Body() dto: MarketplaceVisibilityDto,
+  ) {
+    const data = await this.adminService.setMarketplaceVisibility(id, dto.visible);
     return { data };
   }
 

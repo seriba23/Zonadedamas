@@ -44,6 +44,10 @@ interface TenantDetail {
   logoUrl: string | null;
   coverImageUrl: string | null;
   createdAt: string;
+  // Visibilidad en marketplace + copia denormalizada del estado (la columna que
+  // REALMENTE filtra el marketplace, independiente de subscription.status).
+  isMarketplaceListed: boolean;
+  subscriptionStatus: string | null;
   subscription: {
     id: string;
     plan: string;
@@ -183,6 +187,18 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
     setActionLoading(true);
     try {
       await platformApi.patch(`/api/platform/tenants/${id}/plan`, { plan });
+      await fetchTenant();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleMarketplaceVisibility(visible: boolean) {
+    setActionLoading(true);
+    try {
+      await platformApi.patch(`/api/platform/tenants/${id}/marketplace-visibility`, { visible });
       await fetchTenant();
     } catch (err) {
       console.error(err);
@@ -544,6 +560,68 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
               </div>
             </div>
           )}
+
+          {/* Visibilidad en el marketplace (diagnóstico + toggle). */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Marketplace</h2>
+            {(() => {
+              // Estado DENORMALIZADO en el tenant: es la columna que el marketplace
+              // usa para filtrar (independiente de subscription.status).
+              const denorm = (tenant.subscriptionStatus || '').toLowerCase();
+              const statusOk = denorm === 'active' || denorm === 'trial';
+              const isFreelancer = tenant.tenantType === 'FREELANCER';
+              // Las 3 condiciones reales del discover del marketplace.
+              const appears = tenant.isMarketplaceListed && statusOk && !isFreelancer;
+              // La consola muestra subscription.status; si ahí está ACTIVE/TRIAL pero
+              // la copia denormalizada NO, hay desincronización (el síntoma clásico).
+              const consoleActive =
+                tenant.subscription?.status === 'ACTIVE' || tenant.subscription?.status === 'TRIAL';
+              const desync = consoleActive && !statusOk;
+              return (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Aparece en marketplace:</span>
+                    <span className={`font-semibold ${appears ? 'text-green-700' : 'text-red-700'}`}>
+                      {appears ? 'Sí' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Visible (flag del negocio):</span>
+                    <span className={`font-semibold ${tenant.isMarketplaceListed ? 'text-green-700' : 'text-red-700'}`}>
+                      {tenant.isMarketplaceListed ? 'Sí' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Estado que lee el marketplace:</span>
+                    <span className="font-mono text-xs">{tenant.subscriptionStatus || '—'}</span>
+                  </div>
+                  {isFreelancer && (
+                    <p className="text-xs text-gray-500">
+                      Es freelancer: aparece en la pestaña <b>Profesionales</b>, no en <b>Negocios</b>.
+                    </p>
+                  )}
+                  {desync && (
+                    <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-teal-800 text-xs">
+                      ⚠ Desajuste: la suscripción figura <b>{tenant.subscription?.status}</b> en la
+                      consola, pero la copia que lee el marketplace es{' '}
+                      <b>{tenant.subscriptionStatus || '—'}</b>. Pulsa <b>Habilitar</b> (en Estado)
+                      para resincronizar, o vuelve a disparar el webhook de pago en Stripe.
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleMarketplaceVisibility(!tenant.isMarketplaceListed)}
+                    disabled={actionLoading}
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${
+                      tenant.isMarketplaceListed
+                        ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        : 'bg-[#008080] text-white hover:bg-[#006666]'
+                    }`}>
+                    {tenant.isMarketplaceListed ? 'Ocultar del marketplace' : 'Mostrar en el marketplace'}
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Cambiar plan</h2>
