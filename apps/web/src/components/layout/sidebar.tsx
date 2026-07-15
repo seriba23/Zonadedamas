@@ -96,6 +96,20 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
     (item) => !item.permission || hasPermission(item.permission),
   );
 
+  // ¿Qué item del menú está "activo" según la ruta actual?
+  // Coincidencia con límite de segmento: '/settings' coincide con '/settings' y
+  // con '/settings/xxx', pero NO con '/settings-otra-cosa'.
+  const matchesPath = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/');
+  // De todos los items "hoja" (sin submenú) que coinciden con la ruta, el activo
+  // es el del href MÁS ESPECÍFICO (prefijo más largo). Así '/settings/notifications'
+  // gana sobre '/settings' y nunca se marcan dos secciones a la vez. Las subpáginas
+  // de Configuración sin item propio (business, hours, locations…) siguen dejando
+  // '/settings' como la mejor coincidencia, que es lo deseado.
+  const activeHref = navItems
+    .filter((item) => !item.children && matchesPath(item.href))
+    .reduce<string>((best, item) => (item.href.length > best.length ? item.href : best), '');
+
   // Auto-expand if any child matches current path
   const initialExpanded = navItems
     .filter((item) => item.children?.some((child) => pathname === child.href))
@@ -234,9 +248,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps = {}) {
               );
             }
 
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/calendar' && pathname.startsWith(item.href));
+            const isActive = item.href === activeHref;
 
             const count = badgeFor(item.section);
             return (
