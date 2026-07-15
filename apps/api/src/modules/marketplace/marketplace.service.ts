@@ -3347,6 +3347,11 @@ export class MarketplaceService {
         depositPaid: true,
         paymentProofUrl: true,
         createdAt: true,
+        // Servicio a domicilio: el cliente debe ver que su cita es a domicilio,
+        // la dirección de entrega y el cargo por desplazamiento.
+        serviceType: true,
+        deliveryAddress: true,
+        homeServiceFee: true,
         tenant: {
           select: {
             id: true, name: true, slug: true, logoUrl: true,

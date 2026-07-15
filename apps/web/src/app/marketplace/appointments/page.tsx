@@ -1155,6 +1155,14 @@ function AppointmentCard({ appt, onPress, profile }: { appt: any; onPress: () =>
             minHeight: 'calc(2 * 1.375em)',
           }}
         >
+          {appt.serviceType === 'DOMICILIO' && (
+            <span className="inline-flex items-center gap-0.5 mr-1 px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 text-[9px] font-semibold align-middle">
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
+              </svg>
+              Domicilio
+            </span>
+          )}
           {services}
           {appt.employee && (
             <span className="text-[10px] text-gray-400"> · {appt.employee.firstName} {appt.employee.lastName}</span>

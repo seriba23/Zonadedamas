@@ -271,6 +271,39 @@ export default function AppointmentDetailPage() {
           </div>
         </div>
 
+        {/* Servicio a domicilio: deja claro que la cita es a domicilio, con la
+            dirección de entrega y el cargo por desplazamiento. */}
+        {appt.serviceType === 'DOMICILIO' && (
+          <div className="bg-teal-50 rounded-xl border border-teal-200 p-4 space-y-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#008080] text-white text-xs font-semibold">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
+              </svg>
+              Servicio a domicilio
+            </span>
+            {appt.deliveryAddress && (
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" style={{ color: '#008080' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-teal-700 font-medium">Dirección de entrega</p>
+                  <p className="text-sm text-gray-900 break-words">{appt.deliveryAddress}</p>
+                </div>
+              </div>
+            )}
+            {Number(appt.homeServiceFee) > 0 && (
+              <div className="flex items-center justify-between text-sm border-t border-teal-200 pt-2">
+                <span className="text-teal-700 font-medium">Cargo por desplazamiento</span>
+                <span className="text-gray-900 font-semibold">{formatCurrency(Number(appt.homeServiceFee), currency)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Employee */}
         {appt.employee && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
