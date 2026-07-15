@@ -19,7 +19,11 @@ import { createPortal } from 'react-dom';
 
 dayjs.extend(isoWeek);
 
-type ViewMode = 'day' | 'week' | 'month' | 'custom';
+type ViewMode = 'day' | 'week' | 'month' | 'custom' | 'active';
+
+// Estados "no cerrados": una cita sigue en juego (activa) hasta que termina en
+// COMPLETED, CANCELLED o NO_SHOW. La vista "Activas" muestra justo estos.
+const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS'];
 
 interface Appointment {
   id: string;
@@ -61,7 +65,7 @@ export default function CalendarPage() {
   // Acepta ?view=day|week|month|custom desde Home u otras pestañas.
   const initialViewMode: ViewMode = (() => {
     const v = (searchParams.get('view') || '').toLowerCase();
-    if (v === 'day' || v === 'week' || v === 'month' || v === 'custom') return v;
+    if (v === 'day' || v === 'week' || v === 'month' || v === 'custom' || v === 'active') return v;
     return 'week';
   })();
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
@@ -198,8 +202,16 @@ export default function CalendarPage() {
   // / 23:59:59Z de ese mismo día calendario.
   const utcDayStart = (d: dayjs.Dayjs) => dayjs.utc(d.format('YYYY-MM-DD')).startOf('day').toISOString();
   const utcDayEnd = (d: dayjs.Dayjs) => dayjs.utc(d.format('YYYY-MM-DD')).endOf('day').toISOString();
+  // Rango operativo de la vista "Activas": desde hoy hasta +30 días. Fijo (no
+  // depende de currentDate) para que sea una "bandeja de trabajo" estable. Los
+  // valores se truncan a inicio/fin de día, así que son constantes durante el día
+  // (no cambian en cada render → no disparan refetch en bucle).
+  const activeRangeStart = utcDayStart(dayjs());
+  const activeRangeEnd = utcDayEnd(dayjs().add(30, 'day'));
   const startDate = viewMode === 'custom'
     ? utcDayStart(dayjs(customStart))
+    : viewMode === 'active'
+    ? activeRangeStart
     : viewMode === 'month'
       ? utcDayStart(currentDate.startOf('month').startOf('isoWeek'))
       : viewMode === 'week'
@@ -207,6 +219,8 @@ export default function CalendarPage() {
         : utcDayStart(currentDate);
   const endDate = viewMode === 'custom'
     ? utcDayEnd(dayjs(customEnd))
+    : viewMode === 'active'
+    ? activeRangeEnd
     : viewMode === 'month'
       ? utcDayEnd(currentDate.endOf('month').endOf('isoWeek'))
       : viewMode === 'week'
@@ -231,6 +245,20 @@ export default function CalendarPage() {
         `/api/appointments?${queryParams.toString()}`,
       ),
   });
+
+  // Contador de citas ACTIVAS (no cerradas) para el badge del botón "Activas".
+  // Va aparte de la query principal para que el número sea visible aunque estés
+  // en Día/Semana/Mes. Rango: hoy → +30 días.
+  const { data: activeData } = useQuery({
+    queryKey: ['appointments-active', activeRangeStart, activeRangeEnd],
+    queryFn: () =>
+      api.get<{ data: Appointment[] }>(
+        `/api/appointments?startDate=${activeRangeStart}&endDate=${activeRangeEnd}&perPage=100`,
+      ),
+  });
+  const activeCount = (activeData?.data || []).filter((a) =>
+    ACTIVE_STATUSES.includes((a.status || '').toUpperCase()),
+  ).length;
 
   // Fetch employees for filter dropdown and legend
   const { data: employeesData } = useQuery({
@@ -333,6 +361,16 @@ export default function CalendarPage() {
       const svcs = (apt.items || []).map((i) => i.serviceNameSnapshot || '').join(' ').toLowerCase();
       return clientName.includes(q) || empName.includes(q) || svcs.includes(q);
     });
+  }
+  // Vista "Activas": solo lo NO cerrado, ordenado por fecha/hora ascendente
+  // (lo más próximo primero). Es la bandeja de trabajo: una cita permanece aquí
+  // hasta que se cierra (COMPLETED/CANCELLED/NO_SHOW).
+  if (viewMode === 'active') {
+    appointments = appointments
+      .filter((apt) => ACTIVE_STATUSES.includes((apt.status || '').toUpperCase()))
+      .sort((a, b) =>
+        (a.startTime || '') < (b.startTime || '') ? -1 : (a.startTime || '') > (b.startTime || '') ? 1 : 0,
+      );
   }
 
   // Stats for current view (day/week/month)
@@ -488,12 +526,12 @@ export default function CalendarPage() {
   // para ver columnas; no queremos que el swipe cambie de día y compita con ese scroll.
   const hasEmployeeDayScroll = viewMode === 'day' && (dayEmployeesData?.data?.length || 0) > 0;
   function onSwipeStart(e: React.TouchEvent | React.PointerEvent) {
-    if (viewMode === 'custom' || hasEmployeeDayScroll) return;
+    if (viewMode === 'custom' || viewMode === 'active' || hasEmployeeDayScroll) return;
     const point = 'touches' in e ? e.touches[0] : e;
     swipeStartRef.current = { x: point.clientX, y: point.clientY };
   }
   function onSwipeEnd(e: React.TouchEvent | React.PointerEvent) {
-    if (viewMode === 'custom' || hasEmployeeDayScroll || !swipeStartRef.current) return;
+    if (viewMode === 'custom' || viewMode === 'active' || hasEmployeeDayScroll || !swipeStartRef.current) return;
     const point = 'changedTouches' in e ? e.changedTouches[0] : e;
     const dx = point.clientX - swipeStartRef.current.x;
     const dy = Math.abs(point.clientY - swipeStartRef.current.y);
@@ -558,6 +596,29 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full">
       <>
       <div className="px-3 md:px-6 py-2 md:py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+        {/* Acceso directo "Activas": bandeja de citas no cerradas con contador.
+            Es la vista para dar seguimiento a una cita sin perderla por filtros. */}
+        <button
+          onClick={() => setViewMode('active')}
+          className={`flex items-center justify-center gap-2 px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold whitespace-nowrap border transition-colors ${
+            viewMode === 'active'
+              ? 'bg-[#008080] text-white border-[#008080]'
+              : 'bg-[var(--bg-surface)] text-[#008080] border-[#008080] hover:bg-[#e0f2f1]'
+          }`}
+        >
+          Activas
+          {activeCount > 0 && (
+            <span
+              className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold ${
+                viewMode === 'active' ? 'bg-white text-[#008080]' : 'bg-[#008080] text-white'
+              }`}
+            >
+              {activeCount}
+            </span>
+          )}
+        </button>
+
         {/* Mode selector */}
         <div className="flex w-full md:w-auto rounded-lg border border-[var(--border)] overflow-hidden md:inline-flex">
           {([
@@ -576,6 +637,7 @@ export default function CalendarPage() {
               {v.label}
             </button>
           ))}
+        </div>
         </div>
 
         {/* Custom date inputs */}
@@ -868,7 +930,7 @@ export default function CalendarPage() {
 
       {/* Cabecera: [Hoy] + fecha + toggles de filtros/stats a la derecha */}
       <div className="flex items-center gap-2 px-3 md:px-6 py-2 bg-[var(--bg-surface)] border-b border-[var(--border)]">
-        {viewMode !== 'custom' && (
+        {viewMode !== 'custom' && viewMode !== 'active' && (
           <>
             <button
               onClick={goToToday}
@@ -884,6 +946,12 @@ export default function CalendarPage() {
                   : `${formatDate(currentDate.startOf('week').toDate(), 'D MMM')} - ${formatDate(currentDate.endOf('week').toDate(), 'D MMM, YYYY')}`}
             </span>
           </>
+        )}
+        {/* En "Activas" el rango es fijo (por cerrar): etiqueta en vez de navegación. */}
+        {viewMode === 'active' && (
+          <span className="text-sm md:text-base font-medium text-[var(--text-primary)] flex-1 min-w-0 truncate">
+            Activas · citas por cerrar
+          </span>
         )}
         {viewMode === 'custom' && <div className="flex-1" />}
 
@@ -926,10 +994,10 @@ export default function CalendarPage() {
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
-        {/* Flechas absolutas para anterior/siguiente (hidden en custom).
+        {/* Flechas absolutas para anterior/siguiente (hidden en custom y activas).
             z-30 garantiza que queden por encima de las citas (z-10/20).
             stopPropagation + onMouseDown/onTouchStart blockean el click de la cita. */}
-        {viewMode !== 'custom' && (
+        {viewMode !== 'custom' && viewMode !== 'active' && (
           <>
             <button
               onMouseDown={(e) => e.stopPropagation()}
@@ -1036,10 +1104,14 @@ export default function CalendarPage() {
               ))}
             </div>
           </div>
-        ) : viewMode === 'custom' ? (
+        ) : viewMode === 'custom' || viewMode === 'active' ? (
           <div className="h-full overflow-auto p-3 md:p-6 bg-[var(--bg-surface)]">
             {appointments.length === 0 ? (
-              <div className="text-center py-16 text-[var(--text-muted)]">No hay citas en este período</div>
+              <div className="text-center py-16 text-[var(--text-muted)]">
+                {viewMode === 'active'
+                  ? 'No tienes citas activas por gestionar. 🎉'
+                  : 'No hay citas en este período'}
+              </div>
             ) : (
               <div className="space-y-3 max-w-3xl mx-auto">
                 {appointments.map((apt) => {
