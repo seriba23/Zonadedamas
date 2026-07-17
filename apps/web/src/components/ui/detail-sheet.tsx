@@ -43,6 +43,7 @@ interface DetailSheetProps {
   size?: 'sm' | 'md' | 'lg' | 'xl'; // Tamaño del panel en escritorio
   /** Subtítulo opcional debajo del título, en gris pequeño. */
   subtitle?: string;         // Texto secundario debajo del título
+  eyebrow?: string;          // Etiqueta pequeña (teal, uppercase) ARRIBA del título
 }
 
 /**
@@ -69,6 +70,7 @@ interface DetailSheetProps {
 export function DetailSheet({
   title,
   subtitle,
+  eyebrow,
   onClose,
   children,
   footer,
@@ -123,18 +125,28 @@ export function DetailSheet({
       {/* flex flex-col: header + body + footer en columna */}
       {/* border-2: borde de 2px con el color teal (estilo de la plataforma) */}
       <div
-        className={`bg-white w-full ${widthClass} md:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col border-2`}
-        style={{ borderColor: '#008080' }} // Borde teal de la identidad visual
+        className={`bg-white w-full ${widthClass} md:rounded-[26px] rounded-t-[26px] overflow-hidden max-h-[90vh] flex flex-col border-2`}
+        style={{ borderColor: '#008080', boxShadow: '0 40px 90px -40px rgba(15,40,36,.45)' }} // Borde teal + sombra suave del sheet
         onClick={(e) => e.stopPropagation()} // Evita que el click dentro propague al overlay
       >
+        {/* Grabber (barra de arrastre) — solo en móvil (bottom sheet). */}
+        <div className="md:hidden flex justify-center pt-2 pb-1 flex-shrink-0">
+          <div className="w-9 h-1 rounded-full bg-gray-300" />
+        </div>
         {/* ── HEADER (encabezado fijo) ───────────────────────────────────── */}
         {/* flex-shrink-0: el header nunca se encoge, siempre visible arriba */}
         {/* gap-3: espacio entre el título y el botón de cerrar */}
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
           {/* Área del título (ocupa todo el espacio disponible) */}
           <div className="min-w-0 flex-1">
+            {/* Eyebrow: etiqueta pequeña teal uppercase ARRIBA del título (opcional). */}
+            {eyebrow && (
+              <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] leading-none mb-1">
+                {eyebrow}
+              </p>
+            )}
             {/* truncate: si el título es muy largo, lo corta con "..." */}
-            <h3 className="text-sm font-semibold text-gray-900 truncate">{title}</h3>
+            <h3 className={`truncate ${eyebrow ? 'text-base font-extrabold text-[#0f1e1c]' : 'text-sm font-semibold text-gray-900'}`}>{title}</h3>
             {/* Subtítulo: solo se renderiza si la prop "subtitle" existe */}
             {subtitle && <p className="text-xs text-gray-500 truncate">{subtitle}</p>}
           </div>

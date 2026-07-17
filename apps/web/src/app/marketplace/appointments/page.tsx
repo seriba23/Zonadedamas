@@ -92,7 +92,7 @@ const PAYMENT_LABELS: Record<string, string> = { CASH: 'Efectivo', SPEI: 'SPEI',
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendiente',
   CONFIRMED: 'Confirmada',
-  IN_PROGRESS: 'En curso',
+  IN_PROGRESS: 'En progreso',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',
   NO_SHOW: 'Ausente',
@@ -413,9 +413,9 @@ export default function MarketplaceAppointmentsPage() {
   // "Estado" usa los valores reales del lifecycle.
   const APPOINTMENT_STATUSES = [
     { value: 'CONFIRMED',   label: 'Confirmada' },
-    { value: 'PENDING',     label: 'Sin confirmar' },
+    { value: 'PENDING',     label: 'Pendiente' },
     { value: 'RESCHEDULED', label: 'Reprogramada' },
-    { value: 'IN_PROGRESS', label: 'En curso' },
+    { value: 'IN_PROGRESS', label: 'En progreso' },
     { value: 'COMPLETED',   label: 'Completada' },
     { value: 'CANCELLED',   label: 'Cancelada' },
     { value: 'NO_SHOW',     label: 'Ausente' },
@@ -1073,9 +1073,9 @@ function AppointmentCard({ appt, onPress, profile }: { appt: any; onPress: () =>
   const statusInfo = (() => {
     const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
       CONFIRMED:   { text: 'Confirmada',  bg: 'bg-teal-50',   textColor: 'text-teal-700',   dot: '#008080' },
-      PENDING:     { text: 'Sin confirmar', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
+      PENDING:     { text: 'Pendiente', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
       RESCHEDULED: { text: 'Reprogramada', bg: 'bg-blue-50',  textColor: 'text-blue-700',   dot: '#2563eb' },
-      IN_PROGRESS: { text: 'En curso',    bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
+      IN_PROGRESS: { text: 'En progreso',    bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
       COMPLETED:   { text: 'Completada',  bg: 'bg-green-50',  textColor: 'text-green-700',  dot: '#059669' },
       CANCELLED:   { text: 'Cancelada',   bg: 'bg-red-50',    textColor: 'text-red-700',    dot: '#dc2626' },
       NO_SHOW:     { text: 'Ausente',     bg: 'bg-gray-100',  textColor: 'text-gray-600',   dot: '#94a3b8' },

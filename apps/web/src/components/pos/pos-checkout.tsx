@@ -1086,8 +1086,8 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
                     const endTime = apt.endTime ? formatBookingTime(apt.endTime) : null;
                     const statusInfo: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
                       CONFIRMED:   { text: 'Confirmada',     bg: 'bg-teal-50',   textColor: 'text-teal-700',   dot: '#008080' },
-                      PENDING:     { text: 'Sin confirmar',  bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
-                      IN_PROGRESS: { text: 'En curso',       bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
+                      PENDING:     { text: 'Pendiente',  bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
+                      IN_PROGRESS: { text: 'En progreso',       bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
                     };
                     // pendingPosPayment gana al status — la cita ya fue
                     // finalizada por el empleado y solo falta el cobro.

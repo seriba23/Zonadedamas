@@ -36,6 +36,7 @@ import { RescheduleDto, CancelDto } from './dto/reschedule.dto';
 // DTO con los filtros del listado de citas.
 import { FilterAppointmentsDto } from './dto/filter-appointments.dto';
 import { ConfirmDepositDto } from './dto/confirm-deposit.dto';
+import { SetStatusDto } from './dto/set-status.dto';
 // Guardia que exige un token JWT válido (usuario autenticado del negocio).
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 // Guardia que verifica que el usuario tenga el permiso requerido.
@@ -158,6 +159,33 @@ export class AppointmentsController {
     @Param('id') id: string,
   ) {
     return this.appointmentsService.confirm(id, tenantId, user.userId);
+  }
+
+  // ── POST /api/appointments/:id/set-status ───────────────────────────────────
+  // Cambio LIBRE entre estados activos (PENDING/CONFIRMED/IN_PROGRESS), adelante
+  // o atras, para corregir errores humanos. Sin efectos financieros.
+  @Post(':id/set-status')
+  @RequirePermissions('appointments.update')
+  async setStatus(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: SetStatusDto,
+  ) {
+    return this.appointmentsService.setStatus(id, tenantId, dto.status, user.userId);
+  }
+
+  // ── POST /api/appointments/:id/reopen ───────────────────────────────────────
+  // Reabre una cita cerrada (COMPLETED/CANCELLED/NO_SHOW) volviendola a CONFIRMED
+  // para corregir un cierre equivocado. NO revierte efectos financieros.
+  @Post(':id/reopen')
+  @RequirePermissions('appointments.update')
+  async reopen(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.reopen(id, tenantId, user.userId);
   }
 
   // ── POST /api/appointments/:id/confirm-deposit ──────────────────────────────

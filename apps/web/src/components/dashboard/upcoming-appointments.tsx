@@ -26,8 +26,8 @@ function statusInfo(status: string): { text: string; bg: string; textColor: stri
   // "map" es un diccionario: clave = estado, valor = su info visual.
   const map: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
     CONFIRMED: { text: 'Confirmada', bg: 'bg-primary-50', textColor: 'text-primary-700', dot: '#008080' },
-    PENDING: { text: 'Sin confirmar', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
-    IN_PROGRESS: { text: 'En curso', bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
+    PENDING: { text: 'Pendiente', bg: 'bg-yellow-50', textColor: 'text-yellow-700', dot: '#eab308' },
+    IN_PROGRESS: { text: 'En progreso', bg: 'bg-purple-50', textColor: 'text-purple-700', dot: '#7c3aed' },
     COMPLETED: { text: 'Completada', bg: 'bg-green-50', textColor: 'text-green-700', dot: '#059669' },
     CANCELLED: { text: 'Cancelada', bg: 'bg-red-50', textColor: 'text-red-700', dot: '#dc2626' },
     NO_SHOW: { text: 'Ausente', bg: 'bg-[var(--bg-muted)]', textColor: 'text-[var(--text-secondary)]', dot: '#94a3b8' },

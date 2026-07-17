@@ -58,7 +58,7 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendiente',
   CONFIRMED: 'Confirmada',
   RESCHEDULED: 'Reprogramada',
-  IN_PROGRESS: 'En curso',
+  IN_PROGRESS: 'En progreso',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',
   NO_SHOW: 'Ausente',

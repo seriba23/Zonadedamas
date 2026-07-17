@@ -146,7 +146,7 @@ function statusLabel(status: string): string {
   const map: Record<string, string> = {
     SCHEDULED: 'Agendada',
     CONFIRMED: 'Confirmada',
-    IN_PROGRESS: 'En curso',
+    IN_PROGRESS: 'En progreso',
     COMPLETED: 'Completada',
     CANCELLED: 'Cancelada',
     NO_SHOW: 'No asistió',

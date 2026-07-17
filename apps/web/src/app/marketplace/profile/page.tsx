@@ -98,7 +98,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: 'bg-yellow-50 text-yellow-700' },
   CONFIRMED: { label: 'Confirmada', color: 'bg-blue-50 text-blue-700' },
   RESCHEDULED: { label: 'Reagendada', color: 'bg-orange-50 text-orange-700' },
-  IN_PROGRESS: { label: 'En curso', color: 'bg-purple-50 text-purple-700' },
+  IN_PROGRESS: { label: 'En progreso', color: 'bg-purple-50 text-purple-700' },
   COMPLETED: { label: 'Completada', color: 'bg-green-50 text-green-700' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-50 text-red-700' },
   NO_SHOW: { label: 'Ausente', color: 'bg-gray-100 text-gray-600' },

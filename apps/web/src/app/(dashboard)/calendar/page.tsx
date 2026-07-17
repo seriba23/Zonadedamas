@@ -756,9 +756,9 @@ export default function CalendarPage() {
                 style={{ scrollbarWidth: 'thin' }}
               >
                 {[
-                  { key: 'PENDING', label: 'Sin confirmar', dot: '#eab308' },
+                  { key: 'PENDING', label: 'Pendiente', dot: '#eab308' },
                   { key: 'CONFIRMED', label: 'Confirmada', dot: '#008080' },
-                  { key: 'IN_PROGRESS', label: 'En curso', dot: '#3b82f6' },
+                  { key: 'IN_PROGRESS', label: 'En progreso', dot: '#3b82f6' },
                   { key: 'COMPLETED', label: 'Completada', dot: '#059669' },
                   { key: 'CANCELLED', label: 'Cancelada', dot: '#dc2626' },
                   { key: 'NO_SHOW', label: 'Ausente', dot: '#94a3b8' },
@@ -1119,9 +1119,9 @@ export default function CalendarPage() {
                   const statusLabel =
                     apt.status === 'COMPLETED' ? 'Completada' :
                     apt.status === 'CANCELLED' ? 'Cancelada' :
-                    apt.status === 'PENDING' ? 'Sin confirmar' :
+                    apt.status === 'PENDING' ? 'Pendiente' :
                     apt.status === 'CONFIRMED' ? 'Confirmada' :
-                    apt.status === 'IN_PROGRESS' ? 'En curso' :
+                    apt.status === 'IN_PROGRESS' ? 'En progreso' :
                     apt.status === 'NO_SHOW' ? 'Ausente' :
                     apt.status;
                   const statusStyle =

@@ -191,7 +191,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
   CONFIRMED: { label: 'Confirmada', color: 'bg-blue-100 text-blue-800' },
   RESCHEDULED: { label: 'Reagendada', color: 'bg-teal-50 text-teal-700' },
-  IN_PROGRESS: { label: 'En curso', color: 'bg-purple-100 text-purple-800' },
+  IN_PROGRESS: { label: 'En progreso', color: 'bg-purple-100 text-purple-800' },
   COMPLETED: { label: 'Completada', color: 'bg-green-100 text-green-800' },
   CANCELLED: { label: 'Cancelada', color: 'bg-red-100 text-red-800' },
   NO_SHOW: { label: 'Ausente', color: 'bg-[var(--bg-muted)] text-[var(--text-primary)]' },

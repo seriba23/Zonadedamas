@@ -41,8 +41,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 // DetailSheet: panel lateral deslizante que envuelve el contenido del modal.
 import { DetailSheet } from '@/components/ui/detail-sheet';
-// AppointmentStatusBadge: pequeña píldora de color que muestra el estado de la cita.
-import { AppointmentStatusBadge } from '@/components/ui/badge';
+// Modal: pop-up centrado (para "Agregar servicios" y confirmaciones encima).
+import { Modal } from '@/components/ui/modal';
 // AvailabilityPicker: mini-calendario + grilla de slots horarios disponibles.
 import { AvailabilityPicker } from '@/components/calendar/availability-picker';
 // SearchableSelect: dropdown con buscador interno (para elegir clientes).
@@ -282,6 +282,10 @@ export function AppointmentModal({
 
   // Si true, muestra el sub-panel de reagendamiento (AvailabilityPicker de nuevo).
   const [rescheduleMode, setRescheduleMode] = useState(false);
+  // Selector de estado (droplist sobre la etiqueta) + confirmación de reapertura.
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = useState(false);
+  const [showNoShowConfirm, setShowNoShowConfirm] = useState(false);
 
   // Nuevas hora inicio/fin elegidas al reagendar.
   const [newStartTime, setNewStartTime] = useState('');
@@ -791,6 +795,33 @@ export function AppointmentModal({
     },
   });
 
+  // setStatusMutation: cambio LIBRE entre estados activos (Pendiente /
+  // Confirmada / En progreso), adelante o atrás, para corregir errores. Sin efectos
+  // financieros. Mantiene el modal abierto (solo refresca) para ver el estado nuevo.
+  const setStatusMutation = useMutation({
+    mutationFn: (status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS') =>
+      api.post(`/api/appointments/${appointmentId}/set-status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      setStatusMenuOpen(false);
+    },
+    onError: (err: { message?: string }) => setFormError(err.message || 'No se pudo cambiar el estado'),
+  });
+
+  // reopenMutation: REABRE una cita cerrada (vuelve a CONFIRMED). NO revierte
+  // dinero (ver aviso en el panel de confirmación). Mantiene el modal abierto.
+  const reopenMutation = useMutation({
+    mutationFn: () => api.post(`/api/appointments/${appointmentId}/reopen`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      setShowReopenConfirm(false);
+      setStatusMenuOpen(false);
+    },
+    onError: (err: { message?: string }) => setFormError(err.message || 'No se pudo reabrir la cita'),
+  });
+
   // confirmDepositMutation: el negocio confirma el anticipo (aceptar / solicitar
   // el resto / omitir). action determina el comportamiento en el backend.
   const confirmDepositMutation = useMutation({
@@ -827,6 +858,7 @@ export function AppointmentModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      setShowNoShowConfirm(false);
       onSave();
     },
     onError: (err: { message?: string }) => {
@@ -978,10 +1010,12 @@ export function AppointmentModal({
     ['pending', 'confirmed', 'rescheduled'].includes(statusLower) &&
     hasPermission('appointments.cancel');
 
-  // canComplete: ¿se puede finalizar? Solo si está en progreso o confirmada.
+  // canComplete: ¿se puede finalizar? SOLO si está EN PROGRESO. Se fuerza el
+  // orden del ciclo (Confirmada → En progreso → Completada): antes de "En
+  // progreso" no aparece "Finalizar" (ni en el pie ni en el droplist).
   const canComplete =
     appointment &&
-    ['confirmed', 'in_progress'].includes(statusLower) &&
+    ['in_progress'].includes(statusLower) &&
     hasPermission('appointments.complete');
 
   // canReschedule: ¿se puede reagendar? Mismos estados que cancelar.
@@ -1004,6 +1038,78 @@ export function AppointmentModal({
     appointment &&
     ['pending', 'confirmed', 'rescheduled', 'in_progress'].includes(statusLower) &&
     hasPermission('appointments.complete');
+
+  // handleComplete(): dispara el flujo de "Finalizar" (mismo que el botón). Si el
+  // consentimiento de foto no se ha registrado, avisa; si el cliente NO autorizó
+  // foto, completa directo; si autorizó pero no hay foto, abre el selector.
+  // handleComplete(): ejecuta el FLUJO de completar (no solo cambia la etiqueta).
+  //   - Si el consentimiento de foto aún no se ha elegido → guía a elegirlo primero
+  //     (Sí/No en la sección "Fotos del resultado"), sin completar todavía.
+  //   - Si el cliente NO autorizó → completa directo.
+  //   - Si autorizó y ya hay foto → completa.
+  //   - Si autorizó pero falta la foto → abre el selector y completa tras subirla.
+  // handleComplete(): solo se invoca cuando "Completada" está habilitada (En
+  // progreso + consentimiento elegido + anticipo resuelto), así que aquí el
+  // consentimiento SIEMPRE está definido. Si el cliente NO autorizó → completa
+  // directo; si autorizó y ya hay foto → completa; si autorizó pero falta la
+  // foto → abre el selector y completa al subirla.
+  function handleComplete() {
+    if (!appointment) return;
+    const consentDeclined = appointment.photoConsent === false;
+    if (consentDeclined) { completeMutation.mutate(); return; }
+    if (photos.length > 0) { completeMutation.mutate(); }
+    else { setAutoCompleteOnNextUpload(true); finalizeFileInputRef.current?.click(); }
+  }
+
+  // getStatusOptions(): opciones del droplist "Cambiar estado" según el estado
+  // ACTUAL + permisos. Cada opción enruta a su FLUJO real (no solo la etiqueta):
+  // Confirmar/En progreso/Ausente disparan su mutación; Completar abre su wizard;
+  // Cancelar abre el formulario (motivo+anticipo); Reabrir pide confirmación.
+  function getStatusOptions(): Array<{ key: string; label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }> {
+    const opts: Array<{ key: string; label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }> = [];
+    const close = () => setStatusMenuOpen(false);
+    const isClosed = ['completed', 'cancelled', 'no_show'].includes(statusLower);
+    const isActive = ['pending', 'confirmed', 'rescheduled', 'in_progress'].includes(statusLower);
+    if (isActive) {
+      // Cambio LIBRE entre estados activos (adelante o atrás), excluyendo el
+      // actual. Sin efectos financieros → seguro para corregir errores humanos.
+      if (hasPermission('appointments.update')) {
+        // "Pendiente" solo tiene sentido para citas CON anticipo requerido
+        // (Pendiente = esperando confirmar anticipo). En citas sin anticipo el
+        // punto de partida es "Confirmada", así que no ofrecemos "Pendiente".
+        if (statusLower !== 'pending' && !!appointment?.depositRequired)
+          opts.push({ key: 'pending', label: 'Pendiente', onSelect: () => { close(); setStatusMutation.mutate('PENDING'); } });
+        if (statusLower !== 'confirmed')
+          opts.push({ key: 'confirmed', label: 'Confirmada', onSelect: () => { close(); setStatusMutation.mutate('CONFIRMED'); } });
+        if (statusLower !== 'in_progress')
+          opts.push({ key: 'in_progress', label: 'En progreso', onSelect: () => { close(); setStatusMutation.mutate('IN_PROGRESS'); } });
+      }
+      // Cierres (con sus flujos y efectos): Completar/Ausente exigen permiso de
+      // finalizar; Cancelar el de cancelar.
+      if (hasPermission('appointments.complete')) {
+        // "Completada" solo se HABILITA cuando se cumple TODO el flujo:
+        //   1) la cita está En progreso,
+        //   2) ya se eligió el consentimiento de foto (Sí/No, no null), y
+        //   3) el anticipo está resuelto (no requerido, exonerado, o ya pagado).
+        // Antes de eso queda deshabilitada (gris): no se puede saltar de
+        // Pendiente/Confirmada a Completada. Sin mensaje: el gris lo comunica.
+        const consentGiven =
+          appointment?.photoConsent !== null && appointment?.photoConsent !== undefined;
+        const depositSatisfied =
+          !appointment?.depositRequired || !!appointment?.depositWaived || depositPaidNum > 0;
+        const canCompleteNow = statusLower === 'in_progress' && consentGiven && depositSatisfied;
+        opts.push({ key: 'complete', label: 'Completada', disabled: !canCompleteNow, onSelect: () => { close(); handleComplete(); } });
+        opts.push({ key: 'noshow', label: 'Ausente', danger: true, onSelect: () => { close(); setShowNoShowConfirm(true); } });
+      }
+      if (hasPermission('appointments.cancel')) {
+        opts.push({ key: 'cancel', label: 'Cancelada', danger: true, onSelect: () => { close(); setShowCancelForm(true); } });
+      }
+    } else if (isClosed && hasPermission('appointments.update')) {
+      // Cita cerrada → reabrir para corregir (con confirmación y aviso).
+      opts.push({ key: 'reopen', label: 'Reabrir (corregir cierre)', onSelect: () => { close(); setShowReopenConfirm(true); } });
+    }
+    return opts;
+  }
 
   // ── Cálculos financieros ──────────────────────────────────────────────────
   // Nota: estos valores se calculan en el FRONTEND como resumen para mostrar.
@@ -1120,7 +1226,7 @@ export function AppointmentModal({
   const modalTitle = isEditing
     ? loadingAppointment
       ? 'Cargando...'
-      : `Cita — ${appointment?.client?.firstName ?? ''} ${appointment?.client?.lastName ?? ''}`
+      : `${appointment?.client?.firstName ?? ''} ${appointment?.client?.lastName ?? ''}`.trim() || 'Cita'
     : 'Nueva Cita';
 
   // ── JSX: la UI que renderiza el componente ───────────────────────────────
@@ -1131,6 +1237,7 @@ export function AppointmentModal({
     // Recibe: title, onClose (función para cerrar), size ("lg" = ancho grande).
     <DetailSheet
       title={modalTitle}
+      eyebrow={isEditing && !loadingAppointment ? 'Cita' : undefined}
       onClose={onClose}
       size="lg"
     >
@@ -1164,23 +1271,102 @@ export function AppointmentModal({
                 AppointmentStatusBadge muestra la pastilla coloreada (PENDING, CONFIRMED…).
                 formatDate convierte la ISO a "Lun 10 Jun 2026".
                 formatBookingTime → formatTime convierte la hora "UTC raw" a "10:30 AM". */}
-            {/* Status */}
-            <div className="flex items-center justify-between">
-              <AppointmentStatusBadge status={appointment.status.toLowerCase()} />
-              <p className="text-sm text-[var(--text-secondary)]">
-                {formatDate(appointment.startTime)},{' '}
-                {formatTime(formatBookingTime(appointment.startTime))}
-                {' – '}
-                {formatTime(formatBookingTime(appointment.endTime))}
-              </p>
-            </div>
+            {/* Bloque CUÁNDO (tint teal): fecha/hora/duración a la izquierda; a la
+                derecha el CHIP DE ESTADO (dispara el dropdown de cambio de estado).
+                Chips en paleta teal (sin ámbar/morado). */}
+            {(() => {
+              const s = appointment.status.toLowerCase();
+              const CHIP: Record<string, { label: string; cls: string; dot?: string; check?: boolean; live?: boolean }> = {
+                pending:     { label: 'Pendiente',   cls: 'bg-white border-[#9fd0cb] text-[#0b6b64]', dot: '#12a86e' },
+                confirmed:   { label: 'Confirmada',  cls: 'bg-[#008080] border-[#008080] text-white', check: true },
+                rescheduled: { label: 'Reagendada',  cls: 'bg-white border-[#9fd0cb] text-[#0b6b64]', dot: '#12a86e' },
+                in_progress: { label: 'En progreso', cls: 'bg-[#0b6b64] border-[#0b6b64] text-white', live: true },
+                completed:   { label: 'Completada',  cls: 'bg-[#0a7d54] border-[#0a7d54] text-white', check: true },
+                cancelled:   { label: 'Cancelada',   cls: 'bg-[#c14242] border-[#c14242] text-white' },
+                no_show:     { label: 'Ausente',     cls: 'bg-[#f3f4f6] border-[#e6efec] text-[#7c8d89]' },
+              };
+              const chip = CHIP[s] || { label: appointment.status, cls: 'bg-[#f3f4f6] border-[#e6efec] text-[#7c8d89]' };
+              return (
+                <div className="rounded-2xl bg-[#eff6f4] p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#008080] mb-1">Cuándo</p>
+                    <p className="text-sm font-bold text-[#0f1e1c] leading-tight capitalize">
+                      {formatDate(appointment.startTime)}
+                    </p>
+                    <p className="text-sm font-medium text-[#7c8d89] mt-0.5">
+                      {formatTime(formatBookingTime(appointment.startTime))} – {formatTime(formatBookingTime(appointment.endTime))}
+                      {totalDuration ? ` · ${totalDuration} min` : ''}
+                    </p>
+                  </div>
+                  {/* Chip de estado = disparador del dropdown de cambio de estado. */}
+                  <div className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setStatusMenuOpen((v) => !v)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold shadow-sm transition-all ${chip.cls}`}
+                      aria-label="Cambiar estado de la cita"
+                    >
+                      {chip.live ? (
+                        <span className="relative flex w-2 h-2">
+                          <span className="absolute inline-flex w-full h-full rounded-full bg-white/70 animate-ping" />
+                          <span className="relative inline-flex w-2 h-2 rounded-full bg-white" />
+                        </span>
+                      ) : chip.dot ? (
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: chip.dot }} />
+                      ) : chip.check ? (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : null}
+                      {chip.label}
+                      <svg className="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
+                    {statusMenuOpen && (() => {
+                      const opts = getStatusOptions();
+                      return (
+                        <>
+                          {/* Capa invisible: cierra el menú al hacer click fuera. */}
+                          <div className="fixed inset-0 z-10" onClick={() => setStatusMenuOpen(false)} />
+                          <div className="absolute right-0 top-full mt-2 z-20 w-56 rounded-2xl border border-[#e6efec] bg-white shadow-xl py-1.5 overflow-hidden">
+                            <p className="px-4 py-1.5 text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em]">
+                              Cambiar estado a…
+                            </p>
+                            {opts.length === 0 ? (
+                              <p className="px-4 py-2.5 text-sm text-[#7c8d89]">No hay cambios disponibles.</p>
+                            ) : (
+                              opts.map((o) => (
+                                <button
+                                  key={o.key}
+                                  type="button"
+                                  onClick={o.onSelect}
+                                  disabled={o.disabled}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${
+                                    o.disabled
+                                      ? 'text-[#b6c2be] opacity-60 cursor-not-allowed'
+                                      : `hover:bg-[#eff6f4] ${o.danger ? 'text-[#c14242]' : 'text-[#0f1e1c]'}`
+                                  }`}
+                                >
+                                  {o.label}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Grid 2 columnas: datos del cliente (izquierda) y del profesional (derecha).
                 grid-cols-2: divide el espacio en 2 columnas iguales. */}
             {/* Client & Employee */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1.5">
                   Cliente
                 </p>
                 {/* Ternario: si existe el cliente → muestra avatar+nombre, si no → guión. */}
@@ -1231,7 +1417,7 @@ export function AppointmentModal({
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1.5">
                   Profesional
                 </p>
                 {appointment.employee ? (
@@ -1249,9 +1435,17 @@ export function AppointmentModal({
                         `${appointment.employee.firstName?.[0] ?? ''}${appointment.employee.lastName?.[0] ?? ''}`
                       )}
                     </div>
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate flex-1 min-w-0">
-                      {appointment.employee.firstName} {appointment.employee.lastName}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                        {appointment.employee.firstName} {appointment.employee.lastName}
+                      </p>
+                      {/* Rol/puesto del profesional (ej. "Estilista"), si existe. */}
+                      {(appointment.employee as any).jobTitle && (
+                        <p className="text-xs text-[var(--text-secondary)] truncate">
+                          {(appointment.employee as any).jobTitle}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-sm font-medium text-[var(--text-primary)]">-</p>
@@ -1266,10 +1460,10 @@ export function AppointmentModal({
             {/* Services */}
             {appointment.items && appointment.items.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-2">
                   Servicios
                 </p>
-                <div className="bg-[var(--bg-subtle)] rounded-lg p-3 space-y-2">
+                <div className="space-y-2.5">
                   {/* Lista de ítems: .map() devuelve un <div> por cada servicio.
                       key={item.id}: clave única para que React identifique cambios. */}
                   {appointment.items.map((item) => (
@@ -1356,10 +1550,11 @@ export function AppointmentModal({
                       + Agregar servicios
                     </button>
                   )}
-                  {/* Total final en teal. finalTotal ya tiene descuentos y puntos aplicados. */}
+                  {/* Total final en teal grande (TOTAL A COBRAR). finalTotal ya tiene
+                      descuentos y puntos aplicados. */}
                   <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
-                    <span className="text-sm font-bold text-[var(--text-primary)]">Total a cobrar</span>
-                    <span className="text-base font-bold text-[#008080]">{formatCurrency(finalTotal)}</span>
+                    <span className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em]">Total a cobrar</span>
+                    <span className="text-2xl font-extrabold text-[#008080] tracking-[-0.02em]">{formatCurrency(finalTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -1370,7 +1565,7 @@ export function AppointmentModal({
             {/* Product Reservations (Apartados) */}
             {appointment.productReservations && appointment.productReservations.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-2">
                   Apartados
                 </p>
                 <div className="bg-[var(--bg-subtle)] rounded-lg p-3 space-y-2">
@@ -1410,7 +1605,7 @@ export function AppointmentModal({
 
             {appointment.notes && (
               <div>
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1">
                   Notas
                 </p>
                 <p className="text-sm text-[var(--text-secondary)] bg-[var(--bg-subtle)] rounded-lg p-3">
@@ -1421,7 +1616,7 @@ export function AppointmentModal({
 
             {appointment.internalNotes && (
               <div>
-                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1">
                   Notas internas
                 </p>
                 <p className="text-sm text-teal-800 dark:text-teal-200 rounded-lg p-3 border" style={{ backgroundColor: 'var(--primary-tint)', borderColor: 'var(--primary-tint-border)' }}>
@@ -1455,8 +1650,8 @@ export function AppointmentModal({
                 {photos.length === 0 && (appointment.photoConsent === null || appointment.photoConsent === undefined) ? (
                   // ── PASO 1: consentimiento ──────────────────────────
                   <div
-                    className="rounded-xl border-2 p-4"
-                    style={{ borderColor: '#008080', backgroundColor: '#e0f2f1' }}
+                    className="rounded-2xl border p-4"
+                    style={{ borderColor: '#cde6e2', backgroundColor: '#eff6f4' }}
                   >
                     <div className="flex items-start gap-2 mb-3">
                       <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0">
@@ -1489,7 +1684,7 @@ export function AppointmentModal({
                       <button
                         onClick={() => consentMutation.mutate(true)}
                         disabled={consentMutation.isPending}
-                        className="px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+                        className="px-3 py-2 rounded-full text-sm font-semibold text-white shadow-sm disabled:opacity-50"
                         style={{ backgroundColor: '#008080' }}
                       >
                         Sí, acepta
@@ -1497,7 +1692,7 @@ export function AppointmentModal({
                       <button
                         onClick={() => consentMutation.mutate(false)}
                         disabled={consentMutation.isPending}
-                        className="px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        className="px-3 py-2 rounded-full text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:border-[#c14242] hover:text-[#c14242] transition-colors disabled:opacity-50"
                       >
                         No autoriza
                       </button>
@@ -1639,24 +1834,16 @@ export function AppointmentModal({
                 Solo visible cuando addServicesMode = true (botón "+ Agregar servicios"). */}
             {/* Add services mode */}
             {addServicesMode && (
-              <div className="border-t border-[var(--border)] pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    Agregar servicios
-                  </p>
-                  {/* Botón "Cancelar" resetea el modo y limpia los estados temporales. */}
-                  <button
-                    onClick={() => {
-                      setAddServicesMode(false);
-                      setNewServiceIds([]);
-                      setCheckAfterResult(null);
-                      setAddServiceError(null);
-                    }}
-                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-secondary)]"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+              <Modal
+                title="Agregar servicios"
+                size="md"
+                onClose={() => {
+                  setAddServicesMode(false);
+                  setNewServiceIds([]);
+                  setCheckAfterResult(null);
+                  setAddServiceError(null);
+                }}
+              >
 
                 {/* Grid de checkboxes de servicios para elegir los adicionales.
                     max-h-40 overflow-y-auto: scroll si hay muchos servicios.
@@ -1824,62 +2011,123 @@ export function AppointmentModal({
                     )}
                   </div>
                 )}
-              </div>
+
+                {/* Botón de regresar/cancelar del modal. */}
+                <div className="mt-4 pt-3 border-t border-[var(--border)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddServicesMode(false);
+                      setNewServiceIds([]);
+                      setCheckAfterResult(null);
+                      setAddServiceError(null);
+                    }}
+                    className="btn-secondary w-full"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </Modal>
             )}
 
             {/* Panel de reagendamiento: visible cuando rescheduleMode = true.
                 Muestra el selector de fecha/hora y el botón de confirmación. */}
             {/* Reschedule mode */}
+            {/* Reagendar — pop-up encima con el selector de disponibilidad. */}
             {rescheduleMode && (
-              <div className="border-t border-[var(--border)] pt-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-                  Reagendar cita
-                </p>
-                {/* AvailabilityPicker muestra el calendario y los slots disponibles.
-                    serviceIds: los IDs de los servicios de los ítems de la cita.
-                      appointment.items?.map(...) extrae los serviceId de cada ítem.
-                      .filter((id): id is string => !!id) filtra los IDs vacíos/null.
-                      El tipo (id): id is string es un "type guard" de TypeScript que
-                      le dice al compilador que después del filtro todos son string.
-                      || [] : si items es undefined, usa array vacío.
-                    onSelect: callback llamado cuando el usuario elige un slot.
-                      Guarda el nuevo start/end en el estado para usarlo en rescheduleMutation. */}
-                <AvailabilityPicker
-                  serviceIds={
-                    appointment.items
-                      ?.map((i) => i.serviceId)
-                      .filter((id): id is string => !!id) || []
-                  }
-                  employeeId={appointment.employeeId}
-                  onSelect={(empId, start, end) => {
-                    // El availability endpoint devuelve "YYYY-MM-DDTHH:mm:00"
-                    // sin TZ. Lo dejamos tal cual: el backend trabaja con
-                    // horas como "hora del negocio" en UTC raw, igual que
-                    // los slots. Convertir a UTC absoluto romperia la
-                    // comparacion con los slots al volver a consultar.
-                    setNewStartTime(start);
-                    setNewEndTime(end);
-                  }}
-                />
-                {newStartTime && (
-                  <div className="mt-3 flex gap-3">
+              <Modal
+                title="Reagendar cita"
+                size="lg"
+                onClose={() => { setRescheduleMode(false); setNewStartTime(''); setNewEndTime(''); }}
+              >
+                <div className="space-y-4">
+                  {/* AvailabilityPicker: calendario + slots disponibles. onSelect
+                      guarda el nuevo start/end para usarlo en rescheduleMutation. */}
+                  <AvailabilityPicker
+                    serviceIds={
+                      appointment.items
+                        ?.map((i) => i.serviceId)
+                        .filter((id): id is string => !!id) || []
+                    }
+                    employeeId={appointment.employeeId}
+                    onSelect={(empId, start, end) => {
+                      setNewStartTime(start);
+                      setNewEndTime(end);
+                    }}
+                  />
+                  <div className="flex gap-3">
                     <button
+                      type="button"
                       onClick={() => rescheduleMutation.mutate()}
-                      disabled={rescheduleMutation.isPending}
-                      className="btn-primary flex-1"
+                      disabled={rescheduleMutation.isPending || !newStartTime}
+                      className="btn-primary flex-1 disabled:opacity-50"
                     >
-                      {rescheduleMutation.isPending
-                        ? 'Reagendando...'
-                        : 'Confirmar reagendamiento'}
+                      {rescheduleMutation.isPending ? 'Reagendando...' : 'Confirmar reagendamiento'}
                     </button>
                     <button
-                      onClick={() => setRescheduleMode(false)}
-                      className="btn-secondary"
+                      type="button"
+                      onClick={() => { setRescheduleMode(false); setNewStartTime(''); setNewEndTime(''); }}
+                      className="btn-secondary flex-1"
                     >
                       Cancelar
                     </button>
                   </div>
-                )}
+                </div>
+              </Modal>
+            )}
+
+            {/* Confirmación de "Ausente" — pop-up encima (como cancelar cita). */}
+            {showNoShowConfirm && (
+              <Modal title="Marcar como Ausente" size="sm" onClose={() => setShowNoShowConfirm(false)}>
+                <div className="space-y-4">
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    ¿Confirmas marcar esta cita como <b>Ausente</b>? Indica que el cliente no se
+                    presentó. El anticipo, si lo hubo, se maneja según tu política.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => noShowMutation.mutate()}
+                      disabled={noShowMutation.isPending}
+                      className="btn-danger flex-1"
+                    >
+                      {noShowMutation.isPending ? 'Procesando...' : 'Sí, marcar Ausente'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowNoShowConfirm(false)}
+                      className="btn-secondary flex-1"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </Modal>
+            )}
+
+            {/* Panel de reapertura: corrige un cierre equivocado volviendo la
+                cita a Confirmada. Avisa que NO revierte efectos financieros. */}
+            {showReopenConfirm && (
+              <div className="border-t border-[var(--border)] pt-4">
+                <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 text-sm space-y-1.5">
+                  <p className="font-semibold">Reabrir esta cita</p>
+                  <p className="text-xs leading-relaxed">
+                    La cita volverá a <b>Confirmada</b>. Esto <b>NO revierte</b> automáticamente lo ya
+                    aplicado al cerrarla: pago registrado, puntos otorgados, anticipo acreditado o cupón
+                    devuelto. Ajústalos a mano si corresponde. Verifica también que el horario siga libre.
+                  </p>
+                </div>
+                <div className="mt-3 flex gap-3">
+                  <button
+                    onClick={() => reopenMutation.mutate()}
+                    disabled={reopenMutation.isPending}
+                    className="btn-primary flex-1"
+                  >
+                    {reopenMutation.isPending ? 'Reabriendo...' : 'Sí, reabrir'}
+                  </button>
+                  <button onClick={() => setShowReopenConfirm(false)} className="btn-secondary">
+                    Cancelar
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1952,72 +2200,75 @@ export function AppointmentModal({
               </div>
             )}
 
+            {/* Cancelar cita — pop-up encima (igual que "Marcar ausente"). */}
             {showCancelForm && (
-              <div className="border-t border-[var(--border)] pt-4">
-                <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
-                  Motivo de cancelacion
-                </p>
-                {/* Textarea controlado: value={cancelReason} + onChange actualiza el estado.
-                    Así React siempre sabe qué hay en el campo (componente "controlado"). */}
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  className="input-field resize-none"
-                  rows={3}
-                  placeholder="Razon de la cancelacion..."
-                />
-
-                {/* Si la cita tiene anticipo pagado, el negocio decide qué pasa
-                    con él: el cliente lo pierde o queda como crédito a su favor. */}
-                {depositPaidNum > 0 && (
-                  <div className="mt-3">
-                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">
-                      Anticipo pagado: {formatCurrency(depositPaidNum)}
+              <Modal title="Cancelar cita" size="sm" onClose={() => setShowCancelForm(false)}>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-2">
+                      Motivo de cancelación
                     </p>
-                    <div className="space-y-2">
-                      {([
-                        ['forfeit', 'El cliente lo pierde', 'El negocio se queda con el anticipo.'],
-                        ['credit', 'Dejar como crédito', 'Se suma como saldo a favor del cliente.'],
-                      ] as const).map(([key, title, desc]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setDepositChoice(key)}
-                          className={`w-full text-left rounded-lg border p-2.5 transition-colors ${
-                            depositChoice === key ? 'border-[#008080] bg-teal-50' : 'border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${depositChoice === key ? 'border-[#008080]' : 'border-gray-300'}`}>
-                              {depositChoice === key && <span className="block w-full h-full rounded-full scale-50" style={{ backgroundColor: '#008080' }} />}
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">{title}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-0.5 ml-6">{desc}</p>
-                        </button>
-                      ))}
-                    </div>
+                    {/* Textarea controlado: value={cancelReason} + onChange actualiza el estado. */}
+                    <textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      className="input-field resize-none"
+                      rows={3}
+                      placeholder="Razón de la cancelación..."
+                    />
                   </div>
-                )}
 
-                <div className="mt-3 flex gap-3">
-                  <button
-                    onClick={() => cancelMutation.mutate()}
-                    disabled={cancelMutation.isPending}
-                    className="btn-danger flex-1"
-                  >
-                    {cancelMutation.isPending
-                      ? 'Cancelando...'
-                      : 'Confirmar cancelacion'}
-                  </button>
-                  <button
-                    onClick={() => setShowCancelForm(false)}
-                    className="btn-secondary"
-                  >
-                    Volver
-                  </button>
+                  {/* Si la cita tiene anticipo pagado, el negocio decide qué pasa
+                      con él: el cliente lo pierde o queda como crédito a su favor. */}
+                  {depositPaidNum > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                        Anticipo pagado: {formatCurrency(depositPaidNum)}
+                      </p>
+                      <div className="space-y-2">
+                        {([
+                          ['forfeit', 'El cliente lo pierde', 'El negocio se queda con el anticipo.'],
+                          ['credit', 'Dejar como crédito', 'Se suma como saldo a favor del cliente.'],
+                        ] as const).map(([key, title, desc]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setDepositChoice(key)}
+                            className={`w-full text-left rounded-lg border p-2.5 transition-colors ${
+                              depositChoice === key ? 'border-[#008080] bg-teal-50' : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${depositChoice === key ? 'border-[#008080]' : 'border-gray-300'}`}>
+                                {depositChoice === key && <span className="block w-full h-full rounded-full scale-50" style={{ backgroundColor: '#008080' }} />}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">{title}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5 ml-6">{desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      onClick={() => cancelMutation.mutate()}
+                      disabled={cancelMutation.isPending}
+                      className="btn-danger flex-1"
+                    >
+                      {cancelMutation.isPending ? 'Cancelando...' : 'Confirmar cancelación'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelForm(false)}
+                      className="btn-secondary flex-1"
+                    >
+                      Volver
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </Modal>
             )}
 
             {/* Banner "Cita finalizada" que aparece después de completeMutation.
@@ -2064,13 +2315,17 @@ export function AppointmentModal({
               </div>
             )}
 
-            {/* Action buttons — orden: Cancelar / Reagendar / Finalizar
-                (los más destructivos a la izquierda, primario a la derecha) */}
-            {!rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && !showDepositForm && (
-              <div className="flex flex-wrap gap-3 pt-2 border-t border-[var(--border)]">
-                {/* Input file oculto que dispara el flow "Finalizar sin foto":
-                    click → upload → al éxito, completeMutation.mutate() via
-                    autoCompleteOnNextUpload. */}
+            {/* Botones — JERARQUÍA en 3 niveles (redesign):
+                1) PRIMARIA única: Confirmar anticipo (teal sólido, ancho completo).
+                2) SECUNDARIAS: Recordatorio | Reagendar (outline; ocultas En progreso).
+                3) TERCIARIAS: Marcar ausente · Cancelar cita (texto; Cancelar en rojo).
+                Completar/Finalizar ya no vive aquí: se hace por el chip de estado. */}
+            {!rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && !showDepositForm && !showReopenConfirm && (
+              // sticky bottom-0: los botones quedan FIJOS al fondo del sheet aunque
+              // el contenido tenga scroll. -mx-5/-mb-5 + px-5/pb-4 lo hacen a todo el
+              // ancho con fondo sólido, para que el contenido pase por detrás.
+              <div className="sticky bottom-0 z-10 -mx-5 -mb-5 px-5 pt-3 pb-4 bg-white border-t border-[#eef3f1] space-y-3">
+                {/* Input file oculto: lo usa el flujo de completar (desde el chip). */}
                 <input
                   ref={finalizeFileInputRef}
                   type="file"
@@ -2082,114 +2337,82 @@ export function AppointmentModal({
                     e.target.value = '';
                   }}
                 />
-                {/* Registrar anticipo: visible mientras la cita no esté totalmente
-                    cobrada y falte registrar anticipo (incluso si ya se completó). */}
+
+                {/* 1) PRIMARIA: Confirmar/Registrar anticipo. */}
                 {canRegisterDeposit && (
                   <button
                     type="button"
                     onClick={() => { setDepositInput(String(depositRemaining)); setShowDepositForm(true); }}
-                    className="btn-primary flex-1"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#008080] text-white font-bold py-3 shadow-sm hover:bg-[#006666] transition-colors"
                   >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
                     {depositPaidNum > 0 ? 'Registrar anticipo' : 'Confirmar anticipo'}
                   </button>
                 )}
-                {/* Recordatorio WhatsApp: solo para citas activas con
-                    cliente que tiene telefono. Si ya se envio, muestra
-                    "Reenviar". */}
-                {!!appointment.client?.phone &&
-                  ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(appointment.status.toUpperCase()) && (
-                    <button
-                      type="button"
-                      onClick={sendReminder}
-                      disabled={sendingReminder}
-                      title={appointment.reminderSentAt ? 'Reenviar recordatorio' : 'Enviar recordatorio'}
-                      className="flex-1 px-3 py-2 rounded-[10px] font-medium text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      style={{ backgroundColor: '#25D366' }}
-                    >
-                      {sendingReminder ? (
-                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                          </svg>
-                          {appointment.reminderSentAt ? 'Reenviar' : 'Recordatorio'}
-                        </>
+
+                {/* 2) SECUNDARIAS (outline): Recordatorio | Reagendar. En progreso NO
+                    las muestra (el servicio ya está en curso). */}
+                {statusLower !== 'in_progress' && (
+                  <div className="flex gap-3">
+                    {!!appointment.client?.phone &&
+                      ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(appointment.status.toUpperCase()) && (
+                        <button
+                          type="button"
+                          onClick={sendReminder}
+                          disabled={sendingReminder}
+                          title={appointment.reminderSentAt ? 'Reenviar recordatorio' : 'Enviar recordatorio'}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-[#e6efec] text-[#0f1e1c] font-semibold py-2.5 hover:bg-[#eff6f4] transition-colors disabled:opacity-50"
+                        >
+                          {sendingReminder ? (
+                            <div className="animate-spin w-4 h-4 border-2 border-[#0f1e1c] border-t-transparent rounded-full" />
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                              </svg>
+                              {appointment.reminderSentAt ? 'Reenviar' : 'Recordatorio'}
+                            </>
+                          )}
+                        </button>
                       )}
-                    </button>
-                  )}
-                {canCancel && (
-                  <button
-                    onClick={() => setShowCancelForm(true)}
-                    className="btn-danger flex-1"
-                  >
-                    Cancelar cita
-                  </button>
+                    {canReschedule && (
+                      <button
+                        type="button"
+                        onClick={() => setRescheduleMode(true)}
+                        className="flex-1 rounded-full border border-[#e6efec] text-[#0f1e1c] font-semibold py-2.5 hover:bg-[#eff6f4] transition-colors"
+                      >
+                        Reagendar
+                      </button>
+                    )}
+                  </div>
                 )}
-                {canReschedule && (
-                  <button
-                    onClick={() => setRescheduleMode(true)}
-                    className="btn-secondary flex-1"
-                  >
-                    Reagendar
-                  </button>
+
+                {/* 3) TERCIARIAS (texto): Marcar ausente · Cancelar cita. */}
+                {(canNoShow || canCancel) && (
+                  <div className="flex items-center justify-center gap-3 pt-0.5 text-sm">
+                    {canNoShow && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNoShowConfirm(true)}
+                        className="text-[#7c8d89] font-semibold hover:text-[#0f1e1c] transition-colors"
+                      >
+                        Marcar ausente
+                      </button>
+                    )}
+                    {canNoShow && canCancel && <span className="text-[#c9d4d0]">·</span>}
+                    {canCancel && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCancelForm(true)}
+                        className="text-[#c14242] font-semibold hover:text-[#9e2f2f] transition-colors"
+                      >
+                        Cancelar cita
+                      </button>
+                    )}
+                  </div>
                 )}
-                {canConfirm && (
-                  <button
-                    onClick={() => confirmMutation.mutate()}
-                    disabled={confirmMutation.isPending}
-                    className="btn-primary flex-1"
-                  >
-                    {confirmMutation.isPending ? 'Confirmando...' : 'Confirmar cita'}
-                  </button>
-                )}
-                {canNoShow && (
-                  <button
-                    onClick={() => noShowMutation.mutate()}
-                    disabled={noShowMutation.isPending}
-                    className="btn-secondary flex-1"
-                  >
-                    {noShowMutation.isPending ? 'Procesando...' : 'Ausente'}
-                  </button>
-                )}
-                {canComplete && (() => {
-                  // El consentimiento es paso obligatorio. Mientras esté
-                  // null, deshabilitamos "Finalizar" para que el cajero
-                  // primero registre la respuesta del cliente arriba.
-                  const consentPending =
-                    appointment.photoConsent === null || appointment.photoConsent === undefined;
-                  const consentDeclined = appointment.photoConsent === false;
-                  return (
-                    <button
-                      onClick={() => {
-                        if (consentDeclined) {
-                          // Cliente no autorizó fotos: completar directo.
-                          completeMutation.mutate();
-                          return;
-                        }
-                        if (photos.length > 0) {
-                          completeMutation.mutate();
-                        } else {
-                          // Cliente sí autorizó pero aún no hay foto: abrir
-                          // file picker y encadenar completar al upload.
-                          setAutoCompleteOnNextUpload(true);
-                          finalizeFileInputRef.current?.click();
-                        }
-                      }}
-                      disabled={completeMutation.isPending || uploadingPhoto || consentPending}
-                      className="btn-primary flex-1"
-                      title={consentPending ? 'Registra primero el consentimiento del cliente' : ''}
-                    >
-                      {completeMutation.isPending
-                        ? 'Procesando...'
-                        : uploadingPhoto
-                          ? 'Subiendo foto...'
-                          : consentPending
-                            ? 'Pide consentimiento'
-                            : 'Finalizar'}
-                    </button>
-                  );
-                })()}
               </div>
             )}
 
@@ -2198,14 +2421,14 @@ export function AppointmentModal({
                 cobrar si quedó pendiente, volver a agendar con el cliente,
                 seguimiento por WhatsApp, y cerrar el detalle. */}
             {appointment && ['completed', 'cancelled', 'no_show'].includes(statusLower) &&
-              !rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && !showDepositForm && (() => {
+              !rescheduleMode && !showCancelForm && !addServicesMode && !showPayPrompt && !showDepositForm && !showReopenConfirm && (() => {
               const realPayments = ((appointment as any).payments || []).filter(
                 (p: any) => !p.isDeposit && p.status === 'COMPLETED',
               );
               const isPaid = realPayments.length > 0;
               const bizName = appointment.tenant?.name || (authUser as any)?.tenantName || 'nuestro negocio';
               return (
-                <div className="flex flex-wrap gap-3 pt-2 border-t border-[var(--border)]">
+                <div className="sticky bottom-0 z-10 -mx-5 -mb-5 px-5 pt-3 pb-4 bg-white border-t border-[#eef3f1] flex flex-wrap gap-3">
                   {/* Cobrar: solo si la cita se completó pero no quedó pagada. */}
                   {statusLower === 'completed' && !isPaid && hasPermission('payments.create') && (
                     <button

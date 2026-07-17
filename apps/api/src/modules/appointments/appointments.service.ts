@@ -1723,6 +1723,71 @@ export class AppointmentsService {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // setStatus(): cambio LIBRE entre estados ACTIVOS de trabajo (Sin confirmar,
+  // Confirmada, En curso) — hacia adelante o hacia atrás — para corregir errores
+  // humanos sin quedar atrapado. Estos estados NO tienen efectos financieros, así
+  // que moverse entre ellos es seguro. Los cierres (Completar/Cancelar/Ausente)
+  // van por sus flujos propios; las citas cerradas se manejan con reopen().
+  // ───────────────────────────────────────────────────────────────────────────
+  async setStatus(
+    id: string,
+    tenantId: string,
+    targetStatus: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS',
+    userId?: string,
+  ) {
+    const appointment = await this.prisma.appointment.findFirst({ where: { id, tenantId } });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+    // Origen debe estar "abierto". Si está cerrada (completada/cancelada/ausente),
+    // el camino correcto es reopen() (que avisa de los efectos financieros).
+    if (!['PENDING', 'CONFIRMED', 'RESCHEDULED', 'IN_PROGRESS'].includes(appointment.status)) {
+      throw new BadRequestException('La cita está cerrada; usa "Reabrir" para corregirla');
+    }
+    if (appointment.status === targetStatus) return { data: appointment }; // sin cambio
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { status: targetStatus },
+    });
+    await this.prisma.appointmentStatusHistory.create({
+      data: { appointmentId: id, fromStatus: appointment.status, toStatus: targetStatus, changedBy: userId },
+    });
+    await this.auditService.log({
+      tenantId, userId, action: 'appointment.status_changed', entityType: 'appointment', entityId: id,
+      oldValues: { status: appointment.status }, newValues: { status: targetStatus },
+    });
+    return { data: updated };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // reopen(): REABRE una cita cerrada (COMPLETED/CANCELLED/NO_SHOW) volviéndola a
+  // CONFIRMED, para corregir un cierre equivocado.
+  // IMPORTANTE: NO revierte los efectos financieros ya aplicados (pago
+  // registrado, puntos otorgados, anticipo acreditado, cupón devuelto). Esas
+  // reversas son riesgosas (el cliente pudo ya haberlos usado) y se ajustan a
+  // mano. Tampoco re-valida disponibilidad del horario (al cancelar se libero,
+  // podria haber otra cita ahi): el operador debe verificarlo. Solo cambia el
+  // estado + registra historial y auditoria.
+  // ───────────────────────────────────────────────────────────────────────────
+  async reopen(id: string, tenantId: string, userId?: string) {
+    const appointment = await this.prisma.appointment.findFirst({ where: { id, tenantId } });
+    if (!appointment) throw new NotFoundException('Cita no encontrada');
+    if (!['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(appointment.status)) {
+      throw new BadRequestException('Solo se pueden reabrir citas completadas, canceladas o ausentes');
+    }
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { status: 'CONFIRMED' },
+    });
+    await this.prisma.appointmentStatusHistory.create({
+      data: { appointmentId: id, fromStatus: appointment.status, toStatus: 'CONFIRMED', changedBy: userId },
+    });
+    await this.auditService.log({
+      tenantId, userId, action: 'appointment.reopened', entityType: 'appointment', entityId: id,
+      oldValues: { status: appointment.status }, newValues: { status: 'CONFIRMED' },
+    });
+    return { data: updated };
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // confirmDeposit(): el negocio confirma el anticipo (depósito) de una cita.
   //   - action 'accept'           → registra el monto recibido y CONFIRMA la cita.
   //   - action 'request_remainder'→ registra un parcial; la cita sigue PENDING.
