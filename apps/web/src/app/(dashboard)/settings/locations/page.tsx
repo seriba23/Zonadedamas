@@ -15,6 +15,7 @@ import {
   validateAddress,
   type AddressValue,
 } from '@/components/ui/address-fields';
+import { forwardGeocode, type GeocodeHit } from '@/lib/geocode';
 
 // Leaflet usa window — solo cliente.
 const LocationMapPicker = dynamic(
@@ -41,51 +42,6 @@ interface LocationForm {
   // Coords finales que se guardan. El usuario puede arrastrarlas en el mapa
   // para corregir cuando Nominatim geocodifica mal.
   coords: { lat: number; lng: number } | null;
-}
-
-type GeocodeHit = {
-  lat: number;
-  lng: number;
-  precision: 'address' | 'city' | 'unknown';
-};
-
-// Geocodificación vía endpoint backend (proxy a Nominatim con User-Agent
-// identificable). Recibe los campos separados — Nominatim es mucho mas
-// preciso cuando le decimos qué es calle, ciudad, estado, CP y país
-// (parametros estructurados) que cuando le pasamos todo concatenado.
-async function forwardGeocode(addr: AddressValue): Promise<GeocodeHit | null> {
-  const street = [addr.street, addr.number].filter(Boolean).join(' ').trim();
-  const city = addr.city.trim();
-  const state = addr.region.trim();
-  const postalcode = addr.postalCode.trim();
-  // Nombre del pais en español a partir del codigo. Si falta, no construimos
-  // el query — Nominatim sin pais devuelve coincidencias de cualquier sitio.
-  const countryName = (() => {
-    const map: Record<string, string> = {
-      mx: 'México', us: 'Estados Unidos', es: 'España', ar: 'Argentina',
-      co: 'Colombia', cl: 'Chile', pe: 'Perú', ve: 'Venezuela', ec: 'Ecuador',
-      gt: 'Guatemala', cr: 'Costa Rica', pa: 'Panamá', do: 'República Dominicana',
-      uy: 'Uruguay', py: 'Paraguay', bo: 'Bolivia', sv: 'El Salvador',
-      hn: 'Honduras', ni: 'Nicaragua', cu: 'Cuba', pr: 'Puerto Rico',
-    };
-    return map[addr.countryCode.toLowerCase()] || '';
-  })();
-  if (!city && !street) return null;
-  const qs = new URLSearchParams();
-  if (street) qs.set('street', street);
-  if (city) qs.set('city', city);
-  if (state) qs.set('state', state);
-  if (postalcode) qs.set('postalcode', postalcode);
-  if (countryName) qs.set('country', countryName);
-  try {
-    const res = await api.get<{ data: (GeocodeHit & { displayName: string }) | null }>(
-      `/api/geocode?${qs.toString()}`,
-    );
-    if (!res?.data) return null;
-    return { lat: res.data.lat, lng: res.data.lng, precision: res.data.precision };
-  } catch {
-    return null;
-  }
 }
 
 function emptyForm(adminEmail: string): LocationForm {

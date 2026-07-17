@@ -63,15 +63,33 @@ export class NotifyStaffService {
     // Si no hay nadie a quien notificar, salimos.
     if (recipientIds.length === 0) return;
 
+    // Un FREELANCER es un tenant de una sola persona que, aunque tiene rol de
+    // admin (todas las permissions), vive en el portal de EMPLEADO (/employee/*).
+    // Por eso NO debe recibir los adminLink (/calendar, /reviews, /inventory…),
+    // que apuntan a rutas del dashboard admin inexistentes para él: siempre
+    // usa el `link` de empleado (con respaldo a adminLink si ese evento no
+    // trajo link propio).
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: input.tenantId },
+      select: { tenantType: true },
+    });
+    const isFreelancerTenant = tenant?.tenantType === 'FREELANCER';
+
     // Para resolver el link correcto por destinatario: si es admin
     // (tiene permiso employees.create) y hay adminLink, usa adminLink;
     // si no, usa link.
     // Un "Set" es una colección sin duplicados con búsqueda rápida (.has()).
-    // Operador ternario: si hay adminLink, calculamos el set de ids admin;
-    // si no, dejamos un set vacío (no hace falta distinguir).
-    const adminIdSet = input.adminLink
+    // En tenants freelancer no distinguimos admins (todos usan el link de
+    // empleado), así que dejamos el set vacío.
+    const adminIdSet = (!isFreelancerTenant && input.adminLink)
       ? new Set(await this.getAdminUserIds(input.tenantId))
       : new Set<string>();
+
+    // Elige el link final para un destinatario según el portal en que vive.
+    const linkFor = (userId: string): string | null => {
+      if (isFreelancerTenant) return (input.link ?? input.adminLink) ?? null;
+      return (adminIdSet.has(userId) ? input.adminLink : input.link) ?? null;
+    };
 
     // Misma marca de tiempo para todas las notificaciones de esta tanda.
     const now = new Date();
@@ -83,10 +101,8 @@ export class NotifyStaffService {
       section: input.section,
       title: input.title,
       body: input.body,
-      // Elegimos el link: si este userId es admin Y hay adminLink, usamos
-      // adminLink; si no, el link normal. "?? null" => si quedara undefined,
-      // guardamos null (la BD necesita un valor concreto).
-      link: (adminIdSet.has(userId) ? input.adminLink : input.link) ?? null,
+      // Elegimos el link según el portal del destinatario (ver linkFor).
+      link: linkFor(userId),
       // "?? null": guarda null si el campo opcional no vino.
       entityType: input.entityType ?? null,
       entityId: input.entityId ?? null,

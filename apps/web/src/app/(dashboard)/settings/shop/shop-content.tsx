@@ -53,16 +53,20 @@ export function ShopSettingsContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Normalizamos el costo de envío: '' o null → null; si no, número.
+      // Solo enviamos los campos de TIENDA. Los métodos de pago se guardan por
+      // separado en su propia sección (PaymentMethodsContent); no los incluimos
+      // aquí para no pisar cambios hechos allá con valores viejos.
       const payload = {
-        ...settings,
+        shopEnabled: settings.shopEnabled,
+        shopPickupEnabled: settings.shopPickupEnabled,
+        shopShippingEnabled: settings.shopShippingEnabled,
         shopShippingCost:
           settings.shopShippingCost === '' || settings.shopShippingCost === null
             ? null
             : Number(settings.shopShippingCost),
       };
       const res = await api.put<{ data: ShopSettings }>('/api/tenants/shop-settings', payload);
-      setSettings(res.data);
+      setSettings((prev) => ({ ...prev, ...res.data }));
       showSaveSuccess();
     } catch (err: any) {
       alert(err.message || 'Error al guardar');
@@ -177,73 +181,15 @@ export function ShopSettingsContent() {
         )}
       </div>
 
-      {/* Payment Methods */}
-      <div className={`bg-white rounded-xl border border-gray-200 p-5 mb-6 transition-opacity ${settings.shopEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
-        <h2 className="text-sm font-semibold text-gray-900 mb-2">Métodos de pago aceptados</h2>
-        <p className="text-xs text-gray-500 mb-3">
-          Estos son los métodos que tus clientes podrán elegir al apartar un producto.
-          El cobro lo realizas tu directamente.
+      {/* Métodos de pago: ahora viven en su propia sección (independiente de la
+          tienda), porque también los usa el anticipo de citas. */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Métodos de pago</h2>
+        <p className="text-xs text-gray-500">
+          Los métodos de pago que aceptas (efectivo, SPEI, tarjeta) se configuran en
+          <span className="font-medium text-gray-700"> Configuración → Métodos de pago</span>.
+          Aplican tanto a la tienda como al anticipo de citas.
         </p>
-        <Toggle
-          checked={settings.shopPaymentCash}
-          onChange={(v) => setSettings({ ...settings, shopPaymentCash: v })}
-          label="Efectivo"
-          description="Pago en efectivo al recoger o recibir"
-        />
-        <div className="border-t border-gray-100" />
-        <Toggle
-          checked={settings.shopPaymentSpei}
-          onChange={(v) => setSettings({ ...settings, shopPaymentSpei: v })}
-          label="SPEI / Transferencia"
-          description="Transferencia bancaria directa a tu cuenta"
-        />
-        {/* SPEI Bank Details */}
-        {settings.shopPaymentSpei && (
-          <div className="mt-3 mb-1 space-y-3 pl-4 border-l-2" style={{ borderColor: `${TEAL}40` }}>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Banco</label>
-              <input
-                type="text"
-                value={settings.shopSpeiBankName}
-                onChange={(e) => setSettings({ ...settings, shopSpeiBankName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                placeholder="Ej: BBVA, Banorte, Santander..."
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Titular de la cuenta</label>
-              <input
-                type="text"
-                value={settings.shopSpeiHolderName}
-                onChange={(e) => setSettings({ ...settings, shopSpeiHolderName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                placeholder="Nombre completo del titular"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">CLABE interbancaria (18 digitos)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={18}
-                value={settings.shopSpeiClabe}
-                onChange={(e) => setSettings({ ...settings, shopSpeiClabe: e.target.value.replace(/\D/g, '').slice(0, 18) })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                placeholder="000000000000000000"
-              />
-              {settings.shopSpeiClabe && settings.shopSpeiClabe.length !== 18 && (
-                <p className="text-xs text-amber-600 mt-1">{settings.shopSpeiClabe.length}/18 digitos</p>
-              )}
-            </div>
-          </div>
-        )}
-        <div className="border-t border-gray-100" />
-        <Toggle
-          checked={settings.shopPaymentCard}
-          onChange={(v) => setSettings({ ...settings, shopPaymentCard: v })}
-          label="Tarjeta"
-          description="Cobro con tu terminal punto de venta"
-        />
       </div>
 
       {/* Save Button */}

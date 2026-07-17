@@ -18,6 +18,12 @@ const DepositContent = dynamic(
   () => import('@/components/settings/deposit-settings-content').then((mod) => ({ default: mod.DepositSettingsContent })),
   { ssr: false },
 );
+// Métodos de pago (efectivo/SPEI/tarjeta): sección propia, ya no dentro de la
+// tienda. La usa la tienda y el anticipo.
+const PaymentsContent = dynamic(
+  () => import('@/components/settings/payment-methods-content').then((mod) => ({ default: mod.PaymentMethodsContent })),
+  { ssr: false },
+);
 const AppointmentContent = dynamic(
   () => import('@/components/settings/appointment-settings-content').then((mod) => ({ default: mod.AppointmentSettingsContent })),
   { ssr: false },
@@ -30,7 +36,7 @@ const InstallAppContent = dynamic(
 // página existente como contenido de pestaña. Es configuración, así que vive aquí.
 const MessagesContent = dynamic(() => import('./notifications/page'), { ssr: false });
 
-type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'citas' | 'ventas' | 'anticipo' | 'invitaciones' | 'qr' | 'mensajes' | 'app';
+type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'citas' | 'ventas' | 'pagos' | 'anticipo' | 'invitaciones' | 'qr' | 'mensajes' | 'app';
 
 // Cada pestaña muestra su propia ayuda (ⓘ del header) en vez de la genérica.
 const HELP_KEY_BY_TAB: Record<SettingsTab, string> = {
@@ -41,6 +47,7 @@ const HELP_KEY_BY_TAB: Record<SettingsTab, string> = {
   invitaciones: 'set-invitaciones',
   qr: 'set-qr',
   ventas: 'set-ventas',
+  pagos: 'set-ventas',
   anticipo: 'set-anticipo',
   mensajes: 'set-mensajes',
   app: 'set-app',
@@ -54,6 +61,7 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'invitaciones', label: 'Invitaciones' },
   { key: 'qr', label: 'Código QR' },
   { key: 'ventas', label: 'Ventas' },
+  { key: 'pagos', label: 'Métodos de pago' },
   { key: 'anticipo', label: 'Anticipo' },
   { key: 'mensajes', label: 'Mensajes automáticos' },
   { key: 'app', label: 'Instalar app' },
@@ -95,6 +103,7 @@ export default function SettingsPage() {
         {activeTab === 'horarios' && <HoursContent />}
         {activeTab === 'citas' && <AppointmentContent />}
         {activeTab === 'ventas' && <ShopContent />}
+        {activeTab === 'pagos' && <PaymentsContent />}
         {activeTab === 'anticipo' && <DepositContent />}
         {activeTab === 'invitaciones' && <InviteCodesContent />}
         {activeTab === 'qr' && <QRContent />}

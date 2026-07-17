@@ -227,7 +227,9 @@ export class StaffEventsListener {
         title: 'Nueva compra en tu tienda',
         // toFixed(2) formatea el total con 2 decimales (ej. 50 -> "50.00").
         body: `${payload.purchase.customerName} compró ${itemsLabel} ($${payload.purchase.total.toFixed(2)}).`,
-        link: `/reservations?focus=${payload.purchase.id}`,
+        // link = vista empleado (freelancer); adminLink = vista admin.
+        link: `/employee/reports`,
+        adminLink: `/reservations?focus=${payload.purchase.id}`,
         entityType: 'purchase',
         entityId: payload.purchase.id,
         // Solo admins (las ventas de tienda las gestionan ellos).
@@ -261,16 +263,18 @@ export class StaffEventsListener {
       // que la cita realmente exista en el tenant antes de armar el link:
       // si la cita fue eliminada o pertenece a otro tenant, evitamos
       // mandar al admin a un modal vacio "Cita no encontrada".
-      // Empezamos con un link de respaldo a /reports; lo cambiamos solo si la
-      // cita existe. "let" porque puede reasignarse.
-      let link: string = '/reports';
+      // Respaldo a reportes; si la cita existe, apuntamos a su detalle. Damos
+      // ambas variantes: empleado (freelancer) y admin.
+      let link = '/employee/reports';
+      let adminLink = '/reports';
       if (payment.appointmentId) {
         const aptExists = await this.prisma.appointment.findFirst({
           where: { id: payment.appointmentId, tenantId: event.tenantId },
           select: { id: true },
         });
         if (aptExists) {
-          link = `/calendar?appointmentId=${payment.appointmentId}`;
+          link = `/employee/appointments?appointmentId=${payment.appointmentId}`;
+          adminLink = `/calendar?appointmentId=${payment.appointmentId}`;
         }
       }
 
@@ -283,6 +287,7 @@ export class StaffEventsListener {
         // (Prisma puede devolver decimales como un tipo especial Decimal).
         body: `${clientName} pagó ${Number(payment.totalAmount).toFixed(2)} ${payment.currency} (${payment.paymentMethod}).`,
         link,
+        adminLink,
         entityType: 'payment',
         entityId: payment.id,
         audience: { kind: 'admins' },
@@ -344,7 +349,8 @@ export class StaffEventsListener {
         section: 'inventory',
         title: 'Stock bajo',
         body: `${payload.productName} tiene ${payload.stock} unidades (umbral ${payload.threshold}).`,
-        link: `/inventory?focus=${payload.productId}`,
+        link: `/employee/inventory?focus=${payload.productId}`,
+        adminLink: `/inventory?focus=${payload.productId}`,
         entityType: 'product',
         entityId: payload.productId,
         audience: { kind: 'admins' },
@@ -372,7 +378,8 @@ export class StaffEventsListener {
         section: 'reservations',
         title: 'Nuevo apartado',
         body: `${payload.clientName} apartó ${payload.quantity}× ${payload.productName}.`,
-        link: `/reservations?focus=${payload.reservationId}`,
+        link: `/employee/reports`,
+        adminLink: `/reservations?focus=${payload.reservationId}`,
         entityType: 'product_reservation',
         entityId: payload.reservationId,
         audience: { kind: 'admins' },
@@ -505,6 +512,7 @@ export class StaffEventsListener {
         section: 'subscription',
         title: `${m} mes${m === 1 ? '' : 'es'} de regalo`,
         body: `Siliba te regaló ${m} mes${m === 1 ? '' : 'es'} gratis. Tu acceso está cubierto sin cargo hasta el ${hasta}.`,
+        link: `/employee/subscription`,
         adminLink: `/settings?tab=suscripcion`,
         entityType: 'subscription',
         audience: { kind: 'admins' },

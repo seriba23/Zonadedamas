@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { EmployeeSettingsContent } from './settings-content';
 import { AppointmentSettingsContent } from '@/components/settings/appointment-settings-content';
 import { EmployeeHomeServiceContent } from '@/components/settings/employee-home-service-content';
+import { BrowserNotificationsToggle } from '@/components/settings/browser-notifications-toggle';
+import NotificationsContent from '@/app/(dashboard)/settings/notifications/page';
 import { useSectionHelpKey } from '@/lib/section-help-context';
 
 // Cada pestaña muestra su propia ayuda (ⓘ del header).
@@ -124,28 +126,17 @@ export default function EmployeeSettingsPage() {
           </div>
         )}
 
-        {/* ── Notificaciones ── */}
+        {/* ── Notificaciones ──
+            Antes había 3 toggles ESTÁTICOS estilo cliente (sin backend). Ahora:
+            - control real para activar las notificaciones push del navegador;
+            - y, para el freelancer (dueño de su negocio), la MISMA pantalla de
+              plantillas de avisos a clientes que usa el administrador. */}
         {currentTab === 'notificaciones' && (
-          <div className="p-6 max-w-lg mx-auto pb-24 lg:pb-6">
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {[
-                { label: 'Recordatorios de citas', desc: 'Antes y después de tus citas' },
-                { label: 'Ofertas y promociones', desc: 'Descuentos de negocios que visitas' },
-                { label: 'Puntos y recompensas', desc: 'Cuando ganas o puedes canjear puntos' },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="text-sm text-gray-900">{item.label}</p>
-                    <p className="text-xs text-gray-400">{item.desc}</p>
-                  </div>
-                  <div className="relative">
-                    <input type="checkbox" defaultChecked className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] transition-colors cursor-pointer" onClick={(e) => { const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement; input.checked = !input.checked; }} />
-                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5 pointer-events-none" />
-                  </div>
-                </div>
-              ))}
+          <div className="pb-24 lg:pb-6">
+            <div className="p-6 max-w-lg mx-auto">
+              <BrowserNotificationsToggle />
             </div>
+            {isFreelancer && <NotificationsContent />}
           </div>
         )}
 
