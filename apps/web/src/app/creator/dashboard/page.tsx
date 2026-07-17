@@ -75,7 +75,7 @@ export default function CreatorDashboardPage() {
 
   useEffect(() => {
     if (!getCreatorToken()) {
-      router.replace('/creator/login');
+      router.replace('/creator/access');
       return;
     }
     creatorApi

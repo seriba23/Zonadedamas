@@ -47,7 +47,9 @@ export function CoverCropModal({
   // ─── ESTADO LOCAL ─────────────────────────────────────────────────────────
   const [zoom, setZoom] = useState(1);                          // Nivel de zoom (1-3)
   const [offset, setOffset] = useState({ x: 0, y: 0 });        // Desplazamiento de la imagen
+  const [rotation, setRotation] = useState(0);                  // Rotación en grados (-180 a 180)
   const [imageLoaded, setImageLoaded] = useState(false);        // ¿Ya cargó la imagen?
+  const [showHelp, setShowHelp] = useState(false);              // Panel de ayuda (ⓘ) de controles
 
   // ─── REF: Punteros activos en el contenedor ────────────────────────────────
   // Punteros activos en el contenedor (multi-touch para pinch zoom).
@@ -96,6 +98,7 @@ export function CoverCropModal({
       setImageLoaded(true);     // Marcamos como cargada para disparar el dibujo
       setOffset({ x: 0, y: 0 }); // Centramos la imagen
       setZoom(1);               // Reseteamos el zoom
+      setRotation(0);           // Sin rotación al cargar
     };
 
     // URL.createObjectURL: crea una URL temporal para leer el archivo local
@@ -137,9 +140,15 @@ export function CoverCropModal({
     ctx.beginPath();
     ctx.rect(0, 0, PREVIEW_W, PREVIEW_H); // Rectángulo del tamaño exacto del canvas
     ctx.clip(); // Todo lo que dibujemos queda dentro del rectángulo
+    // Rotación alrededor del centro del recuadro (si rotation === 0 no hace nada).
+    if (rotation !== 0) {
+      ctx.translate(PREVIEW_W / 2, PREVIEW_H / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-PREVIEW_W / 2, -PREVIEW_H / 2);
+    }
     ctx.drawImage(img, x, y, scaledW, scaledH); // Dibujamos la imagen
     ctx.restore();
-  }, [zoom, offset]); // Se recrea solo si zoom u offset cambian
+  }, [zoom, offset, rotation]); // Se recrea si zoom, offset o rotación cambian
 
   // ─── EFECTO 2: Redibujar cuando la imagen está lista o cambia el estado ───
   useEffect(() => {
@@ -293,6 +302,18 @@ export function CoverCropModal({
   function fitToFrame() {
     setZoom(1);               // Zoom mínimo: imagen cubre exactamente el recuadro
     setOffset({ x: 0, y: 0 }); // Centrada
+    setRotation(0);            // Sin rotación
+  }
+
+  // ─── Botón "Girar 90°" ────────────────────────────────────────────────────
+  // Suma 90° y normaliza al rango (-180, 180]. Con esquinas visibles al rotar,
+  // el usuario puede subir el zoom para volver a cubrir el recuadro.
+  function rotate90() {
+    setRotation((r) => {
+      let next = r + 90;
+      if (next > 180) next -= 360;
+      return next;
+    });
   }
 
   // ─── FUNCIÓN: handleAccept ────────────────────────────────────────────────
@@ -319,6 +340,14 @@ export function CoverCropModal({
     // (pueden ser diferentes porque la portada no es cuadrada)
     const outputScaleX = OUTPUT_W / PREVIEW_W;
     const outputScaleY = OUTPUT_H / PREVIEW_H;
+
+    // Rotación alrededor del centro del output (equivale a la del preview, ya
+    // que ambos rotan alrededor de su centro). Solo si hay rotación.
+    if (rotation !== 0) {
+      ctx.translate(OUTPUT_W / 2, OUTPUT_H / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-OUTPUT_W / 2, -OUTPUT_H / 2);
+    }
 
     // Dibujamos la imagen en el canvas de output con coordenadas escaladas
     ctx.drawImage(
@@ -352,9 +381,31 @@ export function CoverCropModal({
         className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6"
         onClick={(e) => e.stopPropagation()} // Evita cerrar al hacer click dentro
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-1 text-center">
-          Ajustar portada
-        </h3>
+        <div className="flex items-center justify-center gap-1.5 mb-1">
+          <h3 className="text-lg font-semibold text-gray-900 text-center">
+            Ajustar portada
+          </h3>
+          {/* Icono ⓘ: explica los controles (mover / escalar / rotar). */}
+          <button
+            type="button"
+            onClick={() => setShowHelp((v) => !v)}
+            aria-label="Cómo ajustar la imagen"
+            className={`w-5 h-5 flex items-center justify-center rounded-full border transition-colors ${showHelp ? 'bg-[#008080] border-[#008080] text-white' : 'border-gray-300 text-gray-400 hover:text-[#008080] hover:border-[#008080]'}`}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Panel de ayuda desplegable con los 3 controles. */}
+        {showHelp && (
+          <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600 space-y-1.5">
+            <p><span className="font-semibold text-gray-800">Mover:</span> arrastra la imagen con un dedo o el ratón.</p>
+            <p><span className="font-semibold text-gray-800">Escalar:</span> usa el control de zoom o pellizca con dos dedos.</p>
+            <p><span className="font-semibold text-gray-800">Rotar:</span> usa el control de giro o el botón "Girar 90°".</p>
+          </div>
+        )}
         {/* Muestra las dimensiones recomendadas según el aspecto */}
         <p className="text-xs text-gray-400 text-center mb-4">
           Tamaño recomendado: {isLandscape ? '1200 x 430 px (horizontal)' : '720 x 1280 px (vertical)'}
@@ -422,6 +473,20 @@ export function CoverCropModal({
             </svg>
             Ajustar al recuadro
           </button>
+
+          {/* Botón Girar 90°: rota la imagen en pasos de 90 grados */}
+          <button
+            type="button"
+            onClick={rotate90}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+            title="Girar la imagen 90 grados"
+          >
+            {/* Ícono de rotación */}
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992V4.356M3.5 12a8.5 8.5 0 0114.5-6.01l3-2.99M20.485 14.652a8.5 8.5 0 01-14.5 6.01l-3 2.99" />
+            </svg>
+            Girar 90°
+          </button>
         </div>
 
         {/* Zoom slider */}
@@ -448,9 +513,31 @@ export function CoverCropModal({
           </svg>
         </div>
 
+        {/* Rotation slider */}
+        <div className="flex items-center gap-3 mb-6 px-2">
+          {/* Ícono de rotación (izquierda) */}
+          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992V4.356M3.5 12a8.5 8.5 0 0114.5-6.01l3-2.99M20.485 14.652a8.5 8.5 0 01-14.5 6.01l-3 2.99" />
+          </svg>
+
+          {/* Slider de rotación: -180 a 180 grados, pasos de 1 */}
+          <input
+            type="range"
+            min={-180}
+            max={180}
+            step={1}
+            value={rotation}
+            onChange={(e) => setRotation(parseInt(e.target.value, 10))}
+            className="flex-1 accent-primary-600"
+          />
+
+          {/* Grados actuales */}
+          <span className="text-xs text-gray-400 flex-shrink-0 w-10 text-right tabular-nums">{rotation}°</span>
+        </div>
+
         {/* Instrucciones */}
         <p className="text-xs text-gray-400 text-center mb-4">
-          Arrastra para mover. Desliza el control o usa <span className="font-medium">pellizco con dos dedos</span> para hacer zoom.
+          Arrastra para mover. Zoom con el control o <span className="font-medium">pellizco de dos dedos</span>. Gira con el control de rotación o "Girar 90°".
         </p>
 
         {/* 3 buttons */}

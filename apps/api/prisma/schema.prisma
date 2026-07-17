@@ -273,6 +273,9 @@ model Tenant {
   tenantType           TenantType @default(BUSINESS) @map("tenant_type")
   shopEnabled          Boolean   @default(false) @map("shop_enabled")
   shopPickupEnabled    Boolean   @default(true) @map("shop_pickup_enabled")
+  // Tiempo máximo (en horas) que el cliente tiene para recoger su producto
+  // apartado antes de que expire. null = sin límite.
+  shopPickupMaxHours   Int?      @map("shop_pickup_max_hours")
   shopShippingEnabled  Boolean   @default(false) @map("shop_shipping_enabled")
   // Costo de envío PLANO por pedido (a nivel tienda). Se cobra una sola vez por
   // compra cuando el pedido es a domicilio, sin importar cuántos productos lleve.

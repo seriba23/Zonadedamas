@@ -782,7 +782,9 @@ export default function EditProfilePage() {
         />
       )}
 
-      <SuccessPopup show={!!successPopup} title={successPopup?.title || ''} message={successPopup?.message} onClose={() => setSuccessPopup(null)} />
+      {/* Al cerrar el popup de "Perfil actualizado" salimos de la edición
+          (volvemos a Ajustes), como pidió el usuario. */}
+      <SuccessPopup show={!!successPopup} title={successPopup?.title || ''} message={successPopup?.message} onClose={() => { setSuccessPopup(null); router.push('/marketplace/settings'); }} />
     </div>
   );
 }

@@ -175,6 +175,45 @@ export class CreatorPortalService {
     };
   }
 
+  // ── applyFromSession(): "solicitar unirme" SIN login aparte ──
+  // El usuario ya está autenticado en su consola de Siliba (empleado / freelancer
+  // / administrador). En vez de pedirle que cree una cuenta de creador con
+  // contraseña, creamos su solicitud (PENDING) a partir de su sesión: tomamos su
+  // correo y su nombre/teléfono de su cuenta Siliba. Cuando el super-admin lo
+  // apruebe, entrará al portal por SSO (tokenFromSession), sin contraseña.
+  //
+  // Es idempotente: si ya existe un creador con ese correo, devolvemos su estado
+  // actual en vez de duplicar o de romper con un 409.
+  async applyFromSession(email: string) {
+    const normalized = (email || '').toLowerCase().trim();
+    if (!normalized) throw new UnauthorizedException('Sesión inválida');
+
+    const existing = await this.prisma.influencer.findUnique({
+      where: { email: normalized },
+    });
+    if (existing) {
+      return { applied: true, alreadyExisted: true, influencer: this.publicProfile(existing) };
+    }
+
+    // Nombre/teléfono desde la cuenta Siliba (mismo correo).
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalized },
+      select: { firstName: true, lastName: true, phone: true },
+    });
+
+    const influencer = await this.prisma.influencer.create({
+      data: {
+        email: normalized,
+        firstName: user?.firstName?.trim() || 'Creador',
+        lastName: user?.lastName?.trim() || '',
+        phone: user?.phone?.trim() || null,
+        status: 'PENDING', // pendiente de aprobación del super-admin
+        // sin passwordHash: la entrada es por SSO una vez aprobado
+      },
+    });
+    return { applied: true, alreadyExisted: false, influencer: this.publicProfile(influencer) };
+  }
+
   // ── register(): auto-registro de un creador nuevo (queda pendiente) ──
   async register(dto: CreatorRegisterDto) {
     // Normalizamos el email igual que en login.

@@ -787,6 +787,7 @@ export class TenantsService {
       select: {
         shopEnabled: true,
         shopPickupEnabled: true,
+        shopPickupMaxHours: true,
         shopShippingEnabled: true,
         shopShippingCost: true,
         shopPaymentCash: true,
@@ -809,6 +810,7 @@ export class TenantsService {
     // copiamos a "data". Así no pisamos con undefined los valores existentes.
     if (dto.shopEnabled !== undefined) data.shopEnabled = dto.shopEnabled;
     if (dto.shopPickupEnabled !== undefined) data.shopPickupEnabled = dto.shopPickupEnabled;
+    if (dto.shopPickupMaxHours !== undefined) data.shopPickupMaxHours = dto.shopPickupMaxHours;
     if (dto.shopShippingEnabled !== undefined) data.shopShippingEnabled = dto.shopShippingEnabled;
     if (dto.shopShippingCost !== undefined) data.shopShippingCost = dto.shopShippingCost;
     if (dto.shopPaymentCash !== undefined) data.shopPaymentCash = dto.shopPaymentCash;
@@ -825,6 +827,7 @@ export class TenantsService {
       select: {
         shopEnabled: true,
         shopPickupEnabled: true,
+        shopPickupMaxHours: true,
         shopShippingEnabled: true,
         shopShippingCost: true,
         shopPaymentCash: true,

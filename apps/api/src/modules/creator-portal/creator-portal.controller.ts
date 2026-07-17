@@ -89,6 +89,17 @@ export class CreatorPortalController {
     return { data };
   }
 
+  // POST /api/creator/auth/apply-from-session — "solicitar unirme" al programa
+  // usando la sesión de Siliba ya activa (sin crear un login aparte). Crea la
+  // solicitud PENDING con el correo/nombre de la cuenta. Protegido por el JWT
+  // principal (el usuario debe estar logueado en Siliba).
+  @UseGuards(JwtAuthGuard)
+  @Post('auth/apply-from-session')
+  async applyFromSession(@Req() req: any) {
+    const data = await this.service.applyFromSession(req.user.email);
+    return { data };
+  }
+
   // ─── Protegido (creator-jwt) ──────────────────────
   // (A partir de aquí, todos los endpoints llevan @UseGuards(CreatorJwtGuard):
   //  exigen un token de creador válido. El guard pone los datos del creador en

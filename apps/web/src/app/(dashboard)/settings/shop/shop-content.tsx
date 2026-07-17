@@ -11,6 +11,7 @@ const TEAL_LIGHT = '#e0f2f1';
 interface ShopSettings {
   shopEnabled: boolean;
   shopPickupEnabled: boolean;
+  shopPickupMaxHours: number | string | null;
   shopShippingEnabled: boolean;
   shopShippingCost: number | string | null;
   shopPaymentCash: boolean;
@@ -25,6 +26,7 @@ export function ShopSettingsContent() {
   const [settings, setSettings] = useState<ShopSettings>({
     shopEnabled: false,
     shopPickupEnabled: true,
+    shopPickupMaxHours: '',
     shopShippingEnabled: false,
     shopShippingCost: '',
     shopPaymentCash: true,
@@ -59,6 +61,10 @@ export function ShopSettingsContent() {
       const payload = {
         shopEnabled: settings.shopEnabled,
         shopPickupEnabled: settings.shopPickupEnabled,
+        shopPickupMaxHours:
+          settings.shopPickupMaxHours === '' || settings.shopPickupMaxHours === null
+            ? null
+            : Number(settings.shopPickupMaxHours),
         shopShippingEnabled: settings.shopShippingEnabled,
         shopShippingCost:
           settings.shopShippingCost === '' || settings.shopShippingCost === null
@@ -157,6 +163,21 @@ export function ShopSettingsContent() {
           label="Recoger en tienda"
           description="Los clientes recogen su producto en tu local"
         />
+        {settings.shopPickupEnabled && (
+          <div className="pl-1 pt-1 pb-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Tiempo máximo para recoger (horas)</label>
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={settings.shopPickupMaxHours ?? ''}
+              onChange={(e) => setSettings({ ...settings, shopPickupMaxHours: e.target.value })}
+              placeholder="Ej: 48"
+              className="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Cuánto tiempo tiene el cliente para pasar por su apartado. Déjalo vacío para no poner límite.</p>
+          </div>
+        )}
         <div className="border-t border-gray-100" />
         <Toggle
           checked={settings.shopShippingEnabled}

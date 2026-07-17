@@ -563,15 +563,14 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">Relación</label><select value={personalForm.emergencyContactRelation} onChange={(e) => setPersonalForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field"><option value="">—</option>{RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
               </div>
 
-              {/* Botones de acción: Guardar y Cancelar */}
-              <div className="flex gap-2 pt-2">
-                {/* Botón Guardar:
-                    "onClick={() => saveMutation.mutate()": llama a la mutación de guardado.
-                    "disabled={saveMutation.isPending}": desactiva el botón mientras guarda.
-                    "disabled:opacity-50": si está desactivado, se vuelve semi-transparente. */}
-                <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>{saveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
+              {/* Botones de acción: Guardar (grande, abajo) y Cancelar.
+                  Al guardar, la mutación recarga y el formulario vuelve a modo
+                  sólo lectura → efecto de "salir de la edición". */}
+              <div className="flex gap-2 pt-3">
                 {/* Botón Cancelar: vuelve al modo de sólo lectura (oculta el formulario) */}
-                <button onClick={() => setIsEditing(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50">Cancelar</button>
+                <button onClick={() => setIsEditing(false)} className="px-4 py-3 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50">Cancelar</button>
+                {/* Botón Guardar: grande y ocupa el resto del ancho. */}
+                <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>{saveMutation.isPending ? 'Guardando...' : 'Guardar'}</button>
               </div>
             </div>
           )}

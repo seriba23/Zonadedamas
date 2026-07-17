@@ -160,7 +160,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     //   2. La ruta no es de autenticación (no contiene '/auth/')
     //      para evitar un bucle infinito si /auth/login mismo devuelve 401.
     if (typeof window !== 'undefined' && !path.includes('/auth/')) {
-      window.location.href = '/creator/login';  // redirección dura al login
+      // El portal de creadores ya no tiene login propio: al expirar el token,
+      // reintentamos el SSO desde la puerta de acceso.
+      window.location.href = '/creator/access';
     }
   }
 
@@ -253,6 +255,21 @@ export async function creatorLoginFromSession() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FUNCIÓN: creatorApplyFromSession
+// ─────────────────────────────────────────────────────────────────────────────
+// "Solicitar unirme" al programa de creadores usando la sesión de Siliba activa,
+// SIN crear un login aparte. Crea la solicitud (queda PENDING). Cuando el
+// super-admin la apruebe, el usuario entrará por SSO (creatorLoginFromSession).
+// Idempotente: si ya existe una solicitud/cuenta con ese correo, devuelve su
+// estado actual.
+export async function creatorApplyFromSession() {
+  const res = await api.post<{ data: { applied: boolean; alreadyExisted: boolean; influencer: CreatorProfile } }>(
+    '/api/creator/auth/apply-from-session',
+  );
+  return res.data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FUNCIÓN: creatorRegister
 // ─────────────────────────────────────────────────────────────────────────────
 // Registra un nuevo creador/influencer en la plataforma.
@@ -339,6 +356,9 @@ export async function creatorChangePassword(currentPassword: string, newPassword
 //
 // No devuelve nada (void). La redirección cambia la página del navegador.
 export function creatorLogout() {
-  setCreatorToken(null);                                                       // borra el token local
-  if (typeof window !== 'undefined') window.location.href = '/creator/login'; // redirige al login
+  setCreatorToken(null);                                                       // borra el token de creador
+  // Ya no hay login de creador: al salir del portal volvemos a la app de Siliba
+  // (la sesión principal sigue activa). "?end=1" evita que la puerta de acceso
+  // vuelva a entrar por SSO automáticamente.
+  if (typeof window !== 'undefined') window.location.href = '/creator/access?end=1';
 }

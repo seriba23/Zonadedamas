@@ -52,7 +52,7 @@ export default function CreatorIntroPage() {
       typeof window !== 'undefined' &&
       (localStorage.getItem(INTRO_SEEN_KEY) === '1' || !!getCreatorToken());
     if (seen) {
-      router.replace('/creator/login');
+      router.replace('/creator/access');
       return;
     }
     setReady(true);
@@ -73,10 +73,11 @@ export default function CreatorIntroPage() {
     el.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' });
   }
 
-  // acceder: marca la intro como vista (para no repetirla) y va al login.
+  // acceder: marca la intro como vista (para no repetirla) y va a la puerta de
+  // acceso, que entra por SSO con la sesión de Siliba (sin login propio).
   function acceder() {
     markCreatorIntroSeen();
-    router.push('/creator/login');
+    router.push('/creator/access');
   }
 
   // Mientras decidimos si saltar la intro, no pintamos (evita flash).
