@@ -1066,6 +1066,10 @@ export class AuthService {
             lastName: matchedUser.lastName,
             tenantId: matchedUser.tenantId,
             tenantName: matchedUser.tenant?.name ?? null,
+            // tenantType: el frontend lo usa para redirigir al freelancer a
+            // /employee y para mostrar el badge PLUS (freelancer + admin).
+            // Paridad con login() por contraseña, que ya lo incluía.
+            tenantType: matchedUser.tenant?.tenantType ?? 'BUSINESS',
             employeeId: matchedUser.employee?.id ?? null,
             avatarUrl: matchedUser.avatarUrl,
             permissions: tokens.permissions,

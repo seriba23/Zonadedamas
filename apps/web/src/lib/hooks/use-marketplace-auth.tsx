@@ -30,6 +30,10 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 // ReactNode: tipo TypeScript para cualquier contenido renderable por React
 import { marketplaceApi } from '../marketplace-api';
 // marketplaceApi: cliente HTTP para rutas del marketplace (/api/marketplace/...)
+import { api } from '../api';
+// api: cliente HTTP del dashboard/negocio. Lo usamos SOLO para, cuando el mismo
+// correo tiene cuenta de negocio, traer y persistir la sesión profesional/admin
+// tras el login social (así se habilita el cambio a ese perfil y el badge PLUS).
 import { portalApi } from '../portal-api';
 // portalApi: cliente HTTP para rutas del portal de cliente (/api/portal/:tenantSlug/...)
 // Se usa en enterBusiness para configurar la sesión del portal
@@ -329,9 +333,31 @@ export function MarketplaceAuthProvider({ children }: { children: ReactNode }) {
       // marketplaceApi.socialLoginAndStore: POST /auth/social + guarda tokens
       const result = await marketplaceApi.socialLoginAndStore(provider, token);
       // Separamos isNewUser del resto de datos del usuario
-      const { isNewUser, isFirstLogin, ...userData } = result as any;
+      const { isNewUser, isFirstLogin, hasBusiness, ...userData } = result as any;
       setUser(userData);  // Guardamos datos básicos
       fetchFullUser();    // Cargamos datos completos en segundo plano
+
+      // UNIFICACIÓN DE CUENTAS: si este mismo correo también tiene cuenta de
+      // negocio (profesional/admin), pedimos la sesión unificada y persistimos
+      // ADEMÁS la sesión de negocio. Así el usuario que entró con Google puede
+      // cambiar a su perfil profesional/admin y ver el badge PLUS, sin quedar
+      // atrapado como "solo cliente". El token de Google sigue siendo válido
+      // para una segunda verificación dentro de su ventana.
+      if (hasBusiness) {
+        try {
+          const res = await api.post<{ data: any }>('/api/auth/social', { provider, token });
+          const d = res.data;
+          if (d?.business?.accessToken && d?.business?.refreshToken) {
+            api.setAccessToken(d.business.accessToken);
+            localStorage.setItem('refreshToken', d.business.refreshToken);
+            localStorage.setItem('user', JSON.stringify(d.business.user));
+          }
+        } catch {
+          // Si falla, el usuario sigue con su sesión de cliente (no bloqueamos
+          // el login del marketplace por un problema al traer la sesión de negocio).
+        }
+      }
+
       // Primer login social (cuenta nueva o sin login previo) = entrada limpia.
       reloadProfiles().then((list) => applyPostLoginProfile(list, !!isFirstLogin));
       return result;      // Devolvemos con isNewUser para que el componente pueda

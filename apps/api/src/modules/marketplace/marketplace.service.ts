@@ -514,6 +514,11 @@ export class MarketplaceService {
       refreshToken: tokens.refreshToken,
       isNewUser, // el frontend puede mostrar un onboarding si es nuevo
       isFirstLogin, // true si nunca antes había iniciado sesión (por cuenta)
+      // ¿Este correo también tiene cuenta de negocio (profesional/admin)? Si es
+      // así, el frontend pedirá además la sesión de negocio al endpoint
+      // unificado (/api/auth/social) para habilitar el cambio a ese perfil y el
+      // badge PLUS. Aditivo: no cambia nada del flujo de cliente.
+      hasBusiness: !!user.tenantId,
       user: {
         id: user.id,
         email: user.email,

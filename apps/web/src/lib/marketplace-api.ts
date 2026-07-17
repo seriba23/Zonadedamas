@@ -316,7 +316,14 @@ class MarketplaceApiClient {
     const data = res.data;
     this.accessToken = data.accessToken;
     this.setRefreshToken(data.refreshToken);
-    return { ...data.user, isNewUser: !!data.isNewUser, isFirstLogin: !!data.isFirstLogin };
+    // hasBusiness: el mismo correo también tiene cuenta de negocio. El hook lo
+    // usa para traer y guardar la sesión profesional/admin (perfil + PLUS).
+    return {
+      ...data.user,
+      isNewUser: !!data.isNewUser,
+      isFirstLogin: !!data.isFirstLogin,
+      hasBusiness: !!data.hasBusiness,
+    };
   }
 
   // Cierra la sesión: notifica al backend para invalidar el refreshToken
