@@ -995,4 +995,33 @@ export class PlatformAdminService {
     await this.prisma.profession.delete({ where: { id } });
     return { data: { message: 'Profesion eliminada' } };
   }
+
+  // ─── Catálogo de TIPOS DE CLASE (karate, natación, yoga...) ───────────────
+  // Mismo patrón que las profesiones. Alimenta la sección "Clases" del
+  // marketplace.
+  async getClassTypes() {
+    const classTypes = await this.prisma.classType.findMany({
+      orderBy: { name: 'asc' },
+    });
+    return { data: classTypes };
+  }
+  async createClassType(name: string) {
+    const classType = await this.prisma.classType.create({
+      data: { name: name.trim() },
+    });
+    return { data: classType };
+  }
+  async updateClassType(id: string, newName: string) {
+    const classType = await this.prisma.classType.findUnique({ where: { id } });
+    if (!classType) throw new NotFoundException('Tipo de clase no encontrado');
+    const updated = await this.prisma.classType.update({
+      where: { id },
+      data: { name: newName.trim() },
+    });
+    return { data: updated };
+  }
+  async deleteClassType(id: string) {
+    await this.prisma.classType.delete({ where: { id } });
+    return { data: { message: 'Tipo de clase eliminado' } };
+  }
 }

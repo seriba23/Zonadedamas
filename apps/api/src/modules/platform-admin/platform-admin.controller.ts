@@ -364,4 +364,31 @@ export class PlatformAdminController {
   async deleteProfession(@Param('id') id: string) {
     return this.adminService.deleteProfession(id);
   }
+
+  // ─── CLASS TYPES CATALOG (catálogo de tipos de clase) ───────────────────────
+  // Karate, natación, yoga, etc. Alimenta la sección "Clases" del marketplace.
+
+  // ── GET /api/platform/class-types ─────────────────────────────────────────
+  @Get('class-types')
+  async getClassTypes() {
+    return this.adminService.getClassTypes();
+  }
+
+  // ── POST /api/platform/class-types ────────────────────────────────────────
+  @Post('class-types')
+  async createClassType(@Body() body: { name: string }) {
+    return this.adminService.createClassType(body.name);
+  }
+
+  // ── PATCH /api/platform/class-types/:id ───────────────────────────────────
+  @Patch('class-types/:id')
+  async updateClassType(@Param('id') id: string, @Body() body: { name: string }) {
+    return this.adminService.updateClassType(id, body.name);
+  }
+
+  // ── DELETE /api/platform/class-types/:id ──────────────────────────────────
+  @Delete('class-types/:id')
+  async deleteClassType(@Param('id') id: string) {
+    return this.adminService.deleteClassType(id);
+  }
 }
