@@ -525,7 +525,7 @@ export default function MarketplacePage() {
                 {/* Tab "Negocios": activo cuando viewTab === 'negocios'. */}
                 <button
                   onClick={() => { setViewTab('negocios'); }}
-                  className={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${viewTab === 'negocios' ? 'text-white' : 'text-[#5b6e6a]'}`}
+                  className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${viewTab === 'negocios' ? 'text-white' : 'text-[#5b6e6a]'}`}
                   style={viewTab === 'negocios' ? { backgroundColor: '#008080' } : {}}
                 >
                   Negocios
@@ -533,9 +533,16 @@ export default function MarketplacePage() {
                 {/* Tab "Profesionales": al hacer click navegamos a /marketplace/professionals. */}
                 <button
                   onClick={() => { setViewTab('profesionales'); router.push('/marketplace/professionals'); }}
-                  className="px-6 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
+                  className="px-4 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
                 >
                   Profesionales
+                </button>
+                {/* Tab "Clases": lleva a la sección de clases. */}
+                <button
+                  onClick={() => { router.push('/marketplace/classes'); }}
+                  className="px-4 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
+                >
+                  Clases
                 </button>
               </div>
             </div>

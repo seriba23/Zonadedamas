@@ -2021,6 +2021,101 @@ export class MarketplaceService {
     };
   }
 
+  // discoverClasses(): lista los negocios/profesionales que ofrecen CLASES
+  // (servicios etiquetados con un tipo de clase). Es la sección "Clases" del
+  // marketplace. Filtro opcional por tipo de clase y por texto.
+  async discoverClasses(dto: {
+    search?: string;
+    classTypeId?: string;
+    perPage?: number;
+    page?: number;
+  }) {
+    const { search, classTypeId, perPage = 20, page = 1 } = dto;
+    const skip = (page - 1) * perPage;
+
+    // Condición del servicio-clase: activo y con tipo de clase (opcionalmente
+    // del tipo pedido).
+    const classServiceWhere: any = { isActive: true, classTypeId: { not: null } };
+    if (classTypeId) classServiceWhere.classTypeId = classTypeId;
+
+    // Negocio listado, suscripción válida y con al menos un servicio-clase.
+    const where: any = {
+      isMarketplaceListed: true,
+      subscriptionStatus: { in: ['active', 'ACTIVE', 'TRIAL'] },
+      services: { some: classServiceWhere },
+    };
+    if (search) {
+      const s = search.replace('#', '').trim();
+      where.OR = [
+        { name: { contains: s } },
+        { services: { some: { ...classServiceWhere, name: { contains: s } } } },
+        { services: { some: { ...classServiceWhere, classType: { name: { contains: s } } } } },
+      ];
+    }
+
+    const [tenants, total] = await Promise.all([
+      this.prisma.tenant.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          address: true,
+          businessType: true,
+          logoUrl: true,
+          coverImageUrl: true,
+          tenantType: true,
+          services: {
+            where: classServiceWhere,
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              isMonthly: true,
+              classType: { select: { id: true, name: true } },
+            },
+            orderBy: { name: 'asc' },
+            take: 8,
+          },
+        },
+      }),
+      this.prisma.tenant.count({ where }),
+    ]);
+
+    // Derivamos, por negocio, la lista de nombres de tipo de clase que ofrece.
+    const data = tenants.map((t) => {
+      const classTypeNames = Array.from(
+        new Set(t.services.map((s) => s.classType?.name).filter(Boolean) as string[]),
+      );
+      return {
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        address: t.address,
+        businessType: t.businessType,
+        logoUrl: t.logoUrl,
+        coverImageUrl: t.coverImageUrl,
+        tenantType: t.tenantType,
+        classTypes: classTypeNames,
+        classes: t.services.map((s) => ({
+          id: s.id,
+          name: s.name,
+          price: s.price,
+          isMonthly: s.isMonthly,
+          classType: s.classType?.name ?? null,
+        })),
+      };
+    });
+
+    return {
+      data,
+      meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
+    };
+  }
+
   // getProfessionalProfile(): perfil público completo de un profesional:
   // datos, estadísticas, portafolio de fotos, servicios, top de servicios y
   // reseñas recientes.

@@ -609,6 +609,23 @@ export class MarketplaceController {
     });
   }
 
+  // GET /api/marketplace/classes => negocios/profesionales que ofrecen clases
+  // (servicios etiquetados como clase). Filtro opcional por tipo y por texto.
+  @Get('classes')
+  async discoverClasses(
+    @Query('search') search?: string,
+    @Query('classTypeId') classTypeId?: string,
+    @Query('perPage') perPage?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.marketplaceService.discoverClasses({
+      search,
+      classTypeId,
+      perPage: perPage ? parseInt(perPage, 10) : 20,
+      page: page ? parseInt(page, 10) : 1,
+    });
+  }
+
   // GET /api/marketplace/professional/:tenantSlug/:employeeId => perfil público
   // de un profesional concreto dentro de un negocio.
   @Get('professional/:tenantSlug/:employeeId')

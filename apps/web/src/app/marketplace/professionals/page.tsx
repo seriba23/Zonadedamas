@@ -394,21 +394,27 @@ export default function ProfessionalsPage() {
             )}
           </div>
 
-          {/* Selector Negocios | Profesionales — cápsula redondeada estilo POS
-              de administrador (activo teal sólido). */}
+          {/* Selector Negocios | Profesionales | Clases — cápsula redondeada
+              estilo POS de administrador (activo teal sólido). */}
           <div className="flex justify-center">
             <div className="inline-flex p-1 rounded-full" style={{ backgroundColor: 'var(--soft-tint)' }}>
               <button
                 onClick={() => router.push('/marketplace')}
-                className="px-6 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
+                className="px-4 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
               >
                 Negocios
               </button>
               <button
-                className="px-6 py-2 rounded-full text-sm font-bold transition-colors text-white"
+                className="px-4 py-2 rounded-full text-sm font-bold transition-colors text-white"
                 style={{ backgroundColor: '#008080' }}
               >
                 Profesionales
+              </button>
+              <button
+                onClick={() => router.push('/marketplace/classes')}
+                className="px-4 py-2 rounded-full text-sm font-bold transition-colors text-[#5b6e6a]"
+              >
+                Clases
               </button>
             </div>
           </div>
