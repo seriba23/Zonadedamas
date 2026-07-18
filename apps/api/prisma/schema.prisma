@@ -833,12 +833,19 @@ model Service {
   // ¿Este servicio se puede realizar A DOMICILIO? Cuando es true, el servicio
   // aparece en el flujo de reserva "a domicilio" (dentro del área de cobertura).
   homeServiceEnabled  Boolean  @default(false) @map("home_service_enabled")
+  // Si el servicio es una CLASE, apunta a su tipo (Yoga, Karate...). El negocio
+  // aparece entonces en la sección "Clases" del marketplace. null = no es clase.
+  classTypeId         String?  @map("class_type_id")
+  // Solo para servicios-clase: cobro mensual (mensualidad). El precio se
+  // interpreta como "por mes". El cobro es manual (efectivo/tarjeta/transferencia).
+  isMonthly           Boolean  @default(false) @map("is_monthly")
   isActive            Boolean  @default(true) @map("is_active")
   sortOrder           Int      @default(0) @map("sort_order")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  classType        ClassType?         @relation(fields: [classTypeId], references: [id], onDelete: SetNull)
   employeeServices EmployeeService[]
   addons           ServiceAddon[]
   appointmentItems AppointmentItem[]
@@ -1759,6 +1766,8 @@ model ClassType {
   isActive  Boolean  @default(true) @map("is_active")
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
+
+  services  Service[]
 
   @@map("class_types")
 }

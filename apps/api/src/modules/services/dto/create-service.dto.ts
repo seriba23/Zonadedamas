@@ -117,6 +117,17 @@ export class CreateServiceDto {
   @IsBoolean()
   homeServiceEnabled?: boolean;
 
+  // classTypeId: si el servicio es una CLASE, id del tipo de clase (catálogo del
+  // super-admin). null/'' = no es clase. Opcional.
+  @IsOptional()
+  @IsString()
+  classTypeId?: string | null;
+
+  // isMonthly: solo para clases — cobro mensual (mensualidad). Opcional.
+  @IsOptional()
+  @IsBoolean()
+  isMonthly?: boolean;
+
   // locationId: id de la sucursal a la que pertenece el servicio. Opcional, y si
   // viene debe ser un UUID versión 4 (IsUUID('4')).
   @IsOptional()
@@ -211,4 +222,14 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsBoolean()
   homeServiceEnabled?: boolean;
+
+  // classTypeId: id del tipo de clase, o null/'' para dejar de ser clase.
+  @IsOptional()
+  @IsString()
+  classTypeId?: string | null;
+
+  // isMonthly: cobro mensual (solo clases).
+  @IsOptional()
+  @IsBoolean()
+  isMonthly?: boolean;
 }

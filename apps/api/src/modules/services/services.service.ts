@@ -237,10 +237,16 @@ export class ServicesService {
   // create(): crea un servicio nuevo para el tenant.
   // ───────────────────────────────────────────────────────────────────────────
   async create(tenantId: string, dto: CreateServiceDto) {
+    // Clase: '' → null. La mensualidad solo aplica a clases; si no es clase,
+    // la forzamos a false.
+    const classTypeId = dto.classTypeId ? dto.classTypeId : null;
+    const isMonthly = classTypeId ? (dto.isMonthly ?? false) : false;
     const service = await this.prisma.service.create({
       data: {
         // "...dto" (spread): copia TODOS los campos del dto dentro de data.
         ...dto,
+        classTypeId,
+        isMonthly,
         tenantId,
         // "dto.isActive ?? true": si el dto no trae isActive, lo creamos activo.
         isActive: dto.isActive ?? true,
@@ -288,10 +294,17 @@ export class ServicesService {
     // Reusamos findOne: si el servicio no existe (o es de otro tenant) lanzará
     // 404 y cortará aquí, evitando actualizar algo ajeno o inexistente.
     await this.findOne(id, tenantId);
+    // Normalizamos el etiquetado de clase: '' → null; y si deja de ser clase,
+    // quitamos la mensualidad.
+    const data: any = { ...dto };
+    if ('classTypeId' in dto) {
+      data.classTypeId = dto.classTypeId ? dto.classTypeId : null;
+      if (!data.classTypeId) data.isMonthly = false;
+    }
     // Aplicamos los cambios del dto al servicio identificado por id.
     return this.prisma.service.update({
       where: { id },
-      data: dto,
+      data,
     });
   }
 

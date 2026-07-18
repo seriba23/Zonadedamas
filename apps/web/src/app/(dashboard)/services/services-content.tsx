@@ -28,6 +28,9 @@ interface Service {
   depositRequired?: boolean;
   depositPercent?: number | null;
   homeServiceEnabled?: boolean;
+  classTypeId?: string | null;
+  isMonthly?: boolean;
+  classType?: { id: string; name: string } | null;
   _count?: { employeeServices: number };
 }
 
@@ -44,6 +47,9 @@ interface ServiceForm {
   redeemableWithPoints: boolean;
   pointsRequired: number | string;
   homeServiceEnabled: boolean;
+  // Clase: id del tipo de clase ('' = no es clase) y si es mensualidad.
+  classTypeId: string;
+  isMonthly: boolean;
 }
 
 // No defaults — categories come from service catalog (professions)
@@ -62,6 +68,8 @@ const defaultForm: ServiceForm = {
   redeemableWithPoints: false,
   pointsRequired: '',
   homeServiceEnabled: false,
+  classTypeId: '',
+  isMonthly: false,
 };
 
 export function ServicesContent() {
@@ -113,6 +121,15 @@ export function ServicesContent() {
     queryFn: () => api.get<{ data: { name: string; category: string | null; description: string | null }[] }>('/api/marketplace/service-catalog'),
   });
   const catalogItems: { name: string; category: string | null; description: string | null }[] = (catalogData as any)?.data || [];
+
+  // Tipos de clase activos (catálogo del super-admin). Sirven para marcar un
+  // servicio como "clase" (Yoga, Karate...) y que el negocio salga en la
+  // sección "Clases" del marketplace.
+  const { data: classTypesData } = useQuery({
+    queryKey: ['class-types'],
+    queryFn: () => api.get<{ data: { id: string; name: string }[] }>('/api/marketplace/class-types'),
+  });
+  const classTypes: { id: string; name: string }[] = (classTypesData as any)?.data || [];
 
   // Profesiones reales (tabla Profession, gestionada desde SuperAdmin
   // en /platform/professions). Esta es la fuente de verdad del dropdown
@@ -200,6 +217,8 @@ export function ServicesContent() {
       redeemableWithPoints: service.redeemableWithPoints || false,
       pointsRequired: service.pointsRequired ?? '',
       homeServiceEnabled: service.homeServiceEnabled || false,
+      classTypeId: service.classTypeId ?? (service.classType?.id ?? ''),
+      isMonthly: service.isMonthly || false,
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -229,6 +248,9 @@ export function ServicesContent() {
       pointsReward: form.generatesPoints && form.pointsReward !== '' ? Number(form.pointsReward) : null,
       pointsRequired: form.redeemableWithPoints && form.pointsRequired !== '' ? Number(form.pointsRequired) : null,
       homeServiceEnabled: form.homeServiceEnabled,
+      // Clase: enviamos el tipo (o null) y la mensualidad solo si es clase.
+      classTypeId: form.classTypeId || null,
+      isMonthly: form.classTypeId ? form.isMonthly : false,
     };
     saveMutation.mutate(payload);
   }
@@ -751,6 +773,67 @@ export function ServicesContent() {
                 </div>
               </label>
             </div>
+
+            {/* ── Clase (sección "Clases" del marketplace) ── */}
+            {classTypes.length > 0 && (
+              <div className="border-t border-gray-100 pt-4">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="pr-3">
+                    <p className="text-sm font-medium text-gray-700">¿Es una clase?</p>
+                    <p className="text-xs text-gray-400">Márcalo si este servicio es una clase (Yoga, Karate, Baile...). Tu negocio aparecerá en la sección "Clases" del marketplace.</p>
+                  </div>
+                  <div className="relative flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!!form.classTypeId}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          classTypeId: e.target.checked ? (f.classTypeId || classTypes[0].id) : '',
+                          isMonthly: e.target.checked ? f.isMonthly : false,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] peer-focus:ring-2 peer-focus:ring-teal-300 transition-colors" />
+                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                  </div>
+                </label>
+
+                {form.classTypeId && (
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de clase</label>
+                      <select
+                        value={form.classTypeId}
+                        onChange={(e) => setForm((f) => ({ ...f, classTypeId: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+                      >
+                        {classTypes.map((ct) => (
+                          <option key={ct.id} value={ct.id}>{ct.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div className="pr-3">
+                        <p className="text-sm font-medium text-gray-700">Cobro mensual (mensualidad)</p>
+                        <p className="text-xs text-gray-400">El precio se cobra por mes, como un gimnasio. El cobro lo haces tú (efectivo, tarjeta o transferencia).</p>
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={form.isMonthly}
+                          onChange={(e) => setForm((f) => ({ ...f, isMonthly: e.target.checked }))}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-[#008080] peer-focus:ring-2 peer-focus:ring-teal-300 transition-colors" />
+                        <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Ver comisiones: solo al editar un servicio existente. Lleva a
                 Personal → Comisiones → Por servicio con este servicio abierto. */}

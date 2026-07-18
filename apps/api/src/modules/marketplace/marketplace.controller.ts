@@ -580,6 +580,12 @@ export class MarketplaceController {
     return this.marketplaceService.getProfessions();
   }
 
+  // GET /api/marketplace/class-types => catálogo de tipos de clase (público).
+  @Get('class-types')
+  async getClassTypes() {
+    return this.marketplaceService.getClassTypes();
+  }
+
   // GET /api/marketplace/professionals => buscar profesionales (público).
   // Todos los @Query son opcionales (llevan "?"); convertimos lat/lng a número
   // solo si vienen (ternario "lat ? ... : undefined"), y perPage/page con

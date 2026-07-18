@@ -1839,6 +1839,18 @@ export class MarketplaceService {
     return { data: professions.map((p) => p.name) };
   }
 
+  // getClassTypes(): catálogo de tipos de clase activos (id + nombre). A
+  // diferencia de las profesiones (solo nombre), aquí devolvemos el id porque
+  // los servicios-clase referencian el tipo por id.
+  async getClassTypes() {
+    const classTypes = await this.prisma.classType.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    return { data: classTypes };
+  }
+
   // toggleProfessionalFavorite(): marca/desmarca un profesional como favorito
   // (mismo patrón que toggleFavorite de negocios, pero con empleados).
   async toggleProfessionalFavorite(marketplaceUserId: string, employeeId: string, profileId?: string) {
