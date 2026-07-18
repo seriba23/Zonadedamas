@@ -279,6 +279,19 @@ export class ClientsService {
     });
   }
 
+  // setBlocked(): bloquea o desbloquea a un cliente del negocio. Un cliente
+  // bloqueado no puede agendar más citas (se valida en todos los flujos de
+  // reserva). Guarda el motivo para poder verlo si reintenta.
+  async setBlocked(id: string, tenantId: string, blocked: boolean, reason?: string) {
+    await this.findOne(id, tenantId);
+    return this.prisma.client.update({
+      where: { id },
+      data: blocked
+        ? { isBlocked: true, blockedReason: reason?.trim() || null, blockedAt: new Date() }
+        : { isBlocked: false, blockedReason: null, blockedAt: null },
+    });
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // remove(): "elimina" un cliente. NO borra la fila: es un borrado lógico
   // (soft delete) que solo lo marca como inactivo (isActive: false).

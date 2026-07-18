@@ -85,6 +85,8 @@ interface ClientSummary {
     avatarUrl?: string | null;
     loyaltyPoints: number;
     creditBalance?: number | string | null;
+    isBlocked?: boolean;
+    blockedReason?: string | null;
     tags: Tag[];
     userId?: string | null;
     dateOfBirth?: string | null;
@@ -172,6 +174,10 @@ export default function ClientDetailPage() {
   // inviting: mientras se genera el token y se abre WhatsApp para invitar al
   // cliente a activar/vincular su cuenta real de la plataforma.
   const [inviting, setInviting] = useState(false);
+  // Bloqueo del cliente (no podrá agendar).
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [blocking, setBlocking] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['client-summary', clientId],
@@ -232,6 +238,32 @@ export default function ClientDetailPage() {
       setInviting(false);
     }
   }
+  // Bloquear / desbloquear al cliente. Bloqueado = no puede agendar más citas.
+  async function handleBlock() {
+    setBlocking(true);
+    try {
+      await api.patch(`/api/clients/${clientId}/block`, { reason: blockReason.trim() || undefined });
+      setShowBlockModal(false);
+      setBlockReason('');
+      refetch();
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo bloquear al cliente.');
+    } finally {
+      setBlocking(false);
+    }
+  }
+  async function handleUnblock() {
+    setBlocking(true);
+    try {
+      await api.patch(`/api/clients/${clientId}/unblock`, {});
+      refetch();
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo desbloquear al cliente.');
+    } finally {
+      setBlocking(false);
+    }
+  }
+
   const creditBalance = Math.max(0, Number(client.creditBalance || 0));
 
   // Guarda el nuevo saldo de crédito (el negocio lo ajusta a mano al usarlo).
@@ -368,8 +400,28 @@ export default function ClientDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
                   </svg>
                 </button>
+                {/* 5º icono: bloquear / desbloquear (no puede agendar). */}
+                <button
+                  type="button"
+                  onClick={() => (client.isBlocked ? handleUnblock() : setShowBlockModal(true))}
+                  disabled={blocking}
+                  title={client.isBlocked ? 'Desbloquear cliente' : 'Bloquear cliente (no podrá agendar)'}
+                  className={`${iconBtnBase} ${client.isBlocked ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' : iconBtnActive} disabled:opacity-50`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </button>
             </div>
           </div>
+
+          {/* Aviso de cliente bloqueado (no puede agendar). */}
+          {client.isBlocked && (
+            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <span className="font-semibold">Cliente bloqueado.</span> No puede agendar citas.
+              {client.blockedReason ? <> Motivo: {client.blockedReason}</> : null}
+            </div>
+          )}
 
           {/* Invitación a la plataforma: enviar enlace por WhatsApp para que el
               cliente active/vincule su cuenta real, o distintivo si ya está. */}
@@ -628,6 +680,27 @@ export default function ClientDetailPage() {
             refetch();
           }}
         />
+      )}
+
+      {/* Modal para bloquear al cliente (motivo opcional) */}
+      {showBlockModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowBlockModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-1">Bloquear cliente</h3>
+            <p className="text-xs text-gray-500 mb-4">{client.firstName} {client.lastName} no podrá agendar más citas. Puedes indicar un motivo (opcional).</p>
+            <textarea
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              rows={3}
+              placeholder="Motivo (ej: incumplió varias citas)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setShowBlockModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleBlock} disabled={blocking} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">{blocking ? 'Bloqueando…' : 'Bloquear'}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal del contacto de emergencia */}

@@ -720,6 +720,11 @@ model Client {
   emergencyContactRelation  String? @map("emergency_contact_relation") @db.VarChar(50)
   avatarUrl          String?   @map("avatar_url")
   isActive           Boolean   @default(true) @map("is_active")
+  // Bloqueo del cliente por el negocio: si isBlocked, no puede agendar más citas
+  // (en ningún flujo). blockedReason guarda el motivo para verlo si reintenta.
+  isBlocked          Boolean   @default(false) @map("is_blocked")
+  blockedReason      String?   @db.Text @map("blocked_reason")
+  blockedAt          DateTime? @map("blocked_at")
   source             String?
   passwordHash       String?   @map("password_hash")
   portalRegisteredAt DateTime? @map("portal_registered_at")

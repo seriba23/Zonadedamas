@@ -14,6 +14,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 // PrismaService: el "puente" hacia la base de datos (lee/escribe tablas).
 import { PrismaService } from '../../prisma/prisma.service';
@@ -95,6 +96,15 @@ export class AppointmentsService {
     });
     if (!client) {
       throw new NotFoundException('Cliente no encontrado o inactivo');
+    }
+    // Cliente bloqueado por el negocio: no puede agendar en ningún flujo
+    // (dashboard, público, marketplace, portal — todos llegan aquí).
+    if (client.isBlocked) {
+      throw new ForbiddenException(
+        client.blockedReason
+          ? `Este cliente está bloqueado y no puede agendar: ${client.blockedReason}`
+          : 'Este cliente está bloqueado y no puede agendar citas.',
+      );
     }
 
     // Traer los servicios para copiar luego sus datos (precio/duración/nombre).

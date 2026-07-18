@@ -20,6 +20,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -55,13 +56,20 @@ import { CurrentTenant } from '../../common/decorators/current-tenant.decorator'
 
 // IsString: decorador de validación (de class-validator) usado en el pequeño
 // DTO local de abajo.
-import { IsString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 // DTO local mínimo para el cuerpo de "añadir etiqueta a un cliente": solo
 // necesita el id de la etiqueta (tagId), que debe ser texto.
 class AddTagDto {
   @IsString()
   tagId: string;
+}
+
+// DTO local para bloquear un cliente: motivo opcional (texto).
+class BlockClientDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 // @Controller('clients') => todas las rutas de esta clase empiezan con
@@ -184,6 +192,31 @@ export class ClientsController {
     @Body() dto: UpdateClientDto,
   ) {
     const client = await this.clientsService.update(id, tenantId, dto);
+    return { data: client };
+  }
+
+  // ── PATCH /api/clients/:id/block ──────────────────────────────────────────
+  // Bloquea a un cliente (no podrá agendar más citas). Motivo opcional.
+  @Patch(':id/block')
+  @RequirePermissions('clients.update')
+  async block(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+    @Body() dto: BlockClientDto,
+  ) {
+    const client = await this.clientsService.setBlocked(id, tenantId, true, dto.reason);
+    return { data: client };
+  }
+
+  // ── PATCH /api/clients/:id/unblock ────────────────────────────────────────
+  // Desbloquea a un cliente (vuelve a poder agendar).
+  @Patch(':id/unblock')
+  @RequirePermissions('clients.update')
+  async unblock(
+    @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const client = await this.clientsService.setBlocked(id, tenantId, false);
     return { data: client };
   }
 
