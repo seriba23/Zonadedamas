@@ -1762,6 +1762,40 @@ model Profession {
   @@map("professions")
 }
 
+// Estados de una denuncia/reporte a la plataforma.
+enum ReportStatus {
+  PENDING       // recién creado, sin revisar
+  REVIEWED      // el super-admin lo revisó
+  DISMISSED     // desestimado (sin acción)
+  ACTION_TAKEN  // se tomó una acción
+}
+
+// Reporte/denuncia a la PLATAFORMA (super-admin). Cualquier rol puede reportar a
+// alguien que esté haciendo algo indebido: un negocio/profesional reporta a un
+// cliente, un cliente reporta a un negocio, etc. reporter*/target* guardan tipo,
+// id y un nombre "snapshot" legible para el super-admin, aunque el registro
+// original cambie o se borre.
+model Report {
+  id           String       @id @default(uuid())
+  reporterType String       @map("reporter_type") // TENANT|EMPLOYEE|CLIENT|MARKETPLACE_USER
+  reporterId   String?      @map("reporter_id")
+  reporterName String?      @map("reporter_name")
+  targetType   String       @map("target_type")   // CLIENT|TENANT|EMPLOYEE|OTHER
+  targetId     String?      @map("target_id")
+  targetName   String?      @map("target_name")
+  tenantId     String?      @map("tenant_id")      // contexto de negocio, si aplica
+  reason       String                               // motivo corto (categoría)
+  description  String?      @db.Text
+  status       ReportStatus @default(PENDING)
+  adminNotes   String?      @db.Text @map("admin_notes")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([tenantId])
+  @@map("reports")
+}
+
 // Catálogo de TIPOS DE CLASE gestionado por el super-admin (karate, natación,
 // yoga, etc.). Mismo patrón que Profession: alimenta la sección "Clases" del
 // marketplace. Se gestiona en /platform/classes.

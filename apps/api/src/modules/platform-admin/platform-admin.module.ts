@@ -16,11 +16,13 @@ import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
 // EmployeesModule: lo importamos para poder usar EmployeesService (necesario para
 // desactivar empleados de un negocio desde la consola del super-admin).
 import { EmployeesModule } from '../employees/employees.module';
+// AbuseReportsModule: reportes/denuncias que el super-admin revisa.
+import { AbuseReportsModule } from '../abuse-reports/abuse-reports.module';
 
 // @Module({...}) ensambla el módulo.
 @Module({
   // imports: otros módulos cuyos "exports" necesitamos aquí (auth y empleados).
-  imports: [PlatformAuthModule, EmployeesModule],
+  imports: [PlatformAuthModule, EmployeesModule, AbuseReportsModule],
   // controllers: las clases que reciben las peticiones HTTP de este módulo.
   controllers: [PlatformAdminController],
   // providers: las clases inyectables (la lógica) que viven en este módulo.

@@ -37,6 +37,7 @@ import { AuthModule } from './modules/auth/auth.module'; // login/logout, tokens
 import { TenantsModule } from './modules/tenants/tenants.module'; // negocios (multi-tenant)
 import { RbacModule } from './modules/rbac/rbac.module'; // roles y permisos
 import { ClientsModule } from './modules/clients/clients.module'; // clientes del negocio
+import { AbuseReportsModule } from './modules/abuse-reports/abuse-reports.module'; // reportes/denuncias a la plataforma
 import { ServicesModule } from './modules/services/services.module'; // catálogo de servicios
 import { EmployeesModule } from './modules/employees/employees.module'; // empleados/profesionales
 import { ResourcesModule } from './modules/resources/resources.module'; // recursos (sillas, salas...)
@@ -111,6 +112,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     TenantsModule,
     RbacModule,
     ClientsModule,
+    AbuseReportsModule,
     ServicesModule,
     EmployeesModule,
     ResourcesModule,

@@ -54,6 +54,7 @@ import { StripeService } from '../stripe/stripe.service';
 // Guards de marketplace: el obligatorio (corta sin token) y el opcional
 // (deja pasar pero adjunta el usuario si hay token).
 import { MarketplaceJwtGuard } from './guards/marketplace-jwt.guard';
+import { AbuseReportsService } from '../abuse-reports/abuse-reports.service';
 import { MarketplaceJwtOptionalGuard } from './guards/marketplace-jwt-optional.guard';
 import { CreateClientAddressDto } from './dto/client-address.dto';
 
@@ -76,6 +77,7 @@ export class MarketplaceController {
     private readonly marketplaceService: MarketplaceService, // lógica principal
     private readonly uploadsService: UploadsService,          // subir/borrar archivos
     private readonly stripeService: StripeService,            // pagos con Stripe
+    private readonly abuseReports: AbuseReportsService,       // reportes a la plataforma
   ) {}
 
   // ─── AUTH (public) ───────────────────────────────────
@@ -584,6 +586,18 @@ export class MarketplaceController {
   @Get('class-types')
   async getClassTypes() {
     return this.marketplaceService.getClassTypes();
+  }
+
+  // POST /api/marketplace/report => un cliente del marketplace reporta a un
+  // negocio/profesional a la plataforma. Requiere sesión de marketplace.
+  @UseGuards(MarketplaceJwtGuard)
+  @Post('report')
+  async createReport(
+    @Req() req: any,
+    @Body() body: { targetType?: string; targetId?: string; targetName?: string; tenantId?: string; reason: string; description?: string },
+  ) {
+    const name = [req.user?.firstName, req.user?.lastName].filter(Boolean).join(' ') || null;
+    return this.abuseReports.createFromMarketplaceUser(req.user.marketplaceUserId, name, body);
   }
 
   // GET /api/marketplace/professionals => buscar profesionales (público).

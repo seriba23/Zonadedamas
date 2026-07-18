@@ -24,6 +24,7 @@ import {
 
 // El servicio con toda la lógica real de la consola del super-admin.
 import { PlatformAdminService } from './platform-admin.service';
+import { AbuseReportsService } from '../abuse-reports/abuse-reports.service';
 
 // El guard que protege estas rutas exigiendo un JWT válido de super-admin.
 import { PlatformJwtAuthGuard } from '../platform-auth/guards/platform-jwt-auth.guard';
@@ -91,7 +92,10 @@ class GrantMonthsDto {
 @Controller('platform')
 export class PlatformAdminController {
   // Inyección del servicio: NestJS lo crea y lo guarda en this.adminService.
-  constructor(private readonly adminService: PlatformAdminService) {}
+  constructor(
+    private readonly adminService: PlatformAdminService,
+    private readonly abuseReports: AbuseReportsService,
+  ) {}
 
   // ── GET /api/platform/dashboard ───────────────────────────────────────────
   // Devuelve los KPIs (métricas) generales de la plataforma para el panel inicial.
@@ -390,5 +394,21 @@ export class PlatformAdminController {
   @Delete('class-types/:id')
   async deleteClassType(@Param('id') id: string) {
     return this.adminService.deleteClassType(id);
+  }
+
+  // ─── REPORTES / DENUNCIAS (moderación) ──────────────────────────────────────
+  // GET /api/platform/reports?status=PENDING → lista de reportes a revisar.
+  @Get('reports')
+  async getReports(@Query('status') status?: string) {
+    return this.abuseReports.listForPlatform(status);
+  }
+
+  // PATCH /api/platform/reports/:id → cambia el estado + notas del super-admin.
+  @Patch('reports/:id')
+  async updateReport(
+    @Param('id') id: string,
+    @Body() body: { status: string; adminNotes?: string },
+  ) {
+    return this.abuseReports.updateStatus(id, body.status, body.adminNotes);
   }
 }

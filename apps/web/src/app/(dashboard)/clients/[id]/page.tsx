@@ -178,6 +178,11 @@ export default function ClientDetailPage() {
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [blocking, setBlocking] = useState(false);
+  // Reportar a la plataforma.
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDesc, setReportDesc] = useState('');
+  const [reporting, setReporting] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['client-summary', clientId],
@@ -261,6 +266,29 @@ export default function ClientDetailPage() {
       alert(err?.message || 'No se pudo desbloquear al cliente.');
     } finally {
       setBlocking(false);
+    }
+  }
+
+  // Reportar este cliente a la plataforma (super-admin).
+  async function handleReport() {
+    if (!reportReason.trim()) return;
+    setReporting(true);
+    try {
+      await api.post('/api/reports', {
+        targetType: 'CLIENT',
+        targetId: clientId,
+        targetName: `${client.firstName} ${client.lastName}`.trim(),
+        reason: reportReason.trim(),
+        description: reportDesc.trim() || undefined,
+      });
+      setShowReportModal(false);
+      setReportReason('');
+      setReportDesc('');
+      alert('Reporte enviado a la plataforma. Gracias.');
+    } catch (err: any) {
+      alert(err?.message || 'No se pudo enviar el reporte.');
+    } finally {
+      setReporting(false);
     }
   }
 
@@ -410,6 +438,17 @@ export default function ClientDetailPage() {
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </button>
+                {/* 6º icono: reportar a la plataforma. */}
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  title="Reportar a la plataforma"
+                  className={`${iconBtnBase} ${iconBtnActive}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
                   </svg>
                 </button>
             </div>
@@ -698,6 +737,36 @@ export default function ClientDetailPage() {
             <div className="flex gap-2 mt-4">
               <button onClick={() => setShowBlockModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
               <button onClick={handleBlock} disabled={blocking} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">{blocking ? 'Bloqueando…' : 'Bloquear'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para reportar al cliente a la plataforma */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReportModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-1">Reportar a la plataforma</h3>
+            <p className="text-xs text-gray-500 mb-4">Reporta a {client.firstName} {client.lastName} si está haciendo algo indebido. El equipo de la plataforma lo revisará.</p>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
+            <input
+              type="text"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Ej: comportamiento abusivo"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Detalle (opcional)</label>
+            <textarea
+              value={reportDesc}
+              onChange={(e) => setReportDesc(e.target.value)}
+              rows={3}
+              placeholder="Describe lo ocurrido"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setShowReportModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleReport} disabled={reporting || !reportReason.trim()} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#008080] hover:bg-[#006666] disabled:opacity-50">{reporting ? 'Enviando…' : 'Enviar reporte'}</button>
             </div>
           </div>
         </div>

@@ -934,6 +934,35 @@ export default function BusinessDetailPage() {
   // al tocar, sin esperar la respuesta del servidor).
   const [isFavorited, setIsFavorited] = useState(false);
 
+  // Reportar el negocio a la plataforma.
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDesc, setReportDesc] = useState('');
+  const [reporting, setReporting] = useState(false);
+
+  async function handleReportBusiness() {
+    if (!reportReason.trim()) return;
+    setReporting(true);
+    try {
+      await marketplaceApi.post('/report', {
+        targetType: 'TENANT',
+        targetId: (biz as any)?.id,
+        targetName: (biz as any)?.name,
+        tenantId: (biz as any)?.id,
+        reason: reportReason.trim(),
+        description: reportDesc.trim() || undefined,
+      });
+      setShowReport(false);
+      setReportReason('');
+      setReportDesc('');
+      alert('Reporte enviado a la plataforma. Gracias.');
+    } catch (err: any) {
+      alert(err?.message || 'Inicia sesión para reportar.');
+    } finally {
+      setReporting(false);
+    }
+  }
+
   // Sincroniza `isFavorited` cuando llegan los datos del negocio del backend.
   // `!!biz.isFavorited`: doble negación para convertir cualquier valor a booleano.
   // Este useEffect se ejecuta cada vez que `biz` cambia (después de cargar datos).
@@ -1633,8 +1662,49 @@ export default function BusinessDetailPage() {
               </svg>
             </button>
           )}
+          {!fromAdmin && (
+            <button
+              onClick={() => setShowReport(true)}
+              className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors"
+              title="Reportar este negocio"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="#6b7280" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Modal para reportar el negocio a la plataforma */}
+      {showReport && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReport(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-1">Reportar negocio</h3>
+            <p className="text-xs text-gray-500 mb-4">Reporta a este negocio a la plataforma si está haciendo algo indebido.</p>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo</label>
+            <input
+              type="text"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Ej: información falsa"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Detalle (opcional)</label>
+            <textarea
+              value={reportDesc}
+              onChange={(e) => setReportDesc(e.target.value)}
+              rows={3}
+              placeholder="Describe lo ocurrido"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20"
+            />
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setShowReport(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleReportBusiness} disabled={reporting || !reportReason.trim()} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#008080] hover:bg-[#006666] disabled:opacity-50">{reporting ? 'Enviando…' : 'Enviar reporte'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-2xl mx-auto px-4 -mt-6 relative">
         {/* Business info card */}

@@ -33,6 +33,7 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { StripeModule } from '../stripe/stripe.module';
 import { UploadsModule } from '../uploads/uploads.module';
+import { AbuseReportsModule } from '../abuse-reports/abuse-reports.module';
 
 /**
  * Devuelve la clave secreta de los JWT (igual que en la estrategia). En
@@ -72,6 +73,8 @@ function getJwtSecret(): string {
       }),
     }),
     TenantsModule,
+    // Reportes/denuncias a la plataforma (el cliente reporta a un negocio).
+    AbuseReportsModule,
     // forwardRef evita el error de dependencia circular entre este módulo y
     // AppointmentsModule (ambos se referencian mutuamente).
     forwardRef(() => AppointmentsModule),
