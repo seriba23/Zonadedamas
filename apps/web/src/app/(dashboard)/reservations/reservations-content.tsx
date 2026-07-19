@@ -79,12 +79,18 @@ function ReservationDetailModal({
   formatCurrency,
   onStatusChange,
   busy,
+  // Rutas de destino según el portal (admin por defecto). El freelancer usa
+  // /employee/appointments y /employee/pos, que se pasan desde su página.
+  calendarPath = '/calendar',
+  posPath = '/pos',
 }: {
   reservation: any;
   onClose: () => void;
   formatCurrency: (n: number) => string;
   onStatusChange: (id: string, status: string) => void;
   busy: boolean;
+  calendarPath?: string;
+  posPath?: string;
 }) {
   const router = useRouter();
   const r = reservation;
@@ -242,7 +248,7 @@ function ReservationDetailModal({
           {/* Cita vinculada */}
           {r.appointment && (
             <Link
-              href={`/calendar?appointmentId=${r.appointment.id}`}
+              href={`${calendarPath}?appointmentId=${r.appointment.id}`}
               className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-teal-200 bg-teal-50 text-sm font-medium text-[#008080] hover:bg-teal-100 transition-colors"
             >
               <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -301,7 +307,7 @@ function ReservationDetailModal({
                 type="button"
                 onClick={() => {
                   onClose();
-                  router.push(`/pos?reservationId=${r.id}`);
+                  router.push(`${posPath}?reservationId=${r.id}`);
                 }}
                 className="w-full py-3 rounded-xl text-sm font-semibold transition-colors text-white bg-[#008080] hover:bg-[#006666] flex items-center justify-center gap-2"
               >
@@ -340,7 +346,11 @@ function ReservationDetailModal({
   );
 }
 
-export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
+export function ReservationsContent({
+  embedded,
+  calendarPath,
+  posPath,
+}: { embedded?: boolean; calendarPath?: string; posPath?: string } = {}) {
   const [tab, setTab] = useState('ALL');
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<any | null>(null);
@@ -532,6 +542,8 @@ export function ReservationsContent({ embedded }: { embedded?: boolean } = {}) {
             );
           }}
           busy={statusMutation.isPending}
+          calendarPath={calendarPath}
+          posPath={posPath}
         />
       )}
 
