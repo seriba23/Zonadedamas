@@ -141,8 +141,8 @@ export function EmployeeSidebar({ isOpen = false, onClose }: EmployeeSidebarProp
     if (item.href === '/employee/services' && isFreelancer) {
       menuItems.push({ label: 'Inventario', href: '/employee/inventory', icon: INVENTORY_ICON });
       menuItems.push({ label: 'Tienda', href: '/employee/shop', icon: SHOP_ICON });
-      menuItems.push({ label: 'Métodos de pago', href: '/employee/payments', icon: PAYMENTS_ICON });
-      menuItems.push({ label: 'Anticipo', href: '/employee/anticipo', icon: DEPOSIT_ICON });
+      // "Métodos de pago" y "Anticipo" ya no son items sueltos del menú: viven
+      // como pestañas dentro de Configuración (igual que en el panel admin).
     }
   }
 

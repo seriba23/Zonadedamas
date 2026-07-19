@@ -3,22 +3,49 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { EmployeeSettingsContent } from './settings-content';
 import { AppointmentSettingsContent } from '@/components/settings/appointment-settings-content';
 import { EmployeeHomeServiceContent } from '@/components/settings/employee-home-service-content';
 import { BrowserNotificationsToggle } from '@/components/settings/browser-notifications-toggle';
+import { PaymentMethodsContent } from '@/components/settings/payment-methods-content';
+import { DepositSettingsContent } from '@/components/settings/deposit-settings-content';
+import { InstallAppContent } from '@/components/settings/install-app-content';
+import { AccountSettingsContent } from '@/components/settings/account-settings-content';
 import NotificationsContent from '@/app/(dashboard)/settings/notifications/page';
+import BusinessContent from '@/app/(dashboard)/settings/business/page';
+import QRContent from '@/app/(dashboard)/settings/qr/page';
 import { useSectionHelpKey } from '@/lib/section-help-context';
 
-// Cada pestaña muestra su propia ayuda (ⓘ del header).
+type SettingsTab =
+  | 'general'
+  | 'negocio'
+  | 'reserva'
+  | 'domicilio'
+  | 'pagos'
+  | 'anticipo'
+  | 'qr'
+  | 'notificaciones'
+  | 'app'
+  | 'cuenta';
+
+// Cada pestaña muestra su propia ayuda (ⓘ del header). Reutilizamos las mismas
+// claves que la Configuración del panel admin para estandarizar el contenido.
 const HELP_KEY_BY_TAB: Record<SettingsTab, string> = {
   general: 'emp-set-general',
-  notificaciones: 'emp-set-notif',
-  reserva: 'set-reserva', // mismo contenido que la pestaña Reserva del panel.
+  negocio: 'set-negocio',
+  reserva: 'set-reserva',
   domicilio: 'emp-set-domicilio',
+  pagos: 'set-ventas',
+  anticipo: 'set-anticipo',
+  qr: 'set-qr',
+  notificaciones: 'emp-set-notif',
+  app: 'set-app',
   cuenta: 'emp-set-cuenta',
 };
+
+// Pestañas EXCLUSIVAS del dueño del negocio (freelancer). Un empleado normal
+// solo ve las básicas (General / Notificaciones / Cuenta).
+const FREELANCER_ONLY: SettingsTab[] = ['negocio', 'reserva', 'domicilio', 'pagos', 'anticipo', 'qr'];
 
 const COUNTRIES = [
   { code: 'MX', name: 'México' },
@@ -32,52 +59,52 @@ const COUNTRIES = [
   { code: 'BR', name: 'Brasil' },
 ];
 
-type SettingsTab = 'general' | 'notificaciones' | 'reserva' | 'domicilio' | 'cuenta';
-
 export default function EmployeeSettingsPage() {
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const [language, setLanguage] = useState('es');
   const [country, setCountry] = useState('MX');
-  // Solo el freelancer configura la política de reserva de SU negocio.
+  // Solo el freelancer (dueño de su propio negocio) configura las secciones de
+  // negocio: son las mismas que en el panel del administrador.
   const isFreelancer = (user as any)?.tenantType === 'FREELANCER';
 
   // Pestaña inicial: respeta ?tab=... o el atajo ?section=reserva; si no, General.
-  // (Se calcula con un inicializador perezoso para no romper las reglas de hooks.)
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    const t = searchParams.get('tab');
-    if (t && ['general', 'notificaciones', 'reserva', 'domicilio', 'cuenta'].includes(t)) {
-      return t as SettingsTab;
-    }
+    const t = searchParams.get('tab') as SettingsTab | null;
+    if (t && HELP_KEY_BY_TAB[t]) return t;
     if (searchParams.get('section') === 'reserva') return 'reserva';
     return 'general';
   });
-  // El ⓘ del header explica la pestaña activa.
-  useSectionHelpKey(HELP_KEY_BY_TAB[activeTab]);
+
+  // Pestañas visibles, estandarizadas con la Configuración del panel admin
+  // (mismo orden y contenido), más las propias del portal (General, A domicilio,
+  // Cuenta). Las de negocio solo para el freelancer.
+  const ALL_TABS: { key: SettingsTab; label: string }[] = [
+    { key: 'general', label: 'General' },
+    { key: 'negocio', label: 'Mi Negocio' },
+    { key: 'reserva', label: 'Reserva' },
+    { key: 'domicilio', label: 'A domicilio' },
+    { key: 'pagos', label: 'Métodos de pago' },
+    { key: 'anticipo', label: 'Anticipo' },
+    { key: 'qr', label: 'Código QR' },
+    { key: 'notificaciones', label: 'Notificaciones' },
+    { key: 'app', label: 'Instalar app' },
+    { key: 'cuenta', label: 'Cuenta' },
+  ];
+  const TABS = ALL_TABS.filter((t) => isFreelancer || !FREELANCER_ONLY.includes(t.key));
+
+  // Si el usuario cae (por ?tab/?section) en una pestaña que no le corresponde,
+  // lo mandamos a General.
+  const currentTab: SettingsTab = TABS.some((t) => t.key === activeTab) ? activeTab : 'general';
+
+  // El ⓘ del header explica la pestaña activa. (Se llama SIEMPRE, antes de
+  // cualquier return, para no romper las reglas de hooks.)
+  useSectionHelpKey(HELP_KEY_BY_TAB[currentTab]);
 
   // Sub-página "Editar perfil" a pantalla completa (patrón existente).
   if (searchParams.get('section') === 'profile') {
     return <EmployeeSettingsContent />;
   }
-
-  // Pestañas: "Reserva" solo para el freelancer (config de su propio negocio).
-  const TABS: { key: SettingsTab; label: string }[] = [
-    { key: 'general', label: 'General' },
-    { key: 'notificaciones', label: 'Notificaciones' },
-    ...(isFreelancer
-      ? [
-          { key: 'reserva' as const, label: 'Reserva' },
-          { key: 'domicilio' as const, label: 'A domicilio' },
-        ]
-      : []),
-    { key: 'cuenta', label: 'Cuenta' },
-  ];
-  // Si un no-freelancer cae en una pestaña de negocio (por ?tab/?section), lo
-  // mandamos a General.
-  const currentTab: SettingsTab =
-    (activeTab === 'reserva' || activeTab === 'domicilio') && !isFreelancer
-      ? 'general'
-      : activeTab;
 
   return (
     <div className="flex flex-col h-full">
@@ -126,11 +153,28 @@ export default function EmployeeSettingsPage() {
           </div>
         )}
 
+        {/* ── Mi Negocio (solo freelancer) — mismo componente que el admin ── */}
+        {currentTab === 'negocio' && isFreelancer && <BusinessContent />}
+
+        {/* ── Reserva (solo freelancer) ── */}
+        {currentTab === 'reserva' && isFreelancer && <AppointmentSettingsContent />}
+
+        {/* ── A domicilio (solo freelancer) ── */}
+        {currentTab === 'domicilio' && isFreelancer && <EmployeeHomeServiceContent />}
+
+        {/* ── Métodos de pago (solo freelancer) — antes era item del menú ── */}
+        {currentTab === 'pagos' && isFreelancer && <PaymentMethodsContent />}
+
+        {/* ── Anticipo (solo freelancer) — antes era item del menú ── */}
+        {currentTab === 'anticipo' && isFreelancer && <DepositSettingsContent />}
+
+        {/* ── Código QR (solo freelancer) — mismo componente que el admin ── */}
+        {currentTab === 'qr' && isFreelancer && <QRContent />}
+
         {/* ── Notificaciones ──
-            Antes había 3 toggles ESTÁTICOS estilo cliente (sin backend). Ahora:
             - control real para activar las notificaciones push del navegador;
-            - y, para el freelancer (dueño de su negocio), la MISMA pantalla de
-              plantillas de avisos a clientes que usa el administrador. */}
+            - y, para el freelancer, la MISMA pantalla de plantillas de avisos a
+              clientes que usa el administrador (Mensajes automáticos). */}
         {currentTab === 'notificaciones' && (
           <div className="pb-24 lg:pb-6">
             <div className="p-6 max-w-lg mx-auto">
@@ -140,50 +184,11 @@ export default function EmployeeSettingsPage() {
           </div>
         )}
 
-        {/* ── Reserva (solo freelancer) ── */}
-        {currentTab === 'reserva' && isFreelancer && <AppointmentSettingsContent />}
+        {/* ── Instalar app — mismo componente que el admin ── */}
+        {currentTab === 'app' && <InstallAppContent />}
 
-        {/* ── A domicilio (solo freelancer) ── */}
-        {currentTab === 'domicilio' && isFreelancer && <EmployeeHomeServiceContent />}
-
-        {/* ── Cuenta ── */}
-        {currentTab === 'cuenta' && (
-          <div className="p-6 max-w-lg mx-auto pb-24 lg:pb-6 space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              <Link href="/employee/settings?section=profile" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-                <div>
-                  <p className="text-sm text-gray-900">Editar perfil</p>
-                  <p className="text-xs text-gray-400">Nombre, foto, contacto, contraseña</p>
-                </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-              </Link>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ayuda y Legal</p>
-              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                <Link href="/help" target="_blank" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-                  <p className="text-sm text-gray-900">Centro de Ayuda</p>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                </Link>
-                <Link href="/legal/privacy" target="_blank" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-                  <p className="text-sm text-gray-900">Aviso de Privacidad</p>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                </Link>
-                <Link href="/legal/terms" target="_blank" className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-                  <p className="text-sm text-gray-900">Términos y Condiciones</p>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                </Link>
-              </div>
-            </div>
-
-            <button onClick={() => logout()} className="w-full py-3 rounded-xl text-sm font-medium text-red-600 bg-white border border-gray-200 hover:bg-red-50 transition-colors">
-              Cerrar sesión
-            </button>
-
-            <p className="text-center text-[10px] text-gray-300">Siliba v1.0</p>
-          </div>
-        )}
+        {/* ── Cuenta ── (mismo componente estándar que el panel admin) */}
+        {currentTab === 'cuenta' && <AccountSettingsContent />}
       </div>
     </div>
   );

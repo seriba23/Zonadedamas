@@ -35,8 +35,14 @@ const InstallAppContent = dynamic(
 // Mensajes automáticos (plantillas Email/WhatsApp por evento): reutiliza la
 // página existente como contenido de pestaña. Es configuración, así que vive aquí.
 const MessagesContent = dynamic(() => import('./notifications/page'), { ssr: false });
+// Cuenta (editar perfil personal + ayuda/legal + cerrar sesión): mismo estándar
+// que el portal del freelancer/empleado.
+const AccountContent = dynamic(
+  () => import('@/components/settings/account-settings-content').then((mod) => ({ default: mod.AccountSettingsContent })),
+  { ssr: false },
+);
 
-type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'citas' | 'ventas' | 'pagos' | 'anticipo' | 'invitaciones' | 'qr' | 'mensajes' | 'app';
+type SettingsTab = 'negocio' | 'sucursales' | 'horarios' | 'citas' | 'ventas' | 'pagos' | 'anticipo' | 'invitaciones' | 'qr' | 'mensajes' | 'app' | 'cuenta';
 
 // Cada pestaña muestra su propia ayuda (ⓘ del header) en vez de la genérica.
 const HELP_KEY_BY_TAB: Record<SettingsTab, string> = {
@@ -51,6 +57,7 @@ const HELP_KEY_BY_TAB: Record<SettingsTab, string> = {
   anticipo: 'set-anticipo',
   mensajes: 'set-mensajes',
   app: 'set-app',
+  cuenta: 'emp-set-cuenta',
 };
 
 const TABS: { key: SettingsTab; label: string }[] = [
@@ -65,6 +72,7 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'anticipo', label: 'Anticipo' },
   { key: 'mensajes', label: 'Mensajes automáticos' },
   { key: 'app', label: 'Instalar app' },
+  { key: 'cuenta', label: 'Cuenta' },
 ];
 
 export default function SettingsPage() {
@@ -109,6 +117,7 @@ export default function SettingsPage() {
         {activeTab === 'qr' && <QRContent />}
         {activeTab === 'mensajes' && <MessagesContent />}
         {activeTab === 'app' && <InstallAppContent />}
+        {activeTab === 'cuenta' && <AccountContent />}
       </div>
     </div>
   );
