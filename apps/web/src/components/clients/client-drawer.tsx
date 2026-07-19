@@ -358,9 +358,12 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                   </label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10 dígitos"
                     value={form.phone}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, phone: e.target.value }))
+                      setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))
                     }
                     className="input-field"
                   />
@@ -404,7 +407,7 @@ export function ClientDrawer({ clientId, onClose }: ClientDrawerProps) {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                      <input type="tel" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} className="input-field" />
+                      <input type="tel" inputMode="numeric" maxLength={10} placeholder="10 dígitos" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} className="input-field" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Relación</label>

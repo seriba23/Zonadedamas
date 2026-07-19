@@ -474,7 +474,7 @@ export function EmployeeSettingsContent({ embedded }: { embedded?: boolean } = {
               {/* Campo Email */}
               <div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="input-field" /></div>
               {/* Campo Teléfono */}
-              <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} className="input-field" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" autoComplete="off" inputMode="numeric" maxLength={10} placeholder="10 dígitos" value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} className="input-field" /></div>
               {/* Campo Bio (presentación): textarea de varias líneas */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Presentación</label>

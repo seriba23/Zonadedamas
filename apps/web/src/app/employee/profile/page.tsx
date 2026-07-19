@@ -908,7 +908,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
               <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label><input type="text" value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} className="input-field" /></div>
             </div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="input-field" /></div>
-            <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" inputMode="numeric" maxLength={10} placeholder="10 dígitos" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} className="input-field" /></div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Presentación</label>
               <p className="text-[11px] text-gray-400 mb-1.5 leading-relaxed">
@@ -945,7 +945,7 @@ function InfoPersonalTab({ employee, onSave }: { employee: Employee; onSave: () 
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label><input type="text" value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} className="input-field" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label><input type="text" value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} className="input-field" /></div>
-            <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} className="input-field" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" inputMode="numeric" maxLength={10} placeholder="10 dígitos" value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} className="input-field" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1">Relación</label><select value={form.emergencyContactRelation} onChange={(e) => setForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} className="input-field"><option value="">—</option>{RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
           </div>
         )}

@@ -522,10 +522,12 @@ export function EmployeePersonalInfo({
               <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
               <input
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
                 value={basicForm.phone}
-                onChange={(e) => setBasicForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) => setBasicForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                 className="input-field"
-                placeholder="Ej: +52 55 1234 5678"
+                placeholder="10 dígitos"
               />
             </div>
           </div>
@@ -624,10 +626,12 @@ export function EmployeePersonalInfo({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={form.emergencyContactPhone}
-                  onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                   className="input-field"
-                  placeholder="Ej: +52 55 1234 5678"
+                  placeholder="10 dígitos"
                 />
               </div>
               <div>

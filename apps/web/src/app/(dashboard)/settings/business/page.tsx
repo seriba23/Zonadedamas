@@ -400,10 +400,12 @@ export default function BusinessSettingsPage() {
               </label>
               <input
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
                 value={form.businessPhone}
-                onChange={(e) => setForm((f) => ({ ...f, businessPhone: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, businessPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                 className="input-field"
-                placeholder="+1 555 0100"
+                placeholder="10 dígitos"
               />
             </div>
           </div>

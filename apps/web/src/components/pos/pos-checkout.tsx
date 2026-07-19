@@ -1385,7 +1385,7 @@ export function PosCheckout({ onComplete, initialAppointmentId, initialReservati
                 <div><label className="block text-xs font-medium text-gray-600 mb-1">Apellido *</label><input type="text" value={newClient.lastName} onChange={(e) => setNewClient((c) => ({ ...c, lastName: e.target.value }))} className="input-field" /></div>
               </div>
               <div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={newClient.email} onChange={(e) => setNewClient((c) => ({ ...c, email: e.target.value }))} className="input-field" /></div>
-              <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" value={newClient.phone} onChange={(e) => setNewClient((c) => ({ ...c, phone: e.target.value }))} className="input-field" /></div>
+              <div><label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input type="tel" inputMode="numeric" maxLength={10} placeholder="10 dígitos" value={newClient.phone} onChange={(e) => setNewClient((c) => ({ ...c, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} className="input-field" /></div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowNewClient(false)} className="btn-secondary flex-1">Cancelar</button>
                 <button onClick={() => { if (!newClient.firstName || !newClient.lastName) return; createClientMutation.mutate(newClient); }} disabled={createClientMutation.isPending} className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: '#008080' }}>{createClientMutation.isPending ? 'Guardando...' : 'Registrar'}</button>

@@ -640,9 +640,11 @@ export function SuppliersContent({ embedded }: { embedded?: boolean } = {}) {
                 </span>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="+1 (809) 555-0000"
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  placeholder="10 dígitos"
                   className="flex-1 min-w-0 text-sm text-right bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text-primary)] hover:border-gray-400 focus:outline-none focus:border-[#008080] focus:ring-2 focus:ring-[#008080]/20 transition-colors"
                 />
               </li>

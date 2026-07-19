@@ -160,8 +160,8 @@ export default function CreatorRegisterPage() {
 
           {/* Campo teléfono: opcional (sin required). Si el usuario no lo llena,
               enviamos undefined (ver la función submit arriba). */}
-          <input type="text" placeholder="Teléfono (opcional)" value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          <input type="text" inputMode="numeric" maxLength={10} placeholder="10 dígitos (opcional)" value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2" style={{ ['--tw-ring-color' as any]: TEAL }} />
 
           {/* Campo contraseña con componente especializado.

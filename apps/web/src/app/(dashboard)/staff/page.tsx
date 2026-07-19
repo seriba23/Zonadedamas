@@ -636,9 +636,11 @@ export default function StaffPage() {
                     </label>
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
                       value={createForm.phone}
-                      onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
-                      placeholder="Ej: 55 1234 5678"
+                      onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                      placeholder="10 dígitos"
                       className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[#008080] focus:ring-1 focus:ring-[#008080] bg-[var(--bg-surface)] text-[var(--text-primary)]"
                     />
                   </div>

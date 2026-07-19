@@ -418,7 +418,7 @@ export default function EditProfilePage() {
               <input value={form.emergencyContactName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))} placeholder="Nombre" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
               <input value={form.emergencyContactLastName} onChange={(e) => setForm((f) => ({ ...f, emergencyContactLastName: e.target.value }))} placeholder="Apellido" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
             </div>
-            <input value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} placeholder="Teléfono" inputMode="tel" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
+            <input value={form.emergencyContactPhone} onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="10 dígitos" inputMode="numeric" maxLength={10} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#008080]" />
             {/* Relación: droplist con los tipos más comunes (igual que en la
                 creación de cuenta) + "Otro…" que revela un campo de texto libre. */}
             <div>
@@ -619,8 +619,8 @@ export default function EditProfilePage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Nuevo teléfono</label>
-                <input type="text" inputMode="numeric" value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                <input type="text" inputMode="numeric" maxLength={10} value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="10 dígitos" autoFocus
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:outline-none"
                   style={{ '--tw-ring-color': TEAL } as any} />

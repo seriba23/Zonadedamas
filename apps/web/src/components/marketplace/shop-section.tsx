@@ -522,10 +522,12 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                   <label className="block text-xs font-medium text-gray-700 mb-1.5">Telefono *</label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={form.customerPhone}
-                    onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
+                    onChange={(e) => setForm({ ...form, customerPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                    placeholder="55 1234 5678"
+                    placeholder="10 dígitos"
                   />
                 </div>
                 <div>

@@ -354,9 +354,11 @@ function ContactChangeForm({
       {/* Input para el nuevo valor. */}
       <input
         type={type}
+        inputMode={field === 'phone' ? 'numeric' : undefined}
+        maxLength={field === 'phone' ? 10 : undefined}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder={`Nuevo ${label.toLowerCase()}`}
+        onChange={(e) => setValue(field === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value)}
+        placeholder={field === 'phone' ? '10 dígitos' : `Nuevo ${label.toLowerCase()}`}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:outline-none"
         style={{ '--tw-ring-color': TEAL } as any}
       />

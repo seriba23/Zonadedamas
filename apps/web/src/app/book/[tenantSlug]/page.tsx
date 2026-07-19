@@ -754,9 +754,12 @@ export default function BookingPage() {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="10 dígitos"
                   value={details.phone}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, phone: e.target.value }))
+                    setDetails((d) => ({ ...d, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))
                   }
                   className="input-field"
                   required

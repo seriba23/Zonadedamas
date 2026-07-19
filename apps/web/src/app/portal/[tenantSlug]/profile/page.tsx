@@ -191,8 +191,11 @@ export default function PortalProfilePage() {
               </label>
               <input
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="10 dígitos"
                 value={form.phone}
-                onChange={(e) => updateField('phone', e.target.value)}
+                onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
