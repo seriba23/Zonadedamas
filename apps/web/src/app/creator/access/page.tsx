@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { creatorLoginFromSession, creatorApplyFromSession, markCreatorIntroSeen } from '@/lib/creator-auth';
 
@@ -26,7 +26,11 @@ type State =
   | { kind: 'ended' }        // cerró sesión del portal
   | { kind: 'error'; message: string };
 
-export default function CreatorAccessPage() {
+// useSearchParams() requiere estar envuelto en <Suspense> en el App Router de
+// Next.js (sin él, el build de producción falla al prerenderizar la página).
+// Por eso el contenido real vive en este componente hijo y el default export
+// solo lo envuelve en <Suspense>.
+function CreatorAccessInner() {
   const router = useRouter();
   const params = useSearchParams();
   const ended = params.get('end') === '1';
@@ -179,5 +183,20 @@ export default function CreatorAccessPage() {
       <PrimaryBtn onClick={attemptSso}>Reintentar</PrimaryBtn>
       <GhostBtn onClick={() => router.push('/')}>Volver a la app</GhostBtn>
     </Shell>
+  );
+}
+
+export default function CreatorAccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[100dvh] bg-black text-white flex flex-col items-center justify-center px-8 text-center">
+          <div className="mx-auto h-10 w-10 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+          <p className="mt-5 text-sm text-white/60">Accediendo al portal de creadores…</p>
+        </div>
+      }
+    >
+      <CreatorAccessInner />
+    </Suspense>
   );
 }
