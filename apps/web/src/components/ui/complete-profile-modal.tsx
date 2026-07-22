@@ -87,16 +87,21 @@ interface CompleteProfileModalProps {
   };
   onComplete: () => void;   // Se llama cuando el usuario hace click en "¡Empezar!" (paso thanks)
   onSkip: () => void;       // Se llama cuando el usuario omite completar el perfil
+  // Si true (contexto RESERVA): teléfono, fecha de nacimiento y género son
+  // OBLIGATORIOS para guardar, se entra directo al formulario (sin bienvenida)
+  // y los botones de omitir dicen "Cancelar" (cierra sin reservar).
+  requireCoreFields?: boolean;
 }
 
 // ─── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
-export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfileModalProps) {
+export function CompleteProfileModal({ user, onComplete, onSkip, requireCoreFields = false }: CompleteProfileModalProps) {
 
   // ─── ESTADO LOCAL ─────────────────────────────────────────────────────────
 
   // step: controla cuál de los 3 pasos del modal se muestra en pantalla
   // 'welcome' → saludo inicial | 'form' → formulario | 'thanks' → confirmación
-  const [step, setStep] = useState<'welcome' | 'form' | 'thanks'>('welcome');
+  // En contexto de reserva (requireCoreFields) entramos directo al formulario.
+  const [step, setStep] = useState<'welcome' | 'form' | 'thanks'>(requireCoreFields ? 'form' : 'welcome');
 
   // countryCode: prefijo telefónico seleccionado (default México +52)
   const [countryCode, setCountryCode] = useState('+52');
@@ -161,6 +166,22 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
     if (!user.phone && phoneNumber && phoneNumber.length !== 10) {
       setError('El teléfono debe tener exactamente 10 dígitos.');
       return; // Detenemos la ejecución
+    }
+    // En contexto de reserva, teléfono, fecha de nacimiento y género son
+    // obligatorios: sin ellos no se puede agendar.
+    if (requireCoreFields) {
+      if (!user.phone && phoneNumber.length !== 10) {
+        setError('Ingresa un teléfono válido de 10 dígitos.');
+        return;
+      }
+      if (!form.birthDate) {
+        setError('Ingresa tu fecha de nacimiento.');
+        return;
+      }
+      if (!form.gender) {
+        setError('Selecciona tu género.');
+        return;
+      }
     }
 
     setSaving(true);  // Mostramos "Guardando..."
@@ -302,7 +323,11 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
             )}
           </div>
           <h2 className="text-lg font-bold text-gray-900">Completa tu perfil</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Estos datos nos ayudan a darte una mejor experiencia</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {requireCoreFields
+              ? 'Necesitamos estos datos para agendar tu cita'
+              : 'Estos datos nos ayudan a darte una mejor experiencia'}
+          </p>
         </div>
 
         {/* Campos del formulario */}
@@ -315,7 +340,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
           {/* !user.phone → si el usuario YA tiene teléfono, ocultamos este campo */}
           {!user.phone && (
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Teléfono</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Teléfono{requireCoreFields && <span className="text-red-500"> *</span>}</label>
               {/* flex gap-2 → prefijo y número lado a lado */}
               <div className="flex gap-2 min-w-0">
                 {/* Selector de prefijo internacional */}
@@ -359,7 +384,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
 
           {/* Birth date: componente DatePicker reutilizable */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Fecha de nacimiento</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Fecha de nacimiento{requireCoreFields && <span className="text-red-500"> *</span>}</label>
             <DatePicker
               value={form.birthDate}
               // Actualiza solo el campo birthDate del objeto form
@@ -370,7 +395,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
 
           {/* Gender: selector desplegable */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Género</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Género{requireCoreFields && <span className="text-red-500"> *</span>}</label>
             <select
               value={form.gender}
               onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
@@ -434,7 +459,7 @@ export function CompleteProfileModal({ user, onComplete, onSkip }: CompleteProfi
             onClick={onSkip}
             className="w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            Después
+            {requireCoreFields ? 'Cancelar' : 'Después'}
           </button>
         </div>
       </div>

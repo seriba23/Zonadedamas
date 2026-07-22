@@ -390,6 +390,37 @@ export default function BusinessDetailPage() {
   // un banner sticky para que pueda volver al panel sin perderse en el portal cliente.
   const fromAdmin = searchParams.get('fromAdmin') === '1';
 
+  // ── Gate de perfil para reservar ─────────────────────────────────────────
+  // Para agendar una cita es INDISPENSABLE que el usuario tenga los datos de
+  // contacto/identidad mínimos: teléfono válido (10 dígitos), fecha de
+  // nacimiento y género. Sin ellos el negocio no puede contactarlo ni
+  // personalizar el servicio. Este valor derivado indica si el perfil ya está
+  // listo; el helper de abajo abre el modal obligatorio si no lo está.
+  const cleanUserPhone = (user?.phone || '').replace(/\D/g, '');
+  const profileReadyToBook =
+    !!user && cleanUserPhone.length >= 10 && !!user.birthDate && !!user.gender;
+
+  // Abre el modal de completar perfil en modo reserva. Marca el gate general
+  // (CompleteProfileGate del layout) como descartado en la sesión para que sus
+  // dos modales no se solapen (ambos son z-50). La clave debe coincidir con
+  // DISMISSED_KEY de complete-profile-gate.tsx.
+  const promptCompleteProfileForBooking = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('marketplace_profile_dismissed', '1');
+    }
+    setShowCompleteProfile(true);
+  };
+
+  // Si el perfil no está listo, abre el modal de completar (obligatorio) y
+  // devuelve false para abortar la apertura del wizard de reserva.
+  const ensureProfileForBooking = (): boolean => {
+    if (!profileReadyToBook) {
+      promptCompleteProfileForBooking();
+      return false;
+    }
+    return true;
+  };
+
   // Código de referido desde la URL (?ref=CODIGO).
   // Si viene en la URL, lo guardamos en localStorage para que persista aunque
   // el usuario tenga que ir a login antes de reservar.
@@ -578,12 +609,18 @@ export default function BusinessDetailPage() {
   useEffect(() => {
     if (!bookEmployeeId || !biz) return;
     const emp = (biz.employees || []).find((e: BizEmployee) => e.id === bookEmployeeId);
-    if (emp) {
-      setSelectedEmployee(emp);
-      setAnyEmployee(false);
-      setBookingStep('service');
+    if (!emp) return;
+    setSelectedEmployee(emp);
+    setAnyEmployee(false);
+    // El usuario llegó desde el enlace del profesional con intención de
+    // reservar: exigir perfil completo antes de abrir el wizard. Al guardar,
+    // el modal recarga la página y este efecto reabre el wizard ya listo.
+    if (!profileReadyToBook) {
+      promptCompleteProfileForBooking();
+      return;
     }
-  }, [bookEmployeeId, biz]);
+    setBookingStep('service');
+  }, [bookEmployeeId, biz, profileReadyToBook]);
 
   // Pre-select service from URL param (cuando el cliente entra desde la
   // tarjeta de un servicio especifico en el perfil del profesional).
@@ -593,8 +630,13 @@ export default function BusinessDetailPage() {
     const svcExists = (biz.services || []).some((s: any) => s.id === preselectedServiceId);
     if (!svcExists) return;
     setSelectedServiceIds((prev) => (prev.includes(preselectedServiceId) ? prev : [...prev, preselectedServiceId]));
+    // Mismo gate: exigir perfil completo antes de abrir el wizard.
+    if (!profileReadyToBook) {
+      promptCompleteProfileForBooking();
+      return;
+    }
     setBookingStep('service');
-  }, [preselectedServiceId, biz]);
+  }, [preselectedServiceId, biz, profileReadyToBook]);
 
   // Pre-asignar selectedEmployee a serviceEmployeeMap para multi-empleado.
   // Cuando el cliente entra desde el perfil de un profesional (?bookEmployee=X)
@@ -1189,11 +1231,7 @@ export default function BusinessDetailPage() {
     // Si el usuario salto el flujo de completar perfil, su telefono puede
     // estar vacio o invalido. Abrimos el modal para que lo complete antes
     // de iniciar el wizard.
-    const cleanPhone = (user?.phone || '').replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 7) {
-      setShowCompleteProfile(true);
-      return;
-    }
+    if (!ensureProfileForBooking()) return;
     const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
     setSelectedServiceIds([]);
     setSelectedBundle(null);
@@ -1241,11 +1279,7 @@ export default function BusinessDetailPage() {
       router.push(buildLoginRedirect());
       return;
     }
-    const cleanPhone = (user?.phone || '').replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 7) {
-      setShowCompleteProfile(true);
-      return;
-    }
+    if (!ensureProfileForBooking()) return;
     const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
     setSelectedServiceIds([serviceId]);
     setSelectedBundle(null);
@@ -1273,6 +1307,7 @@ export default function BusinessDetailPage() {
       router.push(buildLoginRedirect());
       return;
     }
+    if (!ensureProfileForBooking()) return;
     const ids: string[] = Array.isArray(bundle.serviceIds) ? bundle.serviceIds : [];
     const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
     setSelectedServiceIds(ids);
@@ -1813,6 +1848,7 @@ export default function BusinessDetailPage() {
                           router.push(buildLoginRedirect());
                           return;
                         }
+                        if (!ensureProfileForBooking()) return;
                         setSelectedLocationId(loc.id);
                         setSelectedServiceIds([]);
                         setSelectedBundle(null);
@@ -5332,11 +5368,13 @@ export default function BusinessDetailPage() {
       )}
 
       {/* Modal de completar perfil — se abre cuando el cliente intenta
-          reservar pero su telefono esta incompleto. Reemplaza el error
-          tecnico del backend con un flujo guiado. */}
+          reservar pero su perfil está incompleto. requireCoreFields lo hace
+          OBLIGATORIO: teléfono, fecha de nacimiento y género son requeridos
+          para poder agendar (no se puede reservar sin completarlos). */}
       {showCompleteProfile && user && (
         <CompleteProfileModal
           user={user as any}
+          requireCoreFields
           onComplete={() => {
             setShowCompleteProfile(false);
             refreshUser();
