@@ -63,6 +63,7 @@ import { useMarketplaceAuth } from '@/lib/hooks/use-marketplace-auth';
 // Modales y componentes de UI reutilizables.
 import { CompleteProfileModal } from '@/components/ui/complete-profile-modal';
 import { SuccessPopup } from '@/components/ui/success-popup';
+import { ShareButton } from '@/components/ui/share-button';
 import { ConfettiCelebration } from '@/components/ui/confetti-celebration';
 import { SectionHelp } from '@/components/ui/section-help';
 import { HomeAddressPicker, type DeliverySelection } from '@/components/marketplace/home-address-picker';
@@ -1056,10 +1057,29 @@ export default function BusinessDetailPage() {
     },
   });
 
+  // Construye el destino de login conservando la URL ACTUAL COMPLETA
+  // (pathname + query). Así, si la persona llegó desde el enlace compartido de
+  // un profesional (…?bookEmployee=ID) y necesita crear cuenta para reservar,
+  // tras registrarse vuelve EXACTAMENTE a esa reserva con el profesional ya
+  // preseleccionado — no se pierde la cadena del enlace compartido.
+  const buildLoginRedirect = () => {
+    let here =
+      typeof window !== 'undefined'
+        ? window.location.pathname + window.location.search
+        : `/marketplace/${tenantSlug}`;
+    // Preservar el código de referido guardado si aún no está en la URL.
+    const savedRef =
+      typeof window !== 'undefined' ? localStorage.getItem(`ref_${tenantSlug}`) : null;
+    if (savedRef && !/[?&]ref=/.test(here)) {
+      here += (here.includes('?') ? '&' : '?') + `ref=${savedRef}`;
+    }
+    return `/marketplace/login?redirect=${encodeURIComponent(here)}`;
+  };
+
   const handleToggleFavorite = () => {
     if (fromAdmin) return;
     if (!isAuthenticated) {
-      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      router.push(buildLoginRedirect());
       return;
     }
     favMutation.mutate();
@@ -1101,7 +1121,7 @@ export default function BusinessDetailPage() {
   function openReviewForm() {
     if (fromAdmin) return;
     if (!isAuthenticated) {
-      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      router.push(buildLoginRedirect());
       return;
     }
     setReviewForm({
@@ -1163,11 +1183,7 @@ export default function BusinessDetailPage() {
     // termine llamando handleBook queda no-op aunque siga renderizado.
     if (fromAdmin) return;
     if (!isAuthenticated) {
-      const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
-      const redirect = savedRef
-        ? `/marketplace/${tenantSlug}%3Fref%3D${savedRef}`
-        : `/marketplace/${tenantSlug}`;
-      router.push(`/marketplace/login?redirect=${redirect}`);
+      router.push(buildLoginRedirect());
       return;
     }
     // Si el usuario salto el flujo de completar perfil, su telefono puede
@@ -1222,11 +1238,7 @@ export default function BusinessDetailPage() {
   const startBookingWithService = (serviceId: string) => {
     if (fromAdmin) return;
     if (!isAuthenticated) {
-      const savedRef = localStorage.getItem(`ref_${tenantSlug}`);
-      const redirect = savedRef
-        ? `/marketplace/${tenantSlug}%3Fref%3D${savedRef}`
-        : `/marketplace/${tenantSlug}`;
-      router.push(`/marketplace/login?redirect=${redirect}`);
+      router.push(buildLoginRedirect());
       return;
     }
     const cleanPhone = (user?.phone || '').replace(/\D/g, '');
@@ -1258,7 +1270,7 @@ export default function BusinessDetailPage() {
   const startBookingWithBundle = (bundle: any) => {
     if (fromAdmin) return;
     if (!isAuthenticated) {
-      router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+      router.push(buildLoginRedirect());
       return;
     }
     const ids: string[] = Array.isArray(bundle.serviceIds) ? bundle.serviceIds : [];
@@ -1645,6 +1657,14 @@ export default function BusinessDetailPage() {
               </svg>
             </Link>
           )}
+          <ShareButton
+            title={biz.name}
+            text={`Mira ${biz.name} en Siliba y agenda tu cita:`}
+            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/marketplace/${tenantSlug}`}
+            ariaLabel={`Compartir ${biz.name}`}
+            className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white transition-colors text-[#6b7280]"
+            iconClassName="w-5 h-5"
+          />
           {!fromAdmin && (
             <button
               onClick={handleToggleFavorite}
@@ -1790,7 +1810,7 @@ export default function BusinessDetailPage() {
                       // wizard de reserva con esta sucursal preseleccionada.
                       const handleCardClick = () => {
                         if (!isAuthenticated) {
-                          router.push(`/marketplace/login?redirect=/marketplace/${tenantSlug}`);
+                          router.push(buildLoginRedirect());
                           return;
                         }
                         setSelectedLocationId(loc.id);

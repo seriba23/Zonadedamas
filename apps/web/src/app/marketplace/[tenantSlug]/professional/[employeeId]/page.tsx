@@ -38,6 +38,9 @@ import { useQuery } from '@tanstack/react-query';
 //   useCallback→ memoriza una función para no recrearla en cada render.
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// Botón reutilizable de "Compartir" (Web Share API + fallback a copiar enlace).
+import { ShareButton } from '@/components/ui/share-button';
+
 // URL base del backend (NestJS). Se lee de la variable de entorno del proyecto;
 // si no existe, usamos localhost:3001 como valor por defecto.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -287,6 +290,11 @@ export default function ProfessionalProfilePage() {
   // Nombre completo para mostrarlo en la UI.
   const fullName = `${pro.firstName} ${pro.lastName}`;
 
+  // Enlace público del profesional para el botón de "Compartir". Se construye
+  // con origin + ruta limpia (sin query params tipo ?fromAdmin=1).
+  const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/marketplace/${tenantSlug}/professional/${employeeId}`;
+  const shareText = `Mira el perfil de ${fullName}${pro.businessName ? ` en ${pro.businessName}` : ''} y agenda tu cita:`;
+
   // Iniciales para mostrar como fallback cuando no hay foto de perfil.
   // [0] accede al primer carácter de la cadena (ej. "J" de "Juan").
   const initials = `${pro.firstName[0]}${pro.lastName[0]}`;
@@ -318,19 +326,29 @@ export default function ProfessionalProfilePage() {
               </button>
               <p className="text-base font-bold text-white truncate">{fullName}</p>
             </div>
-            {pro.averageRating && (
-              <button
-                type="button"
-                onClick={() => goToSection(1)}
-                aria-label="Ver comentarios"
-                className="flex items-center gap-1 flex-shrink-0 px-2 py-1 -mx-2 -my-1 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <svg className="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-sm font-bold text-white">{pro.averageRating}</span>
-              </button>
-            )}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <ShareButton
+                title={fullName}
+                text={shareText}
+                url={shareUrl}
+                ariaLabel={`Compartir el perfil de ${fullName}`}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors text-white"
+                iconClassName="w-4 h-4"
+              />
+              {pro.averageRating && (
+                <button
+                  type="button"
+                  onClick={() => goToSection(1)}
+                  aria-label="Ver comentarios"
+                  className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <svg className="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className="text-sm font-bold text-white">{pro.averageRating}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -374,21 +392,33 @@ export default function ProfessionalProfilePage() {
           </svg>
         </button>
 
-        {/* Rating badge (over hero) — click lleva a Comentarios */}
-        {pro.averageRating && (
-          <button
-            type="button"
-            onClick={() => goToSection(1)}
-            aria-label="Ver comentarios de clientes"
-            className="fixed right-4 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors"
-            style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', display: showStickyHeader ? 'none' : undefined }}
-          >
-            <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span className="text-xl font-bold text-white">{pro.averageRating}</span>
-          </button>
-        )}
+        {/* Acciones sobre el hero: Compartir (siempre) + Rating (si hay reseñas) */}
+        <div
+          className="fixed right-4 z-30 flex items-center gap-2"
+          style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', display: showStickyHeader ? 'none' : undefined }}
+        >
+          <ShareButton
+            title={fullName}
+            text={shareText}
+            url={shareUrl}
+            ariaLabel={`Compartir el perfil de ${fullName}`}
+            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/30 transition-colors text-white"
+            iconClassName="w-5 h-5"
+          />
+          {pro.averageRating && (
+            <button
+              type="button"
+              onClick={() => goToSection(1)}
+              aria-label="Ver comentarios de clientes"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors"
+            >
+              <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              <span className="text-xl font-bold text-white">{pro.averageRating}</span>
+            </button>
+          )}
+        </div>
 
         {/* Hero content — positioned at bottom, scrolls with page */}
         <div className="relative z-10 flex flex-col justify-end min-h-[72vh] px-6 pb-8 max-w-3xl mx-auto">
