@@ -542,19 +542,22 @@ export function AppointmentModal({
   ) : null;
 
   // Toggle "Cubrir ojos": al elegir una foto, abre el editor de censura antes de
-  // subir. Por defecto activado si el cliente es menor de edad.
+  // subir. Por defecto activado si el cliente es menor de edad. Versión discreta
+  // (checkbox + texto gris) que vive a la derecha del encabezado de la sección de
+  // fotos, sin recuadro propio.
   const coverEyesToggle = (
-    <label className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg border border-gray-200 cursor-pointer">
-      <span className="text-[11px] font-medium text-gray-700">
-        Cubrir los ojos antes de subir
-        {isMinorClient && <span className="text-[10px] text-[#008080] font-semibold"> · menor de edad</span>}
-      </span>
+    <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
       <input
         type="checkbox"
         checked={coverEyes}
         onChange={(e) => setCoverEyes(e.target.checked)}
         style={{ accentColor: '#008080' }}
+        className="w-3.5 h-3.5"
       />
+      <span className="text-[11px] font-medium text-[#7c8d89]">
+        Cubrir ojos
+        {isMinorClient && <span className="text-[#008080] font-semibold"> · menor</span>}
+      </span>
     </label>
   );
 
@@ -733,6 +736,10 @@ export function AppointmentModal({
       // Invalida el cache para que el badge "Recordatorio enviado" aparezca.
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       queryClient.invalidateQueries({ queryKey: ['reminders-pending'] });
+    } catch (err: any) {
+      // Sin catch, un 403 (rol sin 'appointments.remind') quedaba como
+      // "Uncaught (in promise)" en consola. Mostramos el aviso en la UI.
+      setFormError(err?.message || 'No se pudo enviar el recordatorio');
     } finally {
       setSendingReminder(false);
     }
@@ -1289,7 +1296,7 @@ export function AppointmentModal({
               return (
                 <div className="rounded-2xl bg-[#eff6f4] p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#008080] mb-1">Cuándo</p>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#7c8d89] mb-1">Cuándo</p>
                     <p className="text-sm font-bold text-[#0f1e1c] leading-tight capitalize">
                       {formatDate(appointment.startTime)}
                     </p>
@@ -1366,7 +1373,7 @@ export function AppointmentModal({
             {/* Client & Employee */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1.5">
+                <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em] mb-1.5">
                   Cliente
                 </p>
                 {/* Ternario: si existe el cliente → muestra avatar+nombre, si no → guión. */}
@@ -1417,7 +1424,7 @@ export function AppointmentModal({
                 )}
               </div>
               <div>
-                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1.5">
+                <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em] mb-1.5">
                   Profesional
                 </p>
                 {appointment.employee ? (
@@ -1460,7 +1467,7 @@ export function AppointmentModal({
             {/* Services */}
             {appointment.items && appointment.items.length > 0 && (
               <div>
-                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-2">
+                <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em] mb-2">
                   Servicios
                 </p>
                 <div className="space-y-2.5">
@@ -1565,7 +1572,7 @@ export function AppointmentModal({
             {/* Product Reservations (Apartados) */}
             {appointment.productReservations && appointment.productReservations.length > 0 && (
               <div>
-                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-2">
+                <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em] mb-2">
                   Apartados
                 </p>
                 <div className="bg-[var(--bg-subtle)] rounded-lg p-3 space-y-2">
@@ -1605,7 +1612,7 @@ export function AppointmentModal({
 
             {appointment.notes && (
               <div>
-                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1">
+                <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em] mb-1">
                   Notas
                 </p>
                 <p className="text-sm text-[var(--text-secondary)] bg-[var(--bg-subtle)] rounded-lg p-3">
@@ -1616,7 +1623,7 @@ export function AppointmentModal({
 
             {appointment.internalNotes && (
               <div>
-                <p className="text-[11px] font-extrabold text-[#008080] uppercase tracking-[0.12em] mb-1">
+                <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em] mb-1">
                   Notas internas
                 </p>
                 <p className="text-sm text-teal-800 dark:text-teal-200 rounded-lg p-3 border" style={{ backgroundColor: 'var(--primary-tint)', borderColor: 'var(--primary-tint-border)' }}>
@@ -1724,10 +1731,15 @@ export function AppointmentModal({
                     </button>
                   </div>
                 ) : photos.length === 0 ? (
+                  // ── Consent true, aún sin fotos: sección discreta con un solo
+                  // tile "+" de 56×56 (sin recuadro grande que domine la pantalla).
                   <div>
-                    {coverEyesToggle}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em]">Fotos de resultado</p>
+                      {coverEyesToggle}
+                    </div>
                     {photoServiceSelector}
-                    <label className="block cursor-pointer">
+                    <label className="inline-block cursor-pointer">
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
@@ -1739,64 +1751,52 @@ export function AppointmentModal({
                         }}
                         disabled={uploadingPhoto}
                       />
-                      <div
-                        className="w-full px-4 py-4 rounded-xl border-2 border-dashed text-sm font-semibold flex items-center justify-center gap-2 transition-colors hover:bg-teal-50"
-                        style={{ borderColor: '#008080', color: '#008080' }}
-                      >
+                      <div className="w-14 h-14 rounded-xl border-2 border-dashed border-[#cdddd8] flex items-center justify-center transition-colors hover:border-[#008080] hover:bg-[#f2f9f7]">
                         {uploadingPhoto ? (
-                          <span>Subiendo...</span>
+                          <span className="text-[9px] font-semibold" style={{ color: '#008080' }}>Subiendo</span>
                         ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316zM16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                            </svg>
-                            + Agregar fotos del resultado
-                          </>
+                          <svg className="w-5 h-5" style={{ color: '#008080' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
                         )}
                       </div>
                     </label>
                   </div>
                 ) : (
-                  <div
-                    className="rounded-xl border-2 p-4"
-                    style={{ borderColor: '#008080', backgroundColor: '#e0f2f1' }}
-                  >
-                    {/* Header — avatar/icono + título + contador */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4" style={{ color: '#008080' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316zM16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-900 leading-tight">Fotos de resultado</p>
-                        <p className="text-[10px] text-gray-500 leading-tight">{photos.length} foto{photos.length !== 1 ? 's' : ''}</p>
-                      </div>
+                  // ── Con fotos: una sección más (label gris + conteo + toggle a
+                  // la derecha), miniaturas pequeñas 56×56 en fila, sin recuadro
+                  // tint que domine. El foco vuelve a servicios/total y acciones.
+                  <div>
+                    {/* Encabezado de sección: label gris + conteo · toggle a la derecha */}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-extrabold text-[#7c8d89] uppercase tracking-[0.12em]">
+                        Fotos de resultado <span className="text-[#b6c2be]">· {photos.length}</span>
+                      </p>
+                      {coverEyesToggle}
                     </div>
 
                     {/* Selector de servicio para la próxima foto (2+ servicios) */}
-                    {coverEyesToggle}
                     {photoServiceSelector}
 
-                    {/* Grid de fotos + tile para añadir más al final */}
-                    <div className="grid grid-cols-4 gap-2">
+                    {/* Fila de miniaturas 56×56 + tile "+" del mismo tamaño */}
+                    <div className="flex flex-wrap gap-2">
                       {photos.map((photo) => {
                         const svcName = serviceNameById(photo.serviceId);
                         return (
-                        <div key={photo.id} className="relative group aspect-square">
+                        <div key={photo.id} className="relative group w-14 h-14">
                           <img
                             src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${photo.imageUrl}`}
                             alt={photo.caption || 'Resultado'}
-                            className="w-full h-full object-cover rounded-lg ring-1 ring-white"
+                            className="w-full h-full object-cover rounded-xl ring-1 ring-[#eef3f1]"
                           />
                           {uniqueServices.length > 1 && svcName && (
-                            <span className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-[8px] leading-tight px-1 py-0.5 rounded-b-lg truncate">
+                            <span className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-[7px] leading-tight px-1 py-0.5 rounded-b-xl truncate">
                               {svcName}
                             </span>
                           )}
                           <button
                             onClick={() => handlePhotoDelete(photo.id)}
-                            className="absolute top-1 right-1 bg-white text-red-500 rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                            className="absolute -top-1 -right-1 bg-white text-red-500 rounded-full w-4 h-4 flex items-center justify-center text-[11px] leading-none opacity-0 group-hover:opacity-100 transition-opacity shadow"
                             title="Eliminar"
                           >
                             &times;
@@ -1804,7 +1804,7 @@ export function AppointmentModal({
                         </div>
                         );
                       })}
-                      <label className="aspect-square rounded-lg border-2 border-dashed bg-white/60 flex items-center justify-center cursor-pointer hover:bg-white transition-colors" style={{ borderColor: '#008080' }}>
+                      <label className="w-14 h-14 rounded-xl border-2 border-dashed border-[#cdddd8] bg-white flex items-center justify-center cursor-pointer transition-colors hover:border-[#008080] hover:bg-[#f2f9f7]">
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -1817,7 +1817,7 @@ export function AppointmentModal({
                           disabled={uploadingPhoto}
                         />
                         {uploadingPhoto ? (
-                          <span className="text-[10px] font-medium" style={{ color: '#008080' }}>Subiendo...</span>
+                          <span className="text-[9px] font-semibold" style={{ color: '#008080' }}>Subiendo</span>
                         ) : (
                           <svg className="w-5 h-5" style={{ color: '#008080' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -2357,6 +2357,7 @@ export function AppointmentModal({
                 {statusLower !== 'in_progress' && (
                   <div className="flex gap-3">
                     {!!appointment.client?.phone &&
+                      hasPermission('appointments.remind') &&
                       ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(appointment.status.toUpperCase()) && (
                         <button
                           type="button"
@@ -2427,49 +2428,71 @@ export function AppointmentModal({
               );
               const isPaid = realPayments.length > 0;
               const bizName = appointment.tenant?.name || (authUser as any)?.tenantName || 'nuestro negocio';
+              // Flags de la jerarquía de 2 niveles: la PRIMARIA (teal sólido,
+              // full-width) es "Cobrar" cuando la cita quedó sin pagar (dinero
+              // pendiente → máxima prioridad); si ya está pagada, la primaria es
+              // "Enviar por WhatsApp". Reagendar/Cerrar (+ WhatsApp si Cobrar tomó
+              // la primaria) van como SECUNDARIAS outline neutro debajo.
+              const showCobrar = statusLower === 'completed' && !isPaid && hasPermission('payments.create');
+              const hasPhone = !!appointment.client?.phone;
+              const sendFollowUpWhatsApp = () => {
+                const url = buildWhatsAppUrl(
+                  appointment.client!.phone!,
+                  `Hola ${appointment.client!.firstName}, gracias por tu visita a *${bizName}*. ¡Esperamos verte pronto!`,
+                );
+                if (url) window.open(url, '_blank');
+              };
+              // Estilo compartido de las cápsulas secundarias (outline neutro).
+              const secondaryBtn =
+                'flex-1 px-4 py-2.5 rounded-full font-semibold bg-white border border-[#cdddd8] text-[#0f1e1c] hover:border-[#008080] hover:text-[#008080] transition-colors';
               return (
-                <div className="sticky bottom-0 z-10 -mx-5 -mb-5 px-5 pt-3 pb-4 bg-white border-t border-[#eef3f1] flex flex-wrap gap-3">
-                  {/* Cobrar: solo si la cita se completó pero no quedó pagada. */}
-                  {statusLower === 'completed' && !isPaid && hasPermission('payments.create') && (
+                <div className="sticky bottom-0 z-10 -mx-5 -mb-5 px-5 pt-3 pb-4 bg-white border-t border-[#eef3f1] flex flex-col gap-2.5">
+                  {/* ── PRIMARIA (teal sólido, ancho completo) ── */}
+                  {showCobrar ? (
+                    // Cobrar: la cita se completó pero no quedó pagada.
                     <button
                       type="button"
                       onClick={() => router.push(`${posBasePath ?? ''}/pos?appointmentId=${appointmentId}`)}
-                      className="btn-primary flex-1"
+                      className="w-full px-4 py-2.5 rounded-full font-semibold text-white bg-[#008080] hover:bg-[#006666] transition-colors"
                     >
                       Cobrar
                     </button>
-                  )}
-                  {/* Reagendar: mover esta misma cita a otra fecha/hora (revive
-                      la cita cerrada con el nuevo horario). */}
-                  {hasPermission('appointments.reschedule') && (
+                  ) : hasPhone ? (
+                    // Enviar por WhatsApp: acción principal al cerrar la cita
+                    // (seguimiento / invitar a volver). Teal, NO verde.
                     <button
                       type="button"
-                      onClick={() => setRescheduleMode(true)}
-                      className="btn-secondary flex-1"
+                      onClick={sendFollowUpWhatsApp}
+                      className="w-full px-4 py-2.5 rounded-full font-semibold text-white bg-[#008080] hover:bg-[#006666] transition-colors flex items-center justify-center gap-2"
                     >
-                      Reagendar
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                      </svg>
+                      Enviar por WhatsApp
                     </button>
-                  )}
-                  {/* Seguimiento por WhatsApp (agradecer / invitar a volver). */}
-                  {!!appointment.client?.phone && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const url = buildWhatsAppUrl(
-                          appointment.client!.phone!,
-                          `Hola ${appointment.client!.firstName}, gracias por tu visita a *${bizName}*. ¡Esperamos verte pronto!`,
-                        );
-                        if (url) window.open(url, '_blank');
-                      }}
-                      className="flex-1 px-3 py-2 rounded-[10px] font-medium text-white transition-colors flex items-center justify-center gap-1.5"
-                      style={{ backgroundColor: '#25D366' }}
-                    >
-                      WhatsApp
+                  ) : null}
+
+                  {/* ── SECUNDARIAS (outline neutro, mismo peso) ── */}
+                  <div className="flex gap-2.5">
+                    {/* Reagendar: mover esta misma cita a otra fecha/hora. */}
+                    {hasPermission('appointments.reschedule') && (
+                      <button type="button" onClick={() => setRescheduleMode(true)} className={secondaryBtn}>
+                        Reagendar
+                      </button>
+                    )}
+                    {/* Si Cobrar tomó la primaria, WhatsApp baja aquí como secundaria. */}
+                    {showCobrar && hasPhone && (
+                      <button type="button" onClick={sendFollowUpWhatsApp} className={`${secondaryBtn} flex items-center justify-center gap-1.5`}>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                        </svg>
+                        WhatsApp
+                      </button>
+                    )}
+                    <button type="button" onClick={onClose} className={secondaryBtn}>
+                      Cerrar
                     </button>
-                  )}
-                  <button type="button" onClick={onClose} className="btn-secondary flex-1">
-                    Cerrar
-                  </button>
+                  </div>
                 </div>
               );
             })()}

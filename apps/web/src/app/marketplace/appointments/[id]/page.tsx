@@ -15,6 +15,12 @@
 //   - Modal DualReviewModal: se abre automáticamente si la cita está COMPLETED
 //     y el cliente no ha dejado reseña.
 //   - Botón "Cancelar cita" (solo para citas futuras PENDING/CONFIRMED).
+//
+// DISEÑO (rediseño "soft"): una sola superficie blanca; las secciones se
+// separan con una línea fina (1px #eef3f1) en vez de tarjetas con borde y
+// sombra. Labels de sección en gris atenuado 800 uppercase; el foco visual
+// va al contenido (nombres, montos) y al TOTAL en teal grande. Estados en
+// paleta teal/verde (nunca ámbar ni morado). Solo lectura para el cliente.
 // ============================================================
 'use client';
 
@@ -53,7 +59,13 @@ import { DualReviewModal } from '@/components/ui/dual-review-modal';
 // URL base del backend (variable de entorno del build).
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// Diccionarios de traducción de estado → etiqueta y estilos visuales.
+// Tokens de color del rediseño "soft" (reutilizados en todo el archivo).
+const INK = '#0f1e1c'; // texto principal
+const MUTED = '#7c8d89'; // texto atenuado / labels de sección
+const LINE = '#eef3f1'; // línea divisoria fina
+const TEAL = '#008080'; // color de marca
+
+// Diccionario de traducción de estado → etiqueta legible.
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendiente',
   CONFIRMED: 'Confirmada',
@@ -64,14 +76,17 @@ const STATUS_LABEL: Record<string, string> = {
   NO_SHOW: 'Ausente',
 };
 
-const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  PENDING: { bg: '#fef3c7', color: '#d97706' },
-  CONFIRMED: { bg: '#d1fae5', color: '#059669' },
-  RESCHEDULED: { bg: '#dbeafe', color: '#2563eb' },
-  IN_PROGRESS: { bg: '#dbeafe', color: '#2563eb' },
-  COMPLETED: { bg: '#f3f4f6', color: '#6b7280' },
-  CANCELLED: { bg: '#fee2e2', color: '#dc2626' },
-  NO_SHOW: { bg: '#fee2e2', color: '#dc2626' },
+// Estilos del badge de estado — SIEMPRE en paleta teal/verde (nunca ámbar ni
+// morado, según la regla de marca). Cada estado: fondo tint suave, texto y
+// punto. Confirmada = verde éxito; Cancelada/Ausente = rojo destructivo.
+const STATUS_STYLE: Record<string, { bg: string; color: string; dot: string }> = {
+  PENDING: { bg: '#eff6f4', color: '#0b6b64', dot: '#12a86e' },
+  CONFIRMED: { bg: '#e7f5ee', color: '#0a7d54', dot: '#12a86e' },
+  RESCHEDULED: { bg: '#e0f2f1', color: '#008080', dot: '#008080' },
+  IN_PROGRESS: { bg: '#d4e9e6', color: '#0b6b64', dot: '#0b6b64' },
+  COMPLETED: { bg: '#eef3f1', color: '#5a6f6b', dot: '#7c8d89' },
+  CANCELLED: { bg: '#fbeaea', color: '#c14242', dot: '#c14242' },
+  NO_SHOW: { bg: '#fbeaea', color: '#c14242', dot: '#c14242' },
 };
 
 function formatDateTime(dateStr: string) {
@@ -79,6 +94,16 @@ function formatDateTime(dateStr: string) {
     date: formatBookingDate(dateStr, 'long'),
     time: formatBookingTime(dateStr),
   };
+}
+
+// Label de sección reutilizable: gris atenuado, 800, uppercase, tracking amplio.
+// Es discreto a propósito: lo que resalta es el contenido, no la etiqueta.
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] mb-3" style={{ color: MUTED }}>
+      {children}
+    </p>
+  );
 }
 
 // ── Componente principal ───────────────────────────────────
@@ -146,14 +171,14 @@ export default function AppointmentDetailPage() {
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: '#008080' }} />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: TEAL }} />
       </div>
     );
   }
 
   if (!appt) return null;
 
-  const style = STATUS_STYLE[appt.status] || { bg: '#f3f4f6', color: '#6b7280' };
+  const style = STATUS_STYLE[appt.status] || { bg: '#eef3f1', color: MUTED, dot: MUTED };
   const { date, time } = formatDateTime(appt.startTime);
   const endTime = formatBookingTime(appt.endTime || appt.startTime);
   const servicesSubtotal = appt.items?.reduce((sum: number, i: any) => sum + Number(i.priceSnapshot || 0), 0) ?? 0;
@@ -169,6 +194,7 @@ export default function AppointmentDetailPage() {
   const currency: string = appt.tenant?.currency || 'MXN';
   const totalDuration = appt.items?.reduce((sum: number, i: any) => sum + Number(i.durationSnapshot || 0), 0) ?? 0;
   const visibleProducts = (appt.productReservations || []).filter((r: any) => r.status !== 'CANCELLED');
+  const grandTotal = Math.max(0, total - Number(appt.discountAmount || 0));
 
   // Profesional(es) que atendieron: empleados DISTINTOS de los items (varios si
   // cada servicio lo hizo otro); fallback al empleado principal de la cita.
@@ -198,303 +224,310 @@ export default function AppointmentDetailPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 pb-3 safe-top">
+    <div className="min-h-screen bg-white">
+      {/* Header respetado: botón atrás + título */}
+      <div className="bg-white border-b px-4 pb-3 safe-top sticky top-0 z-10" style={{ borderColor: LINE }}>
         <div className="max-w-2xl mx-auto pt-2 flex items-center gap-3">
           <button
             onClick={() => router.back()}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
           >
-            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <svg className="w-5 h-5" style={{ color: MUTED }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <h1 className="text-lg font-bold text-gray-900">Detalle de cita</h1>
+          <h1 className="text-lg font-bold" style={{ color: INK }}>Detalle de cita</h1>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+      {/* Una sola superficie: las secciones se separan con línea fina (divide-y),
+          sin tarjetas ni sombras por sección. */}
+      <div className="max-w-2xl mx-auto pb-28">
+        <div className="divide-y divide-[#eef3f1]">
 
-        {/* Business card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-            {appt.tenant?.logoUrl ? (
-              <img src={`${API_URL}${appt.tenant.logoUrl}`} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xl font-bold text-gray-400">{appt.tenant?.name?.[0]}</span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 truncate">{appt.tenant?.name}</p>
-            <button
-              onClick={() => router.push(`/marketplace/${appt.tenant?.slug}`)}
-              className="text-xs mt-0.5"
-              style={{ color: '#008080' }}
-            >
-              Ver negocio →
-            </button>
-          </div>
-          <div className="flex flex-col items-end gap-2 flex-shrink-0">
-            <span
-              className="px-3 py-1 rounded-full text-xs font-semibold"
-              style={{ backgroundColor: style.bg, color: style.color }}
-            >
-              {STATUS_LABEL[appt.status] || appt.status}
-            </span>
-            <WhatsAppButton
-              phone={appt.tenant?.businessPhone}
-              message={buildAppointmentMessage({
-                tenantName: appt.tenant?.name || 'el negocio',
-                serviceName: (appt.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
-                startTime: appt.startTime,
-                appointmentId: appt.id,
-              })}
-              label="WhatsApp"
-            />
-          </div>
-        </div>
-
-        {/* Date & time */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-700">Fecha y hora</h2>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
-              <svg className="w-5 h-5" style={{ color: '#008080' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75" />
-              </svg>
+          {/* Negocio + estado */}
+          <section className="px-5 py-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {appt.tenant?.logoUrl ? (
+                <img src={`${API_URL}${appt.tenant.logoUrl}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-extrabold text-gray-400">{appt.tenant?.name?.[0]}</span>
+              )}
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900 capitalize">{date}</p>
-              <p className="text-xs text-gray-500">{time}{appt.endTime ? ` – ${endTime}` : ''}{totalDuration ? ` · ${totalDuration} min` : ''}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Servicio a domicilio: deja claro que la cita es a domicilio, con la
-            dirección de entrega y el cargo por desplazamiento. */}
-        {appt.serviceType === 'DOMICILIO' && (
-          <div className="bg-teal-50 rounded-xl border border-teal-200 p-4 space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#008080] text-white text-xs font-semibold">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
-              </svg>
-              Servicio a domicilio
-            </span>
-            {appt.deliveryAddress && (
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5" style={{ color: '#008080' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                  </svg>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-teal-700 font-medium">Dirección de entrega</p>
-                  <p className="text-sm text-gray-900 break-words">{appt.deliveryAddress}</p>
-                </div>
-              </div>
-            )}
-            {Number(appt.homeServiceFee) > 0 && (
-              <div className="flex items-center justify-between text-sm border-t border-teal-200 pt-2">
-                <span className="text-teal-700 font-medium">Cargo por desplazamiento</span>
-                <span className="text-gray-900 font-semibold">{formatCurrency(Number(appt.homeServiceFee), currency)}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Employee */}
-        {appt.employee && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Especialista</h2>
-            <button
-              onClick={() => router.push(`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`)}
-              className="flex items-center gap-3 w-full text-left"
-            >
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-sm font-bold"
-                style={{ backgroundColor: appt.employee.color ? `${appt.employee.color}22` : '#e0f2f1', color: appt.employee.color || '#008080' }}
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-extrabold truncate tracking-[-0.02em]" style={{ color: INK }}>{appt.tenant?.name}</p>
+              <button
+                onClick={() => router.push(`/marketplace/${appt.tenant?.slug}`)}
+                className="text-[13px] font-semibold mt-0.5"
+                style={{ color: TEAL }}
               >
-                {appt.employee.avatarUrl ? (
-                  <img src={`${API_URL}${appt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <>{appt.employee.firstName?.[0]}{appt.employee.lastName?.[0]}</>
-                )}
-              </div>
-              <p className="text-sm font-medium text-gray-900 flex-1">
-                {appt.employee.firstName} {appt.employee.lastName}
-              </p>
-              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          </div>
-        )}
+                Ver negocio →
+              </button>
+            </div>
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                style={{ backgroundColor: style.bg, color: style.color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: style.dot }} />
+                {STATUS_LABEL[appt.status] || appt.status}
+              </span>
+              <WhatsAppButton
+                phone={appt.tenant?.businessPhone}
+                message={buildAppointmentMessage({
+                  tenantName: appt.tenant?.name || 'el negocio',
+                  serviceName: (appt.items || []).map((i: any) => i.serviceNameSnapshot).join(', '),
+                  startTime: appt.startTime,
+                  appointmentId: appt.id,
+                })}
+                label="WhatsApp"
+              />
+            </div>
+          </section>
 
-        {/* Services */}
-        {appt.items?.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Servicios</h2>
-            <div className="space-y-2">
-              {appt.items.map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-900">{item.serviceNameSnapshot}</p>
-                    {item.durationSnapshot && (
-                      <p className="text-xs text-gray-400">{item.durationSnapshot} min</p>
-                    )}
+          {/* Servicio a domicilio (si aplica): sección discreta con chip teal,
+              sin caja tint que compita con el resto. */}
+          {appt.serviceType === 'DOMICILIO' && (
+            <section className="px-5 py-5 space-y-3">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-bold" style={{ backgroundColor: TEAL }}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
+                </svg>
+                Servicio a domicilio
+              </span>
+              {appt.deliveryAddress && (
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
+                    <svg className="w-5 h-5" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
                   </div>
-                  {item.priceSnapshot != null && (
-                    <p className="text-sm font-medium text-gray-900">{formatCurrency(Number(item.priceSnapshot), currency)}</p>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Dirección de entrega</p>
+                    <p className="text-sm break-words mt-0.5" style={{ color: INK }}>{appt.deliveryAddress}</p>
+                  </div>
+                </div>
+              )}
+              {Number(appt.homeServiceFee) > 0 && (
+                <div className="flex items-center justify-between text-sm pt-2 border-t" style={{ borderColor: LINE }}>
+                  <span className="font-medium" style={{ color: MUTED }}>Cargo por desplazamiento</span>
+                  <span className="font-bold" style={{ color: INK }}>{formatCurrency(Number(appt.homeServiceFee), currency)}</span>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Fecha y hora */}
+          <section className="px-5 py-5">
+            <SectionLabel>Fecha y hora</SectionLabel>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e0f2f1' }}>
+                <svg className="w-5 h-5" style={{ color: TEAL }} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[15px] font-bold first-letter:uppercase" style={{ color: INK }}>{date}</p>
+                <p className="text-sm mt-0.5" style={{ color: MUTED }}>{time}{appt.endTime ? ` – ${endTime}` : ''}{totalDuration ? ` · ${totalDuration} min` : ''}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Especialista */}
+          {appt.employee && (
+            <section className="px-5 py-5">
+              <SectionLabel>Especialista</SectionLabel>
+              <button
+                onClick={() => router.push(`/marketplace/${appt.tenant?.slug}/professional/${appt.employee.id}`)}
+                className="flex items-center gap-3 w-full text-left"
+              >
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 text-sm font-bold"
+                  style={{ backgroundColor: appt.employee.color ? `${appt.employee.color}22` : '#e0f2f1', color: appt.employee.color || TEAL }}
+                >
+                  {appt.employee.avatarUrl ? (
+                    <img src={`${API_URL}${appt.employee.avatarUrl}`} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <>{appt.employee.firstName?.[0]}{appt.employee.lastName?.[0]}</>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Productos reservados con la cita */}
-        {visibleProducts.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Productos</h2>
-            <div className="space-y-2">
-              {visibleProducts.map((r: any) => {
-                const lineTotal = Number(r.unitPrice || 0) * Number(r.quantity || 1);
-                return (
-                  <div key={r.id} className="flex items-center gap-3">
-                    {r.product?.imageUrl ? (
-                      <img
-                        src={`${API_URL}${r.product.imageUrl}`}
-                        alt=""
-                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-gray-100"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 truncate">{r.product?.name || 'Producto'}</p>
-                      <p className="text-xs text-gray-400">
-                        {formatCurrency(Number(r.unitPrice || 0), currency)}
-                        {Number(r.quantity) > 1 ? ` × ${r.quantity}` : ''}
-                      </p>
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">{formatCurrency(lineTotal, currency)}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Resumen del cobro: muestra subtotales por categoría, descuento y
-            total. Solo se muestra cuando hay algo que sumar — sino la
-            sección sería ruido visual. */}
-        {(appt.items?.length > 0 || visibleProducts.length > 0) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Resumen</h2>
-            <div className="space-y-1.5">
-              {servicesSubtotal > 0 && (
-                <div className="flex justify-between text-sm">
-                  <p className="text-gray-500">Servicios</p>
-                  <p className="text-gray-700">{formatCurrency(servicesSubtotal, currency)}</p>
-                </div>
-              )}
-              {productsSubtotal > 0 && (
-                <div className="flex justify-between text-sm">
-                  <p className="text-gray-500">Productos</p>
-                  <p className="text-gray-700">{formatCurrency(productsSubtotal, currency)}</p>
-                </div>
-              )}
-              {Number(appt.discountAmount) > 0 && (() => {
-                const fromRedemption = appt.redemption?.reward?.name;
-                const fromNotes = (() => {
-                  const m = (appt.notes || '').match(/\[Promoci[oó]n: ([^\]]+)\]/);
-                  if (m) return m[1];
-                  const r = (appt.notes || '').match(/\[C[oó]digo 2x1: [^—]+— Promoci[oó]n: ([^\]]+)\]/);
-                  if (r) return r[1];
-                  return null;
-                })();
-                const label = fromRedemption || fromNotes || 'Cupón aplicado';
-                return (
-                  <div className="flex justify-between text-sm">
-                    <p className="text-green-600 font-medium">{label}</p>
-                    <p className="text-green-600 font-medium">-{formatCurrency(Number(appt.discountAmount), currency)}</p>
-                  </div>
-                );
-              })()}
-              <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between">
-                <p className="text-sm font-semibold text-gray-700">Total</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {formatCurrency(Math.max(0, total - Number(appt.discountAmount || 0)), currency)}
+                <p className="text-[15px] font-bold flex-1" style={{ color: INK }}>
+                  {appt.employee.firstName} {appt.employee.lastName}
                 </p>
+                <svg className="w-4 h-4 flex-shrink-0" style={{ color: MUTED }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+            </section>
+          )}
+
+          {/* Servicios */}
+          {appt.items?.length > 0 && (
+            <section className="px-5 py-5">
+              <SectionLabel>Servicios</SectionLabel>
+              <div className="space-y-2.5">
+                {appt.items.map((item: any) => (
+                  <div key={item.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: INK }}>{item.serviceNameSnapshot}</p>
+                      {item.durationSnapshot && (
+                        <p className="text-xs mt-0.5" style={{ color: MUTED }}>{item.durationSnapshot} min</p>
+                      )}
+                    </div>
+                    {item.priceSnapshot != null && (
+                      <p className="text-sm font-bold" style={{ color: INK }}>{formatCurrency(Number(item.priceSnapshot), currency)}</p>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
-        )}
+            </section>
+          )}
 
-        {/* Cupón aplicado — diseño completo de cupón de papel, mismo
-            estilo que la sección /marketplace/coupons. Solo cuando hay
-            redemption con reward completo. */}
-        {appt.redemption?.reward && (
-          <AppointmentCouponCard redemption={appt.redemption} currency={currency} />
-        )}
+          {/* Productos reservados con la cita */}
+          {visibleProducts.length > 0 && (
+            <section className="px-5 py-5">
+              <SectionLabel>Productos</SectionLabel>
+              <div className="space-y-2.5">
+                {visibleProducts.map((r: any) => {
+                  const lineTotal = Number(r.unitPrice || 0) * Number(r.quantity || 1);
+                  return (
+                    <div key={r.id} className="flex items-center gap-3">
+                      {r.product?.imageUrl ? (
+                        <img
+                          src={`${API_URL}${r.product.imageUrl}`}
+                          alt=""
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-gray-100"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: INK }}>{r.product?.name || 'Producto'}</p>
+                        <p className="text-xs mt-0.5" style={{ color: MUTED }}>
+                          {formatCurrency(Number(r.unitPrice || 0), currency)}
+                          {Number(r.quantity) > 1 ? ` × ${r.quantity}` : ''}
+                        </p>
+                      </div>
+                      <p className="text-sm font-bold" style={{ color: INK }}>{formatCurrency(lineTotal, currency)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
-        {/* Fotos del resultado — subidas por el staff al cerrar la cita.
-            Mismas que ve el negocio; el cliente las consulta como recuerdo. */}
-        {appt.photos?.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Fotos del resultado</h2>
-            <div className="grid grid-cols-3 gap-2">
-              {appt.photos.map((ph: any) => (
-                <a
-                  key={ph.id}
-                  href={`${API_URL}${ph.imageUrl}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded-lg overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors aspect-square bg-gray-100"
-                >
-                  <img src={`${API_URL}${ph.imageUrl}`} alt={ph.caption || ''} className="w-full h-full object-cover" />
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+          {/* Resumen del cobro: subtotales por categoría, descuento y TOTAL en
+              teal grande separado por una línea superior. */}
+          {(appt.items?.length > 0 || visibleProducts.length > 0) && (
+            <section className="px-5 py-5">
+              <SectionLabel>Resumen</SectionLabel>
+              <div className="space-y-1.5">
+                {servicesSubtotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <p style={{ color: MUTED }}>Servicios</p>
+                    <p style={{ color: INK }}>{formatCurrency(servicesSubtotal, currency)}</p>
+                  </div>
+                )}
+                {productsSubtotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <p style={{ color: MUTED }}>Productos</p>
+                    <p style={{ color: INK }}>{formatCurrency(productsSubtotal, currency)}</p>
+                  </div>
+                )}
+                {Number(appt.discountAmount) > 0 && (() => {
+                  const fromRedemption = appt.redemption?.reward?.name;
+                  const fromNotes = (() => {
+                    const m = (appt.notes || '').match(/\[Promoci[oó]n: ([^\]]+)\]/);
+                    if (m) return m[1];
+                    const r = (appt.notes || '').match(/\[C[oó]digo 2x1: [^—]+— Promoci[oó]n: ([^\]]+)\]/);
+                    if (r) return r[1];
+                    return null;
+                  })();
+                  const label = fromRedemption || fromNotes || 'Cupón aplicado';
+                  return (
+                    <div className="flex justify-between text-sm">
+                      <p className="font-semibold" style={{ color: '#0a7d54' }}>{label}</p>
+                      <p className="font-semibold" style={{ color: '#0a7d54' }}>-{formatCurrency(Number(appt.discountAmount), currency)}</p>
+                    </div>
+                  );
+                })()}
+                <div className="flex items-end justify-between pt-3 mt-1 border-t" style={{ borderColor: LINE }}>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Total</p>
+                  <p className="text-2xl font-extrabold tracking-[-0.02em]" style={{ color: TEAL }}>
+                    {formatCurrency(grandTotal, currency)}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
-        {/* Payment */}
-        {appt.payments?.[0] && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-2">Pago</h2>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600 capitalize">{appt.payments[0].paymentMethod?.toLowerCase().replace('_', ' ') || '—'}</p>
-              <p className="text-sm font-medium text-gray-900">{formatCurrency(Number(appt.payments[0].totalAmount || 0), appt.payments[0].currency || currency)}</p>
-            </div>
-          </div>
-        )}
+          {/* Cupón aplicado — se mantiene con su estilo de cupón de papel
+              existente (stub teal + perforaciones). */}
+          {appt.redemption?.reward && (
+            <section className="px-5 py-5">
+              <AppointmentCouponCard redemption={appt.redemption} currency={currency} />
+            </section>
+          )}
 
-        {/* Comprobante de pago — estilo plano, sin banner ámbar */}
-        {!['CANCELLED', 'NO_SHOW'].includes(appt.status) && (
-          <AppointmentProofRow appt={appt} />
-        )}
+          {/* Fotos del resultado — subidas por el staff al cerrar la cita. */}
+          {appt.photos?.length > 0 && (
+            <section className="px-5 py-5">
+              <SectionLabel>Fotos del resultado</SectionLabel>
+              <div className="grid grid-cols-3 gap-2">
+                {appt.photos.map((ph: any) => (
+                  <a
+                    key={ph.id}
+                    href={`${API_URL}${ph.imageUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg overflow-hidden border hover:border-[#008080] transition-colors aspect-square bg-gray-100"
+                    style={{ borderColor: LINE }}
+                  >
+                    <img src={`${API_URL}${ph.imageUrl}`} alt={ph.caption || ''} className="w-full h-full object-cover" />
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
 
-        {/* Notes */}
-        {appt.notes && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-2">Notas</h2>
-            <p className="text-sm text-gray-600">{appt.notes}</p>
-          </div>
-        )}
+          {/* Pago */}
+          {appt.payments?.[0] && (
+            <section className="px-5 py-5">
+              <SectionLabel>Pago</SectionLabel>
+              <div className="flex items-center justify-between">
+                <p className="text-sm capitalize" style={{ color: MUTED }}>{appt.payments[0].paymentMethod?.toLowerCase().replace('_', ' ') || '—'}</p>
+                <p className="text-sm font-bold" style={{ color: INK }}>{formatCurrency(Number(appt.payments[0].totalAmount || 0), appt.payments[0].currency || currency)}</p>
+              </div>
+            </section>
+          )}
+
+          {/* Comprobante de pago — sección plana, sin recuadro grande. */}
+          {!['CANCELLED', 'NO_SHOW'].includes(appt.status) && (
+            <AppointmentProofRow appt={appt} />
+          )}
+
+          {/* Notas */}
+          {appt.notes && (
+            <section className="px-5 py-5">
+              <SectionLabel>Notas</SectionLabel>
+              <p className="text-sm" style={{ color: MUTED }}>{appt.notes}</p>
+            </section>
+          )}
+        </div>
 
         {/* CTA "Dejar reseña" si ya pasó pero no se ha dejado y el usuario
             cerró el modal. Mismo gate: COMPLETED + pago registrado. */}
         {appt.status === 'COMPLETED' && (appt.payments || []).length > 0 && !appt.review && !reviewSubmitted && !showReview && (
-          <button
-            onClick={() => setShowReview(true)}
-            className="w-full py-3 rounded-xl text-sm font-bold text-white"
-            style={{ backgroundColor: '#008080' }}
-          >
-            Dejar mi reseña
-          </button>
+          <div className="px-5 py-5">
+            <button
+              onClick={() => setShowReview(true)}
+              className="w-full py-3 rounded-full text-sm font-bold text-white transition-colors"
+              style={{ backgroundColor: TEAL }}
+            >
+              Dejar mi reseña
+            </button>
+          </div>
         )}
       </div>
 
@@ -534,7 +567,7 @@ function AppointmentCouponCard({ redemption, currency }: { redemption: any; curr
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-gray-700 mb-2 px-1">Cupón aplicado</h2>
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] mb-3" style={{ color: MUTED }}>Cupón aplicado</p>
       <div className="bg-white rounded-2xl overflow-hidden shadow-md flex" style={{ minHeight: 110 }}>
         {/* Stub izquierdo */}
         <div
@@ -554,11 +587,11 @@ function AppointmentCouponCard({ redemption, currency }: { redemption: any; curr
           {/* Perforaciones */}
           <div
             className="absolute -right-3 -top-3 w-6 h-6 rounded-full"
-            style={{ backgroundColor: '#f9fafb' }}
+            style={{ backgroundColor: '#ffffff' }}
           />
           <div
             className="absolute -right-3 -bottom-3 w-6 h-6 rounded-full"
-            style={{ backgroundColor: '#f9fafb' }}
+            style={{ backgroundColor: '#ffffff' }}
           />
         </div>
 
@@ -603,12 +636,10 @@ function AppointmentCouponCard({ redemption, currency }: { redemption: any; curr
   );
 }
 
-// Comprobante de pago en estilo plano: misma estructura que las demás
-// tarjetas del detalle (border + padding). Si ya hay imagen, muestra
-// preview + "Ver/Reemplazar"; si no, "Pago pendiente" con botón
-// discreto para subir.
+// Comprobante de pago en estilo plano: una sección más de la superficie
+// (padding + label gris), sin recuadro con borde. Si ya hay imagen, muestra
+// preview + "Reemplazar"; si no, "Pago pendiente" con botón discreto para subir.
 function AppointmentProofRow({ appt }: { appt: any }) {
-  const queryClient = useQueryClient();
   const [error, setError] = useState('');
 
   const uploadMutation = useMutation({
@@ -638,13 +669,13 @@ function AppointmentProofRow({ appt }: { appt: any }) {
   });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-gray-700">Comprobante de pago</h2>
-        <span className="flex items-center gap-1 text-[11px] text-gray-500">
+    <section className="px-5 py-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Comprobante de pago</p>
+        <span className="flex items-center gap-1 text-[11px]" style={{ color: MUTED }}>
           <span
             className="w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: appt.paymentProofUrl ? '#059669' : '#d1d5db' }}
+            style={{ backgroundColor: appt.paymentProofUrl ? '#12a86e' : '#cdddd8' }}
           />
           {appt.paymentProofUrl ? 'Pagado' : 'Pago pendiente'}
         </span>
@@ -655,11 +686,12 @@ function AppointmentProofRow({ appt }: { appt: any }) {
             href={`${API_URL}${appt.paymentProofUrl}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-lg overflow-hidden border border-gray-200 hover:border-[#008080] transition-colors"
+            className="block rounded-xl overflow-hidden border hover:border-[#008080] transition-colors"
+            style={{ borderColor: LINE }}
           >
             <img src={`${API_URL}${appt.paymentProofUrl}`} alt="Comprobante" className="max-h-40 object-contain mx-auto" />
           </a>
-          <label className="block mt-3 text-xs text-[#008080] cursor-pointer hover:underline">
+          <label className="block mt-3 text-xs cursor-pointer hover:underline" style={{ color: TEAL }}>
             Reemplazar comprobante
             <input
               type="file"
@@ -677,10 +709,10 @@ function AppointmentProofRow({ appt }: { appt: any }) {
         </>
       ) : (
         <>
-          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+          <p className="text-xs mb-3 leading-relaxed" style={{ color: MUTED }}>
             Sube la captura de tu pago (transferencia, depósito o cargo) para que el negocio confirme.
           </p>
-          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-medium cursor-pointer transition-colors">
+          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border text-xs font-semibold cursor-pointer transition-colors hover:bg-[#f2f9f7]" style={{ borderColor: '#cdddd8', color: TEAL }}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
             </svg>
@@ -702,6 +734,6 @@ function AppointmentProofRow({ appt }: { appt: any }) {
         </>
       )}
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
-    </div>
+    </section>
   );
 }
