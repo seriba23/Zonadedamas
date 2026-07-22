@@ -110,9 +110,17 @@ export function MarketplaceAuthGuard({ children }: { children: React.ReactNode }
       !isPublicPath &&
       !isProfilesPath
     ) {
-      router.replace('/marketplace/profiles');
+      // Preservamos la ruta destino (pathname + query) para que, tras elegir
+      // perfil, el usuario vuelva EXACTAMENTE a donde iba —p.ej. el perfil de
+      // un profesional abierto desde un enlace compartido—. Sin esto, el
+      // selector caía siempre en el inicio del marketplace y se perdía la
+      // cadena del enlace (más notorio en el registro/login social, que no
+      // auto-selecciona perfil).
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      const dest = `${pathname}${search}`;
+      router.replace(`/marketplace/profiles?redirect=${encodeURIComponent(dest)}`);
     }
-  }, [isLoading, isAuthenticated, profilesLoaded, activeProfile, isPublicPath, isProfilesPath, router]);
+  }, [isLoading, isAuthenticated, profilesLoaded, activeProfile, isPublicPath, isProfilesPath, pathname, router]);
 
   // ─── Decisiones de renderizado (renderizado condicional) ────────────
 
